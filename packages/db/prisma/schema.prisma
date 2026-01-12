@@ -28,6 +28,7 @@ model User {
   addresses    Address[]
   cartItems    CartItem[]
   wishlistItem WishlistItem[]
+  orders    Order[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -49,6 +50,8 @@ model Address {
   pincode  String
   country  String  @default("India")
   isDefault Boolean @default(false)
+
+  orders    Order[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -149,4 +152,64 @@ model WishlistItem {
   createdAt DateTime @default(now())
   
   @@unique([userId, productId])
+}
+
+enum CouponType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
+model Coupon {
+  id            String      @id @default(uuid())
+  code          String      @unique
+  type          CouponType
+  value         Decimal
+  minOrderValue Decimal?
+  maxDiscount   Decimal?
+  usageLimit    Int?
+  usedCount     Int         @default(0)
+
+  validFrom     DateTime?
+  validUntil    DateTime?
+  isActive      Boolean     @default(true)
+
+  orders        Order[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+
+model Order {
+  id           String      @id @default(uuid())
+  userId       String
+  user         User        @relation(fields: [userId], references: [id])
+
+  addressId    String
+  address      Address     @relation(fields: [addressId], references: [id])
+
+  couponId     String?
+  coupon       Coupon?     @relation(fields: [couponId], references: [id])
+
+  subtotal         Decimal
+  discount         Decimal @default(0)
+  shippingCharges  Decimal @default(0)
+  total            Decimal
+
+  status OrderStatus @default(PENDING)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
 }
