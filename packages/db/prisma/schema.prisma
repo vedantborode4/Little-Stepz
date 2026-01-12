@@ -29,6 +29,7 @@ model User {
   cartItems    CartItem[]
   wishlistItem WishlistItem[]
   orders    Order[]
+  reviews     Review[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -88,6 +89,7 @@ model Product {
   cartItems CartItem[]
   wishlistItem WishlistItem[]
   orderItems  OrderItem[]
+  reviews     Review[]
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -210,6 +212,7 @@ model Order {
 
   items       OrderItem[]
   payment     Payment?
+  reviews     Review[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -255,4 +258,25 @@ model Payment {
   updatedAt DateTime @updatedAt
 
   @@index([gateway, transactionId])
+}
+
+model Review {
+  id         String   @id @default(uuid())
+  userId     String
+  productId  String
+  orderId    String?
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  order      Order?   @relation(fields: [orderId], references: [id])
+
+  rating      Int
+  comment     String?
+  isApproved  Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, productId])
+  @@index([productId, rating])
 }
