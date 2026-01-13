@@ -1,14 +1,10 @@
 import { z } from "zod";
+import { booleanSchema, nameSchema, phoneSchema } from "./common";
 
 export const createAddressSchema = z.object({
-  name: z.string()
-    .min(2, "Name must be at least 2 characters")
-    .max(50, "Name must be at most 50 characters")
-    .transform((val) => val.trim()),
+  name: nameSchema,
 
-  phone: z.string()
-    .regex(/^\+?\d{10,15}$/, "Phone must be 10-15 digits, optional +country code")
-    .transform((val) => val.trim()),
+  phone: phoneSchema,
 
   address: z.string()
     .min(5, "Address must be at least 5 characters")
@@ -34,7 +30,7 @@ export const createAddressSchema = z.object({
     .default("India")
     .transform((val) => val.trim()),
 
-  isDefault: z.boolean().optional().default(false),
+  isDefault: booleanSchema.optional().default(false),
 });
 
 
