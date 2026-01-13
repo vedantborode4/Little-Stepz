@@ -1,1 +1,1 @@
-export * from "./types/auth";
+export * from "./types/auth.schema";

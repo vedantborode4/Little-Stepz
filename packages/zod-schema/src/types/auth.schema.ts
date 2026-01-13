@@ -34,4 +34,10 @@ export const SigninSchema = z.object({
       message: "Must contain at least one special character.",
     })
     .trim(),
+  phone: z.string()
+    .regex(/^\+?\d{10,15}$/, "Phone must be a valid number with 10-15 digits")
+    .optional(),
+  referralCode: z.string()
+    .max(20, "Referral code must be at most 20 characters")
+    .optional()
 });
