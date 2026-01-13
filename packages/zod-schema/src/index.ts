@@ -6,3 +6,4 @@ export * from "./types/image.schema";
 export * from "./types/varient.schema";
 export * from "./types/cart.schema";
 export * from "./types/wishlist.schema";
+export * from "./types/coupon.schema";
