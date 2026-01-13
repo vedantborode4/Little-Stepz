@@ -3,6 +3,7 @@ export * from "./boolean.schema";
 export * from "./date.schema";
 export * from "./email.schema";
 export * from "./id.schema";
+export * from "./name.schema";
 export * from "./pagination.schema";
 export * from "./password.schema";
 export * from "./phone.schema";
