@@ -31,12 +31,36 @@ model User {
   orders    Order[]
   reviews     Review[]
   affiliate    Affiliate?
+  refreshTokens RefreshToken[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([email])
   @@index([role])
+}
+
+model RefreshToken {
+  id               String   @id @default(uuid())
+  tokenHash        String   @unique
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  expiresAt        DateTime
+  revoked          Boolean  @default(false)
+
+  replacedByTokenId String?
+  replacedByToken   RefreshToken? @relation("TokenRotation", fields: [replacedByTokenId], references: [id])
+  replacedTokens    RefreshToken[] @relation("TokenRotation")
+
+  deviceId         String?
+  ipAddress        String?
+  userAgent        String?
+
+  createdAt        DateTime @default(now())
+  lastUsedAt       DateTime?
+
+  @@index([userId])
 }
 
 model Address {
