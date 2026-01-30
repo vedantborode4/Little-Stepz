@@ -2,10 +2,14 @@
   "name": "@repo/zod-schema",
   "version": "1.0.0",
   "description": "",
-  "main": "src/index.ts",
-  "types": "src/index.ts",
+  "main": "index.js",
+    "exports": {
+      "./index": "./dist/index.js"
+    },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc -b",
+    "dev": "npm run build"
   },
   "keywords": [],
   "author": "",
