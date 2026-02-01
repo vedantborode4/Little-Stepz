@@ -12,3 +12,7 @@ export const updateVariantBodySchema = createVariantBodySchema.partial();
 export const variantParamsSchema = z.object({ 
     id: uuidSchema 
 });
+
+export type CreateVariantBody = z.infer<typeof createVariantBodySchema>;
+export type UpdateVariantBody = z.infer<typeof updateVariantBodySchema>;
+export type VariantParams = z.infer<typeof variantParamsSchema>;

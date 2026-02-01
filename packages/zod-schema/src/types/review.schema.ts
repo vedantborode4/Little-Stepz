@@ -20,3 +20,6 @@ export const createReviewSchema = z.object({
 export const deleteReviewSchema = z.object({
     reviewId: uuidSchema,
 })
+
+export type CreateReviewData = z.infer<typeof createReviewSchema>;
+export type DeleteReviewData = z.infer<typeof deleteReviewSchema>;

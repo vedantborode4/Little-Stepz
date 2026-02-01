@@ -8,3 +8,6 @@ export const addWishlistItemBodySchema = z.object({
 export const removeWishlistItemParamsSchema = z.object({ 
     productId: uuidSchema 
 });
+
+export type AddWishlistItemBody = z.infer<typeof addWishlistItemBodySchema>;
+export type RemoveWishlistItemParams = z.infer<typeof removeWishlistItemParamsSchema>;

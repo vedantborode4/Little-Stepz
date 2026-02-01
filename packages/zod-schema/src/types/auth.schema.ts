@@ -20,3 +20,7 @@ export const SigninSchema = z.object({
 export const logoutSchema = z.object({
   headers: authHeaderSchema,
 });
+
+export type SignupData = z.infer<typeof SignupSchema>;
+export type SigninData = z.infer<typeof SigninSchema>;
+export type LogoutData = z.infer<typeof logoutSchema>;

@@ -18,3 +18,7 @@ export const updatePasswordSchema = z
         oldPassword: passwordSchema,
         newPassword: passwordSchema,
     })
+
+
+export type UpdateProfileData = z.infer<typeof updateProfileSchema>;
+export type UpdatePasswordData = z.infer<typeof updatePasswordSchema>;

@@ -46,3 +46,10 @@ export const updateCouponBodySchema = createCouponBodySchema.partial();
 export const couponParamsSchema = z.object({ 
     id: uuidSchema
 });
+
+
+
+export type ValidateCouponBody = z.infer<typeof validateCouponBodySchema>;
+export type CreateCouponBody = z.infer<typeof createCouponBodySchema>;
+export type UpdateCouponBody = z.infer<typeof updateCouponBodySchema>;
+export type CouponParams = z.infer<typeof couponParamsSchema>;

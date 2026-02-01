@@ -21,3 +21,8 @@ export const removeCartItemBodySchema = z.object({
 export const syncCartBodySchema = z.object({
   sessionId: optionalSessionIdSchema,
 });
+
+export type AddCartItemBody = z.infer<typeof addCartItemBodySchema>;
+export type UpdateCartItemBody = z.infer<typeof updateCartItemBodySchema>;
+export type RemoveCartItemBody = z.infer<typeof removeCartItemBodySchema>;
+export type SyncCartBody = z.infer<typeof syncCartBodySchema>;

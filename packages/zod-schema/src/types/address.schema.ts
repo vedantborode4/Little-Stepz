@@ -36,3 +36,7 @@ export const createAddressSchema = z.object({
 
 
 export const updateAddressSchema = createAddressSchema.partial();
+
+
+export type AddressData = z.infer<typeof createAddressSchema>;
+export type UpdateAddressData = z.infer<typeof updateAddressSchema>;

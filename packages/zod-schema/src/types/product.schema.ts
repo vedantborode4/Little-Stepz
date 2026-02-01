@@ -26,3 +26,7 @@ export const createProductSchema = z.object({
 
 
 export const updateProductSchema = createProductSchema.partial();
+
+
+export type CreateProductData = z.infer<typeof createProductSchema>;
+export type UpdateProductData = z.infer<typeof updateProductSchema>;

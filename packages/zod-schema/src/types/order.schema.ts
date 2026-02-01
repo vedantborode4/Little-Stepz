@@ -54,3 +54,9 @@ export const orderParamsSchema = z
     id: uuidSchema,
   })
   .strict();
+
+export type CartItem = z.infer<typeof cartItemSchema>;
+export type CheckoutCalculateBody = z.infer<typeof checkoutCalculateBodySchema>;
+export type CreateOrderBody = z.infer<typeof createOrderBodySchema>;
+export type UpdateOrderStatusBody = z.infer<typeof updateOrderStatusBodySchema>;
+export type OrderParams = z.infer<typeof orderParamsSchema>;

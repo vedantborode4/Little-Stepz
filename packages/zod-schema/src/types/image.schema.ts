@@ -19,3 +19,8 @@ export const productImageParamsSchema = z.object({
 export const reorderImageBodySchema = z.object({
     sortOrder: z.number().int().min(0) 
 });
+
+
+export type AddProductImageData = z.infer<typeof addProductImageSchema>;
+export type ProductImageParams = z.infer<typeof productImageParamsSchema>;
+export type ReorderImageBody = z.infer<typeof reorderImageBodySchema>;
