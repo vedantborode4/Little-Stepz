@@ -1,8 +1,4 @@
-export enum Role {
-  ADMIN,
-  AFFILIATE,
-  USER,
-}
+import { Role } from "@repo/db/client";
 
 export interface AccessTokenPayload {
   userId: string;
