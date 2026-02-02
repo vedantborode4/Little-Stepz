@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
-import { SignupSchema } from "@repo/zod-schema/index";
-import {  signupService } from "../services/auth.services";
+import { SigninSchema, SignupSchema } from "@repo/zod-schema/index";
+import {  signinService, signupService } from "../services/auth.services";
 import {
   accessTokenCookieOptions,
   refreshTokenCookieOptions,
@@ -29,6 +29,32 @@ export async function signupController(req: Request, res: Response) {
   } catch (err) {
     if (err instanceof Error) {
       return res.status(500).json({ message: err.message });
+    }
+    return res.status(500).json({ message: "Internal server error" });
+  }
+}
+
+export async function signinController(req: Request, res: Response) {
+  try {
+    const parsed = SigninSchema.safeParse(req.body);
+
+    if (!parsed.success) {
+      return res.status(400).json({
+        message: "Invalid request data",
+        errors: parsed.error.flatten().fieldErrors,
+      });
+    }
+
+    const { user, accessToken, refreshToken } =
+      await signinService(parsed.data);
+
+    res.cookie("accessToken", accessToken, accessTokenCookieOptions);
+    res.cookie("refreshToken", refreshToken, refreshTokenCookieOptions);
+
+    return res.status(200).json({ user });
+  } catch (err) {
+    if (err instanceof Error) {
+      return res.status(401).json({ message: err.message });
     }
     return res.status(500).json({ message: "Internal server error" });
   }
