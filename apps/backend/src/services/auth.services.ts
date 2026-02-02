@@ -7,6 +7,7 @@ import {
   verifyRefreshToken
 } from "../utils/auth/refresh-token";
 import { hashToken } from "../utils/auth/tokenHash";
+import { TokenReuseDetectedError } from "../utils/auth/errors";
 
 const userSelect = {
   id: true,
@@ -101,13 +102,13 @@ export async function signinService(data: SigninData) {
     });
 
     const refresh = await generateRefreshToken();
-
+    
     await prisma.$transaction(async (tx) => {
       // 1-A: invalidate all previous refresh tokens
       await tx.refreshToken.deleteMany({
         where: { userId: user.id },
       });
-
+      
       // create new refresh token
       await tx.refreshToken.create({
         data: {
@@ -159,5 +160,116 @@ export async function logoutService(refreshToken: string) {
       revoked: true,
       lastUsedAt: new Date(),
     },
+  });
+}
+
+
+
+export async function refreshService(oldRefreshToken: string) {
+  if (!oldRefreshToken) {
+    throw new Error("Refresh token is required");
+  }
+
+  const tokenHash = hashToken(oldRefreshToken);
+
+
+  return await prisma.$transaction(async (tx) => {
+    const now = new Date();
+
+    // Atomic conditional revocation
+    const result = await tx.refreshToken.updateMany({
+      where: {
+        tokenHash,
+        revoked: false,
+        expiresAt: { gte: now },
+      },
+      data: {
+        revoked: true,
+        lastUsedAt: now,
+      },
+    });
+
+    if (result.count !== 1) {
+      // Failed to claim → investigate why
+      const storedToken = await tx.refreshToken.findUnique({
+        where: { tokenHash },
+        select: {
+          id: true,
+          userId: true,
+          revoked: true,
+          expiresAt: true,
+        },
+      });
+
+      if (!storedToken) {
+        throw new TokenReuseDetectedError("Invalid or unknown refresh token");
+      }
+
+      if (storedToken.revoked) {
+        // Reuse detected → revoke all for this user
+        await tx.refreshToken.updateMany({
+          where: { userId: storedToken.userId, revoked: false },
+          data: { revoked: true },
+        });
+        throw new TokenReuseDetectedError("Refresh token was previously revoked or reused");
+      }
+
+      // Not revoked, must be expired
+      throw new Error("Refresh token has expired");
+    }
+
+    // Success: token claimed → fetch details (since updateMany doesn't return data)
+    const claimedToken = await tx.refreshToken.findUnique({
+      where: { tokenHash },
+      select: {
+        id: true,
+        userId: true,
+        expiresAt: true,
+      },
+    });
+
+    if (!claimedToken) {
+      throw new Error("Internal error: claimed token not found"); // Should never happen
+    }
+
+    // Generate and store new refresh token
+    const newRefresh = await generateRefreshToken();
+
+    await tx.refreshToken.create({
+      data: {
+        tokenHash: newRefresh.tokenHash,
+        userId: claimedToken.userId,
+        expiresAt: newRefresh.expiresAt,
+        // Optional future columns (add to schema if desired):
+        // familyId: claimedToken.id,           // group per initial login
+        // lastIp: ctx.request.ip,              // if you pass context
+        // clientId: ctx.client?.id,
+      },
+    });
+
+    // Fetch minimal user data
+    const user = await tx.user.findUnique({
+      where: { id: claimedToken.userId },
+      select: { id: true, role: true },
+    });
+
+    if (!user) {
+      throw new Error("User not found"); // rare, but possible if deleted concurrently
+    }
+
+    // Generate new access token
+    const newAccessToken = generateAccessToken({
+      userId: user.id,
+      role: user.role,
+    });
+
+    return {
+      accessToken: newAccessToken,
+      refreshToken: newRefresh.token, // plaintext → send to client
+    };
+  }, {
+    // Optional tuning
+    maxWait: 5000,
+    timeout: 10000,
   });
 }
