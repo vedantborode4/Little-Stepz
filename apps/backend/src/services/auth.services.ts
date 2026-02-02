@@ -3,8 +3,10 @@ import { SigninData, SignupData } from "@repo/zod-schema/index";
 import { comparePassword, hashPassword } from "../utils/auth/password";
 import { generateAccessToken } from "../utils/auth/access-token";
 import {
-  generateRefreshToken
+  generateRefreshToken,
+  verifyRefreshToken
 } from "../utils/auth/refresh-token";
+import { hashToken } from "../utils/auth/tokenHash";
 
 const userSelect = {
   id: true,
@@ -126,4 +128,36 @@ export async function signinService(data: SigninData) {
       accessToken,
       refreshToken: refresh.token,
     };
+}
+
+export async function logoutService(refreshToken: string) {
+  const tokenHash = hashToken(refreshToken);
+
+  const storedToken = await prisma.refreshToken.findUnique({
+    where: { tokenHash },
+  });
+
+  if (!storedToken) {
+    return;
+  }
+
+  if (storedToken.revoked) {
+    return;
+  }
+
+  if (storedToken.expiresAt < new Date()) {
+    await prisma.refreshToken.update({
+      where: { id: storedToken.id },
+      data: { revoked: true },
+    });
+    return;
+  }
+
+  await prisma.refreshToken.update({
+    where: { id: storedToken.id },
+    data: {
+      revoked: true,
+      lastUsedAt: new Date(),
+    },
+  });
 }

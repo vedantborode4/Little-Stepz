@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { SigninSchema, SignupSchema } from "@repo/zod-schema/index";
-import {  signinService, signupService } from "../services/auth.services";
+import {  logoutService, signinService, signupService } from "../services/auth.services";
 import {
   accessTokenCookieOptions,
   refreshTokenCookieOptions,
@@ -55,6 +55,27 @@ export async function signinController(req: Request, res: Response) {
   } catch (err) {
     if (err instanceof Error) {
       return res.status(401).json({ message: err.message });
+    }
+    return res.status(500).json({ message: "Internal server error" });
+  }
+}
+
+export async function logoutController(req: Request, res: Response) {
+  try {
+    const { refreshToken } = req.cookies;
+
+    // idempotent logout
+    if (refreshToken) {
+      await logoutService(refreshToken);
+    }
+
+    res.clearCookie("accessToken", accessTokenCookieOptions);
+    res.clearCookie("refreshToken", refreshTokenCookieOptions);
+
+    return res.status(200).json({ message: "Logged out successfully" });
+  } catch (err) {
+    if (err instanceof Error) {
+      return res.status(500).json({ message: err.message });
     }
     return res.status(500).json({ message: "Internal server error" });
   }
