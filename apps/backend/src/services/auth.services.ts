@@ -172,11 +172,9 @@ export async function refreshService(oldRefreshToken: string) {
 
   const tokenHash = hashToken(oldRefreshToken);
 
-
-  return await prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx) => {
     const now = new Date();
 
-    // Atomic conditional revocation
     const result = await tx.refreshToken.updateMany({
       where: {
         tokenHash,
@@ -190,11 +188,9 @@ export async function refreshService(oldRefreshToken: string) {
     });
 
     if (result.count !== 1) {
-      // Failed to claim → investigate why
       const storedToken = await tx.refreshToken.findUnique({
         where: { tokenHash },
         select: {
-          id: true,
           userId: true,
           revoked: true,
           expiresAt: true,
@@ -206,7 +202,6 @@ export async function refreshService(oldRefreshToken: string) {
       }
 
       if (storedToken.revoked) {
-        // Reuse detected → revoke all for this user
         await tx.refreshToken.updateMany({
           where: { userId: storedToken.userId, revoked: false },
           data: { revoked: true },
@@ -214,25 +209,20 @@ export async function refreshService(oldRefreshToken: string) {
         throw new TokenReuseDetectedError("Refresh token was previously revoked or reused");
       }
 
-      // Not revoked, must be expired
       throw new Error("Refresh token has expired");
     }
 
-    // Success: token claimed → fetch details (since updateMany doesn't return data)
     const claimedToken = await tx.refreshToken.findUnique({
       where: { tokenHash },
       select: {
-        id: true,
         userId: true,
-        expiresAt: true,
       },
     });
 
     if (!claimedToken) {
-      throw new Error("Internal error: claimed token not found"); // Should never happen
+      throw new Error("Internal error: claimed token not found");
     }
 
-    // Generate and store new refresh token
     const newRefresh = await generateRefreshToken();
 
     await tx.refreshToken.create({
@@ -240,24 +230,18 @@ export async function refreshService(oldRefreshToken: string) {
         tokenHash: newRefresh.tokenHash,
         userId: claimedToken.userId,
         expiresAt: newRefresh.expiresAt,
-        // Optional future columns (add to schema if desired):
-        // familyId: claimedToken.id,           // group per initial login
-        // lastIp: ctx.request.ip,              // if you pass context
-        // clientId: ctx.client?.id,
       },
     });
 
-    // Fetch minimal user data
     const user = await tx.user.findUnique({
       where: { id: claimedToken.userId },
       select: { id: true, role: true },
     });
 
     if (!user) {
-      throw new Error("User not found"); // rare, but possible if deleted concurrently
+      throw new Error("User not found");
     }
 
-    // Generate new access token
     const newAccessToken = generateAccessToken({
       userId: user.id,
       role: user.role,
@@ -265,10 +249,9 @@ export async function refreshService(oldRefreshToken: string) {
 
     return {
       accessToken: newAccessToken,
-      refreshToken: newRefresh.token, // plaintext → send to client
+      refreshToken: newRefresh.token,
     };
   }, {
-    // Optional tuning
     maxWait: 5000,
     timeout: 10000,
   });
