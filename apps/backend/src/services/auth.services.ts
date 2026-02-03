@@ -4,7 +4,6 @@ import { comparePassword, hashPassword } from "../utils/auth/password";
 import { generateAccessToken } from "../utils/auth/access-token";
 import {
   generateRefreshToken,
-  verifyRefreshToken
 } from "../utils/auth/refresh-token";
 import { hashToken } from "../utils/auth/tokenHash";
 import { TokenReuseDetectedError } from "../utils/auth/errors";
