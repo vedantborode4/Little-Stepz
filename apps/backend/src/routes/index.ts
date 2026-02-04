@@ -3,6 +3,7 @@ import { authRouter } from "./auth.routes";
 import { userRouter } from "./user.routes";
 import { addressRouter } from "./address.routes";
 import { categoryRouter } from "./category.routes";
+import { adminRouter } from "./admin/admin.routes";
 
 export const appRouter:Router = Router()
 
@@ -13,3 +14,5 @@ appRouter.use("/users", userRouter)
 appRouter.use("/address", addressRouter)
 
 appRouter.use("/categories", categoryRouter)
+
+appRouter.use("/admin", adminRouter)
