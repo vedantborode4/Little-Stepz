@@ -25,13 +25,16 @@ model User {
   referredById String?
   referredBy   User?    @relation("UserReferrals", fields: [referredById], references: [id])
   referrals    User[]   @relation("UserReferrals")
-  addresses    Address[]
-  cartItems    CartItem[]
-  wishlistItem WishlistItem[]
-  orders    Order[]
-  reviews     Review[]
-  affiliate    Affiliate?
+
+  addresses     Address[]
+  cartItems     CartItem[]
+  wishlistItem  WishlistItem[]
+  orders        Order[]
+  reviews       Review[]
+  affiliate     Affiliate?
   refreshTokens RefreshToken[]
+
+  deletedAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -41,24 +44,24 @@ model User {
 }
 
 model RefreshToken {
-  id               String   @id @default(uuid())
-  tokenHash        String   @unique
-  userId           String
-  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                String   @id @default(uuid())
+  tokenHash         String   @unique
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  expiresAt        DateTime
-  revoked          Boolean  @default(false)
+  expiresAt         DateTime
+  revoked           Boolean  @default(false)
 
   replacedByTokenId String?
   replacedByToken   RefreshToken? @relation("TokenRotation", fields: [replacedByTokenId], references: [id])
   replacedTokens    RefreshToken[] @relation("TokenRotation")
 
-  deviceId         String?
-  ipAddress        String?
-  userAgent        String?
+  deviceId          String?
+  ipAddress         String?
+  userAgent         String?
 
-  createdAt        DateTime @default(now())
-  lastUsedAt       DateTime?
+  createdAt DateTime @default(now())
+  lastUsedAt DateTime?
 
   @@index([userId])
 }
@@ -66,18 +69,20 @@ model RefreshToken {
 model Address {
   id        String   @id @default(uuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  name     String
-  phone    String
-  address  String
-  city     String
-  state    String
-  pincode  String
-  country  String  @default("India")
+  user      User     @relation(fields: [userId], references: [id])
+
+  name      String
+  phone     String
+  address   String
+  city      String
+  state     String
+  pincode   String
+  country   String  @default("India")
   isDefault Boolean @default(false)
 
   orders    Order[]
+
+  deletedAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -89,11 +94,13 @@ model Category {
   slug        String   @unique
   description String?
   parentId    String?
-  
-  parent   Category? @relation("CategoryTree", fields: [parentId], references: [id])
-  children Category[] @relation("CategoryTree")
-  products Product[]
-  
+
+  parent    Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children  Category[] @relation("CategoryTree")
+  products  Product[]
+
+  deletedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -107,31 +114,36 @@ model Product {
   quantity    Int      @default(0)
   inStock     Boolean  @default(true)
   categoryId  String
-  
-  category Category @relation(fields: [categoryId], references: [id])
-  images   ProductImage[]
-  variants Variant[]
-  cartItems CartItem[]
+
+  category     Category      @relation(fields: [categoryId], references: [id])
+  images       ProductImage[]
+  variants     Variant[]
+  cartItems    CartItem[]
   wishlistItem WishlistItem[]
-  orderItems  OrderItem[]
-  reviews     Review[]
-  
+  orderItems   OrderItem[]
+  reviews      Review[]
+
+  deletedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   @@index([slug])
   @@index([categoryId])
+  @@index([deletedAt])
 }
 
 model ProductImage {
   id        String @id @default(uuid())
   productId String
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  
-  url      String
-  alt      String?
+
+  url       String
+  alt       String?
   sortOrder Int @default(0)
-  
+
+  deletedAt DateTime?
+
   createdAt DateTime @default(now())
 }
 
@@ -139,33 +151,38 @@ model Variant {
   id        String   @id @default(uuid())
   productId String
   product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  
-  name String
+
+  name  String
   price Decimal?
   stock Int @default(0)
 
-  cartItems   CartItem[]
-  orderItems  OrderItem[]
-  
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+
+  deletedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
 model CartItem {
   id        String   @id @default(uuid())
   userId    String?
   user      User?    @relation(fields: [userId], references: [id])
-  sessionId String?  // guest cart
+  sessionId String?
 
-  productId   String
-  product     Product @relation(fields: [productId], references: [id])
-  variantId   String?
-  variant     Variant? @relation(fields: [variantId], references: [id])
-  
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  variantId String?
+  variant   Variant? @relation(fields: [variantId], references: [id])
+
   quantity Int @default(1)
-  
+
+  deletedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   @@unique([userId, productId, variantId])
   @@unique([sessionId, productId, variantId])
   @@index([sessionId])
@@ -177,9 +194,11 @@ model WishlistItem {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   productId String
   product   Product  @relation(fields: [productId], references: [id])
-  
+
+  deletedAt DateTime?
+
   createdAt DateTime @default(now())
-  
+
   @@unique([userId, productId])
 }
 
@@ -198,11 +217,13 @@ model Coupon {
   usageLimit    Int?
   usedCount     Int         @default(0)
 
-  validFrom     DateTime?
-  validUntil    DateTime?
-  isActive      Boolean     @default(true)
+  validFrom DateTime?
+  validUntil DateTime?
+  isActive   Boolean @default(true)
 
-  orders        Order[]
+  orders Order[]
+
+  deletedAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -216,22 +237,21 @@ enum OrderStatus {
   CANCELLED
 }
 
-
 model Order {
-  id           String      @id @default(uuid())
-  userId       String
-  user         User        @relation(fields: [userId], references: [id])
+  id        String @id @default(uuid())
+  userId    String
+  user      User    @relation(fields: [userId], references: [id])
 
-  addressId    String
-  address      Address     @relation(fields: [addressId], references: [id])
+  addressId String
+  address   Address @relation(fields: [addressId], references: [id])
 
-  couponId     String?
-  coupon       Coupon?     @relation(fields: [couponId], references: [id])
+  couponId String?
+  coupon   Coupon? @relation(fields: [couponId], references: [id])
 
-  subtotal         Decimal
-  discount         Decimal @default(0)
-  shippingCharges  Decimal @default(0)
-  total            Decimal
+  subtotal        Decimal
+  discount        Decimal @default(0)
+  shippingCharges Decimal @default(0)
+  total           Decimal
 
   status OrderStatus @default(PENDING)
 
@@ -239,10 +259,12 @@ model Order {
   payment     Payment?
   reviews     Review[]
   affiliateConversions AffiliateConversion[]
-  commissions         Commission[]
+  commissions Commission[]
 
-  affiliateId  String?
-  affiliate    Affiliate?          @relation(fields: [affiliateId], references: [id])
+  affiliateId String?
+  affiliate   Affiliate? @relation(fields: [affiliateId], references: [id])
+
+  deletedAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -250,6 +272,7 @@ model Order {
   @@index([userId])
   @@index([status])
   @@index([createdAt])
+  @@index([deletedAt])
 }
 
 enum PaymentStatus {
@@ -259,30 +282,34 @@ enum PaymentStatus {
 }
 
 model OrderItem {
-  id        String   @id @default(uuid())
+  id        String @id @default(uuid())
   orderId   String
-  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order     Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   productId String
-  product   Product  @relation(fields: [productId], references: [id])
+  product   Product @relation(fields: [productId], references: [id])
 
   variantId String?
   variant   Variant? @relation(fields: [variantId], references: [id])
 
   quantity Int
   price    Decimal
+
+  deletedAt DateTime?
 }
 
 model Payment {
-  id            String   @id @default(uuid())
-  orderId       String   @unique
-  order         Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  id        String @id @default(uuid())
+  orderId   String @unique
+  order     Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
-  gateway        String
-  transactionId  String?
-  amount         Decimal
-  status         PaymentStatus @default(PENDING)
-  paymentData    Json?
+  gateway       String
+  transactionId String?
+  amount        Decimal
+  status        PaymentStatus @default(PENDING)
+  paymentData   Json?
+
+  deletedAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -291,18 +318,20 @@ model Payment {
 }
 
 model Review {
-  id         String   @id @default(uuid())
-  userId     String
-  productId  String
-  orderId    String?
+  id        String @id @default(uuid())
+  userId    String
+  productId String
+  orderId   String?
 
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  order      Order?   @relation(fields: [orderId], references: [id])
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  order   Order?  @relation(fields: [orderId], references: [id])
 
-  rating      Int
-  comment     String?
-  isApproved  Boolean @default(true)
+  rating     Int
+  comment    String?
+  isApproved Boolean @default(true)
+
+  deletedAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -310,7 +339,6 @@ model Review {
   @@unique([userId, productId])
   @@index([productId, rating])
 }
-
 
 enum AffiliateStatus {
   PENDING
@@ -325,22 +353,24 @@ enum CommissionStatus {
 }
 
 model Affiliate {
-  id              String           @id @default(uuid())
-  userId          String           @unique
-  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id              String @id @default(uuid())
+  userId          String @unique
+  user            User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  status          AffiliateStatus  @default(PENDING)
-  referralCode    String           @unique
-  commissionRate  Decimal          @default(0.1)
+  status          AffiliateStatus @default(PENDING)
+  referralCode    String @unique
+  commissionRate  Decimal @default(0.1)
 
-  totalClicks     Int              @default(0)
-  totalConversions Int             @default(0)
-  totalCommission Decimal          @default(0)
+  totalClicks      Int     @default(0)
+  totalConversions Int     @default(0)
+  totalCommission  Decimal @default(0)
 
-  clicks          AffiliateClick[]
-  conversions     AffiliateConversion[]
-  commissions     Commission[]
-  orders          Order[]
+  clicks       AffiliateClick[]
+  conversions  AffiliateConversion[]
+  commissions  Commission[]
+  orders       Order[]
+
+  deletedAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -349,13 +379,13 @@ model Affiliate {
 }
 
 model AffiliateClick {
-  id         String   @id @default(uuid())
+  id          String @id @default(uuid())
   affiliateId String
-  affiliate  Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  affiliate   Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
 
-  ip         String?
-  userAgent  String?
-  referrer   String?
+  ip        String?
+  userAgent String?
+  referrer  String?
 
   createdAt DateTime @default(now())
 
@@ -363,15 +393,15 @@ model AffiliateClick {
 }
 
 model AffiliateConversion {
-  id         String            @id @default(uuid())
+  id          String @id @default(uuid())
   affiliateId String
-  affiliate  Affiliate         @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  affiliate   Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
 
-  orderId    String
-  order      Order             @relation(fields: [orderId], references: [id])
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id])
 
   commission Decimal
-  status     CommissionStatus  @default(PENDING)
+  status     CommissionStatus @default(PENDING)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -380,16 +410,18 @@ model AffiliateConversion {
 }
 
 model Commission {
-  id         String            @id @default(uuid())
+  id          String @id @default(uuid())
   affiliateId String
-  affiliate  Affiliate         @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  affiliate   Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
 
-  orderId    String
-  order      Order             @relation(fields: [orderId], references: [id])
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id])
 
-  amount     Decimal
-  status     CommissionStatus  @default(PENDING)
-  paidAt     DateTime?
+  amount Decimal
+  status CommissionStatus @default(PENDING)
+  paidAt DateTime?
+
+  deletedAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
