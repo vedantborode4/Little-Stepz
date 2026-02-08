@@ -14,10 +14,14 @@ const baseProductSelect = {
     orderBy: { sortOrder: "asc" },
     select: { id: true, url: true, alt: true, sortOrder: true },
   },
-  variants: { select: { id: true, name: true, price: true, stock: true } },
+  variants: {
+    select: { id: true, name: true, price: true, stock: true },
+  },
   createdAt: true,
   updatedAt: true,
+  deletedAt: true,
 } as const;
+
 
 export async function createProductService(data: {
   name: string;
@@ -32,8 +36,11 @@ export async function createProductService(data: {
     throw new ApiError(400, "Slug is required");
   }
 
-  const existing = await prisma.product.findUnique({
-    where: { slug: data.slug },
+  const existing = await prisma.product.findFirst({
+    where: {
+      slug: data.slug,
+      deletedAt: null,
+    },
   });
 
   if (existing) {
@@ -52,6 +59,7 @@ export async function createProductService(data: {
   return product;
 }
 
+
 export async function updateProductService(
   id: string,
   data: Partial<{
@@ -64,15 +72,28 @@ export async function updateProductService(
     categoryId: string;
   }>
 ) {
-  const product = await prisma.product.findUnique({ where: { id } });
-  if (!product) throw new ApiError(404, "Product not found");
+  const product = await prisma.product.findFirst({
+    where: {
+      id,
+      deletedAt: null,
+    },
+  });
+
+  if (!product) {
+    throw new ApiError(404, "Product not found");
+  }
 
   if (data.slug && data.slug !== product.slug) {
-    const existing = await prisma.product.findUnique({
-      where: { slug: data.slug },
+    const existing = await prisma.product.findFirst({
+      where: {
+        slug: data.slug,
+        deletedAt: null,
+      },
     });
 
-    if (existing) throw new ApiError(409, "Slug already in use");
+    if (existing) {
+      throw new ApiError(409, "Slug already in use");
+    }
   }
 
   const updated = await prisma.product.update({
@@ -81,7 +102,7 @@ export async function updateProductService(
     select: baseProductSelect,
   });
 
-  // Recompute inStock if quantity changed and product has no variants
+  // Recompute inStock if quantity changes and product has no variants
   if (
     data.quantity !== undefined &&
     (await prisma.variant.count({ where: { productId: id } })) === 0
@@ -95,10 +116,23 @@ export async function updateProductService(
   return updated;
 }
 
-export async function deleteProductService(id: string) {
-  const product = await prisma.product.findUnique({ where: { id } });
-  if (!product) throw new ApiError(404, "Product not found");
 
-  await prisma.product.delete({ where: { id } });
-  // Images & variants cascade delete via schema
+export async function deleteProductService(id: string) {
+  const product = await prisma.product.findFirst({
+    where: {
+      id,
+      deletedAt: null,
+    },
+  });
+
+  if (!product) {
+    throw new ApiError(404, "Product not found");
+  }
+
+  await prisma.product.update({
+    where: { id },
+    data: {
+      deletedAt: new Date(),
+    },
+  });
 }
