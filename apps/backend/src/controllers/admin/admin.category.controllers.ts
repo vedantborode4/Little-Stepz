@@ -35,7 +35,7 @@ async function deleteCategory(req: Request, res: Response) {
   if (!id) throw new ApiError(400, "Category ID is required");
 
   await deleteCategoryService(id);
-  return res.status(204).send();
+  return new ApiResponse(200, null, "Category deleted successfully").send(res);
 }
 
 export const createCategoryController = asyncHandler(createCategory);

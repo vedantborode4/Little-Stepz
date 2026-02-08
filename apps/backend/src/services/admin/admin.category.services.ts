@@ -8,23 +8,51 @@ const categorySelect = {
   slug: true,
   description: true,
   parentId: true,
+  deletedAt: true,
 };
 
 async function checkSlugUnique(slug: string, ignoreId?: string) {
   const existing = await prisma.category.findFirst({
-    where: { slug, ...(ignoreId && { NOT: { id: ignoreId } }) },
+    where: {
+      slug,
+      deletedAt: null,
+      ...(ignoreId && { NOT: { id: ignoreId } }),
+    },
   });
   if (existing) throw new ApiError(400, "Slug must be unique");
 }
 
 async function validateParentId(parentId?: string, currentId?: string) {
   if (!parentId) return;
-  if (parentId === currentId) throw new ApiError(400, "Category cannot be its own parent");
 
-  let parent = await prisma.category.findUnique({ where: { id: parentId } });
+  if (parentId === currentId) {
+    throw new ApiError(400, "Category cannot be its own parent");
+  }
+
+  let parent = await prisma.category.findFirst({
+    where: {
+      id: parentId,
+      deletedAt: null, 
+    },
+  });
+
+  if (!parent) {
+    throw new ApiError(400, "Parent category not found");
+  }
+
   while (parent) {
-    if (parent.id === currentId) throw new ApiError(400, "Circular category relationship detected");
-    parent = parent.parentId ? await prisma.category.findUnique({ where: { id: parent.parentId } }) : null;
+    if (parent.id === currentId) {
+      throw new ApiError(400, "Circular category relationship detected");
+    }
+
+    parent = parent.parentId
+      ? await prisma.category.findFirst({
+          where: {
+            id: parent.parentId,
+            deletedAt: null,
+          },
+        })
+      : null;
   }
 }
 
@@ -39,8 +67,16 @@ export async function createCategoryService(data: CreateCategoryData) {
 }
 
 export async function updateCategoryService(id: string, data: UpdateCategoryData) {
-  const category = await prisma.category.findUnique({ where: { id } });
-  if (!category) throw new ApiError(404, "Category not found");
+  const category = await prisma.category.findFirst({
+    where: {
+      id,
+      deletedAt: null,
+    },
+  });
+
+  if (!category) {
+    throw new ApiError(404, "Category not found");
+  }
 
   await validateParentId(data.parentId, id);
 
@@ -56,11 +92,32 @@ export async function updateCategoryService(id: string, data: UpdateCategoryData
 }
 
 export async function deleteCategoryService(id: string) {
-  const category = await prisma.category.findUnique({ where: { id } });
-  if (!category) throw new ApiError(404, "Category not found");
+  const category = await prisma.category.findFirst({
+    where: {
+      id,
+      deletedAt: null, 
+    },
+  });
 
-  const hasChildren = await prisma.category.findFirst({ where: { parentId: id } });
-  if (hasChildren) throw new ApiError(400, "Cannot delete category with child categories");
+  if (!category) {
+    throw new ApiError(404, "Category not found");
+  }
 
-  await prisma.category.delete({ where: { id } });
+  const hasChildren = await prisma.category.findFirst({
+    where: {
+      parentId: id,
+      deletedAt: null, 
+    },
+  });
+
+  if (hasChildren) {
+    throw new ApiError(400, "Cannot delete category with child categories");
+  }
+
+  await prisma.category.update({
+    where: { id },
+    data: {
+      deletedAt: new Date(),
+    },
+  });
 }
