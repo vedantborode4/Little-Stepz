@@ -62,7 +62,9 @@ export async function getProductsService({
   const skip = (page - 1) * limit;
   const { field, order } = parseSort(sort);
 
-  const where: any = {};
+  const where: any = {
+    deletedAt: null
+  };
 
   if (inStock !== undefined) where.inStock = inStock;
   if (categoryId) where.categoryId = categoryId;
@@ -95,8 +97,11 @@ export async function getProductsService({
 
 // GET single product by slug
 export async function getProductBySlugService(slug: string) {
-  const product = await prisma.product.findUnique({
-    where: { slug },
+  const product = await prisma.product.findFirst({
+    where: {
+      slug,
+      deletedAt: null, 
+    },
     select: baseProductSelect,
   });
 
@@ -110,6 +115,7 @@ export async function searchProductsService(q: string, limit = 20) {
 
   const products = await prisma.product.findMany({
     where: {
+      deletedAt: null, 
       OR: [
         { name: { contains: q, mode: "insensitive" } },
         { description: { contains: q, mode: "insensitive" } },
@@ -135,7 +141,10 @@ export async function getSearchSuggestionsService(q: string) {
   if (q.length < 2) return { suggestions: [] };
 
   const suggestions = await prisma.product.findMany({
-    where: { name: { startsWith: q, mode: "insensitive" } },
+    where: {
+      deletedAt: null, 
+      name: { startsWith: q, mode: "insensitive" },
+    },
     take: 8,
     orderBy: { name: "asc" },
     select: { name: true, slug: true },
