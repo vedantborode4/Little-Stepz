@@ -15,11 +15,10 @@ async function checkSlugUnique(slug: string, ignoreId?: string) {
   const existing = await prisma.category.findFirst({
     where: {
       slug,
-      deletedAt: null,
       ...(ignoreId && { NOT: { id: ignoreId } }),
     },
   });
-  if (existing) throw new ApiError(400, "Slug must be unique");
+  if (existing) throw new ApiError(409, "Slug already in use");
 }
 
 async function validateParentId(parentId?: string, currentId?: string) {
@@ -40,19 +39,19 @@ async function validateParentId(parentId?: string, currentId?: string) {
     throw new ApiError(400, "Parent category not found");
   }
 
-  while (parent) {
-    if (parent.id === currentId) {
+  while (parent.parentId) {
+    if (parent.parentId === currentId) {
       throw new ApiError(400, "Circular category relationship detected");
     }
 
-    parent = parent.parentId
-      ? await prisma.category.findFirst({
-          where: {
-            id: parent.parentId,
-            deletedAt: null,
-          },
-        })
-      : null;
+    parent = await prisma.category.findFirst({
+      where: {
+        id: parent.parentId,
+        deletedAt: null,
+      },
+    });
+
+    if (!parent) break;
   }
 }
 
@@ -80,8 +79,13 @@ export async function updateCategoryService(id: string, data: UpdateCategoryData
 
   await validateParentId(data.parentId, id);
 
-  if (data.slug && data.slug !== category.slug) {
-    await checkSlugUnique(data.slug, id);
+  if (data.slug !== undefined) {
+    if (data.slug.trim() === "") {
+      throw new ApiError(400, "Slug cannot be empty");
+    }
+    if (data.slug !== category.slug) {
+      await checkSlugUnique(data.slug, id);
+    }
   }
 
   return prisma.category.update({

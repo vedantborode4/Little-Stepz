@@ -39,7 +39,6 @@ export async function createProductService(data: {
   const existing = await prisma.product.findFirst({
     where: {
       slug: data.slug,
-      deletedAt: null,
     },
   });
 
@@ -83,11 +82,15 @@ export async function updateProductService(
     throw new ApiError(404, "Product not found");
   }
 
-  if (data.slug && data.slug !== product.slug) {
+  if (data.slug !== undefined) {
+    if (!data.slug.trim()) {
+      throw new ApiError(400, "Slug cannot be empty");
+    }
+
     const existing = await prisma.product.findFirst({
       where: {
         slug: data.slug,
-        deletedAt: null,
+        NOT: { id },
       },
     });
 
@@ -96,22 +99,24 @@ export async function updateProductService(
     }
   }
 
-  const updated = await prisma.product.update({
-    where: { id },
-    data,
-    select: baseProductSelect,
+  const activeVariantsCount = await prisma.variant.count({
+    where: {
+      productId: id,
+      deletedAt: null,
+    },
   });
 
-  // Recompute inStock if quantity changes and product has no variants
-  if (
-    data.quantity !== undefined &&
-    (await prisma.variant.count({ where: { productId: id } })) === 0
-  ) {
-    await prisma.product.update({
-      where: { id },
-      data: { inStock: updated.quantity > 0 },
-    });
+  const updateData: typeof data & { inStock?: boolean } = { ...data };
+
+  if (data.quantity !== undefined && activeVariantsCount === 0) {
+    updateData.inStock = data.quantity > 0;
   }
+
+  const updated = await prisma.product.update({
+    where: { id },
+    data: updateData,
+    select: baseProductSelect,
+  });
 
   return updated;
 }
