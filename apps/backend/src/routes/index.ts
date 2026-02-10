@@ -7,6 +7,7 @@ import { adminRouter } from "./admin/admin.routes";
 import { productRouter } from "./product.routes";
 import { wishlistRouter } from "./wishlist.routes";
 import { reviewRouter } from "./review.routes";
+import { cartRouter } from "./cart.routes";
 
 export const appRouter:Router = Router()
 
@@ -25,3 +26,5 @@ appRouter.use("/products", productRouter)
 appRouter.use("/wishlist", wishlistRouter)
 
 appRouter.use("/reviews", reviewRouter)
+
+appRouter.use("/cart", cartRouter)
