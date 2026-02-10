@@ -2,7 +2,9 @@ import { z } from "zod";
 import { uuidSchema } from "./common";
 
 export const addProductImageSchema = z.object({
-    params: { productId: uuidSchema },
+    params:  z.object({
+        productId: uuidSchema,
+    }),
     body: z.object({
         url: z.string().url(),
         alt: z.string().max(200).optional(),
