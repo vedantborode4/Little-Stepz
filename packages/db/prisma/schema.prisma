@@ -354,6 +354,7 @@ enum CommissionStatus {
   PENDING
   APPROVED
   PAID
+  CANCELLED
 }
 
 model Affiliate {

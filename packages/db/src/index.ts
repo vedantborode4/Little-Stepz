@@ -1,4 +1,4 @@
-import { PrismaClient, Role } from "@prisma/client";
+import { PrismaClient, Role, CouponType, OrderStatus, PaymentStatus, AffiliateStatus, CommissionStatus } from "@prisma/client";
 
 export const prisma = new PrismaClient();
-export { Role };
+export { Role, CouponType, OrderStatus, PaymentStatus, AffiliateStatus, CommissionStatus };
