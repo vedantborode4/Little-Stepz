@@ -41,7 +41,11 @@ export const createCouponBodySchema = z.object({
     
 });
 
-export const updateCouponBodySchema = createCouponBodySchema.partial();
+export const updateCouponBodySchema = createCouponBodySchema
+  .partial()
+  .extend({
+    updatedAt: dateSchema.optional(),
+  });
 
 export const couponParamsSchema = z.object({ 
     id: uuidSchema

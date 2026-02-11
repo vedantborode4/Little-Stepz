@@ -4,6 +4,7 @@ import { authMiddleware } from "../../middlewares/auth.middleware";
 import { adminCategoryRouter } from "./admin.category.routes";
 import { adminProductRouter } from "./admin.product.routes";
 import { adminReviewRouter } from "./admin.review.routes";
+import { adminCouponsRouter } from "./admin.coupons.routes";
 
 export const adminRouter: Router = Router();
 
@@ -14,3 +15,5 @@ adminRouter.use("/categories", adminCategoryRouter)
 adminRouter.use("/products", adminProductRouter)
 
 adminRouter.use("/reviews", adminReviewRouter);
+
+adminRouter.use("/coupons",adminCouponsRouter);
