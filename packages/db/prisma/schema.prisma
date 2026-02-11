@@ -265,6 +265,8 @@ model Order {
   affiliateId String?
   affiliate   Affiliate? @relation(fields: [affiliateId], references: [id])
 
+  idempotencyKey  String   @unique
+
   deletedAt DateTime?
 
   createdAt DateTime @default(now())
@@ -274,6 +276,7 @@ model Order {
   @@index([status])
   @@index([createdAt])
   @@index([deletedAt])
+  @@index([idempotencyKey])
 }
 
 enum PaymentStatus {
