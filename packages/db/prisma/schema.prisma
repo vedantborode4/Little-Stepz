@@ -33,6 +33,7 @@ model User {
   reviews       Review[]
   affiliate     Affiliate?
   refreshTokens RefreshToken[]
+  auditLogs     AuditLog[]
 
   deletedAt DateTime?
 
@@ -110,7 +111,7 @@ model Product {
   name        String
   slug        String   @unique
   description String?
-  price       Decimal
+  price       Decimal  @db.Decimal(12,2)
   quantity    Int      @default(0)
   inStock     Boolean  @default(true)
   categoryId  String
@@ -152,9 +153,9 @@ model Variant {
   productId String
   product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 
-  name  String
-  price Decimal?
-  stock Int @default(0)
+  name   String
+  price  Decimal? @db.Decimal(12,2)
+  stock  Int      @default(0)
 
   cartItems  CartItem[]
   orderItems OrderItem[]
@@ -212,9 +213,9 @@ model Coupon {
   id            String      @id @default(uuid())
   code          String      @unique
   type          CouponType
-  value         Decimal
-  minOrderValue Decimal?
-  maxDiscount   Decimal?
+  value         Decimal     @db.Decimal(12,2)
+  minOrderValue Decimal?    @db.Decimal(12,2)
+  maxDiscount   Decimal?    @db.Decimal(12,2)
   usageLimit    Int?
   usedCount     Int         @default(0)
 
@@ -233,9 +234,22 @@ model Coupon {
 enum OrderStatus {
   PENDING
   CONFIRMED
+  PROCESSING
   SHIPPED
+  OUT_FOR_DELIVERY
   DELIVERED
   CANCELLED
+  RETURN_REQUESTED
+  RETURN_APPROVED
+  RETURN_REJECTED
+  RETURNED
+  REFUND_INITIATED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  ONLINE
+  COD
 }
 
 model Order {
@@ -249,23 +263,34 @@ model Order {
   couponId String?
   coupon   Coupon? @relation(fields: [couponId], references: [id])
 
-  subtotal        Decimal
-  discount        Decimal @default(0)
-  shippingCharges Decimal @default(0)
-  total           Decimal
+  subtotal        Decimal @db.Decimal(12,2)
+  discount        Decimal @default(0) @db.Decimal(12,2)
+  shippingCharges Decimal @default(0) @db.Decimal(12,2)
+  total           Decimal @db.Decimal(12,2)
 
-  status OrderStatus @default(PENDING)
+  status        OrderStatus   @default(PENDING)
+  paymentMethod PaymentMethod @default(ONLINE)
 
-  items       OrderItem[]
-  payment     Payment?
-  reviews     Review[]
+  shiprocketOrderId    String?
+  shiprocketShipmentId String?
+  trackingUrl          String?
+  awbCode              String?
+
+  customerNote String?
+  adminNote    String?
+
+  items                OrderItem[]
+  payment              Payment?
+  reviews              Review[]
   affiliateConversions AffiliateConversion[]
-  commissions Commission[]
+  commissions          Commission[]
+  returns              Return[]
+  shipments            Shipment[]
 
   affiliateId String?
   affiliate   Affiliate? @relation(fields: [affiliateId], references: [id])
 
-  idempotencyKey  String   @unique
+  idempotencyKey String @unique
 
   deletedAt DateTime?
 
@@ -277,13 +302,82 @@ model Order {
   @@index([createdAt])
   @@index([deletedAt])
   @@index([idempotencyKey])
+  @@index([paymentMethod])
 }
+
 
 enum PaymentStatus {
   PENDING
+  INITIATED
   SUCCESS
   FAILED
+  REFUND_INITIATED
+  REFUNDED
+  PARTIALLY_REFUNDED
 }
+
+model Payment {
+  id      String @id @default(uuid())
+  orderId String @unique
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  method  PaymentMethod @default(ONLINE)
+  gateway String        // "razorpay" | "cod"
+
+  razorpayOrderId   String? @unique
+  razorpayPaymentId String? @unique
+  razorpaySignature String?
+
+  amount   Decimal @db.Decimal(12,2)
+  currency String  @default("INR")
+  status   PaymentStatus @default(PENDING)
+
+  refundId     String?
+  refundAmount Decimal? @db.Decimal(12,2)
+  refundedAt   DateTime?
+  refundReason String?
+
+  codCollectedAt DateTime?
+
+  gatewayResponse Json?
+
+  attempts Int @default(0)
+
+  paymentIdempotencyKey String? @unique
+
+  deletedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([gateway, razorpayOrderId])
+  @@index([razorpayPaymentId])
+  @@index([status])
+  @@index([paymentIdempotencyKey])
+}
+
+
+model WebhookEvent {
+  id        String @id @default(uuid())
+  provider  String // "razorpay" | "shiprocket"
+  eventId   String // Razorpay event.id or Shiprocket webhook_id
+  eventType String // "payment.captured", "payment.failed", etc.
+
+  payload     Json
+  status      WebhookStatus @default(PENDING)
+  processedAt DateTime?
+  error       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Composite unique: prevents same event from being processed twice
+  @@unique([provider, eventId])
+  @@index([provider, eventType])
+  @@index([status])
+  @@index([createdAt])
+}
+
 
 model OrderItem {
   id        String @id @default(uuid())
@@ -302,27 +396,105 @@ model OrderItem {
   deletedAt DateTime?
 }
 
-model Payment {
-  id        String @id @default(uuid())
-  orderId   String @unique
-  order     Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+enum WebhookStatus {
+  PENDING
+  PROCESSING
+  PROCESSED
+  FAILED
+  SKIPPED
+}
 
-  gateway       String
-  transactionId String?
-  amount        Decimal
-  status        PaymentStatus @default(PENDING)
-  paymentData   Json?
+// ─── AuditLog — immutable trail for payments, refunds, commissions ────────────
+model AuditLog {
+  id     String  @id @default(uuid())
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id])
 
-  deletedAt DateTime?
+  action   String // "PAYMENT_CREATED", "REFUND_ISSUED", "COMMISSION_REVERSED"
+  entity   String // "Payment", "Order", "Commission"
+  entityId String
+
+  oldValue Json?
+  newValue Json?
+  metadata Json? // IP address, user agent, request ID
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([entity, entityId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+model Return {
+  id      String @id @default(uuid())
+  orderId String @unique // One return request per order
+  order   Order  @relation(fields: [orderId], references: [id])
+  userId  String
+
+  reason      String
+  description String?
+  status      ReturnStatus @default(PENDING)
+
+  adminNote  String?
+  resolvedBy String?
+  resolvedAt DateTime?
+
+  refundAmount Decimal?
+  refundedAt   DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([gateway, transactionId])
+  @@index([userId])
+  @@index([status])
+}
+
+enum ReturnStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  REFUNDED
+}
+
+model Shipment {
+  id      String @id @default(uuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id])
+
+  shiprocketOrderId    String?
+  shiprocketShipmentId String?
+  awbCode              String?
+  courierName          String?
+  trackingUrl          String?
+
+  status      ShipmentStatus @default(PENDING)
+  estimatedAt DateTime?
+  deliveredAt DateTime?
+
+  trackingData Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orderId])
+  @@index([awbCode])
+  @@index([status])
+}
+
+enum ShipmentStatus {
+  PENDING
+  PROCESSING
+  SHIPPED
+  IN_TRANSIT
+  OUT_FOR_DELIVERY
+  DELIVERED
+  FAILED
+  RETURNED
 }
 
 model Review {
-  id        String @id @default(uuid())
+  id        String  @id @default(uuid())
   userId    String
   productId String
   orderId   String?
@@ -422,9 +594,12 @@ model Commission {
   orderId String
   order   Order  @relation(fields: [orderId], references: [id])
 
-  amount Decimal
+  amount Decimal @db.Decimal(12,2)
   status CommissionStatus @default(PENDING)
-  paidAt DateTime?
+
+  paidAt         DateTime?
+  reversedAt     DateTime?
+  reversalReason String?
 
   deletedAt DateTime?
 
@@ -432,4 +607,5 @@ model Commission {
   updatedAt DateTime @updatedAt
 
   @@index([affiliateId, status])
+  @@index([orderId])
 }
