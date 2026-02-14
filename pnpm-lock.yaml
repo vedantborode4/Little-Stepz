@@ -125,12 +125,18 @@ importers:
       axios:
         specifier: ^1.13.5
         version: 1.13.5
+      immer:
+        specifier: ^11.1.4
+        version: 11.1.4
       js-cookie:
         specifier: ^3.0.5
         version: 3.0.5
       next:
         specifier: 16.1.0
         version: 16.1.0(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      qs:
+        specifier: ^6.14.2
+        version: 6.14.2
       react:
         specifier: ^19.2.0
         version: 19.2.0
@@ -148,7 +154,7 @@ importers:
         version: 4.3.5
       zustand:
         specifier: ^5.0.11
-        version: 5.0.11(@types/react@19.2.2)(react@19.2.0)
+        version: 5.0.11(@types/react@19.2.2)(immer@11.1.4)(react@19.2.0)
     devDependencies:
       '@repo/eslint-config':
         specifier: workspace:*
@@ -1403,6 +1409,9 @@ packages:
     resolution: {integrity: sha512-Hs59xBNfUIunMFgWAbGX5cq6893IbWg4KnrjbYwX3tx0ztorVgTDA6B2sxf8ejHJ4wz8BqGUMYlnzNBer5NvGg==}
     engines: {node: '>= 4'}
 
+  immer@11.1.4:
+    resolution: {integrity: sha512-XREFCPo6ksxVzP4E0ekD5aMdf8WMwmdNaz6vuvxgI40UaEiu6q3p8X52aU6GdyvLY3XXX/8R7JOTXStz/nBbRw==}
+
   import-fresh@3.3.1:
     resolution: {integrity: sha512-TR3KfrTZTYLPB6jUjfx6MF9WcWrHL9su5TObK4ZkYgBdWKPOFoSoQIdEuTuR82pmtxH2spWG9h6etwfr1pLBqQ==}
     engines: {node: '>=6'}
@@ -1927,6 +1936,10 @@ packages:
 
   qs@6.14.1:
     resolution: {integrity: sha512-4EK3+xJl8Ts67nLYNwqw/dsFVnCf+qR7RgXSK9jEEm9unao3njwMDdmsdvoKBKHzxd7tCYz5e5M+SnMjdtXGQQ==}
+    engines: {node: '>=0.6'}
+
+  qs@6.14.2:
+    resolution: {integrity: sha512-V/yCWTTF7VJ9hIh18Ugr2zhJMP01MY7c5kh4J870L7imm6/DIzBsNLTXzMwUA3yZ5b/KBqLx8Kp3uRvd7xSe3Q==}
     engines: {node: '>=0.6'}
 
   queue-microtask@1.2.3:
@@ -3559,6 +3572,8 @@ snapshots:
 
   ignore@7.0.5: {}
 
+  immer@11.1.4: {}
+
   import-fresh@3.3.1:
     dependencies:
       parent-module: 1.0.1
@@ -4059,6 +4074,10 @@ snapshots:
     dependencies:
       side-channel: 1.1.0
 
+  qs@6.14.2:
+    dependencies:
+      side-channel: 1.1.0
+
   queue-microtask@1.2.3: {}
 
   range-parser@1.2.1: {}
@@ -4527,7 +4546,8 @@ snapshots:
 
   zod@4.3.5: {}
 
-  zustand@5.0.11(@types/react@19.2.2)(react@19.2.0):
+  zustand@5.0.11(@types/react@19.2.2)(immer@11.1.4)(react@19.2.0):
     optionalDependencies:
       '@types/react': 19.2.2
+      immer: 11.1.4
       react: 19.2.0
