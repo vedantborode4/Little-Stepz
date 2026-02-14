@@ -1,20 +1,23 @@
-"use client";
+import { cn } from "./utils"
 
-import { ReactNode } from "react";
-
-interface ButtonProps {
-  children: ReactNode;
-  className?: string;
-  appName: string;
-}
-
-export const Button = ({ children, className, appName }: ButtonProps) => {
+export function Button({
+  className,
+  loading,
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & {
+  loading?: boolean
+}) {
   return (
     <button
-      className={className}
-      onClick={() => alert(`Hello from your ${appName} app!`)}
+      className={cn(
+        "w-full h-[52px] rounded-xl bg-primary text-white font-semibold",
+        "transition active:scale-[0.98] disabled:opacity-60",
+        className
+      )}
+      disabled={loading}
+      {...props}
     >
-      {children}
+      {loading ? "Please wait..." : props.children}
     </button>
-  );
-};
+  )
+}
