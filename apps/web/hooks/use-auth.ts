@@ -1,17 +1,21 @@
 import { useAuthStore } from "../store/auth.store"
-import { setToken, removeToken } from "../lib/utils/token"
+import {
+  setAccessToken,
+  removeAccessToken,
+} from "../lib/utils/token"
 
 export const useAuth = () => {
   const { user, setAuth, logout } = useAuthStore()
 
   const login = (data: any) => {
-    setToken(data.accessToken)
+    setAccessToken(data.accessToken)
     setAuth(data)
   }
 
   const signOut = () => {
-    removeToken()
+    removeAccessToken()
     logout()
+    window.location.href = "/signin"
   }
 
   return { user, login, signOut }
