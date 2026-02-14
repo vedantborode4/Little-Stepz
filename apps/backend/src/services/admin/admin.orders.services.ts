@@ -5,11 +5,20 @@ import { OrderErrorCode } from "../../utils/orderErrors";
 
 const statusTransitions: Record<OrderStatus, OrderStatus[]> = {
   [OrderStatus.PENDING]: [OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
-  [OrderStatus.CONFIRMED]: [OrderStatus.SHIPPED, OrderStatus.CANCELLED],
-  [OrderStatus.SHIPPED]: [OrderStatus.DELIVERED],
-  [OrderStatus.DELIVERED]: [],
+  [OrderStatus.CONFIRMED]: [OrderStatus.PROCESSING, OrderStatus.CANCELLED],
+  [OrderStatus.PROCESSING]: [OrderStatus.SHIPPED, OrderStatus.CANCELLED],
+  [OrderStatus.SHIPPED]: [OrderStatus.OUT_FOR_DELIVERY],
+  [OrderStatus.OUT_FOR_DELIVERY]: [OrderStatus.DELIVERED],
+  [OrderStatus.DELIVERED]: [OrderStatus.RETURN_REQUESTED],
   [OrderStatus.CANCELLED]: [],
+  [OrderStatus.RETURN_REQUESTED]: [OrderStatus.RETURN_APPROVED, OrderStatus.RETURN_REJECTED],
+  [OrderStatus.RETURN_APPROVED]: [OrderStatus.RETURNED, OrderStatus.REFUND_INITIATED],
+  [OrderStatus.RETURN_REJECTED]: [],
+  [OrderStatus.RETURNED]: [OrderStatus.REFUND_INITIATED],
+  [OrderStatus.REFUND_INITIATED]: [OrderStatus.REFUNDED],
+  [OrderStatus.REFUNDED]: [],
 };
+
 
 export async function getAdminOrdersService(
   page: number,
