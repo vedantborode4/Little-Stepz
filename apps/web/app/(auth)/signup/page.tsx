@@ -2,29 +2,46 @@
 
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { SignupSchema } from "@repo/zod-schema/index"
+import { SignupData, SignupSchema } from "@repo/zod-schema/index"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { useAuth } from "../../../hooks/use-auth"
 import { AuthService } from "../../../lib/services/auth.service"
 import { AuthCard, Button, Input } from "@repo/ui/index"
 
-
 export default function SignUpPage() {
   const router = useRouter()
   const { login } = useAuth()
 
-  const { register, handleSubmit, formState } = useForm({
+  const {
+    register,
+    handleSubmit,
+    setError,
+    clearErrors,
+    formState: { errors, isSubmitting },
+  } = useForm<SignupData>({
     resolver: zodResolver(SignupSchema),
+    mode: "onChange",
   })
 
-  const onSubmit = async (data: any) => {
+  const onSubmit = async (data: SignupData) => {
     try {
       const res = await AuthService.signUp(data)
       login(res)
       router.push("/")
-    } catch {
-      toast.error("Signup failed")
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message || "Signup failed"
+
+      if (message.toLowerCase().includes("user already exists")) {
+        setError("email", {
+          type: "server",
+          message,
+        })
+        return
+      }
+
+      toast.error(message)
     }
   }
 
@@ -36,14 +53,63 @@ export default function SignUpPage() {
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <Input placeholder="Full Name" {...register("name")} />
-        <Input placeholder="Email" {...register("email")} />
-        <Input type="password" placeholder="Password" {...register("password")} />
 
-        <Button loading={formState.isSubmitting}>
+        <div className="space-y-1">
+          <Input
+            placeholder="Full Name"
+            {...register("name", {
+              onChange: () => clearErrors("name"),
+            })}
+          />
+          {errors.name && (
+            <p className="text-sm text-red-500">
+              {errors.name.message}
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-1">
+          <Input
+            placeholder="Email"
+            {...register("email", {
+              onChange: () => clearErrors("email"),
+            })}
+          />
+          {errors.email && (
+            <p className="text-sm text-red-500">
+              {errors.email.message}
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-1">
+          <Input
+            type="password"
+            placeholder="Password"
+            {...register("password", {
+              onChange: () => clearErrors("password"),
+            })}
+          />
+          {errors.password && (
+            <p className="text-sm text-red-500">
+              {errors.password.message}
+            </p>
+          )}
+        </div>
+
+        <Button loading={isSubmitting}>
           Sign Up
         </Button>
       </form>
+      <p className="text-center text-sm text-muted">
+        Already have an account?{" "}
+        <span
+          onClick={() => router.push("/signin")}
+          className="text-primary font-semibold cursor-pointer"
+        >
+          Sign in
+        </span>
+      </p>
     </AuthCard>
   )
 }

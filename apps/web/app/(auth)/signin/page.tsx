@@ -2,7 +2,7 @@
 
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { SigninSchema } from "@repo/zod-schema/index"
+import { SigninData, SigninSchema } from "@repo/zod-schema/index"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
 import { AuthService } from "../../../lib/services/auth.service"
@@ -13,17 +13,36 @@ export default function SignInPage() {
   const router = useRouter()
   const { login } = useAuth()
 
-  const { register, handleSubmit, formState } = useForm({
+  const {
+    register,
+    handleSubmit,
+    setError,
+    clearErrors,
+    formState: { errors, isSubmitting },
+  } = useForm<SigninData>({
     resolver: zodResolver(SigninSchema),
+    mode: "onChange",
   })
 
-  const onSubmit = async (data: any) => {
+  const onSubmit = async (data: SigninData) => {
     try {
       const res = await AuthService.signIn(data)
       login(res)
       router.push("/")
-    } catch {
-      toast.error("Invalid email or password")
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message ||
+        "Invalid email or password"
+
+      if (message.toLowerCase().includes("invalid")) {
+        setError("password", {
+          type: "server",
+          message,
+        })
+        return
+      }
+
+      toast.error(message)
     }
   }
 
@@ -35,10 +54,37 @@ export default function SignInPage() {
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <Input placeholder="Email" {...register("email")} />
-        <Input type="password" placeholder="Password" {...register("password")} />
 
-        <Button loading={formState.isSubmitting}>
+        <div className="space-y-1">
+          <Input
+            placeholder="Email"
+            {...register("email", {
+              onChange: () => clearErrors("email"),
+            })}
+          />
+          {errors.email && (
+            <p className="text-sm text-red-500">
+              {errors.email.message}
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-1">
+          <Input
+            type="password"
+            placeholder="Password"
+            {...register("password", {
+              onChange: () => clearErrors("password"),
+            })}
+          />
+          {errors.password && (
+            <p className="text-sm text-red-500">
+              {errors.password.message}
+            </p>
+          )}
+        </div>
+
+        <Button loading={isSubmitting}>
           Sign In
         </Button>
       </form>

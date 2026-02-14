@@ -4,19 +4,42 @@ export default function AuthLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="min-h-screen grid lg:grid-cols-2 bg-bg">
-      
-      {/* LEFT PANEL */}
-      <div className="hidden lg:flex flex-col justify-center px-20">
-        <h1 className="text-primary">Little Stepz</h1>
-        <p className="mt-4 text-muted max-w-sm">
-          Discover toys that make learning joyful for every step of childhood.
-        </p>
-      </div>
+    <div className="min-h-screen bg-bg">
+      <div className="grid min-h-screen lg:grid-cols-2">
 
-      {/* FORM */}
-      <div className="flex items-center justify-center p-6">
-        {children}
+        {/* LEFT PANEL - Desktop */}
+        <div className="hidden lg:flex flex-col justify-center px-20 bg-gradient-to-br from-primary/10 to-transparent">
+          <div className="max-w-md">
+            <h1 className="text-5xl font-bold text-primary leading-tight">
+              Little Stepz
+            </h1>
+
+            <p className="mt-6 text-lg text-muted leading-relaxed">
+              Discover toys that make learning joyful for every
+              step of childhood.
+            </p>
+          </div>
+        </div>
+
+        {/* RIGHT PANEL (FORM SIDE) */}
+        <div className="flex flex-col justify-center items-center px-6 py-10 lg:px-16">
+
+          {/* Mobile Branding */}
+          <div className="lg:hidden mb-10 text-center">
+            <h1 className="text-3xl font-bold text-primary">
+              Little Stepz
+            </h1>
+            <p className="mt-2 text-sm text-muted">
+              Joyful learning starts here ✨
+            </p>
+          </div>
+
+          {/* Form Container */}
+          <div className="w-full max-w-md">
+            {children}
+          </div>
+
+        </div>
       </div>
     </div>
   )
