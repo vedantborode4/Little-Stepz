@@ -1,5 +1,5 @@
 {
-  "name": "Little-Stepz",
+  "name": "little-stepz",
   "private": true,
   "scripts": {
     "build": "turbo run build",
@@ -16,5 +16,9 @@
   "packageManager": "pnpm@9.0.0",
   "engines": {
     "node": ">=18"
+  },
+  "dependencies": {
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^3.4.0"
   }
 }
