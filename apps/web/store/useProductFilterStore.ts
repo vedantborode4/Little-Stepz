@@ -1,19 +1,33 @@
 import { create } from "zustand"
 
 interface FilterState {
+  page: number
+  limit: number
   category?: string
   sort?: string
-  page: number
+  search?: string
 
-  setFilter: (data: Partial<FilterState>) => void
+  setFilters: (data: Partial<FilterState>) => void
+  resetFilters: () => void
+}
+
+const initialState = {
+  page: 1,
+  limit: 12,
+  category: undefined,
+  sort: undefined,
+  search: undefined,
 }
 
 export const useProductFilterStore = create<FilterState>((set) => ({
-  page: 1,
+  ...initialState,
 
-  setFilter: (data) =>
+  setFilters: (data) =>
     set((state) => ({
       ...state,
       ...data,
+      page: data.page ?? 1, // reset page when filters change
     })),
+
+  resetFilters: () => set(initialState),
 }))
