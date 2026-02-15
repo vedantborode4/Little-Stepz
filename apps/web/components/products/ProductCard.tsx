@@ -40,6 +40,10 @@ export default function ProductCard({ product }: Props) {
 
     toggleWishlist(product.id)
   }
+  const isInWishlist = useWishlistStore((s) =>
+    s.isInWishlist(product.id)
+  )
+
 
   return (
     <Link
@@ -60,7 +64,11 @@ export default function ProductCard({ product }: Props) {
           onClick={handleWishlist}
           className="absolute top-3 right-3 bg-white rounded-full p-2 shadow hover:scale-110 transition"
         >
-          <Heart className="w-4 h-4" />
+          <Heart
+            className={`w-4 h-4 ${
+              isInWishlist ? "fill-primary text-primary" : ""
+            }`}
+          />
         </button>
       </div>
 

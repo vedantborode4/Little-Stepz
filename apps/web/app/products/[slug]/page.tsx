@@ -10,7 +10,8 @@ import ProductInfo from "../../../components/products/details/ProductInfo"
 import SimilarProducts from "../../../components/products/details/SimilarProducts"
 
 export default function ProductDetailsPage() {
-  const { slug } = useParams()
+  const params = useParams<{ slug: string }>()
+  const slug = params?.slug
 
   const [product, setProduct] = useState<Product | null>(null)
   const [loading, setLoading] = useState(true)
@@ -22,9 +23,7 @@ export default function ProductDetailsPage() {
     const fetchProduct = async () => {
       try {
         setLoading(true)
-
-        const data = await ProductService.getBySlug(slug as string)
-
+        const data = await ProductService.getBySlug(slug)
         setProduct(data)
       } catch {
         setError(true)
