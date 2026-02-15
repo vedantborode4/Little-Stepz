@@ -17,17 +17,16 @@ export default function ProductInfo({ product }: { product: Product }) {
   const addItem = useCartStore((s) => s.addItem)
 
   const toggleWishlist = useWishlistStore((s) => s.toggle)
+
   const isInWishlist = useWishlistStore((s) =>
     s.isInWishlist(product.id)
   )
 
-  // 🔥 dynamic price
   const displayPrice = useMemo(() => {
     if (!selectedVariant) return product.price
     return selectedVariant.price ?? product.price
   }, [selectedVariant, product.price])
 
-  // 🔥 dynamic stock
   const inStock = useMemo(() => {
     if (!selectedVariant) return product.inStock
     return selectedVariant.stock > 0
@@ -43,22 +42,23 @@ export default function ProductInfo({ product }: { product: Product }) {
     toast.success("Added to cart")
   }
 
+  const handleWishlist = () => {
+    toggleWishlist(product.id)
+
+    toast.success(
+      isInWishlist
+        ? "Removed from wishlist"
+        : "Added to wishlist"
+    )
+  }
+
   return (
     <div className="space-y-6">
-
-      {/* TITLE + WISHLIST */}
       <div className="flex justify-between items-start gap-4">
         <h1 className="text-2xl font-bold">{product.name}</h1>
 
         <button
-          onClick={() => {
-            toggleWishlist(product.id)
-            toast.success(
-              isInWishlist
-                ? "Removed from wishlist"
-                : "Added to wishlist"
-            )
-          }}
+          onClick={handleWishlist}
           className="w-11 h-11 flex items-center justify-center rounded-full border border-border hover:bg-gray-50 transition"
         >
           <Heart
@@ -69,17 +69,14 @@ export default function ProductInfo({ product }: { product: Product }) {
         </button>
       </div>
 
-      {/* PRICE */}
       <div className="text-2xl font-semibold text-primary">
         ₹{displayPrice}
       </div>
 
-      {/* STOCK */}
       <p className={`text-sm ${inStock ? "text-green-600" : "text-red-500"}`}>
         {inStock ? "In stock" : "Out of stock"}
       </p>
 
-      {/* ✅ VARIANTS */}
       {product.variants?.length > 0 && (
         <div className="space-y-2">
           <p className="text-sm font-medium">Select Variant</p>
@@ -93,10 +90,11 @@ export default function ProductInfo({ product }: { product: Product }) {
                   key={variant.id}
                   onClick={() => setSelectedVariant(variant)}
                   className={`px-4 py-2 border rounded-lg text-sm transition
-                    ${active
+                  ${
+                    active
                       ? "border-primary bg-primary/10 text-primary"
-                      : "border-border hover:border-primary"}
-                  `}
+                      : "border-border hover:border-primary"
+                  }`}
                 >
                   {variant.name}
                 </button>
@@ -106,7 +104,6 @@ export default function ProductInfo({ product }: { product: Product }) {
         </div>
       )}
 
-      {/* QUANTITY */}
       <div className="flex items-center gap-4">
         <span className="text-sm">Quantity</span>
 
@@ -129,7 +126,6 @@ export default function ProductInfo({ product }: { product: Product }) {
         </div>
       </div>
 
-      {/* ADD TO CART */}
       <button
         onClick={handleAddToCart}
         disabled={!inStock}
@@ -138,7 +134,6 @@ export default function ProductInfo({ product }: { product: Product }) {
         Add to Cart
       </button>
 
-      {/* DESCRIPTION */}
       {product.description && (
         <div>
           <h3 className="font-semibold mb-2">Description</h3>
