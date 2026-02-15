@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { Product } from "../../../types/product"
 import { Heart } from "lucide-react"
 import { useCartStore } from "../../../store/useCartStore"
@@ -10,6 +10,10 @@ import { toast } from "sonner"
 export default function ProductInfo({ product }: { product: Product }) {
   const [quantity, setQuantity] = useState(1)
 
+  const [selectedVariant, setSelectedVariant] = useState(
+    product.variants?.[0] || null
+  )
+
   const addItem = useCartStore((s) => s.addItem)
 
   const toggleWishlist = useWishlistStore((s) => s.toggle)
@@ -17,11 +21,25 @@ export default function ProductInfo({ product }: { product: Product }) {
     s.isInWishlist(product.id)
   )
 
+  // 🔥 dynamic price
+  const displayPrice = useMemo(() => {
+    if (!selectedVariant) return product.price
+    return selectedVariant.price ?? product.price
+  }, [selectedVariant, product.price])
+
+  // 🔥 dynamic stock
+  const inStock = useMemo(() => {
+    if (!selectedVariant) return product.inStock
+    return selectedVariant.stock > 0
+  }, [selectedVariant, product.inStock])
+
   const handleAddToCart = async () => {
     await addItem({
       productId: product.id,
+      variantId: selectedVariant?.id,
       quantity,
     })
+
     toast.success("Added to cart")
   }
 
@@ -44,7 +62,7 @@ export default function ProductInfo({ product }: { product: Product }) {
           className="w-11 h-11 flex items-center justify-center rounded-full border border-border hover:bg-gray-50 transition"
         >
           <Heart
-            className={`w-5 h-5 transition ${
+            className={`w-5 h-5 ${
               isInWishlist ? "fill-primary text-primary" : ""
             }`}
           />
@@ -53,17 +71,40 @@ export default function ProductInfo({ product }: { product: Product }) {
 
       {/* PRICE */}
       <div className="text-2xl font-semibold text-primary">
-        ₹{product.price}
+        ₹{displayPrice}
       </div>
 
       {/* STOCK */}
-      <p
-        className={`text-sm ${
-          product.inStock ? "text-green-600" : "text-red-500"
-        }`}
-      >
-        {product.inStock ? "In stock" : "Out of stock"}
+      <p className={`text-sm ${inStock ? "text-green-600" : "text-red-500"}`}>
+        {inStock ? "In stock" : "Out of stock"}
       </p>
+
+      {/* ✅ VARIANTS */}
+      {product.variants?.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-sm font-medium">Select Variant</p>
+
+          <div className="flex flex-wrap gap-2">
+            {product.variants.map((variant) => {
+              const active = selectedVariant?.id === variant.id
+
+              return (
+                <button
+                  key={variant.id}
+                  onClick={() => setSelectedVariant(variant)}
+                  className={`px-4 py-2 border rounded-lg text-sm transition
+                    ${active
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border hover:border-primary"}
+                  `}
+                >
+                  {variant.name}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* QUANTITY */}
       <div className="flex items-center gap-4">
@@ -91,7 +132,7 @@ export default function ProductInfo({ product }: { product: Product }) {
       {/* ADD TO CART */}
       <button
         onClick={handleAddToCart}
-        disabled={!product.inStock}
+        disabled={!inStock}
         className="w-full bg-primary text-white py-3 rounded-xl font-medium hover:opacity-90 transition disabled:bg-gray-300"
       >
         Add to Cart
