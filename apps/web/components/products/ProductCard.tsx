@@ -3,8 +3,9 @@
 import Link from "next/link"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
+import { useState } from "react"
 import { Product } from "../../types/product"
-import { Heart } from "lucide-react"
+import { Heart, Loader2 } from "lucide-react"
 import { useCartStore } from "../../store/useCartStore"
 import { useWishlistStore } from "../../store/useWishlistStore"
 import { toast } from "sonner"
@@ -23,7 +24,12 @@ export default function ProductCard({ product }: Props) {
     s.isInWishlist(product.id)
   )
 
+  const [isAdding, setIsAdding] = useState(false)
+
   const image = product.images?.[0]?.url || "/placeholder.png"
+
+  const variants = product.variants ?? []
+  const hasMultipleVariants = variants.length > 1
 
   const handleAddToCart = async (
     e: React.MouseEvent<HTMLButtonElement>
@@ -31,21 +37,23 @@ export default function ProductCard({ product }: Props) {
     e.preventDefault()
     e.stopPropagation()
 
-    try {
-      const variants = product.variants ?? []
+    if (isAdding) return
 
-      // ✅ NO VARIANTS
+    try {
+      if (hasMultipleVariants) {
+        router.push(`/products/${product.slug}`)
+        return
+      }
+
+      setIsAdding(true)
+
       if (variants.length === 0) {
         await addItem({
           productId: product.id,
           quantity: 1,
         })
-
-        toast.success("Added to cart")
-        return
       }
 
-      // ✅ SINGLE VARIANT → AUTO ADD
       if (variants.length === 1) {
         const variant = variants[0]
         if (!variant) return
@@ -55,17 +63,15 @@ export default function ProductCard({ product }: Props) {
           variantId: variant.id,
           quantity: 1,
         })
-
-        toast.success("Added to cart")
-        return
       }
 
-      // ✅ MULTIPLE VARIANTS → REDIRECT
-      router.push(`/products/${product.slug}`)
+      toast.success("Added to cart")
     } catch (err: any) {
       toast.error(
         err?.response?.data?.message || "Failed to add to cart"
       )
+    } finally {
+      setIsAdding(false)
     }
   }
 
@@ -76,8 +82,6 @@ export default function ProductCard({ product }: Props) {
     e.stopPropagation()
     toggleWishlist(product.id)
   }
-
-  const hasMultipleVariants = (product.variants?.length ?? 0) > 1
 
   return (
     <Link
@@ -115,11 +119,15 @@ export default function ProductCard({ product }: Props) {
 
         <button
           onClick={handleAddToCart}
-          disabled={!product.inStock}
-          className="w-full mt-2 bg-primary text-white py-2 rounded-lg text-sm font-medium hover:opacity-90 transition disabled:bg-gray-300 disabled:cursor-not-allowed"
+          disabled={!product.inStock || isAdding}
+          className="w-full mt-2 bg-primary text-white py-2 rounded-lg text-sm font-medium hover:opacity-90 transition disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
+          {isAdding && <Loader2 className="w-4 h-4 animate-spin" />}
+
           {hasMultipleVariants
             ? "Select Options"
+            : isAdding
+            ? "Adding…"
             : product.inStock
             ? "Add to Cart"
             : "Out of Stock"}
