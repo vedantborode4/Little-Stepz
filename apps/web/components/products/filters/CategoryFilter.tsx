@@ -1,31 +1,24 @@
 "use client"
 
-import { useProductFilterStore } from "../../../store/useProductFilterStore"
-
-const categories = [
-  { label: "Action Figures", value: "action-figures" },
-  { label: "Cars & Vehicle Playsets", value: "cars" },
-  { label: "Soft Toys", value: "soft-toys" },
-]
+import { useEffect } from "react"
+import { useCategoryStore } from "../../../store/useCategoryStore"
+import CategoryTreeNode from "./CategoryTreeNode"
 
 export default function CategoryFilter() {
-  const { category, setFilters } = useProductFilterStore()
+  const { tree, fetchTree, isLoading } = useCategoryStore()
+
+  useEffect(() => {
+    if (!tree.length) fetchTree()
+  }, [tree.length, fetchTree])
+
+  if (isLoading) return <p className="text-sm">Loading...</p>
 
   return (
-    <div className="space-y-2">
-      {categories.map((c) => (
-        <label key={c.value} className="flex gap-2 items-center text-sm">
-          <input
-            type="checkbox"
-            checked={category === c.value}
-            onChange={() =>
-              setFilters({
-                category: category === c.value ? undefined : c.value,
-              })
-            }
-          />
-          {c.label}
-        </label>
+    <div className="space-y-3">
+      <h3 className="font-semibold text-text">Categories</h3>
+
+      {tree.map((node) => (
+        <CategoryTreeNode key={node.id} node={node} />
       ))}
     </div>
   )

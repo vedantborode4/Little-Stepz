@@ -1,12 +1,24 @@
 import { create } from "zustand"
-import { Category } from "../types/category"
+import { CategoryService, CategoryNode } from "../lib/services/category.service"
 
 interface CategoryState {
-  tree: Category[]
-  setTree: (data: Category[]) => void
+  tree: CategoryNode[]
+  isLoading: boolean
+  fetchTree: () => Promise<void>
 }
 
 export const useCategoryStore = create<CategoryState>((set) => ({
   tree: [],
-  setTree: (tree) => set({ tree }),
+  isLoading: false,
+
+  fetchTree: async () => {
+    set({ isLoading: true })
+
+    try {
+      const data = await CategoryService.getTree()
+      set({ tree: data })
+    } finally {
+      set({ isLoading: false })
+    }
+  },
 }))
