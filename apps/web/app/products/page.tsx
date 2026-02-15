@@ -1,16 +1,21 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useEffect, useRef, useState } from "react"
+import {
+  useRouter,
+  useSearchParams,
+} from "next/navigation"
 
 import { ProductService } from "../../lib/services/product.service"
-import { parseQuery, buildQuery } from "../../lib/utils/product-query"
+import { buildProductQuery } from "../../lib/utils/buildProductQuery"
 
 import { useProductFilterStore } from "../../store/useProductFilterStore"
 
 import ProductCard from "../../components/products/ProductCard"
 import ProductGridSkeleton from "../../components/products/ProductGridSkeleton"
 import { Pagination } from "../../components/products/Pagination"
+import FilterSidebar from "../../components/products/filters/FilterSidebar"
+import MobileFilterDrawer from "../../components/products/filters/MobileFilterDrawer"
 
 import type { Product } from "../../types/product"
 
@@ -18,45 +23,55 @@ export default function ProductsPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  const filters = useProductFilterStore()
-  const { setFilters } = filters
+  const hasHydrated = useRef(false)
+
+  // ✅ STABLE SELECTORS (NO OBJECT RETURN)
+  const page = useProductFilterStore((s) => s.page)
+  const category = useProductFilterStore((s) => s.category)
+  const sort = useProductFilterStore((s) => s.sort)
+  const priceMax = useProductFilterStore((s) => s.priceMax)
+  const search = useProductFilterStore((s) => s.search)
+  const setFilters = useProductFilterStore((s) => s.setFilters)
 
   const [products, setProducts] = useState<Product[]>([])
   const [totalPages, setTotalPages] = useState(1)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
 
-  /* -------------------------------- */
-  /* URL → ZUSTAND SYNC (ON LOAD)     */
-  /* -------------------------------- */
+  // ✅ URL → STORE (RUN ONCE)
   useEffect(() => {
-    const query = parseQuery(searchParams)
-    setFilters(query)
-  }, [])
+    if (hasHydrated.current) return
 
-  /* -------------------------------- */
-  /* ZUSTAND → URL SYNC               */
-  /* -------------------------------- */
+    setFilters({
+      page: Number(searchParams.get("page") || 1),
+      category: searchParams.get("category") || undefined,
+      sort: searchParams.get("sort") || undefined,
+      search: searchParams.get("search") || undefined,
+      priceMax: searchParams.get("priceMax")
+        ? Number(searchParams.get("priceMax"))
+        : undefined,
+    })
+
+    hasHydrated.current = true
+  }, [searchParams, setFilters])
+
+  // ✅ FETCH PRODUCTS
   useEffect(() => {
-    const query = buildQuery(filters)
+    if (!hasHydrated.current) return
 
-    router.replace(`?${query}`, { scroll: false })
-  }, [
-    filters.page,
-    filters.category,
-    filters.sort,
-    filters.search,
-  ])
-
-  /* -------------------------------- */
-  /* FETCH PRODUCTS                   */
-  /* -------------------------------- */
-  useEffect(() => {
     const fetchProducts = async () => {
       try {
         setLoading(true)
+        setError(false)
 
-        const res = await ProductService.getProducts(filters)
+        const res = await ProductService.getProducts({
+          page,
+          limit: 12,
+          category,
+          sort,
+          priceMax,
+          search,
+        })
 
         setProducts(res.data)
         setTotalPages(res.meta.totalPages)
@@ -68,21 +83,44 @@ export default function ProductsPage() {
     }
 
     fetchProducts()
-  }, [filters.page, filters.category, filters.sort, filters.search])
+  }, [page, category, sort, priceMax, search])
 
-  /* -------------------------------- */
+  // ✅ STORE → URL (NO LOOP)
+  useEffect(() => {
+    if (!hasHydrated.current) return
+
+    const query = buildProductQuery({
+      page,
+      category,
+      sort,
+      priceMax,
+      search,
+    })
+
+    const currentQuery = searchParams.toString()
+
+    if (query !== currentQuery) {
+      router.replace(`/products?${query}`, { scroll: false })
+    }
+  }, [page, category, sort, priceMax, search, router, searchParams])
+
+  // ✅ UI STATES
 
   if (loading) return <ProductGridSkeleton />
 
   if (error)
     return (
-      <p className="text-center text-red-500">
+      <p className="text-center text-red-500 py-10">
         Failed to load products
       </p>
     )
 
   if (!products.length)
-    return <p className="text-center">No products found</p>
+    return (
+      <p className="text-center py-10 text-muted">
+        No products found
+      </p>
+    )
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
@@ -93,12 +131,13 @@ export default function ProductsPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-8">
 
-        {/* FILTER SIDEBAR (NEXT STEP) */}
-        <div className="hidden lg:block bg-white rounded-xl p-4 shadow-card h-fit">
-          Filters
-        </div>
+        <FilterSidebar />
 
         <div>
+
+          <div className="flex justify-between items-center mb-4 lg:hidden">
+            <MobileFilterDrawer />
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
             {products.map((product) => (
@@ -107,7 +146,6 @@ export default function ProductsPage() {
           </div>
 
           <Pagination totalPages={totalPages} />
-
         </div>
       </div>
     </div>

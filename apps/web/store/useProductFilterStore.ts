@@ -1,33 +1,46 @@
 import { create } from "zustand"
 
-interface FilterState {
+export interface ProductFilterValues {
   page: number
-  limit: number
   category?: string
   sort?: string
+  priceMax?: number
   search?: string
+}
+export interface FilterState {
+  page: number
+  category?: string
+  sort?: string
+  priceMax?: number
+  search?: string   // ✅ ADD THIS
 
   setFilters: (data: Partial<FilterState>) => void
   resetFilters: () => void
 }
 
-const initialState = {
-  page: 1,
-  limit: 12,
-  category: undefined,
-  sort: undefined,
-  search: undefined,
-}
 
 export const useProductFilterStore = create<FilterState>((set) => ({
-  ...initialState,
+  page: 1,
+  category: undefined,
+  sort: undefined,
+  priceMax: undefined,
+  search: "",
 
   setFilters: (data) =>
     set((state) => ({
       ...state,
       ...data,
-      page: data.page ?? 1, // reset page when filters change
+
+      // reset page when any filter (except page) changes
+      page: data.page ?? 1,
     })),
 
-  resetFilters: () => set(initialState),
+  resetFilters: () =>
+    set({
+      page: 1,
+      category: undefined,
+      sort: undefined,
+      priceMax: undefined,
+      search: "",
+    }),
 }))

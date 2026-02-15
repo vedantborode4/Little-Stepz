@@ -7,6 +7,7 @@ export interface GetProductsParams {
   category?: string
   search?: string
   sort?: string
+  priceMax?: number  
 }
 
 interface BackendResponse {

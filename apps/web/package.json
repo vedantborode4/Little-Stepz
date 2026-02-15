@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
+    "@radix-ui/react-dialog": "^1.1.15",
     "@repo/ui": "workspace:*",
     "axios": "^1.13.5",
     "immer": "^11.1.4",
