@@ -18,11 +18,36 @@ import {
 import { randomUUID } from "crypto";
 
 async function getCart(req: Request, res: Response) {
-  const identifier = req.cartIdentifier;
-  if (!identifier) throw new ApiError(500, "Internal error");
-  const cart = await getCartService(identifier);
-  return new ApiResponse(200, cart, "Cart fetched").send(res);
+  const identifier = req.cartIdentifier
+  if (!identifier) throw new ApiError(500, "Internal error")
+
+  const userId = req.user?.userId
+
+  // ⭐ AUTO SYNC FLOW
+  if (userId && identifier.type === "session") {
+    await syncCartService(userId, identifier.id)
+
+    // rotate session cookie (prevent fixation)
+    const newSessionId = randomUUID()
+
+    res.cookie("cartSession", newSessionId, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+    })
+
+    const userIdentifier = { type: "user" as const, id: userId }
+    const cart = await getCartService(userIdentifier)
+
+    return new ApiResponse(200, cart, "Cart fetched").send(res)
+  }
+
+  const cart = await getCartService(identifier)
+
+  return new ApiResponse(200, cart, "Cart fetched").send(res)
 }
+
 
 async function addCartItem(req: Request, res: Response) {
   const identifier = req.cartIdentifier;
