@@ -18,6 +18,7 @@ import FilterSidebar from "../../components/products/filters/FilterSidebar"
 import MobileFilterDrawer from "../../components/products/filters/MobileFilterDrawer"
 
 import type { Product } from "../../types/product"
+import SearchBar from "../../components/products/SearchBar"
 
 export default function ProductsPage() {
   const router = useRouter()
@@ -128,7 +129,7 @@ export default function ProductsPage() {
       <h1 className="text-3xl font-bold text-primary text-center mb-8">
         Toys & Games
       </h1>
-
+       <SearchBar />
       <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-8">
 
         <FilterSidebar />
