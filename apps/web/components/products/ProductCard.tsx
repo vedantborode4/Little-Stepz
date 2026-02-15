@@ -9,7 +9,11 @@ import { useCartStore } from "../../store/useCartStore"
 import { useWishlistStore } from "../../store/useWishlistStore"
 import { toast } from "sonner"
 
-export default function ProductCard({ product }: { product: Product }) {
+interface Props {
+  product: Product
+}
+
+export default function ProductCard({ product }: Props) {
   const router = useRouter()
 
   const addItem = useCartStore((s) => s.addItem)
@@ -27,19 +31,53 @@ export default function ProductCard({ product }: { product: Product }) {
     e.preventDefault()
     e.stopPropagation()
 
-    // 🔥 product has variants → go to details page
-    if (product.variants?.length) {
+    try {
+      const variants = product.variants ?? []
+
+      // ✅ NO VARIANTS
+      if (variants.length === 0) {
+        await addItem({
+          productId: product.id,
+          quantity: 1,
+        })
+
+        toast.success("Added to cart")
+        return
+      }
+
+      // ✅ SINGLE VARIANT → AUTO ADD
+      if (variants.length === 1) {
+        const variant = variants[0]
+        if (!variant) return
+
+        await addItem({
+          productId: product.id,
+          variantId: variant.id,
+          quantity: 1,
+        })
+
+        toast.success("Added to cart")
+        return
+      }
+
+      // ✅ MULTIPLE VARIANTS → REDIRECT
       router.push(`/products/${product.slug}`)
-      return
+    } catch (err: any) {
+      toast.error(
+        err?.response?.data?.message || "Failed to add to cart"
+      )
     }
-
-    await addItem({
-      productId: product.id,
-      quantity: 1,
-    })
-
-    toast.success("Added to cart")
   }
+
+  const handleWishlist = (
+    e: React.MouseEvent<HTMLButtonElement>
+  ) => {
+    e.preventDefault()
+    e.stopPropagation()
+    toggleWishlist(product.id)
+  }
+
+  const hasMultipleVariants = (product.variants?.length ?? 0) > 1
 
   return (
     <Link
@@ -55,12 +93,8 @@ export default function ProductCard({ product }: { product: Product }) {
         />
 
         <button
-          onClick={(e) => {
-            e.preventDefault()
-            e.stopPropagation()
-            toggleWishlist(product.id)
-          }}
-          className="absolute top-3 right-3 bg-white rounded-full p-2 shadow"
+          onClick={handleWishlist}
+          className="absolute top-3 right-3 bg-white rounded-full p-2 shadow hover:scale-110 transition"
         >
           <Heart
             className={`w-4 h-4 ${
@@ -82,9 +116,9 @@ export default function ProductCard({ product }: { product: Product }) {
         <button
           onClick={handleAddToCart}
           disabled={!product.inStock}
-          className="w-full mt-2 bg-primary text-white py-2 rounded-lg text-sm font-medium hover:opacity-90 transition disabled:bg-gray-300"
+          className="w-full mt-2 bg-primary text-white py-2 rounded-lg text-sm font-medium hover:opacity-90 transition disabled:bg-gray-300 disabled:cursor-not-allowed"
         >
-          {product.variants?.length
+          {hasMultipleVariants
             ? "Select Options"
             : product.inStock
             ? "Add to Cart"
