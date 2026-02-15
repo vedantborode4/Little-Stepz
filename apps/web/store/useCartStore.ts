@@ -6,8 +6,6 @@ interface AddItemPayload {
   productId: string
   variantId?: string
   quantity: number
-
-  // ✅ optional → for optimistic UI
   product?: any
   variant?: any
 }
@@ -15,6 +13,7 @@ interface AddItemPayload {
 interface CartState {
   items: CartItem[]
   isLoading: boolean
+  subtotal: number
 
   fetchCart: () => Promise<void>
   addItem: (payload: AddItemPayload) => Promise<void>
@@ -25,35 +24,39 @@ interface CartState {
   ) => Promise<void>
   removeItem: (productId: string, variantId?: string) => Promise<void>
   clearCart: () => Promise<void>
-
-  getSubtotal: () => number
 }
 
 export const useCartStore = create<CartState>((set, get) => ({
   items: [],
+  subtotal: 0,
   isLoading: false,
+
+  /* ---------------- FETCH ---------------- */
 
   fetchCart: async () => {
     set({ isLoading: true })
     try {
       const data = await CartService.getCart()
-      set({ items: data.items })
+      set({
+        items: data.items,
+        subtotal: data.subtotal,
+      })
     } finally {
       set({ isLoading: false })
     }
   },
 
-  addItem: async (payload) => {
-    const prevItems = get().items ?? []
+  /* ---------------- ADD ---------------- */
 
-    /* find existing */
-    const existing = prevItems.find(
+  addItem: async (payload) => {
+    const prev = get().items ?? []
+
+    const existing = prev.find(
       (i) =>
         i.productId === payload.productId &&
         i.variantId === payload.variantId
     )
 
-    /* optimistic item */
     const optimisticItem: CartItem = existing
       ? { ...existing, quantity: existing.quantity + payload.quantity }
       : {
@@ -67,16 +70,15 @@ export const useCartStore = create<CartState>((set, get) => ({
             Number(payload.product!.price) * payload.quantity,
         }
 
-    /* optimistic update */
     set({
       items: existing
-        ? prevItems.map((i) =>
+        ? prev.map((i) =>
             i.productId === payload.productId &&
             i.variantId === payload.variantId
               ? optimisticItem
               : i
           )
-        : [...prevItems, optimisticItem],
+        : [...prev, optimisticItem],
     })
 
     try {
@@ -86,39 +88,52 @@ export const useCartStore = create<CartState>((set, get) => ({
         quantity: payload.quantity,
       })
 
-      set({ items: data.items })
-    } catch (err) {
-      set({ items: prevItems })
-      throw err
+      set({
+        items: data.items,
+        subtotal: data.subtotal,
+      })
+    } catch (e) {
+      set({ items: prev })
+      throw e
     }
   },
 
+  /* ---------------- UPDATE QTY ---------------- */
 
   updateQuantity: async (productId, variantId, quantity) => {
-    const prevItems = get().items
+    const prev = get().items ?? []
 
     set({
-      items: prevItems.map((item) =>
-        item.productId === productId &&
-        item.variantId === variantId
-          ? { ...item, quantity }
-          : item
+      items: prev.map((i) =>
+        i.productId === productId && i.variantId === variantId
+          ? { ...i, quantity }
+          : i
       ),
     })
 
     try {
-      await CartService.update({ productId, variantId, quantity })
-      await get().fetchCart()
+      const data = await CartService.update({
+        productId,
+        variantId,
+        quantity,
+      })
+
+      set({
+        items: data.items,
+        subtotal: data.subtotal,
+      })
     } catch {
-      set({ items: prevItems })
+      set({ items: prev })
     }
   },
 
+  /* ---------------- REMOVE ---------------- */
+
   removeItem: async (productId, variantId) => {
-    const prevItems = get().items
+    const prev = get().items ?? []
 
     set({
-      items: prevItems.filter(
+      items: prev.filter(
         (i) =>
           !(
             i.productId === productId &&
@@ -128,23 +143,31 @@ export const useCartStore = create<CartState>((set, get) => ({
     })
 
     try {
-      await CartService.remove({ productId, variantId })
+      const data = await CartService.remove({
+        productId,
+        variantId,
+      })
+
+      set({
+        items: data.items,
+        subtotal: data.subtotal,
+      })
     } catch {
-      set({ items: prevItems })
+      set({ items: prev })
     }
   },
 
+  /* ---------------- CLEAR ---------------- */
+
   clearCart: async () => {
-    const prevItems = get().items
+    const prev = get().items
     set({ items: [] })
 
     try {
       await CartService.clear()
+      set({ subtotal: 0 })
     } catch {
-      set({ items: prevItems })
+      set({ items: prev })
     }
   },
-
-  getSubtotal: () =>
-    get().items.reduce((acc, item) => acc + item.subtotal, 0),
 }))
