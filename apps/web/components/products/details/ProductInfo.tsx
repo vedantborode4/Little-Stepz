@@ -54,7 +54,11 @@ export default function ProductInfo({ product }: { product: Product }) {
         productId: product.id,
         variantId: selectedVariant?.id,
         quantity,
+        product,
+        variant: selectedVariant,
       })
+
+
 
       toast.success("Added to cart")
     } catch (err: any) {

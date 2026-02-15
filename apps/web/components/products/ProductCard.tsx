@@ -10,11 +10,7 @@ import { useCartStore } from "../../store/useCartStore"
 import { useWishlistStore } from "../../store/useWishlistStore"
 import { toast } from "sonner"
 
-interface Props {
-  product: Product
-}
-
-export default function ProductCard({ product }: Props) {
+export default function ProductCard({ product }: { product: Product }) {
   const router = useRouter()
 
   const addItem = useCartStore((s) => s.addItem)
@@ -39,48 +35,41 @@ export default function ProductCard({ product }: Props) {
 
     if (isAdding) return
 
-    try {
-      if (hasMultipleVariants) {
-        router.push(`/products/${product.slug}`)
-        return
-      }
+    if (hasMultipleVariants) {
+      router.push(`/products/${product.slug}`)
+      return
+    }
 
+    try {
       setIsAdding(true)
 
       if (variants.length === 0) {
         await addItem({
           productId: product.id,
           quantity: 1,
+          product,
         })
       }
 
       if (variants.length === 1) {
         const variant = variants[0]
+
         if (!variant) return
 
         await addItem({
           productId: product.id,
           variantId: variant.id,
           quantity: 1,
+          product,
+          variant,
         })
       }
 
+
       toast.success("Added to cart")
-    } catch (err: any) {
-      toast.error(
-        err?.response?.data?.message || "Failed to add to cart"
-      )
     } finally {
       setIsAdding(false)
     }
-  }
-
-  const handleWishlist = (
-    e: React.MouseEvent<HTMLButtonElement>
-  ) => {
-    e.preventDefault()
-    e.stopPropagation()
-    toggleWishlist(product.id)
   }
 
   return (
@@ -97,8 +86,12 @@ export default function ProductCard({ product }: Props) {
         />
 
         <button
-          onClick={handleWishlist}
-          className="absolute top-3 right-3 bg-white rounded-full p-2 shadow hover:scale-110 transition"
+          onClick={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            toggleWishlist(product.id)
+          }}
+          className="absolute top-3 right-3 bg-white rounded-full p-2 shadow"
         >
           <Heart
             className={`w-4 h-4 ${
@@ -109,7 +102,7 @@ export default function ProductCard({ product }: Props) {
       </div>
 
       <div className="p-4 space-y-2">
-        <h3 className="text-sm font-medium line-clamp-2 min-h-[40px]">
+        <h3 className="text-sm font-medium line-clamp-2">
           {product.name}
         </h3>
 
@@ -120,7 +113,7 @@ export default function ProductCard({ product }: Props) {
         <button
           onClick={handleAddToCart}
           disabled={!product.inStock || isAdding}
-          className="w-full mt-2 bg-primary text-white py-2 rounded-lg text-sm font-medium hover:opacity-90 transition disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          className="w-full mt-2 bg-primary text-white py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 disabled:bg-gray-300"
         >
           {isAdding && <Loader2 className="w-4 h-4 animate-spin" />}
 
@@ -128,9 +121,7 @@ export default function ProductCard({ product }: Props) {
             ? "Select Options"
             : isAdding
             ? "Adding…"
-            : product.inStock
-            ? "Add to Cart"
-            : "Out of Stock"}
+            : "Add to Cart"}
         </button>
       </div>
     </Link>

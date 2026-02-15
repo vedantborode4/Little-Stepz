@@ -1,9 +1,9 @@
 export interface CartItem {
   id: string
-
   productId: string
-  variantId?: string | null
+  variantId?: string
   quantity: number
+  subtotal: number
 
   product: {
     id: string
@@ -17,7 +17,7 @@ export interface CartItem {
     id: string
     name: string
     price: number
-  } | null
+  }
 
-  subtotal: number
+  isOptimistic?: boolean
 }
