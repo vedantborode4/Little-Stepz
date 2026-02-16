@@ -1,6 +1,7 @@
 "use client"
 
 import ProfileCard from "../../components/profile/ProfileCard"
+import AddressSection from "../../components/address/AddressSection"
 
 export default function ProfilePage() {
   return (
@@ -9,6 +10,7 @@ export default function ProfilePage() {
 
       <ProfileCard />
 
+      <AddressSection />
     </div>
   )
 }
