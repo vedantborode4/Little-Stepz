@@ -13,7 +13,7 @@ app.use(cookieParser())
 app.use(cors({
     origin: ORIGIN,
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
 }))
 
 const PORT = process.env.PORT || 3000
