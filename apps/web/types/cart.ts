@@ -1,23 +1,20 @@
 export interface CartItem {
   id: string
   productId: string
-  variantId?: string
+  variantId?: string | null   // ✅ allow null
   quantity: number
-  subtotal: number
-
   product: {
     id: string
     name: string
     slug: string
-    price: number
+    price: string
     images: { url: string }[]
   }
-
   variant?: {
     id: string
     name: string
-    price: number
-  }
+    price: string
+  } | null
 
-  isOptimistic?: boolean
+  subtotal: number
 }

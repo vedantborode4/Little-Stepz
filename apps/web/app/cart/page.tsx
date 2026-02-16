@@ -24,25 +24,20 @@ export default function CartPage() {
   /* 🛒 Empty state */
   if (!items || items.length === 0) {
     return (
-      <div className="min-h-[70vh] flex flex-col items-center justify-center text-center px-4">
-        <div className="w-16 h-16 flex items-center justify-center rounded-full bg-primary/10 mb-4">
-          <ShoppingBag className="w-8 h-8 text-primary" />
-        </div>
-
-        <h2 className="text-2xl font-semibold mb-2">
-          Your cart is empty
+      <div className="py-24 text-center space-y-4">
+        <h2 className="text-xl font-semibold">
+          Your cart feels lonely 🛒
         </h2>
 
-        <p className="text-muted mb-6 max-w-sm">
+        <p className="text-muted">
           Looks like you haven’t added anything yet.
-          Start exploring our products and find something you love ❤️
         </p>
 
         <Link
           href="/products"
-          className="bg-primary text-white px-6 py-3 rounded-xl font-medium hover:opacity-90 transition"
+          className="inline-block bg-primary text-white px-6 py-3 rounded-xl font-medium hover:opacity-90 transition"
         >
-          Continue Shopping
+          Start Shopping
         </Link>
       </div>
     )
