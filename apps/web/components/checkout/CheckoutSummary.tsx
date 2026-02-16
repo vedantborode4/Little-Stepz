@@ -26,6 +26,7 @@ export default function CheckoutSummary({
     }
   }
 
+
   return (
     <div className="bg-white border rounded-xl p-6 h-fit sticky top-24 space-y-4">
 
