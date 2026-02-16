@@ -1,5 +1,6 @@
 import { create } from "zustand"
 import { CartService } from "../lib/services/cart.service"
+import { CouponService } from "../lib/services/coupon.service"
 import type { CartItem } from "../types/cart"
 import { toast } from "sonner"
 
@@ -12,6 +13,12 @@ interface AddItemPayload {
 interface CartState {
   items: CartItem[]
   subtotal: number
+  total: number
+
+  couponCode: string | null
+  discount: number
+  isValidatingCoupon: boolean
+
   isLoading: boolean
   updatingKey: string | null
 
@@ -26,6 +33,12 @@ interface CartState {
 
   removeItem: (productId: string, variantId?: string) => Promise<void>
   clearCart: () => Promise<void>
+
+  applyCoupon: (code: string) => Promise<void>
+  removeCoupon: () => void
+
+  /** 🔒 internal but typed */
+  revalidateCoupon: () => Promise<void>
 }
 
 const calcSubtotal = (items: CartItem[]) =>
@@ -45,18 +58,101 @@ const getKey = (productId: string, variantId?: string) =>
 export const useCartStore = create<CartState>((set, get) => ({
   items: [],
   subtotal: 0,
+  total: 0,
+
+  couponCode: null,
+  discount: 0,
+  isValidatingCoupon: false,
+
   isLoading: false,
   updatingKey: null,
+
+  /* ---------------- FETCH ---------------- */
 
   fetchCart: async () => {
     set({ isLoading: true })
     try {
       const data = await CartService.getCart()
-      set({ items: data.items, subtotal: data.subtotal })
+
+      set({
+        items: data.items,
+        subtotal: data.subtotal,
+        total: data.subtotal,
+        discount: 0,
+        couponCode: null,
+      })
     } finally {
       set({ isLoading: false })
     }
   },
+
+  /* ---------------- COUPON ---------------- */
+
+applyCoupon: async (code) => {
+  if (!code.trim()) {
+    throw new Error("Enter coupon code")
+  }
+
+  set({ isValidatingCoupon: true })
+
+  try {
+    const subtotal = get().subtotal
+    const res = await CouponService.validate(code, subtotal)
+
+    if (!res?.valid) {
+      throw new Error(res?.message || "Invalid coupon")
+    }
+
+    set({
+      couponCode: code,
+      discount: res.discount,
+      total: subtotal - res.discount,
+    })
+
+  } catch (e: any) {
+    throw e   // 🚨 IMPORTANT
+  } finally {
+    set({ isValidatingCoupon: false })
+  }
+},
+
+
+
+
+  removeCoupon: () => {
+    const subtotal = get().subtotal
+
+    set({
+      couponCode: null,
+      discount: 0,
+      total: subtotal,
+    })
+  },
+
+revalidateCoupon: async () => {
+  const { couponCode, subtotal } = get()
+  if (!couponCode) return
+
+  try {
+    const res = await CouponService.validate(couponCode, subtotal)
+
+    set({
+      discount: res.discount,
+      total: subtotal - res.discount,
+    })
+  } catch {
+    toast.error("Coupon removed — cart updated")
+
+    set({
+      couponCode: null,
+      discount: 0,
+      total: subtotal,
+    })
+  }
+},
+
+
+  /* ---------------- ADD ---------------- */
 
   addItem: async (payload) => {
     const prev = get().items
@@ -100,42 +196,38 @@ export const useCartStore = create<CartState>((set, get) => ({
       ]
     }
 
+    const newSubtotal = calcSubtotal(optimistic)
+
     set({
       items: optimistic,
-      subtotal: calcSubtotal(optimistic),
+      subtotal: newSubtotal,
+      total: newSubtotal - get().discount,
     })
 
     try {
       const data = await CartService.add(payload)
-      set({ items: data.items, subtotal: data.subtotal })
+
+      set({
+        items: data.items,
+        subtotal: data.subtotal,
+        total: data.subtotal - get().discount,
+      })
+
       toast.success("Added to cart")
+      get().revalidateCoupon()
     } catch {
       set({ items: prev, subtotal: calcSubtotal(prev) })
       toast.error("Failed to add to cart")
     }
   },
 
+  /* ---------------- UPDATE ---------------- */
+
   updateQuantity: async (productId, variantId, quantity) => {
     if (quantity < 1) return
 
     const prev = get().items
     const key = getKey(productId, variantId)
-
-    const target = prev.find((i) =>
-      matchItem(i, productId, variantId)
-    )
-
-    if (!target) return
-
-    const stock =
-      (target.variant as any)?.stock ??
-      (target.product as any)?.quantity ??
-      10
-
-    if (quantity > stock) {
-      toast.error(`Only ${stock} items available`)
-      quantity = stock
-    }
 
     const optimistic = prev.map((i) =>
       matchItem(i, productId, variantId)
@@ -147,9 +239,12 @@ export const useCartStore = create<CartState>((set, get) => ({
         : i
     )
 
+    const newSubtotal = calcSubtotal(optimistic)
+
     set({
       items: optimistic,
-      subtotal: calcSubtotal(optimistic),
+      subtotal: newSubtotal,
+      total: newSubtotal - get().discount,
       updatingKey: key,
     })
 
@@ -163,17 +258,23 @@ export const useCartStore = create<CartState>((set, get) => ({
       set({
         items: data.items,
         subtotal: data.subtotal,
+        total: data.subtotal - get().discount,
         updatingKey: null,
       })
+
+      get().revalidateCoupon()
     } catch {
       set({
         items: prev,
         subtotal: calcSubtotal(prev),
         updatingKey: null,
       })
+
       toast.error("Update failed")
     }
   },
+
+  /* ---------------- REMOVE ---------------- */
 
   removeItem: async (productId, variantId) => {
     const prev = get().items
@@ -183,9 +284,12 @@ export const useCartStore = create<CartState>((set, get) => ({
       (i) => !matchItem(i, productId, variantId)
     )
 
+    const newSubtotal = calcSubtotal(optimistic)
+
     set({
       items: optimistic,
-      subtotal: calcSubtotal(optimistic),
+      subtotal: newSubtotal,
+      total: newSubtotal - get().discount,
       updatingKey: key,
     })
 
@@ -198,21 +302,32 @@ export const useCartStore = create<CartState>((set, get) => ({
       set({
         items: data.items,
         subtotal: data.subtotal,
+        total: data.subtotal - get().discount,
         updatingKey: null,
       })
+
+      get().revalidateCoupon()
     } catch {
       set({
         items: prev,
         subtotal: calcSubtotal(prev),
         updatingKey: null,
       })
+
       toast.error("Remove failed")
     }
   },
 
   clearCart: async () => {
     const prev = get().items
-    set({ items: [], subtotal: 0 })
+
+    set({
+      items: [],
+      subtotal: 0,
+      total: 0,
+      discount: 0,
+      couponCode: null,
+    })
 
     try {
       await CartService.clear()
