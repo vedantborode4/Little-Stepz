@@ -7,7 +7,7 @@ import { useAddressStore } from "../../store/useAddressStore"
 import AddressFormDialog from "./AddressFormDialog"
 import { Skeleton } from "@repo/ui/index"
 
-export default function CheckoutAddressSection() {
+export default function CheckoutAddressSection({ onContinue }: { onContinue: () => void }) {
   const [addresses, setAddresses] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -62,9 +62,13 @@ export default function CheckoutAddressSection() {
       </div>
 
       {selectedAddressId && (
-        <button className="w-full bg-primary text-white py-3 rounded-xl font-medium">
-          Deliver Here
+        <button
+            onClick={onContinue}
+            className="w-full bg-primary text-white py-3 rounded-xl font-medium"
+            >
+            Deliver Here
         </button>
+
       )}
     </div>
   )
