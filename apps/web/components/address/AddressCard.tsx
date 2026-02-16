@@ -2,6 +2,7 @@
 
 import { AddressService } from "../../lib/services/address.service"
 import { toast } from "sonner"
+import EditAddressDialog from "./EditAddressDialog"
 
 export default function AddressCard({ address, refresh }: any) {
   const handleDelete = async () => {
@@ -19,7 +20,7 @@ export default function AddressCard({ address, refresh }: any) {
   return (
     <div className="border rounded-lg p-4 flex justify-between">
 
-      <div className="text-sm">
+      <div className="text-sm space-y-1">
         <p className="font-medium">{address.name}</p>
         <p>{address.address}</p>
         <p>{address.city}, {address.state}</p>
@@ -27,16 +28,23 @@ export default function AddressCard({ address, refresh }: any) {
         <p>{address.phone}</p>
 
         {address.isDefault && (
-          <span className="text-xs text-green-600 font-medium">
-            Default Address
+          <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">
+            Default
           </span>
         )}
       </div>
 
-      <div className="flex flex-col gap-2 text-sm">
+      <div className="flex flex-col gap-2 text-sm items-end">
         {!address.isDefault && (
-          <button onClick={handleDefault}>Set Default</button>
+          <button onClick={handleDefault}>
+            Set Default
+          </button>
         )}
+
+        <EditAddressDialog
+          address={address}
+          onUpdated={refresh}
+        />
 
         <button
           onClick={handleDelete}
