@@ -18,6 +18,9 @@ export default function CheckoutPage() {
   const [isLocking, setIsLocking] = useState(true)
   const [isValid, setIsValid] = useState(false)
 
+  // ✅ NEW
+  const [addressId, setAddressId] = useState<string>("")
+
   useEffect(() => {
     const lockPricing = async () => {
       try {
@@ -79,10 +82,13 @@ export default function CheckoutPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 py-10 grid lg:grid-cols-3 gap-8">
       <div className="lg:col-span-2">
-        <CheckoutStepper />
+        <CheckoutStepper onAddressChange={setAddressId} />
       </div>
 
-      <CheckoutSummary isValid={isValid} />
+      <CheckoutSummary
+        isValid={isValid}
+        addressId={addressId}
+      />
     </div>
   )
 }

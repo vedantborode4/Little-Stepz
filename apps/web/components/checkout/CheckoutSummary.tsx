@@ -1,13 +1,30 @@
 "use client"
 
 import { useCartStore } from "../../store/useCartStore"
+import { useCheckoutStore } from "../../store/useCheckoutStore"
+import { useRouter } from "next/navigation"
 
 export default function CheckoutSummary({
   isValid = true,
+  addressId,
 }: {
   isValid?: boolean
+  addressId?: string
 }) {
+  const router = useRouter()
+
   const { subtotal, total, discount, couponCode } = useCartStore()
+  const { placeOrder, placingOrder } = useCheckoutStore()
+
+  const handleOrder = async () => {
+    if (!addressId) return
+
+    const orderId = await placeOrder(addressId)
+
+    if (orderId) {
+      router.push(`/order-success/${orderId}`)
+    }
+  }
 
   return (
     <div className="bg-white border rounded-xl p-6 h-fit sticky top-24 space-y-4">
@@ -37,10 +54,11 @@ export default function CheckoutSummary({
       </div>
 
       <button
-        disabled={!isValid}
+        onClick={handleOrder}
+        disabled={!isValid || !addressId || placingOrder}
         className="w-full bg-primary text-white py-3 rounded-xl font-medium disabled:opacity-50"
       >
-        Place Order
+        {placingOrder ? "Placing order…" : "Place Order"}
       </button>
 
       {!isValid && (

@@ -4,7 +4,11 @@ import { useState } from "react"
 import CheckoutAddressSection from "../address/CheckoutAddressSection"
 import OrderReview from "./OrderReview"
 
-export default function CheckoutStepper() {
+export default function CheckoutStepper({
+  onAddressChange,
+}: {
+  onAddressChange: (id: string) => void
+}) {
   const [step, setStep] = useState(1)
 
   return (
@@ -28,7 +32,12 @@ export default function CheckoutStepper() {
         </div>
 
         {step === 1 && (
-          <CheckoutAddressSection onContinue={() => setStep(2)} />
+            <CheckoutAddressSection
+            onContinue={(id: string) => {
+                onAddressChange(id)
+                setStep(2)
+            }}
+            />
         )}
       </div>
 
