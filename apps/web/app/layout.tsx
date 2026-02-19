@@ -2,6 +2,7 @@ import "./globals.css"
 import { Toaster } from "sonner"
 import { AuthProvider } from "./providers/auth-provider"
 import Script from "next/script"
+import Navbar from "../components/layout/Navbar"
 
 export default function RootLayout({
   children,
@@ -12,6 +13,7 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <AuthProvider>
+          <Navbar />
           {children}
           <Toaster richColors />
           <Script
