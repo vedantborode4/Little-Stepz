@@ -11,6 +11,7 @@ import { cartRouter } from "./cart.routes";
 import { couponsRouter } from "./coupons.routes";
 import { checkoutRouter } from "./checkout.routes";
 import { ordersRouter } from "./orders.routes";
+import { paymentRouter }  from "./payment.routes";
 
 export const appRouter:Router = Router()
 
@@ -37,3 +38,5 @@ appRouter.use("/coupons", couponsRouter)
 appRouter.use("/checkout", checkoutRouter)
 
 appRouter.use("/orders", ordersRouter)
+
+appRouter.use("/payments",   paymentRouter);
