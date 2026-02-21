@@ -42,6 +42,7 @@ model User {
 
   @@index([email])
   @@index([role])
+  @@index([referralCode])
 }
 
 model RefreshToken {
@@ -303,6 +304,7 @@ model Order {
   @@index([deletedAt])
   @@index([idempotencyKey])
   @@index([paymentMethod])
+  @@index([affiliateId])
 }
 
 
@@ -359,9 +361,9 @@ model Payment {
 
 model WebhookEvent {
   id        String @id @default(uuid())
-  provider  String // "razorpay" | "shiprocket"
-  eventId   String // Razorpay event.id or Shiprocket webhook_id
-  eventType String // "payment.captured", "payment.failed", etc.
+  provider  String
+  eventId   String
+  eventType String
 
   payload     Json
   status      WebhookStatus @default(PENDING)
@@ -371,7 +373,6 @@ model WebhookEvent {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Composite unique: prevents same event from being processed twice
   @@unique([provider, eventId])
   @@index([provider, eventType])
   @@index([status])
@@ -404,19 +405,18 @@ enum WebhookStatus {
   SKIPPED
 }
 
-// ─── AuditLog — immutable trail for payments, refunds, commissions ────────────
 model AuditLog {
   id     String  @id @default(uuid())
   userId String?
   user   User?   @relation(fields: [userId], references: [id])
 
-  action   String // "PAYMENT_CREATED", "REFUND_ISSUED", "COMMISSION_REVERSED"
-  entity   String // "Payment", "Order", "Commission"
+  action   String
+  entity   String
   entityId String
 
   oldValue Json?
   newValue Json?
-  metadata Json? // IP address, user agent, request ID
+  metadata Json?
 
   createdAt DateTime @default(now())
 
@@ -428,7 +428,7 @@ model AuditLog {
 
 model Return {
   id      String @id @default(uuid())
-  orderId String @unique // One return request per order
+  orderId String @unique
   order   Order  @relation(fields: [orderId], references: [id])
   userId  String
 
@@ -529,23 +529,40 @@ enum CommissionStatus {
   CANCELLED
 }
 
-model Affiliate {
-  id              String @id @default(uuid())
-  userId          String @unique
-  user            User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+enum CommissionType {
+  PER_ORDER 
+  LIFETIME 
+}
 
-  status          AffiliateStatus @default(PENDING)
-  referralCode    String @unique
-  commissionRate  Decimal @default(0.1)
+model Affiliate {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  status         AffiliateStatus @default(PENDING)
+  referralCode   String          @unique
+  commissionRate Decimal         @default(0.05) // 5% default, configurable 5-10%
+  commissionType CommissionType  @default(LIFETIME)
 
   totalClicks      Int     @default(0)
   totalConversions Int     @default(0)
   totalCommission  Decimal @default(0)
 
-  clicks       AffiliateClick[]
-  conversions  AffiliateConversion[]
-  commissions  Commission[]
-  orders       Order[]
+  pendingBalance   Decimal @default(0)  
+  paidOutBalance   Decimal @default(0)  
+
+  payoutDetails Json? 
+
+
+  adminNote  String?
+  approvedAt DateTime?
+  approvedBy String?
+
+  clicks      AffiliateClick[]
+  conversions AffiliateConversion[]
+  commissions Commission[]
+  withdrawals AffiliateWithdrawal[]
+  orders      Order[]
 
   deletedAt DateTime?
 
@@ -553,20 +570,30 @@ model Affiliate {
   updatedAt DateTime @updatedAt
 
   @@index([status])
+  @@index([referralCode])
 }
 
 model AffiliateClick {
-  id          String @id @default(uuid())
+  id          String    @id @default(uuid())
   affiliateId String
   affiliate   Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
 
-  ip        String?
-  userAgent String?
-  referrer  String?
+  ip          String?
+  userAgent   String?
+  referrer    String?
+  country     String?  
+  sessionId   String?  
+
+  ipDateKey   String? 
+
+  isUnique    Boolean  @default(true)  
+  convertedAt DateTime? 
 
   createdAt DateTime @default(now())
 
   @@index([affiliateId, createdAt])
+  @@index([ipDateKey])
+  @@index([affiliateId, isUnique])
 }
 
 model AffiliateConversion {
@@ -584,6 +611,7 @@ model AffiliateConversion {
   updatedAt DateTime @updatedAt
 
   @@unique([affiliateId, orderId])
+  @@index([affiliateId, status])
 }
 
 model Commission {
@@ -601,11 +629,45 @@ model Commission {
   reversedAt     DateTime?
   reversalReason String?
 
+  withdrawalId String?
+  withdrawal   AffiliateWithdrawal? @relation(fields: [withdrawalId], references: [id])
+
   deletedAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([affiliateId, orderId]) 
   @@index([affiliateId, status])
   @@index([orderId])
+  @@index([withdrawalId])
+}
+
+enum WithdrawalStatus {
+  PENDING
+  PROCESSING
+  PAID
+  REJECTED
+}
+
+model AffiliateWithdrawal {
+  id          String    @id @default(uuid())
+  affiliateId String
+  affiliate   Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+
+  amount         Decimal
+  status         WithdrawalStatus @default(PENDING)
+  payoutDetails  Json?   
+  adminNote      String?
+  processedBy    String? 
+  processedAt    DateTime?
+  transactionRef String? 
+
+  commissions Commission[] 
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([affiliateId, status])
+  @@index([status])
 }
