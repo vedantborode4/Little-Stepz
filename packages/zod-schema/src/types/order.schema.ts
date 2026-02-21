@@ -31,8 +31,9 @@ export const createOrderBodySchema = z
     addressId: uuidSchema,
     couponCode: z.string().trim().min(1).optional(),
 
-    // order-specific fields
-    paymentMethodId: uuidSchema,
+    // Payment method chosen at order creation time
+    paymentMethod: z.enum(["ONLINE", "COD"]).default("ONLINE"),
+    customerNote: z.string().max(500).optional(),
   })
   .strict();
 

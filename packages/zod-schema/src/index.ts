@@ -11,3 +11,4 @@ export * from "./types/order.schema";
 export * from "./types/review.schema";
 export * from "./types/user.schema";
 export * from "./types/common/index";
+export * from "./types/payment.schema"; 
