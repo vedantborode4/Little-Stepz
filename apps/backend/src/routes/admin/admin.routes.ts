@@ -6,6 +6,7 @@ import { adminProductRouter } from "./admin.product.routes";
 import { adminReviewRouter } from "./admin.review.routes";
 import { adminCouponsRouter } from "./admin.coupons.routes";
 import { adminOrdersRouter } from "./admin.orders.routes";
+import { adminPaymentRouter } from "./admin.payment.routes";
 
 export const adminRouter: Router = Router();
 
@@ -20,3 +21,5 @@ adminRouter.use("/reviews", adminReviewRouter);
 adminRouter.use("/coupons",adminCouponsRouter);
 
 adminRouter.use("/orders", adminOrdersRouter);
+
+adminRouter.use("/", adminPaymentRouter);
