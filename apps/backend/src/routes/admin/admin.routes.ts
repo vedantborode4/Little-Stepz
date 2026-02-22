@@ -7,6 +7,7 @@ import { adminReviewRouter } from "./admin.review.routes";
 import { adminCouponsRouter } from "./admin.coupons.routes";
 import { adminOrdersRouter } from "./admin.orders.routes";
 import { adminPaymentRouter } from "./admin.payment.routes";
+import { adminAffiliateRouter } from "./admin.affiliate.routes";
 
 export const adminRouter: Router = Router();
 
@@ -23,3 +24,5 @@ adminRouter.use("/coupons",adminCouponsRouter);
 adminRouter.use("/orders", adminOrdersRouter);
 
 adminRouter.use("/", adminPaymentRouter);
+
+adminRouter.use("/affiliates", adminAffiliateRouter);

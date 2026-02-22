@@ -17,7 +17,20 @@ async function createOrder(req: Request, res: Response) {
   const idempotencyKey = req.get('Idempotency-Key');
   if (!idempotencyKey) throw new ApiError(400, OrderErrorCode.IDEMPOTENCY_KEY_REQUIRED);
 
-  const affiliateId = req.cookies.affiliateId || undefined;
+
+  let affiliateId: string | undefined;
+  const rawAffiliateId = req.cookies?.ref;
+  if (rawAffiliateId && typeof rawAffiliateId === 'string') {
+    const { prisma } = await import('@repo/db/client');
+    const affiliate = await prisma.affiliate.findUnique({
+      where: { id: rawAffiliateId, status: 'APPROVED', deletedAt: null },
+      select: { id: true, userId: true },
+    });
+    // Don't allow self-referral
+    if (affiliate && affiliate.userId !== userId) {
+      affiliateId = affiliate.id;
+    }
+  }
 
   const order = await createOrderService(userId, validated, idempotencyKey, affiliateId);
 

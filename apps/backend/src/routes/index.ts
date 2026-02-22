@@ -12,6 +12,11 @@ import { couponsRouter } from "./coupons.routes";
 import { checkoutRouter } from "./checkout.routes";
 import { ordersRouter } from "./orders.routes";
 import { paymentRouter }  from "./payment.routes";
+import { webhookRouter }  from "./webhook.routes";
+import { affiliateRouter }  from "./affiliate.routes";
+import { handleReferralClickController } from "../controllers/affiliate.controllers";
+import { referralClickRateLimiter } from "../middlewares/affiliateRateLimiter.middleware";
+
 
 export const appRouter:Router = Router()
 
@@ -40,3 +45,9 @@ appRouter.use("/checkout", checkoutRouter)
 appRouter.use("/orders", ordersRouter)
 
 appRouter.use("/payments",   paymentRouter);
+
+appRouter.use("/webhooks",   webhookRouter);
+
+appRouter.use("/affiliate",  affiliateRouter);
+
+appRouter.get("/ref/:referralCode", referralClickRateLimiter, handleReferralClickController);
