@@ -12,3 +12,4 @@ export * from "./types/review.schema";
 export * from "./types/user.schema";
 export * from "./types/common/index";
 export * from "./types/payment.schema"; 
+export * from "./types/affiliate.schema";
