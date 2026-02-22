@@ -10,6 +10,8 @@ export type AuditAction =
   | "REFUND_SUCCESS"
   | "COMMISSION_CREATED"
   | "COMMISSION_REVERSED"
+  | "COMMISSION_APPROVED"
+  | "COMMISSION_PAID"
   | "RETURN_REQUESTED"
   | "RETURN_APPROVED"
   | "RETURN_REJECTED"
@@ -17,7 +19,15 @@ export type AuditAction =
   | "WEBHOOK_PROCESSED"
   | "WEBHOOK_DUPLICATE"
   | "SHIPMENT_CREATED"
-  | "ORDER_STATUS_UPDATED";
+  | "ORDER_STATUS_UPDATED"
+  | "AFFILIATE_APPLIED"
+  | "AFFILIATE_APPROVED"
+  | "AFFILIATE_REJECTED"
+  | "AFFILIATE_WITHDRAWAL_REQUESTED"
+  | "AFFILIATE_WITHDRAWAL_PAID"
+  | "AFFILIATE_WITHDRAWAL_REJECTED"
+  | "REFERRAL_CLICK_RECORDED"
+  | "REFERRAL_CONVERTED";
 
 export type AuditEntity =
   | "Payment"
@@ -25,7 +35,9 @@ export type AuditEntity =
   | "Commission"
   | "Return"
   | "Shipment"
-  | "WebhookEvent";
+  | "WebhookEvent"
+  | "Affiliate" 
+  | "AffiliateWithdrawal";
 
 export interface CreateAuditLogParams {
   userId?: string;
@@ -40,8 +52,7 @@ export interface CreateAuditLogParams {
 
 function asJsonValue<T>(value: T | undefined): any {
   if (value === undefined) return undefined;
-  return value; // direct reference – fast and usually fine for audit logs
-  // Alternative (more defensive): return JSON.parse(JSON.stringify(value));
+  return value; 
 }
 
 
@@ -67,14 +78,14 @@ export async function createAuditLog(params: CreateAuditLogParams): Promise<void
       },
     });
   } catch (err) {
-    // Audit logging must never crash the main flow
-    console.error("[AuditLog] Failed to create audit log:", err);
+    // Never let audit log failure crash the request
+    console.error("[AuditLog] Failed to write audit log:", err);
   }
 }
 
 
 export async function createAuditLogInTx(
-  tx: any, // Using `any` to avoid importing Prisma – works fine in practice
+  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
   params: CreateAuditLogParams
 ): Promise<void> {
   const metadata: Record<string, unknown> = params.metadata ?? {};
@@ -82,7 +93,7 @@ export async function createAuditLogInTx(
   if (params.req) {
     metadata.ip = params.req.ip ?? params.req.socket?.remoteAddress;
     metadata.userAgent = params.req.get("User-Agent");
-    metadata.requestId = params.req.get("X-Request-Id") ?? undefined;
+    metadata.requestId = params.req.get("X-Request-Id");
   }
 
   await tx.auditLog.create({
