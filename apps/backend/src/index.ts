@@ -7,7 +7,7 @@ import cors from "cors";
 import { webhookRouter } from "./routes/webhook.routes";
 
 const app = express();
-const ORIGIN = process.env.ORIGIN || "http://localhost:3000";
+const ORIGIN = process.env.FRONTEND_URL || "http://localhost:3000";
 
 app.use("/api/v1/webhooks", webhookRouter);
 

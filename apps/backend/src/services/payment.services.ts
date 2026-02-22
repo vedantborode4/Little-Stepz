@@ -1,21 +1,27 @@
-import { prisma } from "@repo/db/client";
+import { prisma, PaymentStatus, OrderStatus, PaymentMethod, WebhookStatus, ReturnStatus } from "@repo/db/client";
 import { ApiError } from "../utils/api";
 import { PaymentErrorCode } from "../utils/paymentErrors";
 import { createAuditLog, createAuditLogInTx } from "../utils/auditLog";
 import {
   createRazorpayOrder,
   verifyRazorpaySignature,
+  initiateRazorpayRefund,
   fetchRazorpayPayment,
 } from "../utils/razorpay.client";
 import {
+  createShiprocketOrder,
   trackShiprocketByAwb,
+  cancelShiprocketOrder,
+  buildShiprocketPayload,
 } from "../utils/shiprocket.client";
+import { processAffiliateCommissionService, reverseAffiliateCommissionsService } from "./affiliate.services";
 import { Decimal } from "decimal.js";
 import type {
   CreatePaymentBody,
   VerifyPaymentBody,
   CreateCodPaymentBody,
   CreateReturnBody,
+  ResolveReturnBody,
 } from "@repo/zod-schema/index";
 import { Request } from "express";
 
@@ -23,7 +29,7 @@ const MAX_PAYMENT_ATTEMPTS = 3;
 const TX_RETRIES           = 3;
 const RETURN_WINDOW_DAYS   = 7; // Orders eligible for return within 7 days of delivery
 
-export async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
+async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
   let attempts = 0;
   while (attempts < TX_RETRIES) {
     try {
@@ -261,7 +267,8 @@ export async function verifyPaymentService(
       });
 
       if (order.affiliateId) {
-        await handleAffiliateCommission(tx, {
+        await processAffiliateCommissionService({
+          tx,
           orderId:     data.orderId,
           affiliateId: order.affiliateId,
           orderTotal:  Number(order.total),
@@ -491,7 +498,8 @@ async function handlePaymentCaptured(payload: any): Promise<void> {
         select: { affiliateId: true, total: true, userId: true },
       });
       if (order?.affiliateId) {
-        await handleAffiliateCommission(tx, {
+        await processAffiliateCommissionService({
+          tx,
           orderId:     payment.orderId,
           affiliateId: order.affiliateId,
           orderTotal:  Number(order.total),
@@ -658,7 +666,133 @@ export async function createReturnRequestService(
   });
 }
 
+export async function resolveReturnService(
+  adminUserId: string,
+  returnId:    string,
+  data:        ResolveReturnBody,
+  req?:        Request
+) {
+  return withRetry(async () => {
+    return prisma.$transaction(async (tx) => {
+      const returns = await tx.$queryRaw<Array<{
+        id: string; orderId: string; status: string; userId: string;
+      }>>`
+        SELECT id, "orderId", status, "userId"
+        FROM "Return"
+        WHERE id = ${returnId}
+        FOR UPDATE
+      `;
 
+      const returnReq = returns[0];
+      if (!returnReq) throw new ApiError(404, PaymentErrorCode.RETURN_NOT_FOUND);
+      if (returnReq.status !== "PENDING") {
+        throw new ApiError(409, PaymentErrorCode.RETURN_ALREADY_RESOLVED);
+      }
+
+      const order = await tx.order.findUnique({
+        where:   { id: returnReq.orderId },
+        include: { payment: true, commissions: true },
+      });
+      if (!order) throw new ApiError(404, PaymentErrorCode.ORDER_NOT_FOUND);
+
+      const newReturnStatus = data.status === "APPROVED" ? "APPROVED" : "REJECTED";
+      await tx.return.update({
+        where: { id: returnId },
+        data: {
+          status:     newReturnStatus,
+          adminNote:  data.adminNote,
+          resolvedBy: adminUserId,
+          resolvedAt: new Date(),
+        },
+      });
+
+      const newOrderStatus = data.status === "APPROVED"
+        ? "RETURN_APPROVED"
+        : "RETURN_REJECTED";
+
+      await tx.order.update({
+        where: { id: returnReq.orderId },
+        data:  { status: newOrderStatus },
+      });
+
+      if (data.status === "APPROVED" && order.payment) {
+        const payment = order.payment;
+
+        if (payment.status === "REFUNDED") {
+          throw new ApiError(409, PaymentErrorCode.REFUND_ALREADY_ISSUED);
+        }
+        if (payment.method === "COD") {
+          await tx.payment.update({
+            where: { orderId: returnReq.orderId },
+            data: {
+              status:       "REFUND_INITIATED",
+              refundReason: data.adminNote ?? "Return approved",
+            },
+          });
+        } else if (payment.method === "ONLINE" && payment.razorpayPaymentId) {
+
+          const refundAmount = data.refundAmount ?? Number(payment.amount);
+
+          let refund;
+          try {
+            refund = await initiateRazorpayRefund({
+              paymentId: payment.razorpayPaymentId,
+              amount:    refundAmount,
+              notes:     { orderId: returnReq.orderId, reason: "Return approved" },
+            });
+          } catch (err: any) {
+            throw new ApiError(502, PaymentErrorCode.REFUND_FAILED);
+          }
+
+          await tx.payment.update({
+            where: { orderId: returnReq.orderId },
+            data: {
+              status:       "REFUND_INITIATED",
+              refundId:     refund.id,
+              refundAmount: new Decimal(refundAmount),
+              refundReason: data.adminNote ?? "Return approved",
+            },
+          });
+
+          await tx.return.update({
+            where: { id: returnId },
+            data: {
+              refundAmount: new Decimal(refundAmount),
+            },
+          });
+
+          await createAuditLogInTx(tx, {
+            userId: adminUserId,
+            action:   "REFUND_INITIATED",
+            entity:   "Payment",
+            entityId: returnReq.orderId,
+            newValue: { refundId: refund.id, refundAmount, source: "admin" },
+            req,
+          });
+        }
+
+        await reverseAffiliateCommissionsService({ tx, orderId: returnReq.orderId, adminUserId });
+      }
+
+      await createAuditLogInTx(tx, {
+        userId: adminUserId,
+        action:   data.status === "APPROVED" ? "RETURN_APPROVED" : "RETURN_REJECTED",
+        entity:   "Return",
+        entityId: returnId,
+        oldValue: { status: "PENDING" },
+        newValue: { status: newReturnStatus, adminNote: data.adminNote },
+        req,
+      });
+
+      return {
+        returnId,
+        status:    newReturnStatus,
+        orderId:   returnReq.orderId,
+        refundInitiated: data.status === "APPROVED" && order.payment?.method === "ONLINE",
+      };
+    });
+  });
+}
 
 export async function trackOrderService(userId: string, orderId: string) {
   const order = await prisma.order.findFirst({
@@ -715,67 +849,99 @@ export async function trackOrderService(userId: string, orderId: string) {
   };
 }
 
+export async function createShipmentService(
+  adminUserId: string,
+  orderId:     string,
+  req?:        Request
+) {
+  const order = await prisma.order.findUnique({
+    where:   { id: orderId, deletedAt: null },
+    include: {
+      address:    true,
+      items:      { include: { product: true } },
+      payment:    true,
+      shipments:  true,
+    },
+  });
 
+  if (!order) throw new ApiError(404, PaymentErrorCode.ORDER_NOT_FOUND);
 
-async function handleAffiliateCommission(
-  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
-  params: {
-    orderId:     string;
-    affiliateId: string;
-    orderTotal:  number;
-    userId:      string;
+  if (!["CONFIRMED", "PROCESSING"].includes(order.status)) {
+    throw new ApiError(400, "Order is not in a shippable state");
   }
-): Promise<void> {
-  const { orderId, affiliateId, orderTotal } = params;
 
-  const affiliate = await tx.affiliate.findUnique({
-    where:  { id: affiliateId },
-    select: { commissionRate: true, status: true },
+  if (order.shipments.length > 0 && order.shipments[0]!.shiprocketOrderId) {
+    throw new ApiError(409, "Shipment already created for this order");
+  }
+
+  const payload = buildShiprocketPayload({
+    orderId:       order.id,
+    orderDate:     order.createdAt,
+    address:       order.address,
+    items:         order.items.map((item) => ({
+      productId:  item.productId,
+      name:       item.product.name,
+      quantity:   item.quantity,
+      price:      Number(item.price),
+      variantId:  item.variantId ?? undefined,
+    })),
+    total:         Number(order.total),
+    paymentMethod: order.paymentMethod,
   });
 
-  if (!affiliate || affiliate.status !== "APPROVED") return;
+  let shiprocketResponse;
+  try {
+    shiprocketResponse = await createShiprocketOrder(payload);
+  } catch (err: any) {
+    throw new ApiError(502, PaymentErrorCode.SHIPROCKET_ORDER_FAILED);
+  }
 
-  const commissionAmount = new Decimal(orderTotal).mul(affiliate.commissionRate);
+  return prisma.$transaction(async (tx) => {
+    const shipment = await tx.shipment.create({
+      data: {
+        orderId,
+        shiprocketOrderId:    String(shiprocketResponse.order_id),
+        shiprocketShipmentId: String(shiprocketResponse.shipment_id),
+        awbCode:              shiprocketResponse.awb_code,
+        courierName:          shiprocketResponse.courier_name,
+        trackingUrl:          shiprocketResponse.awb_code
+          ? `https://shiprocket.co/tracking/${shiprocketResponse.awb_code}`
+          : null,
+        status:      "PROCESSING",
+        trackingData: shiprocketResponse as any,
+      },
+    });
 
-  const existingCommission = await tx.commission.findFirst({
-    where: { orderId, affiliateId },
-  });
+    await tx.order.update({
+      where: { id: orderId },
+      data: {
+        status:               "PROCESSING",
+        shiprocketOrderId:    String(shiprocketResponse.order_id),
+        shiprocketShipmentId: String(shiprocketResponse.shipment_id),
+        awbCode:              shiprocketResponse.awb_code,
+        trackingUrl:          shipment.trackingUrl,
+      },
+    });
 
-  if (existingCommission) return; // Already created
+    await createAuditLogInTx(tx, {
+      userId: adminUserId,
+      action:   "SHIPMENT_CREATED",
+      entity:   "Shipment",
+      entityId: shipment.id,
+      newValue: {
+        shiprocketOrderId: shiprocketResponse.order_id,
+        awbCode:           shiprocketResponse.awb_code,
+      },
+      req,
+    });
 
-  await tx.commission.create({
-    data: {
-      affiliateId,
-      orderId,
-      amount: commissionAmount,
-      status: "PENDING",
-    },
-  });
-
-  await tx.affiliateConversion.upsert({
-    where:  { affiliateId_orderId: { affiliateId, orderId } },
-    update: { commission: commissionAmount, status: "PENDING" },
-    create: {
-      affiliateId,
-      orderId,
-      commission: commissionAmount,
-      status:     "PENDING",
-    },
-  });
-
-  await tx.affiliate.update({
-    where: { id: affiliateId },
-    data: {
-      totalConversions: { increment: 1 },
-      totalCommission:  { increment: commissionAmount },
-    },
-  });
-
-  await createAuditLogInTx(tx, {
-    userId:   params.userId,
-    action:   "COMMISSION_CREATED",
-    entity:   "Commission",
-    entityId: orderId,
-    newValue: { affiliateId, commissionAmount: commissionAmount.toNumber() },
+    return {
+      shipmentId:           shipment.id,
+      shiprocketOrderId:    shiprocketResponse.order_id,
+      shiprocketShipmentId: shiprocketResponse.shipment_id,
+      awbCode:              shiprocketResponse.awb_code,
+      courierName:          shiprocketResponse.courier_name,
+      trackingUrl:          shipment.trackingUrl,
+    };
   });
 }
