@@ -12,6 +12,7 @@ import {
   WebhookStatus,
   ReturnStatus,
   ShipmentStatus,
+  BannerPosition,
 } from "@prisma/client";
 
 export const prisma = new PrismaClient();
@@ -29,4 +30,5 @@ export {
   WebhookStatus,
   ReturnStatus,
   ShipmentStatus,
+  BannerPosition,
 };

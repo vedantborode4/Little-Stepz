@@ -671,3 +671,45 @@ model AffiliateWithdrawal {
   @@index([affiliateId, status])
   @@index([status])
 }
+
+enum BannerPosition {
+  HOME_HERO
+  HOME_MID
+  CATEGORY_TOP
+  PRODUCT_SIDEBAR
+  CHECKOUT_TOP  
+}
+
+model Banner {
+  id       String @id @default(uuid())
+
+  title       String
+  subtitle    String?
+  imageUrl    String
+  linkUrl     String?
+  altText     String?
+
+  position    BannerPosition @default(HOME_HERO)
+  sortOrder   Int            @default(0)
+  isActive    Boolean        @default(true)
+
+  startsAt    DateTime?
+  endsAt      DateTime?
+
+  targetRole  Role?   
+
+  clickCount  Int     @default(0)
+  viewCount   Int     @default(0)
+
+  createdBy   String  
+  updatedBy   String? 
+
+  deletedAt   DateTime?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([position, isActive])
+  @@index([isActive, startsAt, endsAt])
+  @@index([deletedAt])
+}
