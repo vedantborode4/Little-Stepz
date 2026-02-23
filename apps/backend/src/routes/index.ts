@@ -16,6 +16,7 @@ import { webhookRouter }  from "./webhook.routes";
 import { affiliateRouter }  from "./affiliate.routes";
 import { handleReferralClickController } from "../controllers/affiliate.controllers";
 import { referralClickRateLimiter } from "../middlewares/affiliateRateLimiter.middleware";
+import { bannerRouter }  from "./banner.routes";
 
 
 export const appRouter:Router = Router()
@@ -50,4 +51,8 @@ appRouter.use("/webhooks",   webhookRouter);
 
 appRouter.use("/affiliate",  affiliateRouter);
 
+appRouter.use("/banners",    bannerRouter);
+
+
+//  /ref/:referralCode
 appRouter.get("/ref/:referralCode", referralClickRateLimiter, handleReferralClickController);
