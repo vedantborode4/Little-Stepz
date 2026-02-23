@@ -9,6 +9,7 @@ import { adminOrdersRouter } from "./admin.orders.routes";
 import { adminPaymentRouter } from "./admin.payment.routes";
 import { adminAffiliateRouter } from "./admin.affiliate.routes";
 import { 
+    adminDashboardRouter, 
     adminBannerRouter 
 } from "./admin.dashboard.routes";
 
@@ -29,5 +30,7 @@ adminRouter.use("/orders", adminOrdersRouter);
 adminRouter.use("/", adminPaymentRouter);
 
 adminRouter.use("/affiliates", adminAffiliateRouter);
+
+adminRouter.use("/", adminDashboardRouter);
 
 adminRouter.use("/banners", adminBannerRouter);
