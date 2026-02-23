@@ -8,6 +8,7 @@ import type { Product } from "../../../types/product"
 import ProductGallery from "../../../components/products/details/ProductGallery"
 import ProductInfo from "../../../components/products/details/ProductInfo"
 import SimilarProducts from "../../../components/products/details/SimilarProducts"
+import ProductReviewSection from "../../../components/review/ProductReviewSection"
 
 export default function ProductDetailsPage() {
   const params = useParams<{ slug: string }>()
@@ -49,6 +50,8 @@ export default function ProductDetailsPage() {
         <ProductGallery images={product.images} />
 
         <ProductInfo product={product} />
+
+        <ProductReviewSection productId={product.id} />
 
       </div>
 
