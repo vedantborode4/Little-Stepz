@@ -11,7 +11,7 @@ import {
 import { UserService } from "../../lib/services/user.service"
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const { setAuth, logout } = useAuthStore()
+  const { setAuth, logout, setHydrated } = useAuthStore()
 
   const fetchCart = useCartStore((s) => s.fetchCart)
   const fetchWishlist = useWishlistStore((s) => s.fetchWishlist)
@@ -23,7 +23,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const token = getAccessToken()
 
       try {
-        // ✅ if token exists → restore user
         if (token) {
           const user = await UserService.getMe()
 
@@ -33,11 +32,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           } as any)
         }
 
-        // ✅ ALWAYS fetch cart
-        // (guest cart OR user cart — backend decides)
         await fetchCart()
 
-        // ❤️ wishlist only if logged in
         if (token) {
           await fetchWishlist()
         }
@@ -45,12 +41,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         removeAccessToken()
         logout()
       } finally {
+        setHydrated(true)
         setLoading(false)
       }
     }
 
     hydrate()
-  }, [setAuth, logout, fetchCart, fetchWishlist])
+  }, [setAuth, logout, fetchCart, fetchWishlist, setHydrated])
 
   if (loading) return null
 

@@ -5,7 +5,7 @@ import {
 } from "../lib/utils/token"
 
 export const useAuth = () => {
-  const { user, setAuth, logout } = useAuthStore()
+  const { user, setAuth, logout, isAuthenticated } = useAuthStore()
 
   const login = (data: any) => {
     setAccessToken(data.accessToken)
@@ -18,5 +18,10 @@ export const useAuth = () => {
     window.location.href = "/signin"
   }
 
-  return { user, login, signOut }
+  return {
+    user,
+    login,
+    signOut,
+    isAuthenticated,
+  }
 }
