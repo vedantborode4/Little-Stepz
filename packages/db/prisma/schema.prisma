@@ -629,6 +629,9 @@ model Commission {
   reversedAt     DateTime?
   reversalReason String?
 
+  approvedBy  String?
+  approvedAt  DateTime?
+
   withdrawalId String?
   withdrawal   AffiliateWithdrawal? @relation(fields: [withdrawalId], references: [id])
 
@@ -641,6 +644,7 @@ model Commission {
   @@index([affiliateId, status])
   @@index([orderId])
   @@index([withdrawalId])
+  @@index([status])
 }
 
 enum WithdrawalStatus {
