@@ -14,8 +14,9 @@ import { useWishlistStore } from "../../store/useWishlistStore"
 import { useCategoryStore } from "../../store/useCategoryStore"
 
 import SearchBar from "../products/SearchBar"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useAuth } from "../../hooks/use-auth"
+import clsx from "clsx"
 
 export default function Navbar() {
   const { user, isHydrated } = useAuthStore()
@@ -24,26 +25,26 @@ export default function Navbar() {
   const wishlistItems = useWishlistStore((s) => s.items)
 
   const { tree, fetchTree } = useCategoryStore()
-
   const { signOut } = useAuth()
 
   const [openUser, setOpenUser] = useState(false)
   const [openMega, setOpenMega] = useState(false)
 
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
+
   useEffect(() => {
     if (!tree.length) fetchTree()
   }, [tree.length, fetchTree])
 
-  const [megaTimeout, setMegaTimeout] = useState<NodeJS.Timeout | null>(null)
-
   const openMegaMenu = () => {
-    if (megaTimeout) clearTimeout(megaTimeout)
+    if (timeoutRef.current) clearTimeout(timeoutRef.current)
     setOpenMega(true)
   }
 
   const closeMegaMenu = () => {
-    const t = setTimeout(() => setOpenMega(false), 180)
-    setMegaTimeout(t)
+    timeoutRef.current = setTimeout(() => {
+      setOpenMega(false)
+    }, 220)
   }
 
   if (!isHydrated) return null
@@ -65,25 +66,39 @@ export default function Navbar() {
 
         <nav className="hidden md:flex gap-6 text-sm font-medium relative">
 
-          {/* CATEGORY MEGA MENU */}
-            <div
-              className="relative"
-              onMouseEnter={openMegaMenu}
-              onMouseLeave={closeMegaMenu}
-            >
+          {/* CATEGORY */}
+          <div
+            className="relative"
+            onMouseEnter={openMegaMenu}
+            onMouseLeave={closeMegaMenu}
+          >
             <button className="hover:text-primary">
               Category
             </button>
 
-            {openMega && (
-              <div className="absolute left-0 top-full mt-4 w-[700px] bg-white border rounded-xl shadow-xl p-6 grid grid-cols-3 gap-6">
+            {/* HOVER BRIDGE */}
+            <div className="absolute left-0 top-full h-4 w-full" />
+
+            {/* MEGA MENU */}
+            <div
+              className={clsx(
+                "absolute left-0 top-full pt-4 transition-all duration-200",
+                openMega
+                  ? "opacity-100 translate-y-0 pointer-events-auto"
+                  : "opacity-0 translate-y-2 pointer-events-none"
+              )}
+            >
+              <div className="bg-white border rounded-2xl shadow-xl p-6
+                              min-w-[720px] max-w-[1000px]
+                              max-h-[70vh] overflow-y-auto
+                              grid grid-cols-3 gap-8">
 
                 {tree.map((parent) => (
                   <div key={parent.id}>
 
                     <Link
                       href={`/products/category/${parent.slug}`}
-                      className="font-semibold text-primary block mb-2"
+                      className="font-semibold text-primary block mb-3 hover:underline"
                     >
                       {parent.name}
                     </Link>
@@ -104,7 +119,7 @@ export default function Navbar() {
                 ))}
 
               </div>
-            )}
+            </div>
           </div>
 
           <Link href="/brands">Brands</Link>
@@ -113,14 +128,12 @@ export default function Navbar() {
 
         </nav>
 
-        {/* ================= SEARCH ================= */}
-
+        {/* SEARCH */}
         <div className="flex-1 max-w-xl">
           <SearchBar />
         </div>
 
-        {/* ================= WISHLIST ================= */}
-
+        {/* WISHLIST */}
         <Link href="/wishlist" className="relative">
           <Heart />
           {!!wishlistItems.length && (
@@ -130,8 +143,7 @@ export default function Navbar() {
           )}
         </Link>
 
-        {/* ================= CART ================= */}
-
+        {/* CART */}
         <Link href="/cart" className="relative">
           <ShoppingCart />
           {!!cartItems.length && (
@@ -141,8 +153,7 @@ export default function Navbar() {
           )}
         </Link>
 
-        {/* ================= USER ================= */}
-
+        {/* USER */}
         {user ? (
           <div className="relative">
             <button onClick={() => setOpenUser((p) => !p)}>
