@@ -1,32 +1,29 @@
+
 import Link from "next/link"
+import type { Category } from "../../types/category"
 
-const categories = [
-    { name: "Dolls & Accessories", slug: "", img: "/cat/.png" },
-    { name: "Cars & Vehicle Playsets", slug: "", img: "/cat/.png" },
-    { name: "Cards & Board Games", slug: "", img: "/cat/.png" },
-    { name: "Action Figures", slug: "", img: "/cat/.png" },
-    { name: "Building & Construction", slug: "", img: "/cat/.png" },
-    { name: "Learning & Educational", slug: "", img: "/cat/.png" },
-    { name: "Soft Toys", slug: "", img: "/cat/.png" },
-    { name: "Art & Craft", slug: "", img: "/cat/.png" },
-]
+interface Props {
+  categories: Category[]
+}
 
-export default function CategoryGrid() {
+export default function CategoryGrid({ categories }: Props) {
+  if (!categories?.length) return null
+
   return (
-    <section className="container space-y-6 text-center">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+      {categories.map((cat, index) => {
+        const key = cat.id || cat.slug || `cat-${index}`
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-        {categories.map((c) => (
+        return (
           <Link
-            key={c.slug}
-            href={`/products?category=${c.slug}`}
-            className="rounded-xl p-4 shadow-card bg-white"
+            key={key}
+            href={`/products?category=${cat.slug}`}
+            className="group border rounded-xl p-4 text-center hover:shadow-sm transition"
           >
-            <img src={c.img} />
-            <p className="mt-2 text-sm font-medium">{c.name}</p>
+            <div className="font-medium">{cat.name}</div>
           </Link>
-        ))}
-      </div>
-    </section>
+        )
+      })}
+    </div>
   )
 }

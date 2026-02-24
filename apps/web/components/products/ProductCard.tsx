@@ -26,14 +26,13 @@ export default function ProductCard({ product }: { product: Product }) {
 
   const variants = product.variants ?? []
   const hasMultipleVariants = variants.length > 1
+  const inStock = product.inStock ?? true
 
   const handleAddToCart = async (
     e: React.MouseEvent<HTMLButtonElement>
   ) => {
     e.preventDefault()
     e.stopPropagation()
-
-    if (isAdding) return
 
     if (hasMultipleVariants) {
       router.push(`/products/${product.slug}`)
@@ -43,28 +42,11 @@ export default function ProductCard({ product }: { product: Product }) {
     try {
       setIsAdding(true)
 
-      if (variants.length === 0) {
-        await addItem({
-          productId: product.id,
-          quantity: 1,
-          product,
-        })
-      }
-
-      if (variants.length === 1) {
-        const variant = variants[0]
-
-        if (!variant) return
-
-        await addItem({
-          productId: product.id,
-          variantId: variant.id,
-          quantity: 1,
-          product,
-          variant,
-        })
-      }
-
+      await addItem({
+        productId: product.id,
+        variantId: variants[0]?.id,
+        quantity: 1,
+      })
 
       toast.success("Added to cart")
     } finally {
@@ -75,13 +57,15 @@ export default function ProductCard({ product }: { product: Product }) {
   return (
     <Link
       href={`/products/${product.slug}`}
-      className="group block bg-white rounded-xl shadow-card hover:shadow-lg transition overflow-hidden"
+      className="group h-full flex flex-col bg-white rounded-xl shadow-card hover:shadow-lg transition overflow-hidden"
     >
-      <div className="relative aspect-square bg-gray-50">
+      {/* IMAGE */}
+      <div className="relative w-full aspect-square bg-gray-50">
         <Image
           src={image}
           alt={product.name}
           fill
+          sizes="(min-width: 1280px) 25vw, (min-width: 640px) 50vw, 100vw"
           className="object-contain p-4 group-hover:scale-105 transition"
         />
 
@@ -101,19 +85,20 @@ export default function ProductCard({ product }: { product: Product }) {
         </button>
       </div>
 
-      <div className="p-4 space-y-2">
-        <h3 className="text-sm font-medium line-clamp-2">
+      {/* CONTENT */}
+      <div className="flex flex-col flex-1 p-4">
+        <h3 className="text-sm font-medium line-clamp-2 min-h-[40px]">
           {product.name}
         </h3>
 
-        <span className="text-primary font-semibold">
+        <span className="text-primary font-semibold mt-1">
           ₹{product.price}
         </span>
 
         <button
           onClick={handleAddToCart}
-          disabled={!product.inStock || isAdding}
-          className="w-full mt-2 bg-primary text-white py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 disabled:bg-gray-300"
+          disabled={!inStock || isAdding}
+          className="mt-auto w-full bg-primary text-white py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 disabled:bg-gray-300"
         >
           {isAdding && <Loader2 className="w-4 h-4 animate-spin" />}
 

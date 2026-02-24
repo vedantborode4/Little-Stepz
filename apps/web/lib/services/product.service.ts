@@ -7,19 +7,13 @@ export interface GetProductsParams {
   category?: string
   search?: string
   sort?: string
-  priceMax?: number  
+  priceMax?: number
 }
 
 interface BackendResponse {
   status: string
   message: string
-  data: {
-    products: Product[]
-    total: number
-    page: number
-    limit: number
-    pages: number
-  }
+  data: any
 }
 
 export interface PaginatedProducts {
@@ -36,6 +30,25 @@ export const ProductService = {
   getProducts: async (
     params?: GetProductsParams
   ): Promise<PaginatedProducts> => {
+
+    if (params?.search) {
+      const res = await api.get<BackendResponse>("/products/search", {
+        params: { q: params.search, limit: params.limit || 12 },
+      })
+
+      const products = res.data.data.products
+
+      return {
+        data: products,
+        meta: {
+          total: products.length,
+          page: 1,
+          limit: products.length,
+          totalPages: 1,
+        },
+      }
+    }
+
     const res = await api.get<BackendResponse>("/products", { params })
 
     return {

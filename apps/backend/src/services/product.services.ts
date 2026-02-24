@@ -115,7 +115,7 @@ export async function searchProductsService(q: string, limit = 20) {
 
   const products = await prisma.product.findMany({
     where: {
-      deletedAt: null, 
+      deletedAt: null,
       OR: [
         { name: { contains: q, mode: "insensitive" } },
         { description: { contains: q, mode: "insensitive" } },
@@ -124,13 +124,7 @@ export async function searchProductsService(q: string, limit = 20) {
     },
     take: limit,
     orderBy: { name: "asc" },
-    select: {
-      id: true,
-      name: true,
-      slug: true,
-      price: true,
-      images: { take: 1, select: { url: true } },
-    },
+    select: baseProductSelect,
   });
 
   return { products };
@@ -138,7 +132,7 @@ export async function searchProductsService(q: string, limit = 20) {
 
 // Search suggestions
 export async function getSearchSuggestionsService(q: string) {
-  if (q.length < 2) return { suggestions: [] };
+  if (q.length < 1) return { suggestions: [] };
 
   const suggestions = await prisma.product.findMany({
     where: {

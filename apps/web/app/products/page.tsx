@@ -1,10 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import {
-  useRouter,
-  useSearchParams,
-} from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 
 import { ProductService } from "../../lib/services/product.service"
 import { buildProductQuery } from "../../lib/utils/buildProductQuery"
@@ -22,10 +19,8 @@ import type { Product } from "../../types/product"
 export default function ProductsPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-
   const hasHydrated = useRef(false)
 
-  // ✅ STABLE SELECTORS (NO OBJECT RETURN)
   const page = useProductFilterStore((s) => s.page)
   const category = useProductFilterStore((s) => s.category)
   const sort = useProductFilterStore((s) => s.sort)
@@ -33,12 +28,13 @@ export default function ProductsPage() {
   const search = useProductFilterStore((s) => s.search)
   const setFilters = useProductFilterStore((s) => s.setFilters)
 
+  const isSearchMode = !!search
+
   const [products, setProducts] = useState<Product[]>([])
   const [totalPages, setTotalPages] = useState(1)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
 
-  // ✅ URL → STORE (RUN ONCE)
   useEffect(() => {
     if (hasHydrated.current) return
 
@@ -55,7 +51,6 @@ export default function ProductsPage() {
     hasHydrated.current = true
   }, [searchParams, setFilters])
 
-  // ✅ FETCH PRODUCTS
   useEffect(() => {
     if (!hasHydrated.current) return
 
@@ -85,7 +80,6 @@ export default function ProductsPage() {
     fetchProducts()
   }, [page, category, sort, priceMax, search])
 
-  // ✅ STORE → URL (NO LOOP)
   useEffect(() => {
     if (!hasHydrated.current) return
 
@@ -97,14 +91,11 @@ export default function ProductsPage() {
       search,
     })
 
-    const currentQuery = searchParams.toString()
-
-    if (query !== currentQuery) {
+    if (query !== searchParams.toString()) {
       router.replace(`/products?${query}`, { scroll: false })
     }
   }, [page, category, sort, priceMax, search, router, searchParams])
 
-  // ✅ UI STATES
 
   if (loading) return <ProductGridSkeleton />
 
@@ -117,36 +108,55 @@ export default function ProductsPage() {
 
   if (!products.length)
     return (
-      <p className="text-center py-10 text-muted">
-        No products found
-      </p>
+      <div className="text-center py-16 space-y-3">
+        <p className="text-lg font-medium">
+          No results found for "{search}"
+        </p>
+
+        <button
+          onClick={() => setFilters({ search: "", page: 1 })}
+          className="text-primary font-medium"
+        >
+          Clear search
+        </button>
+      </div>
     )
+
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
 
       <h1 className="text-3xl font-bold text-primary text-center mb-8">
-        Toys & Games
+        {isSearchMode
+          ? `Search results for "${search}"`
+          : "Toys & Games"}
       </h1>
-      <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-8">
 
-        <FilterSidebar />
+    <div
+      className={`grid gap-8 ${
+        isSearchMode
+          ? "grid-cols-1"
+          : "grid-cols-1 lg:grid-cols-[260px_1fr]"
+      }`}
+    >
+      {!isSearchMode && <FilterSidebar />}
 
-        <div>
-
+      <div className="w-full">
+        {!isSearchMode && (
           <div className="flex justify-between items-center mb-4 lg:hidden">
             <MobileFilterDrawer />
           </div>
+        )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
-            {products.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
-
-          <Pagination totalPages={totalPages} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
+          {products.map((product) => (
+            <ProductCard key={product.id} product={product} />
+          ))}
         </div>
+
+        {!isSearchMode && <Pagination totalPages={totalPages} />}
       </div>
+    </div>
     </div>
   )
 }
