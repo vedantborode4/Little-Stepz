@@ -3,6 +3,7 @@
 import { useCartStore } from "../../store/useCartStore"
 import { useCheckoutStore } from "../../store/useCheckoutStore"
 import { useRouter } from "next/navigation"
+import CouponBox from "../cart/CouponBox"
 
 export default function CheckoutSummary({
   isValid = true,
@@ -28,10 +29,12 @@ export default function CheckoutSummary({
 
 
   return (
-    <div className="bg-white border rounded-xl p-6 h-fit sticky top-24 space-y-4">
+    <div className="bg-white border rounded-xl p-6 space-y-5 h-fit">
 
-      <h2 className="text-lg font-semibold">Price Details</h2>
+      <h2 className="text-lg font-semibold">Order Summary</h2>
 
+      <CouponBox/>
+      {/* SUBTOTAL */}
       <div className="flex justify-between text-sm">
         <span>Subtotal</span>
         <span>₹{subtotal}</span>
