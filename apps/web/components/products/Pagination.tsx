@@ -1,31 +1,67 @@
 "use client"
 
+import { useRouter, useSearchParams } from "next/navigation"
 import { useProductFilterStore } from "../../store/useProductFilterStore"
 
-export const Pagination = ({ totalPages }: { totalPages: number }) => {
-  const { page, setFilters } = useProductFilterStore()
+interface PaginationProps {
+  totalPages: number
+  currentPage?: number
+  onPageChange?: (page: number) => void
+}
+
+export function Pagination({
+  totalPages,
+  currentPage,
+  onPageChange,
+}: PaginationProps) {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+
+  const storePage = useProductFilterStore((s) => s.page)
+  const setFilters = useProductFilterStore((s) => s.setFilters)
+
+  const activePage = currentPage ?? storePage
+
+  if (totalPages <= 1) return null
+
+  const changePage = (page: number) => {
+    if (onPageChange) {
+      onPageChange(page) // ✅ category mode
+      return
+    }
+
+    // ✅ products page mode (existing behaviour)
+    setFilters({ page })
+
+    const params = new URLSearchParams(searchParams.toString())
+    params.set("page", String(page))
+
+    router.replace(`/products?${params.toString()}`, {
+      scroll: false,
+    })
+  }
 
   return (
-    <div className="flex justify-center mt-10 gap-2">
-
+    <div className="flex justify-center mt-10 gap-2 flex-wrap">
       {Array.from({ length: totalPages }).map((_, i) => {
-        const p = i + 1
+        const page = i + 1
 
         return (
           <button
-            key={p}
-            onClick={() => setFilters({ page: p })}
-            className={`px-4 h-10 rounded-lg border text-sm
-              ${page === p
-                ? "bg-primary text-white border-primary"
-                : "bg-white hover:bg-gray-50"}
+            key={page}
+            onClick={() => changePage(page)}
+            className={`px-4 py-2 rounded-lg text-sm border transition
+              ${
+                activePage === page
+                  ? "bg-primary text-white border-primary"
+                  : "bg-white hover:bg-gray-50"
+              }
             `}
           >
-            {p}
+            {page}
           </button>
         )
       })}
-
     </div>
   )
 }

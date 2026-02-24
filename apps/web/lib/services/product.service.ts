@@ -30,7 +30,6 @@ export const ProductService = {
   getProducts: async (
     params?: GetProductsParams
   ): Promise<PaginatedProducts> => {
-
     if (params?.search) {
       const res = await api.get<BackendResponse>("/products/search", {
         params: { q: params.search, limit: params.limit || 12 },
@@ -50,6 +49,30 @@ export const ProductService = {
     }
 
     const res = await api.get<BackendResponse>("/products", { params })
+
+    return {
+      data: res.data.data.products,
+      meta: {
+        total: res.data.data.total,
+        page: res.data.data.page,
+        limit: res.data.data.limit,
+        totalPages: res.data.data.pages,
+      },
+    }
+  },
+
+  getByCategorySlug: async (
+    slug: string,
+    page = 1,
+    limit = 12,
+    sort?: string
+  ): Promise<PaginatedProducts> => {
+    const res = await api.get<BackendResponse>(
+      `/products/category/${slug}`,
+      {
+        params: { page, limit, sort },
+      }
+    )
 
     return {
       data: res.data.data.products,

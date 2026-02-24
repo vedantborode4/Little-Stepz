@@ -1,43 +1,125 @@
 "use client"
 
 import Link from "next/link"
-import { ShoppingCart, User, Heart, LogOut } from "lucide-react"
+import {
+  ShoppingCart,
+  User,
+  Heart,
+  LogOut,
+} from "lucide-react"
+
 import { useAuthStore } from "../../store/auth.store"
 import { useCartStore } from "../../store/useCartStore"
 import { useWishlistStore } from "../../store/useWishlistStore"
+import { useCategoryStore } from "../../store/useCategoryStore"
+
 import SearchBar from "../products/SearchBar"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useAuth } from "../../hooks/use-auth"
 
 export default function Navbar() {
   const { user, isHydrated } = useAuthStore()
+
   const cartItems = useCartStore((s) => s.items)
   const wishlistItems = useWishlistStore((s) => s.items)
 
+  const { tree, fetchTree } = useCategoryStore()
+
   const { signOut } = useAuth()
 
-  const [open, setOpen] = useState(false)
+  const [openUser, setOpenUser] = useState(false)
+  const [openMega, setOpenMega] = useState(false)
+
+  useEffect(() => {
+    if (!tree.length) fetchTree()
+  }, [tree.length, fetchTree])
+
+  const [megaTimeout, setMegaTimeout] = useState<NodeJS.Timeout | null>(null)
+
+  const openMegaMenu = () => {
+    if (megaTimeout) clearTimeout(megaTimeout)
+    setOpenMega(true)
+  }
+
+  const closeMegaMenu = () => {
+    const t = setTimeout(() => setOpenMega(false), 180)
+    setMegaTimeout(t)
+  }
 
   if (!isHydrated) return null
 
   return (
     <header className="border-b bg-white sticky top-0 z-50">
+
       <div className="max-w-7xl mx-auto px-4 h-16 flex items-center gap-6">
 
-        <Link href="/" className="text-xl font-bold text-primary">
-          <img src="/logo.png" alt="Little Stepz Logo" className="h-12 w-28" />
+        <Link href="/">
+          <img
+            src="/logo.png"
+            alt="Little Stepz Logo"
+            className="h-12 w-28"
+          />
         </Link>
 
-        <nav className="hidden md:flex gap-6 text-sm font-medium">
-          <Link href="/products">Category</Link>
+        {/* ================= DESKTOP NAV ================= */}
+
+        <nav className="hidden md:flex gap-6 text-sm font-medium relative">
+
+          {/* CATEGORY MEGA MENU */}
+            <div
+              className="relative"
+              onMouseEnter={openMegaMenu}
+              onMouseLeave={closeMegaMenu}
+            >
+            <button className="hover:text-primary">
+              Category
+            </button>
+
+            {openMega && (
+              <div className="absolute left-0 top-full mt-4 w-[700px] bg-white border rounded-xl shadow-xl p-6 grid grid-cols-3 gap-6">
+
+                {tree.map((parent) => (
+                  <div key={parent.id}>
+
+                    <Link
+                      href={`/products/category/${parent.slug}`}
+                      className="font-semibold text-primary block mb-2"
+                    >
+                      {parent.name}
+                    </Link>
+
+                    <div className="space-y-1">
+                      {parent.children?.map((child) => (
+                        <Link
+                          key={child.id}
+                          href={`/products/category/${child.slug}`}
+                          className="block text-sm text-muted hover:text-primary"
+                        >
+                          {child.name}
+                        </Link>
+                      ))}
+                    </div>
+
+                  </div>
+                ))}
+
+              </div>
+            )}
+          </div>
+
           <Link href="/brands">Brands</Link>
           <Link href="/age">Age</Link>
           <Link href="/offers">Offers</Link>
+
         </nav>
+
+        {/* ================= SEARCH ================= */}
 
         <div className="flex-1 max-w-xl">
           <SearchBar />
         </div>
+
+        {/* ================= WISHLIST ================= */}
 
         <Link href="/wishlist" className="relative">
           <Heart />
@@ -47,6 +129,9 @@ export default function Navbar() {
             </span>
           )}
         </Link>
+
+        {/* ================= CART ================= */}
+
         <Link href="/cart" className="relative">
           <ShoppingCart />
           {!!cartItems.length && (
@@ -56,18 +141,21 @@ export default function Navbar() {
           )}
         </Link>
 
+        {/* ================= USER ================= */}
+
         {user ? (
           <div className="relative">
-            <button onClick={() => setOpen((p) => !p)}>
+            <button onClick={() => setOpenUser((p) => !p)}>
               <User />
             </button>
 
-            {open && (
+            {openUser && (
               <div className="absolute right-0 mt-2 w-44 bg-white border rounded-xl shadow-md py-2 text-sm">
+
                 <Link
                   href="/profile"
                   className="block px-4 py-2 hover:bg-gray-50"
-                  onClick={() => setOpen(false)}
+                  onClick={() => setOpenUser(false)}
                 >
                   Profile
                 </Link>
@@ -75,7 +163,7 @@ export default function Navbar() {
                 <Link
                   href="/account/orders"
                   className="block px-4 py-2 hover:bg-gray-50"
-                  onClick={() => setOpen(false)}
+                  onClick={() => setOpenUser(false)}
                 >
                   Orders
                 </Link>
@@ -86,6 +174,7 @@ export default function Navbar() {
                 >
                   <LogOut size={16} /> Logout
                 </button>
+
               </div>
             )}
           </div>
@@ -97,6 +186,7 @@ export default function Navbar() {
             Login
           </Link>
         )}
+
       </div>
     </header>
   )
