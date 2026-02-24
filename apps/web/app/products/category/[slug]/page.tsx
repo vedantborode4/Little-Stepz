@@ -2,7 +2,9 @@
 
 import { useEffect, useState, useMemo } from "react"
 import { useParams } from "next/navigation"
-import Link from "next/link"
+import { useCategoryStore } from "../../../../store/useCategoryStore"
+
+import Breadcrumbs from "../../../../components/common/Breadcrumbs"
 
 import { ProductService } from "../../../../lib/services/product.service"
 import type { Product } from "../../../../types/product"
@@ -14,14 +16,14 @@ import { Pagination } from "../../../../components/products/Pagination"
 export default function CategoryProductsPage() {
   const { slug } = useParams<{ slug: string }>()
 
+  const { tree, fetchTree, setCategoryPath } = useCategoryStore()
+
   const [products, setProducts] = useState<Product[]>([])
   const [totalPages, setTotalPages] = useState(1)
   const [page, setPage] = useState(1)
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
-
-  /* ---------------- FORMAT TITLE ---------------- */
 
   const formattedTitle = useMemo(() => {
     if (!slug) return ""
@@ -31,7 +33,15 @@ export default function CategoryProductsPage() {
       .join(" ")
   }, [slug])
 
-  /* ---------------- FETCH ---------------- */
+  useEffect(() => {
+    if (!tree.length) fetchTree()
+  }, [tree.length, fetchTree])
+
+  useEffect(() => {
+    if (slug && tree.length) {
+      setCategoryPath(slug)
+    }
+  }, [slug, tree, setCategoryPath])
 
   useEffect(() => {
     if (!slug) return
@@ -59,8 +69,6 @@ export default function CategoryProductsPage() {
     fetchCategoryProducts()
   }, [slug, page])
 
-  /* ---------------- UI STATES ---------------- */
-
   if (loading) return <ProductGridSkeleton />
 
   if (error)
@@ -77,43 +85,21 @@ export default function CategoryProductsPage() {
       </p>
     )
 
-  /* ---------------- PAGE ---------------- */
-
   return (
     <div className="max-w-7xl mx-auto px-4 py-8 space-y-6">
 
-      {/* ✅ BREADCRUMB */}
-      <div className="text-sm text-muted flex items-center gap-2 flex-wrap">
-        <Link href="/" className="hover:text-primary">
-          Home
-        </Link>
+      <Breadcrumbs />
 
-        <span>/</span>
-
-        <Link href="/products" className="hover:text-primary">
-          Products
-        </Link>
-
-        <span>/</span>
-
-        <span className="text-primary font-medium">
-          {formattedTitle}
-        </span>
-      </div>
-
-      {/* ✅ TITLE */}
       <h1 className="text-3xl font-bold text-primary text-center">
         {formattedTitle}
       </h1>
 
-      {/* ✅ GRID */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
         {products.map((product) => (
           <ProductCard key={product.id} product={product} />
         ))}
       </div>
 
-      {/* ✅ PAGINATION */}
       <Pagination
         totalPages={totalPages}
         currentPage={page}
