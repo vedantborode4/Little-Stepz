@@ -12,6 +12,7 @@ import { useAuthStore } from "../../store/auth.store"
 import { useCartStore } from "../../store/useCartStore"
 import { useWishlistStore } from "../../store/useWishlistStore"
 import { useCategoryStore } from "../../store/useCategoryStore"
+import { useAffiliateStore } from "../../store/affiliate.store"
 
 import SearchBar from "../products/SearchBar"
 import { useState, useEffect, useRef } from "react"
@@ -27,6 +28,11 @@ export default function Navbar() {
   const { tree, fetchTree } = useCategoryStore()
   const { signOut } = useAuth()
 
+  /* ---------------- AFFILIATE ---------------- */
+  const affiliateProfile = useAffiliateStore((s) => s.profile)
+  const fetchAffiliate = useAffiliateStore((s) => s.fetchAffiliate)
+
+  /* ---------------- UI STATE ---------------- */
   const [openUser, setOpenUser] = useState(false)
   const [openMega, setOpenMega] = useState(false)
 
@@ -35,6 +41,10 @@ export default function Navbar() {
   useEffect(() => {
     if (!tree.length) fetchTree()
   }, [tree.length, fetchTree])
+
+  useEffect(() => {
+    if (user) fetchAffiliate()
+  }, [user, fetchAffiliate])
 
   const openMegaMenu = () => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current)
@@ -51,7 +61,6 @@ export default function Navbar() {
 
   return (
     <header className="border-b bg-white sticky top-0 z-50">
-
       <div className="max-w-7xl mx-auto px-4 h-16 flex items-center gap-6">
 
         <Link href="/">
@@ -76,10 +85,8 @@ export default function Navbar() {
               Category
             </button>
 
-            {/* HOVER BRIDGE */}
             <div className="absolute left-0 top-full h-4 w-full" />
 
-            {/* MEGA MENU */}
             <div
               className={clsx(
                 "absolute left-0 top-full pt-4 transition-all duration-200",
@@ -153,7 +160,7 @@ export default function Navbar() {
           )}
         </Link>
 
-        {/* USER */}
+        {/* USER MENU */}
         {user ? (
           <div className="relative">
             <button onClick={() => setOpenUser((p) => !p)}>
@@ -161,7 +168,7 @@ export default function Navbar() {
             </button>
 
             {openUser && (
-              <div className="absolute right-0 mt-2 w-44 bg-white border rounded-xl shadow-md py-2 text-sm">
+              <div className="absolute right-0 mt-2 w-52 bg-white border rounded-xl shadow-md py-2 text-sm">
 
                 <Link
                   href="/profile"
@@ -178,6 +185,33 @@ export default function Navbar() {
                 >
                   Orders
                 </Link>
+
+
+                {affiliateProfile?.status === "APPROVED" && (
+                  <Link
+                    href="/affiliate"
+                    className="block px-4 py-2 hover:bg-gray-50"
+                    onClick={() => setOpenUser(false)}
+                  >
+                    Affiliate Dashboard
+                  </Link>
+                )}
+
+                {!affiliateProfile && (
+                  <Link
+                    href="/affiliate/apply"
+                    className="block px-4 py-2 hover:bg-gray-50"
+                    onClick={() => setOpenUser(false)}
+                  >
+                    Become an Affiliate
+                  </Link>
+                )}
+
+                {affiliateProfile?.status === "PENDING" && (
+                  <div className="px-4 py-2 text-xs text-muted">
+                    Affiliate (Pending)
+                  </div>
+                )}
 
                 <button
                   onClick={signOut}
