@@ -32,7 +32,6 @@ export const useAuthStore = create<AuthState>()(
         }),
 
       logout: () => {
-        // ✅ clear cart safely (method exists)
         useCartStore.getState().clearCart()
 
         set({

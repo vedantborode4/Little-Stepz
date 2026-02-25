@@ -5,16 +5,6 @@ export interface AuthResponse {
     id: string
     name: string
     email: string
+    role: "USER" | "ADMIN" | "AFFILIATE"
   }
-}
-
-export interface SignInDto {
-  email: string
-  password: string
-}
-
-export interface SignUpDto {
-  name: string
-  email: string
-  password: string
 }
