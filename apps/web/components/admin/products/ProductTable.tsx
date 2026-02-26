@@ -20,10 +20,19 @@ export default function AdminProductsTable() {
     setLoading(true)
 
     try {
+      if (search.trim()) {
+        const res = await AdminProductService.searchProducts(search)
+
+        setData(res.products)
+        setPages(1)
+        setPage(1)
+
+        return
+      }
+
       const res = await AdminProductService.getProducts({
         page,
         limit: 10,
-        q: search || undefined,
       })
 
       setData(res.products)
@@ -36,7 +45,7 @@ export default function AdminProductsTable() {
   useEffect(() => {
     fetchProducts()
   }, [page, search])
-
+  
   /* ---------------- DELETE ---------------- */
 
   const deleteProduct = async (id: string) => {

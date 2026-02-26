@@ -106,4 +106,9 @@ export const AdminProductService = {
   deleteVariant: async (id: string): Promise<void> => {
     await api.delete(`/admin/products/variants/${id}`)
   },
+
+  searchProducts: async (q: string) => {
+    const res = await api.get("/products/search", { params: { q } })
+    return res.data.data
+  },
 }
