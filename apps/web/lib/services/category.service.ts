@@ -12,4 +12,9 @@ export const CategoryService = {
     const res = await api.get("/categories/tree")
     return res.data.data
   },
+
+  getAll: async (): Promise<CategoryNode[]> => {
+    const res = await api.get("/categories")
+    return res.data.data
+  },
 }

@@ -3,15 +3,18 @@ import { CategoryService, CategoryNode } from "../lib/services/category.service"
 
 interface CategoryState {
   tree: CategoryNode[]
+  flatCategories: CategoryNode[] 
   categoryPath: CategoryNode[]
   isLoading: boolean
 
   fetchTree: () => Promise<void>
+  fetchFlatCategories: () => Promise<void>   
   setCategoryPath: (slug: string) => void
 }
 
 export const useCategoryStore = create<CategoryState>((set, get) => ({
   tree: [],
+  flatCategories: [],
   categoryPath: [],
   isLoading: false,
 
@@ -20,6 +23,16 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
     try {
       const data = await CategoryService.getTree()
       set({ tree: data })
+    } finally {
+      set({ isLoading: false })
+    }
+  },
+
+  fetchFlatCategories: async () => {
+    set({ isLoading: true })
+    try {
+      const data = await CategoryService.getAll()
+      set({ flatCategories: data })
     } finally {
       set({ isLoading: false })
     }
