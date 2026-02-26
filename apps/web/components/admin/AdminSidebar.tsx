@@ -11,12 +11,14 @@ import {
   Ticket,
   Star,
   Image,
+  FolderTree,
 } from "lucide-react"
 
 const items = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
   { label: "Orders", href: "/admin/orders", icon: ShoppingCart },
   { label: "Products", href: "/admin/products", icon: Package },
+  { label: "Categories", href: "/admin/categories", icon: FolderTree },
   { label: "Affiliates", href: "/admin/affiliates", icon: Users },
   { label: "Coupons", href: "/admin/coupons", icon: Ticket },
   { label: "Reviews", href: "/admin/reviews", icon: Star },
