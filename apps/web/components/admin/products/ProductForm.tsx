@@ -1,13 +1,20 @@
 "use client"
 
 import { useState } from "react"
-import { AdminProductService } from "../../../lib/services/admin-product.service"
-import { useRouter } from "next/navigation"
 import slugify from "slugify"
+import { useRouter } from "next/navigation"
+
+import { Input, Button } from "@repo/ui/index"
+import { createProductSchema } from "@repo/zod-schema/index"
+
+import { AdminProductService } from "../../../lib/services/admin-product.service"
+import ProductImageManager from "./ProductImageManager"
 import CategoryTreeSelect from "../categories/CategoryTreeSelect"
 
 export default function ProductForm() {
   const router = useRouter()
+
+  const [productId, setProductId] = useState<string | null>(null)
 
   const [form, setForm] = useState({
     name: "",
@@ -19,103 +26,151 @@ export default function ProductForm() {
     categoryId: "",
   })
 
+  const [images, setImages] = useState<any[]>([])
+
+  const [errors, setErrors] = useState<Record<string, string[]>>({})
   const [loading, setLoading] = useState(false)
 
   const onChange = (key: string, value: any) => {
     setForm((p) => ({
       ...p,
       [key]: value,
-      ...(key === "name" && { slug: slugify(value, { lower: true }) }),
+      ...(key === "name" && {
+        slug: slugify(value, { lower: true, strict: true }),
+      }),
     }))
   }
 
   const submit = async () => {
-    if (!form.categoryId) {
-      alert("Please select a category")
+    const parsed = createProductSchema.safeParse(form)
+
+    if (!parsed.success) {
+      setErrors(parsed.error.flatten().fieldErrors)
       return
     }
 
+    setErrors({})
     setLoading(true)
 
     try {
-      await AdminProductService.createProduct(form)
-      router.push("/admin/products")
+      const product = await AdminProductService.createProduct(parsed.data)
+
+      setProductId(product.id)
     } catch (e: any) {
-      alert(e.response?.data?.message || "Failed")
+      alert(e.response?.data?.message || "Failed to create product")
     }
 
     setLoading(false)
   }
 
   return (
-    <div className="bg-white border rounded-xl p-6 space-y-5 max-w-2xl">
+    <div className="bg-white border rounded-xl p-8 max-w-4xl space-y-6">
 
-      <h2 className="text-lg font-semibold">Create Product</h2>
+      <h2 className="text-lg font-semibold">Add Product</h2>
 
-      <input
-        placeholder="Product name"
-        className="input"
-        value={form.name}
-        onChange={(e) => onChange("name", e.target.value)}
-      />
-
-      <input
-        placeholder="Slug"
-        className="input"
-        value={form.slug}
-        onChange={(e) => onChange("slug", e.target.value)}
-      />
-
-      <textarea
-        placeholder="Description"
-        className="input"
-        value={form.description}
-        onChange={(e) => onChange("description", e.target.value)}
-      />
-
-      <input
-        type="number"
-        placeholder="Price"
-        className="input"
-        value={form.price}
-        onChange={(e) => onChange("price", Number(e.target.value))}
-      />
-
-      <input
-        type="number"
-        placeholder="Quantity"
-        className="input"
-        value={form.quantity}
-        onChange={(e) => onChange("quantity", Number(e.target.value))}
-      />
-
-      {/* ✅ STOCK TOGGLE */}
-      <label className="flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          checked={form.inStock}
-          onChange={(e) => onChange("inStock", e.target.checked)}
+      <div>
+        <Input
+          placeholder="Product name"
+          value={form.name}
+          onChange={(e) => onChange("name", e.target.value)}
         />
-        In stock
-      </label>
+        {errors.name && (
+          <p className="text-red-500 text-sm">{errors.name[0]}</p>
+        )}
+      </div>
 
-      {/* ✅ TREE CATEGORY SELECTOR */}
-      <div className="space-y-2">
-        <p className="text-sm font-medium">Category</p>
+      <div>
+        <Input
+          placeholder="Slug"
+          value={form.slug}
+          onChange={(e) => onChange("slug", e.target.value)}
+        />
+        {errors.slug && (
+          <p className="text-red-500 text-sm">{errors.slug[0]}</p>
+        )}
+      </div>
 
+      <div>
+        <textarea
+          placeholder="Short Information"
+          className="w-full min-h-[120px] p-4 rounded-xl border border-border"
+          value={form.description}
+          onChange={(e) => onChange("description", e.target.value)}
+        />
+        {errors.description && (
+          <p className="text-red-500 text-sm">
+            {errors.description[0]}
+          </p>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Input
+            type="number"
+            placeholder="Regular Price"
+            onChange={(e) => onChange("price", Number(e.target.value))}
+          />
+          {errors.price && (
+            <p className="text-red-500 text-sm">{errors.price[0]}</p>
+          )}
+        </div>
+
+        <div>
+          <Input
+            type="number"
+            placeholder="Quantity"
+            onChange={(e) => onChange("quantity", Number(e.target.value))}
+          />
+          {errors.quantity && (
+            <p className="text-red-500 text-sm">
+              {errors.quantity[0]}
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div>
         <CategoryTreeSelect
           value={form.categoryId}
           onChange={(id) => onChange("categoryId", id)}
         />
+        {errors.categoryId && (
+          <p className="text-red-500 text-sm">
+            {errors.categoryId[0]}
+          </p>
+        )}
       </div>
 
-      <button
-        onClick={submit}
-        disabled={loading}
-        className="bg-primary text-white px-6 py-2 rounded-lg w-full"
-      >
-        {loading ? "Creating..." : "Create Product"}
-      </button>
+
+      {!productId && (
+        <Button onClick={submit} loading={loading}>
+          Add Product
+        </Button>
+      )}
+
+      // IMAGE MANAGER AFTER CREATE 
+
+      {productId && (
+        <div className="space-y-4">
+
+          <h3 className="font-semibold">Upload Images</h3>
+
+          <ProductImageManager
+            productId={productId}
+            images={images}
+            onChange={setImages}
+          />
+
+          <Button
+            onClick={() => router.push("/admin/products")}
+            className="bg-green-600"
+          >
+            Done
+          </Button>
+
+        </div>
+      )}
 
     </div>
   )
