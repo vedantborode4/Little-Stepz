@@ -1,18 +1,21 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import slugify from "slugify"
 import { useRouter } from "next/navigation"
-
 import { Input, Button } from "@repo/ui/index"
 import { createProductSchema } from "@repo/zod-schema/index"
-
 import { AdminProductService } from "../../../lib/services/admin-product.service"
 import ProductImageManager from "./ProductImageManager"
 import CategoryTreeSelect from "../categories/CategoryTreeSelect"
 import VariantManager from "./VariantManager"
 
-export default function ProductForm() {
+interface Props {
+  mode?: "create" | "edit"
+  initialData?: any
+}
+
+export default function ProductForm({ mode = "create", initialData }: Props) {
   const router = useRouter()
 
   const [productId, setProductId] = useState<string | null>(null)
@@ -28,9 +31,16 @@ export default function ProductForm() {
   })
 
   const [images, setImages] = useState<any[]>([])
-
-  const [errors, setErrors] = useState<Record<string, string[]>>({})
+  const [errors, setErrors] = useState<any>({})
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (initialData) {
+      setForm(initialData)
+      setImages(initialData.images || [])
+      setProductId(initialData.id)
+    }
+  }, [initialData])
 
   const onChange = (key: string, value: any) => {
     setForm((p) => ({
@@ -50,116 +60,95 @@ export default function ProductForm() {
       return
     }
 
-    setErrors({})
     setLoading(true)
 
     try {
-      const product = await AdminProductService.createProduct(parsed.data)
-
-      setProductId(product.id)
-    } catch (e: any) {
-      alert(e.response?.data?.message || "Failed to create product")
+      if (mode === "edit") {
+        await AdminProductService.updateProduct(productId!, parsed.data)
+      } else {
+        const product = await AdminProductService.createProduct(parsed.data)
+        setProductId(product.id)
+      }
+    } finally {
+      setLoading(false)
     }
-
-    setLoading(false)
   }
 
   return (
-    <div className="bg-white border rounded-xl p-8 max-w-4xl space-y-6">
+    <div className="bg-white border rounded-xl p-8 space-y-6">
 
-      <h2 className="text-lg font-semibold">Add Product</h2>
-
-      <div>
+      <div className="space-y-2">
+        <label className="text-md text-gray-500  p-4 ">Product Name</label>
         <Input
           placeholder="Product name"
           value={form.name}
           onChange={(e) => onChange("name", e.target.value)}
         />
-        {errors.name && (
-          <p className="text-red-500 text-sm">{errors.name[0]}</p>
-        )}
       </div>
 
-      <div>
+      <div className="space-y-2">
+        <label className="text-md text-gray-500  p-4 ">Slug</label>
         <Input
           placeholder="Slug"
           value={form.slug}
           onChange={(e) => onChange("slug", e.target.value)}
         />
-        {errors.slug && (
-          <p className="text-red-500 text-sm">{errors.slug[0]}</p>
-        )}
       </div>
 
-      <div>
+      <div className="space-y-2">
+        <label className="text-md text-gray-500  p-4 ">Description</label>
         <textarea
-          placeholder="Short Information"
-          className="w-full min-h-[120px] p-4 rounded-xl border border-border"
+          className="w-full min-h-[120px] p-4 border rounded-xl"
           value={form.description}
           onChange={(e) => onChange("description", e.target.value)}
         />
-        {errors.description && (
-          <p className="text-red-500 text-sm">
-            {errors.description[0]}
-          </p>
-        )}
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <div>
+        <div className="space-y-2">
+          <label className="text-md text-gray-500  p-4 ">Price</label>
           <Input
             type="number"
-            placeholder="Regular Price"
+            placeholder="Price"
+            value={form.price}
             onChange={(e) => onChange("price", Number(e.target.value))}
           />
-          {errors.price && (
-            <p className="text-red-500 text-sm">{errors.price[0]}</p>
-          )}
         </div>
 
-        <div>
+        <div className="space-y-2">
+          <label className="text-md text-gray-500  p-4 ">Quantity</label>
           <Input
             type="number"
             placeholder="Quantity"
+            value={form.quantity}
             onChange={(e) => onChange("quantity", Number(e.target.value))}
           />
-          {errors.quantity && (
-            <p className="text-red-500 text-sm">
-              {errors.quantity[0]}
-            </p>
-          )}
         </div>
       </div>
 
-      <div>
+      <div className="space-y-2">
+        <label className="text-md text-gray-500  p-4 ">Category</label>
         <CategoryTreeSelect
           value={form.categoryId}
           onChange={(id) => onChange("categoryId", id)}
         />
-        {errors.categoryId && (
-          <p className="text-red-500 text-sm">
-            {errors.categoryId[0]}
-          </p>
-        )}
       </div>
 
-
-      {!productId && (
-        <Button onClick={submit} loading={loading}>
-          Add Product
-        </Button>
-      )}
-
+      <Button onClick={submit} loading={loading}>
+        {mode === "edit" ? "Update Product" : "Add Product"}
+      </Button>
 
       {productId && (
-        <div className="space-y-4">
-
-          <h3 className="font-semibold">Upload Images</h3>
-
+        <>
           <ProductImageManager
             productId={productId}
             images={images}
             onChange={setImages}
+          />
+
+          <VariantManager
+            productId={productId}
+            initialVariants={initialData?.variants || []}
           />
 
           <Button
@@ -168,13 +157,8 @@ export default function ProductForm() {
           >
             Done
           </Button>
-
-        </div>
+        </>
       )}
-      {productId && (
-        <VariantManager productId={productId} />
-    )}
-
     </div>
   )
 }

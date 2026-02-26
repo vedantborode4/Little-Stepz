@@ -20,11 +20,13 @@ export default function ProductImageManager({
   const [uploading, setUploading] = useState(false)
 
   const handleUpload = async (files: FileList | null) => {
-    if (!files || images.length >= 8) return
+    if (!files) return
 
     setUploading(true)
 
     const signature = await AdminProductImageService.getSignature(productId)
+
+    const newImages = [...images]
 
     for (const file of Array.from(files)) {
       const uploaded = await uploadToCloudinary(file, signature)
@@ -34,9 +36,10 @@ export default function ProductImageManager({
         publicId: uploaded.public_id,
       })
 
-      onChange([...images, saved])
+      newImages.push(saved)
     }
 
+    onChange(newImages)
     setUploading(false)
   }
 
@@ -47,7 +50,6 @@ export default function ProductImageManager({
 
   return (
     <div className="space-y-4">
-
       <div
         onClick={() => inputRef.current?.click()}
         className="border rounded-xl h-40 flex items-center justify-center cursor-pointer"

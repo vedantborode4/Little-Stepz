@@ -64,6 +64,25 @@ export const AdminProductService = {
     return res.data.data
   },
 
+  /**
+   * 🔥 SAFE get by ID (since backend has no GET /admin/products/:id)
+   */
+  getProductById: async (id: string): Promise<AdminProduct> => {
+    const res = await api.get("/products", {
+      params: { page: 1, limit: 100 },
+    })
+
+    const data: ProductListResponse = res.data.data
+
+    const product = data.products.find((p) => p.id === id)
+
+    if (!product) {
+      throw new Error("Product not found")
+    }
+
+    return product
+  },
+
   /* ---------- PRODUCT CRUD ---------- */
 
   createProduct: async (
@@ -106,6 +125,8 @@ export const AdminProductService = {
   deleteVariant: async (id: string): Promise<void> => {
     await api.delete(`/admin/products/variants/${id}`)
   },
+
+  /* ---------- SEARCH ---------- */
 
   searchProducts: async (q: string) => {
     const res = await api.get("/products/search", { params: { q } })
