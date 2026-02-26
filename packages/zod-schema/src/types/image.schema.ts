@@ -7,6 +7,7 @@ export const addProductImageSchema = z.object({
     }),
     body: z.object({
         url: z.string().url(),
+        publicId: z.string().min(1),
         alt: z.string().max(200).optional(),
         sortOrder: z.number().int().min(0).optional(),
     }),

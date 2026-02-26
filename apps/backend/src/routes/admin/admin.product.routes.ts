@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { createProductController, deleteProductController, updateProductController } from "../../controllers/admin/admin.product.controllers";
 import { createVariantController, deleteVariantController, updateVariantController } from "../../controllers/admin/admin.variant.controllers";
-import { addProductImageController, deleteProductImageController, reorderProductImageController } from "../../controllers/admin/admin.image.controllers";
+import { addProductImageController, deleteProductImageController, getCloudinarySignatureController, reorderProductImageController, replaceProductImageController } from "../../controllers/admin/admin.image.controllers";
 
 export const adminProductRouter:Router = Router();
 
@@ -16,3 +16,7 @@ adminProductRouter.delete("/variants/:id", deleteVariantController);
 adminProductRouter.post("/:productId/images", addProductImageController);
 adminProductRouter.put("/images/:imageId/reorder", reorderProductImageController);
 adminProductRouter.delete("/images/:imageId", deleteProductImageController);
+
+adminProductRouter.get("/images/upload-signature", getCloudinarySignatureController);
+
+adminProductRouter.put("/images/:imageId/replace", replaceProductImageController);

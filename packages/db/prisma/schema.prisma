@@ -141,6 +141,7 @@ model ProductImage {
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   url       String
+  publicId  String
   alt       String?
   sortOrder Int @default(0)
 
