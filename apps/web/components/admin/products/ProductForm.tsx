@@ -10,6 +10,7 @@ import { createProductSchema } from "@repo/zod-schema/index"
 import { AdminProductService } from "../../../lib/services/admin-product.service"
 import ProductImageManager from "./ProductImageManager"
 import CategoryTreeSelect from "../categories/CategoryTreeSelect"
+import VariantManager from "./VariantManager"
 
 export default function ProductForm() {
   const router = useRouter()
@@ -149,7 +150,6 @@ export default function ProductForm() {
         </Button>
       )}
 
-      // IMAGE MANAGER AFTER CREATE 
 
       {productId && (
         <div className="space-y-4">
@@ -171,6 +171,9 @@ export default function ProductForm() {
 
         </div>
       )}
+      {productId && (
+        <VariantManager productId={productId} />
+    )}
 
     </div>
   )
