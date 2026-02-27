@@ -42,11 +42,12 @@ export const AdminOrderService = {
     return res.data.data
   },
 
-  createShipment: async (id: string) => {
-    await api.post(`/admin/orders/${id}/ship`)
-  },
+  createShipment: async (orderId: string) => {
+      const res = await api.post(`/admin/orders/${orderId}/ship`)
+      return res.data.data
+    },
 
   resolveReturn: async (id: string, payload: any) => {
-    await api.put(`/admin/returns/${id}/resolve`, payload)
+      await api.put(`/admin/returns/${id}/resolve`, payload)
   },
 }
