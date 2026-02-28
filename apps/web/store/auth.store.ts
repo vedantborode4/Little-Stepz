@@ -43,6 +43,16 @@ export const useAuthStore = create<AuthState>()(
 
       setHydrated: (value) => set({ isHydrated: value }),
     }),
-    { name: "auth-storage" }
+    {
+      name: "auth-storage",
+      partialize: (state) => ({
+        user: state.user,
+        accessToken: state.accessToken,
+        isAuthenticated: state.isAuthenticated,
+        // ✅ isHydrated is intentionally excluded — it's a runtime flag, not persisted session data.
+        // Persisting it caused it to be restored as `false` on every page load,
+        // triggering infinite re-renders in AuthProvider and GuestGuard.
+      }),
+    }
   )
 )

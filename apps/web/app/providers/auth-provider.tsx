@@ -11,21 +11,27 @@ import {
 import { UserService } from "../../lib/services/user.service"
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const { setAuth, logout, setHydrated } = useAuthStore()
-
-  const fetchCart = useCartStore((s) => s.fetchCart)
-  const fetchWishlist = useWishlistStore((s) => s.fetchWishlist)
-
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // ✅ FIX: Empty dependency array — this effect must only run ONCE on mount.
+    //
+    // The original bug: dependency array had [setAuth, logout, fetchCart, fetchWishlist, setHydrated].
+    // Zustand recreates these function references on every render, so the effect
+    // re-fired on every render → infinite hydrate() calls → continuous reload loop on signin page.
+    //
+    // Fix: Read store actions from getState() (always stable references) and use
+    // an empty deps array so hydration only ever happens once on mount.
     const hydrate = async () => {
       const token = getAccessToken()
+
+      const { setAuth, logout, setHydrated } = useAuthStore.getState()
+      const { fetchCart } = useCartStore.getState()
+      const { fetchWishlist } = useWishlistStore.getState()
 
       try {
         if (token) {
           const user = await UserService.getMe()
-
           setAuth({
             accessToken: token,
             user,
@@ -47,7 +53,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     hydrate()
-  }, [setAuth, logout, fetchCart, fetchWishlist, setHydrated])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // ← intentionally empty: hydrate must only run once on mount
 
   if (loading) return null
 
