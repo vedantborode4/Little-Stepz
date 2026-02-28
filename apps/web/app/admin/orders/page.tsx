@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { AdminOrderService } from "../../../lib/services/admin-order.service"
 import OrdersTable from "../../../components/admin/orders/OrdersTable"
 import OrdersFilters from "../../../components/admin/orders/OrdersFilters"
+import OrdersStats from "../../../components/orders/OrdersStats"
 
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState([])
@@ -24,6 +25,8 @@ export default function AdminOrdersPage() {
   return (
     <div className="space-y-6">
 
+        <OrdersStats orders={orders} />
+        
       <div className="flex justify-between items-center">
         <h1 className="text-xl font-semibold">Orders List</h1>
         <OrdersFilters filters={filters} setFilters={setFilters} />
