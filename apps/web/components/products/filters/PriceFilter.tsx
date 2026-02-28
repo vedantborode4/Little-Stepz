@@ -5,18 +5,17 @@ import { useProductFilterStore } from "../../../store/useProductFilterStore"
 
 export default function PriceFilter() {
   const priceMax = useProductFilterStore((s) => s.priceMax)
-  const setFilters = useProductFilterStore((s) => s.setFilters)
 
   const [localValue, setLocalValue] = useState(priceMax ?? 5000)
 
   // debounce
   useEffect(() => {
     const timer = setTimeout(() => {
-      setFilters({ priceMax: localValue })
+      useProductFilterStore.getState().setFilters({ priceMax: localValue })
     }, 500)
 
     return () => clearTimeout(timer)
-  }, [localValue, setFilters])
+  }, [localValue])
 
   return (
     <div className="space-y-4">

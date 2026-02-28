@@ -13,7 +13,7 @@ export default function AffiliateGuard({
   const router = useRouter()
 
   const { user, isHydrated } = useAuthStore()
-  const { profile, loading, fetchAffiliate } = useAffiliateStore()
+  const { profile, loading } = useAffiliateStore()
 
   /* ---------------- AUTH GUARD ---------------- */
 
@@ -26,10 +26,11 @@ export default function AffiliateGuard({
   /* ---------------- FETCH PROFILE ---------------- */
 
   useEffect(() => {
-    if (user && !profile) {
-      fetchAffiliate()
+    if (user && !useAffiliateStore.getState().profile) {
+      useAffiliateStore.getState().fetchAffiliate()
     }
-  }, [user, profile, fetchAffiliate])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user])
 
   /* ---------------- REDIRECT IF NOT AFFILIATE ---------------- */
 

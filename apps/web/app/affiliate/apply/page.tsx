@@ -10,13 +10,18 @@ export default function ApplyAffiliatePage() {
       const router = useRouter()
 
   const [loading, setLoading] = useState(false)
-    const { profile, fetchAffiliate } = useAffiliateStore()
+  const { profile } = useAffiliateStore()
   useEffect(() => {
-    if (!profile) fetchAffiliate()
+    const { profile: currentProfile, fetchAffiliate } = useAffiliateStore.getState()
+    if (!currentProfile) fetchAffiliate()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
     if (profile?.status === "APPROVED") {
       router.replace("/affiliate")
     }
-  }, [profile, fetchAffiliate, router])
+  }, [profile, router])
 
   const handleApply = async () => {
     try {

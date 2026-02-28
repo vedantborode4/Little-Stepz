@@ -11,14 +11,17 @@ interface Props {
 }
 
 export default function CategoryTreeSelect({ value, onChange }: Props) {
-  const { tree, fetchTree } = useCategoryStore()
+  const { tree } = useCategoryStore()
 
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [selected, setSelected] = useState<string | undefined>(value)
 
   useEffect(() => {
-    if (!tree.length) fetchTree()
-  }, [tree.length, fetchTree])
+    if (!useCategoryStore.getState().tree.length) {
+      useCategoryStore.getState().fetchTree()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     setSelected(value)

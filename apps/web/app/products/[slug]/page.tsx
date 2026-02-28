@@ -23,7 +23,6 @@ export default function ProductDetailsPage() {
   const [error, setError] = useState(false)
 
   const tree = useCategoryStore((s) => s.tree)
-  const fetchTree = useCategoryStore((s) => s.fetchTree)
   const setCategoryPath = useCategoryStore((s) => s.setCategoryPath)
 
   /* ---------------- FETCH PRODUCT ---------------- */
@@ -51,8 +50,11 @@ export default function ProductDetailsPage() {
   /* ---------------- ENSURE CATEGORY TREE ---------------- */
 
   useEffect(() => {
-    if (!tree.length) fetchTree()
-  }, [tree.length, fetchTree])
+    if (!useCategoryStore.getState().tree.length) {
+      useCategoryStore.getState().fetchTree()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   /* ---------------- SET CATEGORY PATH ---------------- */
 

@@ -6,7 +6,6 @@ import { useReviewStore } from "../../store/useReviewStore"
 export default function ReviewList({ productId }: { productId: string }) {
   const {
     reviews,
-    fetchReviews,
     loadMore,
     page,
     totalPages,
@@ -14,8 +13,9 @@ export default function ReviewList({ productId }: { productId: string }) {
   } = useReviewStore()
 
   useEffect(() => {
-    fetchReviews(productId)
-  }, [productId, fetchReviews])
+    useReviewStore.getState().fetchReviews(productId)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productId]) // ✅ re-fetch when the product changes, not when the action ref changes
 
   if (loading) return <p>Loading reviews...</p>
 

@@ -5,11 +5,14 @@ import { useCategoryStore } from "../../../store/useCategoryStore"
 import CategoryTreeNode from "./CategoryTreeNode"
 
 export default function CategoryFilter() {
-  const { tree, fetchTree, isLoading } = useCategoryStore()
+  const { tree, isLoading } = useCategoryStore()
 
   useEffect(() => {
-    if (!tree.length) fetchTree()
-  }, [tree.length, fetchTree])
+    if (!useCategoryStore.getState().tree.length) {
+      useCategoryStore.getState().fetchTree()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   if (isLoading) return <p className="text-sm">Loading...</p>
 

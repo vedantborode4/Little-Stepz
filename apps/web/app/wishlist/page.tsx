@@ -7,8 +7,6 @@ import { useWishlistStore } from "../../store/useWishlistStore"
 import WishlistItem from "../../components/wishlist/WishlistItem"
 
 export default function WishlistPage() {
-  const fetchWishlistIds = useWishlistStore((s) => s.fetchWishlist)
-
   const [items, setItems] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -16,7 +14,7 @@ export default function WishlistPage() {
     const load = async () => {
       setLoading(true)
 
-      await fetchWishlistIds() // keeps hearts synced globally
+      await useWishlistStore.getState().fetchWishlist() // keeps hearts synced globally
 
       const data = await WishlistService.getWishlist() // full product data
 
@@ -26,7 +24,8 @@ export default function WishlistPage() {
     }
 
     load()
-  }, [fetchWishlistIds])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   if (loading) {
     return <div className="py-20 text-center">Loading wishlist...</div>

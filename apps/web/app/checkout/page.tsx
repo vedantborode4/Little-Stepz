@@ -12,9 +12,6 @@ export default function CheckoutPage() {
   const user = useAuthStore((s) => s.user)
   const items = useCartStore((s) => s.items)
 
-  const fetchCart = useCartStore((s) => s.fetchCart)
-  const revalidateCoupon = useCartStore((s) => s.revalidateCoupon)
-
   const [isLocking, setIsLocking] = useState(true)
   const [isValid, setIsValid] = useState(false)
 
@@ -26,8 +23,8 @@ export default function CheckoutPage() {
       try {
         setIsLocking(true)
 
-        await fetchCart()
-        await revalidateCoupon()
+        await useCartStore.getState().fetchCart()
+        await useCartStore.getState().revalidateCoupon()
 
         setIsValid(true)
       } catch {
@@ -39,7 +36,8 @@ export default function CheckoutPage() {
     }
 
     lockPricing()
-  }, [fetchCart, revalidateCoupon])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   /* ---------------- EMPTY CART ---------------- */
 

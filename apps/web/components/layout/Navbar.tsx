@@ -25,12 +25,11 @@ export default function Navbar() {
   const cartItems = useCartStore((s) => s.items)
   const wishlistItems = useWishlistStore((s) => s.items)
 
-  const { tree, fetchTree } = useCategoryStore()
+  const { tree } = useCategoryStore()
   const { signOut } = useAuth()
 
   /* ---------------- AFFILIATE ---------------- */
   const affiliateProfile = useAffiliateStore((s) => s.profile)
-  const fetchAffiliate = useAffiliateStore((s) => s.fetchAffiliate)
 
   /* ---------------- UI STATE ---------------- */
   const [openUser, setOpenUser] = useState(false)
@@ -39,12 +38,20 @@ export default function Navbar() {
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
-    if (!tree.length) fetchTree()
-  }, [tree.length, fetchTree])
+    // ✅ FIX: removed `fetchTree` from deps — it's a Zustand action and gets a new
+    // reference every render, which would cause this effect to re-run endlessly.
+    // We only want to fetch once when the tree is empty (on mount).
+    if (!useCategoryStore.getState().tree.length) {
+      useCategoryStore.getState().fetchTree()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
-    if (user) fetchAffiliate()
-  }, [user, fetchAffiliate])
+    // ✅ FIX: same pattern — read stable action from getState().
+    // `user` is the only real dependency: re-fetch affiliate when user changes.
+    if (user) useAffiliateStore.getState().fetchAffiliate()
+  }, [user])
 
   const openMegaMenu = () => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current)

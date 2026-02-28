@@ -19,7 +19,7 @@ import Link from "next/link"
 export default function CategoryProductsPage() {
   const { slug } = useParams<{ slug: string }>()
 
-  const { tree, fetchTree, setCategoryPath } = useCategoryStore()
+  const { tree } = useCategoryStore()
 
   const [products, setProducts] = useState<Product[]>([])
   const [totalPages, setTotalPages] = useState(1)
@@ -37,14 +37,17 @@ export default function CategoryProductsPage() {
   }, [slug])
 
   useEffect(() => {
-    if (!tree.length) fetchTree()
-  }, [tree.length, fetchTree])
+    if (!useCategoryStore.getState().tree.length) {
+      useCategoryStore.getState().fetchTree()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     if (slug && tree.length) {
-      setCategoryPath(slug)
+      useCategoryStore.getState().setCategoryPath(slug)
     }
-  }, [slug, tree, setCategoryPath])
+  }, [slug, tree])
 
   useEffect(() => {
     if (!slug) return

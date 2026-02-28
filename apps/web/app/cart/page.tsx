@@ -9,12 +9,12 @@ import CartSummary from "../../components/cart/CartSummary"
 
 export default function CartPage() {
   const items = useCartStore((s) => s.items)
-  const fetchCart = useCartStore((s) => s.fetchCart)
   const isLoading = useCartStore((s) => s.isLoading)
 
   useEffect(() => {
-    fetchCart()
-  }, [fetchCart])
+    useCartStore.getState().fetchCart()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   /* 🔄 Loading */
   if (isLoading) {

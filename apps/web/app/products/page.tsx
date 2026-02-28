@@ -31,7 +31,6 @@ export default function ProductsPage() {
   const setFilters = useProductFilterStore((s) => s.setFilters)
 
   const tree = useCategoryStore((s) => s.tree)
-  const fetchTree = useCategoryStore((s) => s.fetchTree)
 
   const isSearchMode = !!search
 
@@ -43,8 +42,11 @@ export default function ProductsPage() {
   /* ---------------- CATEGORY TREE (for breadcrumb label) ---------------- */
 
   useEffect(() => {
-    if (!tree.length) fetchTree()
-  }, [tree.length, fetchTree])
+    if (!useCategoryStore.getState().tree.length) {
+      useCategoryStore.getState().fetchTree()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const getCategoryName = (slug?: string): string | null => {
     if (!slug || !tree.length) return null
@@ -68,7 +70,7 @@ export default function ProductsPage() {
   useEffect(() => {
     if (hasHydrated.current) return
 
-    setFilters({
+    useProductFilterStore.getState().setFilters({
       page: Number(searchParams.get("page") || 1),
       category: searchParams.get("category") || undefined,
       sort: searchParams.get("sort") || undefined,
@@ -79,7 +81,7 @@ export default function ProductsPage() {
     })
 
     hasHydrated.current = true
-  }, [searchParams, setFilters])
+  }, [searchParams])
 
   /* ---------------- FETCH PRODUCTS ---------------- */
 
