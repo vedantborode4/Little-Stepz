@@ -1,13 +1,18 @@
 import { api } from "../api-client"
 
-import type {
-  CreateProductData,
-  UpdateProductData,
-  CreateVariantBody,
-  UpdateVariantBody,
-} from "@repo/zod-schema/index"
+export interface ProductImage {
+  id: string
+  url: string
+  alt?: string
+  sortOrder: number
+}
 
-/* ----------------------------- RESPONSE TYPES ----------------------------- */
+export interface ProductVariant {
+  id: string
+  name: string
+  price: number | null
+  stock: number
+}
 
 export interface AdminProduct {
   id: string
@@ -17,119 +22,98 @@ export interface AdminProduct {
   price: number
   quantity: number
   inStock: boolean
-
-  category?: {
-    id: string
-    name: string
-    slug: string
-  }
-
-  images?: {
-    id: string
-    url: string
-    alt?: string
-    sortOrder: number
-  }[]
-
-  variants?: {
-    id: string
-    name: string
-    price?: number | null
-    stock?: number
-  }[]
-
+  categoryId?: string
+  category?: { id: string; name: string; slug: string }
+  images: ProductImage[]
+  variants: ProductVariant[]
   createdAt: string
   updatedAt: string
 }
 
-type Variant = NonNullable<AdminProduct["variants"]>[number]
-
-interface ProductListResponse {
-  products: AdminProduct[]
-  total: number
-  page: number
-  limit: number
-  pages: number
-}
-
-/* -------------------------------------------------------------------------- */
-
 export const AdminProductService = {
-  /* ---------- LIST ---------- */
-
-  getProducts: async (
-    params?: Record<string, unknown>
-  ): Promise<ProductListResponse> => {
+  /** GET /products?page=&limit=&sort= */
+  getProducts: async (params?: { page?: number; limit?: number; sort?: string; inStock?: boolean }) => {
     const res = await api.get("/products", { params })
-    return res.data.data
-  },
-
-  /**
-   * 🔥 SAFE get by ID (since backend has no GET /admin/products/:id)
-   */
-  getProductById: async (id: string): Promise<AdminProduct> => {
-    const res = await api.get("/products", {
-      params: { page: 1, limit: 100 },
-    })
-
-    const data: ProductListResponse = res.data.data
-
-    const product = data.products.find((p) => p.id === id)
-
-    if (!product) {
-      throw new Error("Product not found")
+    const d = res.data.data
+    return {
+      products: d.products as AdminProduct[],
+      total: d.total as number,
+      page: d.page as number,
+      pages: d.pages as number,
     }
-
-    return product
   },
 
-  /* ---------- PRODUCT CRUD ---------- */
+  /** GET /products/search?q= */
+  searchProducts: async (q: string) => {
+    const res = await api.get("/products/search", { params: { q } })
+    const d = res.data.data
+    return { products: (d.products ?? d) as AdminProduct[] }
+  },
 
-  createProduct: async (
-    payload: CreateProductData
-  ): Promise<AdminProduct> => {
-    const res = await api.post("/admin/products", payload)
+  /** GET /products/:slug */
+  getBySlug: async (slug: string): Promise<AdminProduct> => {
+    const res = await api.get(`/products/${slug}`)
     return res.data.data
   },
 
-  updateProduct: async (
-    id: string,
-    payload: UpdateProductData
-  ): Promise<AdminProduct> => {
-    const res = await api.put(`/admin/products/${id}`, payload)
+  /** POST /admin/products  body: CreateProductBody */
+  createProduct: async (body: {
+    name: string; slug: string; description?: string
+    price: number; quantity?: number; inStock?: boolean; categoryId: string
+  }): Promise<AdminProduct> => {
+    const res = await api.post("/admin/products", body)
     return res.data.data
   },
 
-  deleteProduct: async (id: string): Promise<void> => {
+  /** PUT /admin/products/:id  body: UpdateProductBody */
+  updateProduct: async (id: string, body: Partial<{
+    name: string; slug: string; description: string | null
+    price: number; quantity: number; inStock: boolean; categoryId: string
+  }>): Promise<AdminProduct> => {
+    const res = await api.put(`/admin/products/${id}`, body)
+    return res.data.data
+  },
+
+  /** DELETE /admin/products/:id */
+  deleteProduct: async (id: string) => {
     await api.delete(`/admin/products/${id}`)
   },
 
-  /* ---------- VARIANTS ---------- */
+  // ── Images ──────────────────────────────────────────────────────────────
 
-  createVariant: async (data: CreateVariantBody): Promise<Variant> => {
-    const res = await api.post(
-      `/admin/products/${data.productId}/variants`,
-      data
-    )
+  /** POST /admin/products/:productId/images  body: { url, alt?, sortOrder? } */
+  addImage: async (productId: string, body: { url: string; alt?: string; sortOrder?: number }): Promise<ProductImage> => {
+    const res = await api.post(`/admin/products/${productId}/images`, body)
     return res.data.data
   },
 
-  updateVariant: async (
-    id: string,
-    data: UpdateVariantBody
-  ): Promise<Variant> => {
-    const res = await api.put(`/admin/products/variants/${id}`, data)
+  /** PUT /admin/products/images/:imageId/reorder  body: { sortOrder } */
+  reorderImage: async (imageId: string, sortOrder: number): Promise<ProductImage> => {
+    const res = await api.put(`/admin/products/images/${imageId}/reorder`, { sortOrder })
     return res.data.data
   },
 
-  deleteVariant: async (id: string): Promise<void> => {
+  /** DELETE /admin/products/images/:imageId */
+  deleteImage: async (imageId: string) => {
+    await api.delete(`/admin/products/images/${imageId}`)
+  },
+
+  // ── Variants ────────────────────────────────────────────────────────────
+
+  /** POST /admin/products/:productId/variants  body: { name, price?, stock? } */
+  createVariant: async (productId: string, body: { name: string; price?: number | null; stock?: number }): Promise<ProductVariant> => {
+    const res = await api.post(`/admin/products/${productId}/variants`, body)
+    return res.data.data
+  },
+
+  /** PUT /admin/products/variants/:id  body: { name?, price?, stock? } */
+  updateVariant: async (id: string, body: { name?: string; price?: number | null; stock?: number }): Promise<ProductVariant> => {
+    const res = await api.put(`/admin/products/variants/${id}`, body)
+    return res.data.data
+  },
+
+  /** DELETE /admin/products/variants/:id */
+  deleteVariant: async (id: string) => {
     await api.delete(`/admin/products/variants/${id}`)
-  },
-
-  /* ---------- SEARCH ---------- */
-
-  searchProducts: async (q: string) => {
-    const res = await api.get("/products/search", { params: { q } })
-    return res.data.data
   },
 }
