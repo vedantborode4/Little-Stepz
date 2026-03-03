@@ -1,36 +1,59 @@
 import { api } from "../api-client"
 
-export interface Coupon {
+export interface AdminCoupon {
   id: string
   code: string
-  discountType: "PERCENTAGE" | "FLAT"
-  discountValue: number
-  minOrderAmount?: number
-  maxDiscount?: number
-  usageLimit?: number
+  type: "PERCENTAGE" | "FLAT"
+  value: number
+  minOrderValue?: number | null
+  maxDiscount?: number | null
+  usageLimit?: number | null
   usedCount: number
-  expiresAt?: string
+  validFrom?: string | null
+  validUntil?: string | null
   isActive: boolean
   createdAt: string
+  updatedAt: string
+}
+
+export interface CreateCouponBody {
+  code: string
+  type: "PERCENTAGE" | "FLAT"
+  value: number
+  minOrderValue?: number
+  maxDiscount?: number
+  usageLimit?: number
+  validFrom?: string
+  validUntil?: string
+  isActive?: boolean
 }
 
 export const AdminCouponService = {
-  getAll: async (): Promise<Coupon[]> => {
-    const res = await api.get("/coupons")
+  /** GET /admin/coupons?page=&limit=&activeOnly=&sort= */
+  getAll: async (params?: { page?: number; limit?: number; activeOnly?: boolean; sort?: string }) => {
+    const res = await api.get("/admin/coupons", { params })
+    const d = res.data.data
+    return {
+      coupons: d.coupons as AdminCoupon[],
+      total: d.total as number,
+      pages: d.pages as number,
+    }
+  },
+
+  /** POST /admin/coupons */
+  create: async (body: CreateCouponBody): Promise<AdminCoupon> => {
+    const res = await api.post("/admin/coupons", body)
     return res.data.data
   },
 
-  create: async (payload: Omit<Coupon, "id" | "usedCount" | "createdAt">): Promise<Coupon> => {
-    const res = await api.post("/coupons", payload)
+  /** PUT /admin/coupons/:id */
+  update: async (id: string, body: Partial<CreateCouponBody> & { updatedAt?: string }): Promise<AdminCoupon> => {
+    const res = await api.put(`/admin/coupons/${id}`, body)
     return res.data.data
   },
 
-  update: async (id: string, payload: Partial<Coupon>): Promise<Coupon> => {
-    const res = await api.put(`/coupons/${id}`, payload)
-    return res.data.data
-  },
-
-  delete: async (id: string): Promise<void> => {
-    await api.delete(`/coupons/${id}`)
+  /** DELETE /admin/coupons/:id */
+  delete: async (id: string) => {
+    await api.delete(`/admin/coupons/${id}`)
   },
 }
