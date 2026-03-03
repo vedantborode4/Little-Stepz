@@ -3,10 +3,10 @@
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { ArrowLeft, Package, MapPin, CreditCard, Truck } from "lucide-react"
-import { AdminOrderService } from "../../../../lib/services/admin-order.service"
-import OrderStatusBadge from "../../../../components/admin/orders/OrderStatusBadge"
-import ShipOrderButton from "../../../../components/admin/orders/ShipOrderButton"
-import OrderTimeline from "../../../../components/admin/orders/AdminOrderTimeline"
+import { AdminOrderService } from "../../../lib/services/admin-order.service"
+import OrderStatusBadge from "../../../components/admin/orders/OrderStatusBadge"
+import ShipOrderButton from "../../../components/admin/orders/ShipOrderButton"
+import OrderTimeline from "../../../components/admin/orders/AdminOrderTimeline"
 
 export default function AdminOrderDetailPage() {
   const { id } = useParams<{ id: string }>()
