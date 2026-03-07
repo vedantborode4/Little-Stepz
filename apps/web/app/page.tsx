@@ -1,5 +1,7 @@
 import Footer from "../components/layout/Footer"
 import HeroCarousel from "../components/home/HeroCarousel"
+import DynamicHeroBanner from "../components/home/DynamicHeroBanner"
+import DynamicPromoBanner from "../components/home/DynamicPromoBanner"
 import SectionHeader from "../components/home/SectionHeader"
 import BrandRow from "../components/home/BrandRow"
 import CategoryGrid from "../components/home/CategoryGrid"
@@ -32,7 +34,9 @@ export default function Home() {
 
       <main className="max-w-7xl mx-auto px-4 space-y-20 py-10">
 
-        <HeroCarousel />
+        {/* Hero — shows dynamic CMS banners if available, falls back to static carousel */}
+        <DynamicHeroBanner />
+
         <section className="container">
           <HeadingFor/>
         </section>
@@ -52,6 +56,9 @@ export default function Home() {
         </section>
 
         <PromoBannerRow />
+
+        {/* Dynamic mid-page promotional banners from CMS */}
+        <DynamicPromoBanner position="HOME_MID" />
 
         <section>
           <SectionHeader title="Best Sellers" />
