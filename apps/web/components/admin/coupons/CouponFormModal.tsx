@@ -5,6 +5,24 @@ import AdminModal from "../AdminModal"
 import { AdminCouponService, type AdminCoupon, type CreateCouponBody } from "../../../lib/services/admin-coupon.service"
 import { toast } from "sonner"
 
+// Defined at module level (NOT inside the component) to prevent remount on every render,
+// which would cause the input to lose focus after each keystroke.
+function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <label className="text-sm font-medium text-gray-700">{label}</label>
+      {children}
+      {error && <p className="text-xs text-red-500">{error}</p>}
+    </div>
+  )
+}
+
+function StyledInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
+  return (
+    <input {...props} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white" />
+  )
+}
+
 interface Props {
   mode: "create" | "edit"
   initialData: AdminCoupon | null
@@ -64,26 +82,15 @@ export default function CouponFormModal({ mode, initialData, onClose, onSuccess 
     } finally { setLoading(false) }
   }
 
-  const Field = ({ label, error, children }: any) => (
-    <div className="space-y-1.5">
-      <label className="text-sm font-medium text-gray-700">{label}</label>
-      {children}
-      {error && <p className="text-xs text-red-500">{error}</p>}
-    </div>
-  )
-
-  const Input = (props: React.InputHTMLAttributes<HTMLInputElement>) => (
-    <input {...props} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white" />
-  )
-
   return (
     <AdminModal title={mode === "create" ? "Create Coupon" : "Edit Coupon"} onClose={onClose} width="max-w-lg">
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <Field label="Code *" error={errors.code}>
-            <Input
+            <StyledInput
               value={form.code}
-              onChange={e => setForm(p => ({ ...p, code: e.target.value.toUpperCase() }))}
+              onChange={e => setForm(p => ({ ...p, code: e.target.value }))}
+              style={{ textTransform: "uppercase" }}
               placeholder="e.g. SAVE20"
               disabled={mode === "edit" && (initialData?.usedCount ?? 0) > 0}
             />
@@ -100,7 +107,7 @@ export default function CouponFormModal({ mode, initialData, onClose, onSuccess 
         </div>
 
         <Field label={`Discount Value ${form.type === "PERCENTAGE" ? "(%)" : "(₹)"} *`} error={errors.value}>
-          <Input type="number" min={0} max={form.type === "PERCENTAGE" ? 100 : undefined}
+          <StyledInput type="number" min={0} max={form.type === "PERCENTAGE" ? 100 : undefined}
             value={form.value}
             onChange={e => setForm(p => ({ ...p, value: Number(e.target.value) }))}
             disabled={mode === "edit" && (initialData?.usedCount ?? 0) > 0}
@@ -109,21 +116,21 @@ export default function CouponFormModal({ mode, initialData, onClose, onSuccess 
 
         <div className="grid grid-cols-2 gap-4">
           <Field label="Min Order Value (₹)">
-            <Input type="number" min={0} placeholder="Optional"
+            <StyledInput type="number" min={0} placeholder="Optional"
               value={form.minOrderValue ?? ""}
               onChange={e => setForm(p => ({ ...p, minOrderValue: e.target.value ? Number(e.target.value) : undefined }))} />
           </Field>
 
           {form.type === "PERCENTAGE" && (
             <Field label="Max Discount (₹)">
-              <Input type="number" min={0} placeholder="Optional (cap)"
+              <StyledInput type="number" min={0} placeholder="Optional (cap)"
                 value={form.maxDiscount ?? ""}
                 onChange={e => setForm(p => ({ ...p, maxDiscount: e.target.value ? Number(e.target.value) : undefined }))} />
             </Field>
           )}
 
           <Field label="Usage Limit">
-            <Input type="number" min={0} placeholder="Leave blank = unlimited"
+            <StyledInput type="number" min={0} placeholder="Leave blank = unlimited"
               value={form.usageLimit ?? ""}
               onChange={e => setForm(p => ({ ...p, usageLimit: e.target.value ? Number(e.target.value) : undefined }))} />
           </Field>
@@ -131,11 +138,11 @@ export default function CouponFormModal({ mode, initialData, onClose, onSuccess 
 
         <div className="grid grid-cols-2 gap-4">
           <Field label="Valid From">
-            <Input type="date" value={form.validFrom ?? ""}
+            <StyledInput type="date" value={form.validFrom ?? ""}
               onChange={e => setForm(p => ({ ...p, validFrom: e.target.value || undefined }))} />
           </Field>
           <Field label="Valid Until">
-            <Input type="date" value={form.validUntil ?? ""}
+            <StyledInput type="date" value={form.validUntil ?? ""}
               onChange={e => setForm(p => ({ ...p, validUntil: e.target.value || undefined }))} />
           </Field>
         </div>
