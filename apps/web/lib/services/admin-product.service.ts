@@ -56,6 +56,24 @@ export const AdminProductService = {
     return res.data.data
   },
 
+  /**
+   * GET /admin/products/:id — fetch a single product by UUID.
+   * Falls back to searching the product list if a dedicated endpoint is not available.
+   */
+  getProductById: async (id: string): Promise<AdminProduct> => {
+    try {
+      const res = await api.get(`/admin/products/${id}`)
+      return res.data.data
+    } catch {
+      // Fallback: scan the products list to find by ID
+      const res = await api.get("/products", { params: { limit: 200 } })
+      const products: AdminProduct[] = res.data.data?.products ?? []
+      const found = products.find((p) => p.id === id)
+      if (!found) throw new Error(`Product ${id} not found`)
+      return found
+    }
+  },
+
   /** POST /admin/products  body: CreateProductBody */
   createProduct: async (body: {
     name: string; slug: string; description?: string
