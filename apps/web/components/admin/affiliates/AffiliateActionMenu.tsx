@@ -28,7 +28,7 @@ export default function AffiliateActionMenu({ affiliate, onApprove, onRefresh }:
 
   const reject = async () => {
     try {
-      await AdminAffiliateService.updateStatus(affiliate.id, { status: "REJECTED" })
+      await AdminAffiliateService.reject(affiliate.id, {})
       toast.success("Affiliate rejected")
       onRefresh()
     } catch {
