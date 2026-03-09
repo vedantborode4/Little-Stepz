@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { createProductController, deleteProductController, updateProductController } from "../../controllers/admin/admin.product.controllers";
+import { createProductController, deleteProductController, updateProductController, getProductByIdController } from "../../controllers/admin/admin.product.controllers";
 import { createVariantController, deleteVariantController, updateVariantController } from "../../controllers/admin/admin.variant.controllers";
 import { addProductImageController, deleteProductImageController, getCloudinarySignatureController, reorderProductImageController, replaceProductImageController } from "../../controllers/admin/admin.image.controllers";
 
@@ -9,6 +9,8 @@ adminProductRouter.post("/", createProductController);
 adminProductRouter.put("/:id", updateProductController);
 adminProductRouter.delete("/:id", deleteProductController);
 
+adminProductRouter.get("/images/upload-signature", getCloudinarySignatureController);
+
 adminProductRouter.post("/:productId/variants", createVariantController);
 adminProductRouter.put("/variants/:id", updateVariantController);
 adminProductRouter.delete("/variants/:id", deleteVariantController);
@@ -16,7 +18,6 @@ adminProductRouter.delete("/variants/:id", deleteVariantController);
 adminProductRouter.post("/:productId/images", addProductImageController);
 adminProductRouter.put("/images/:imageId/reorder", reorderProductImageController);
 adminProductRouter.delete("/images/:imageId", deleteProductImageController);
-
-adminProductRouter.get("/images/upload-signature", getCloudinarySignatureController);
-
 adminProductRouter.put("/images/:imageId/replace", replaceProductImageController);
+
+adminProductRouter.get("/:id", getProductByIdController);

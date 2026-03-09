@@ -4,6 +4,7 @@ import {
   createProductService,
   updateProductService,
   deleteProductService,
+  getProductByIdService,
 } from "../../services/admin/admin.product.services";
 import { createProductSchema, updateProductSchema, uuidSchema } from "@repo/zod-schema/index";
 
@@ -30,6 +31,15 @@ async function deleteProduct(req: Request, res: Response) {
   return new ApiResponse(200, null, "Product deleted").send(res);
 }
 
+
+async function getProductById(req: Request, res: Response) {
+  const { id } = req.params;
+  if (!id) throw new ApiError(400, "Product ID parameter is required");
+  const product = await getProductByIdService(id);
+  return new ApiResponse(200, product, "Product fetched").send(res);
+}
+
 export const createProductController = asyncHandler(createProduct);
 export const updateProductController = asyncHandler(updateProduct);
 export const deleteProductController = asyncHandler(deleteProduct);
+export const getProductByIdController = asyncHandler(getProductById);

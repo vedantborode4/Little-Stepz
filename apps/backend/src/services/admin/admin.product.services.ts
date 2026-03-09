@@ -141,3 +141,19 @@ export async function deleteProductService(id: string) {
     },
   });
 }
+
+export async function getProductByIdService(id: string) {
+  const product = await prisma.product.findFirst({
+    where: {
+      id,
+      deletedAt: null,
+    },
+    select: baseProductSelect,
+  });
+
+  if (!product) {
+    throw new ApiError(404, "Product not found");
+  }
+
+  return product;
+}
