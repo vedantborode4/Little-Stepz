@@ -3,10 +3,10 @@
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { ArrowLeft, Package, MapPin, CreditCard, Truck } from "lucide-react"
-import { AdminOrderService } from "../../../lib/services/admin-order.service"
-import OrderStatusBadge from "../../../components/admin/orders/OrderStatusBadge"
-import ShipOrderButton from "../../../components/admin/orders/ShipOrderButton"
-import OrderTimeline from "../../../components/admin/orders/AdminOrderTimeline"
+import { AdminOrderService } from "../../../../lib/services/admin-order.service"
+import OrderStatusBadge from "../../../../components/admin/orders/OrderStatusBadge"
+import ShipOrderButton from "../../../../components/admin/orders/ShipOrderButton"
+import OrderTimeline from "../../../../components/admin/orders/AdminOrderTimeline"
 
 export default function AdminOrderDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -16,10 +16,21 @@ export default function AdminOrderDetailPage() {
 
   const load = async () => {
     try {
-      // Fetch from orders list since no dedicated detail endpoint
-      const res = await AdminOrderService.getOrders({ orderId: id })
-      const found = (res.orders ?? res).find((o: any) => o.id === id)
-      setOrder(found ?? null)
+      // Fetch list filtered to recent orders and find by id
+      // (no dedicated single-order admin endpoint)
+      const res = await AdminOrderService.getOrders({ limit: 50 })
+      const found = (res.orders ?? []).find((o: any) => o.id === id)
+      if (found) {
+        setOrder(found)
+      } else {
+        // Not in first page — fetch more pages until found
+        let found2: any = null
+        for (let p = 2; p <= (res.pages ?? 1) && !found2; p++) {
+          const r2 = await AdminOrderService.getOrders({ page: p, limit: 50 })
+          found2 = (r2.orders ?? []).find((o: any) => o.id === id)
+        }
+        setOrder(found2 ?? null)
+      }
     } catch { router.push("/admin/orders") }
     finally { setLoading(false) }
   }
