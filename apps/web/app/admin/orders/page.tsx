@@ -1,15 +1,15 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
-import { AdminOrderService } from "../../../lib/services/admin-order.service"
+import { AdminOrderService, type AdminOrder } from "../../../lib/services/admin-order.service"
 import OrdersTable from "../../../components/admin/orders/OrdersTable"
 import OrdersFilters from "../../../components/admin/orders/OrdersFilters"
 import AdminPageHeader from "../../../components/admin/AdminPageHeader"
 import TableSkeleton from "../../../components/admin/TableSkeleton"
 
 export default function AdminOrdersPage() {
-  const [orders, setOrders] = useState([])
+  // Explicit type annotation to satisfy TypeScript — prevents "never[]" inference
+  const [orders, setOrders] = useState<AdminOrder[]>([])
   const [filters, setFilters] = useState<Record<string, any>>({})
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
@@ -19,8 +19,9 @@ export default function AdminOrdersPage() {
   const fetchOrders = async () => {
     setLoading(true)
     try {
+      // getOrders returns AdminOrdersResponse directly — no extra .data wrapper
       const res = await AdminOrderService.getOrders({ ...filters, page, limit: 15 })
-      setOrders(res.orders ?? res.data ?? [])
+      setOrders(res.orders ?? [])
       setTotalPages(res.pages ?? 1)
       setTotal(res.total ?? 0)
     } catch (e) { console.error(e) }
@@ -67,7 +68,9 @@ export default function AdminOrdersPage() {
                     <button
                       key={pg}
                       onClick={() => setPage(pg)}
-                      className={`w-8 h-8 flex items-center justify-center rounded-lg text-sm font-medium transition ${pg === page ? "bg-primary text-white" : "border border-gray-200 text-gray-600 hover:bg-gray-50"}`}
+                      className={`w-8 h-8 flex items-center justify-center rounded-lg text-sm font-medium transition ${
+                        pg === page ? "bg-primary text-white" : "border border-gray-200 text-gray-600 hover:bg-gray-50"
+                      }`}
                     >
                       {pg}
                     </button>
