@@ -1,5 +1,4 @@
 import AdminSidebar from "./AdminSidebar"
-import AdminTopbar from "./AdminTopbar"
 
 export default function AdminShell({
   children,
@@ -11,7 +10,6 @@ export default function AdminShell({
       <AdminSidebar />
 
       <div className="flex-1 bg-gray-50 min-h-screen">
-        <AdminTopbar />
         <div className="p-6">{children}</div>
       </div>
     </div>
