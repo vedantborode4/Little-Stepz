@@ -47,7 +47,6 @@ export async function adminApproveAffiliateOnlyService(
     const aff = rows[0];
     if (!aff) throw new ApiError(404, AffiliateErrorCode.AFFILIATE_NOT_FOUND);
     if (aff.status === "APPROVED") throw new ApiError(409, "Already approved");
-    if (aff.status === "REJECTED") throw new ApiError(409, "Application was rejected; cannot approve");
 
     const updateData: any = {
       status:    "APPROVED",
@@ -92,7 +91,6 @@ export async function adminRejectAffiliateService(
     const aff = rows[0];
     if (!aff) throw new ApiError(404, AffiliateErrorCode.AFFILIATE_NOT_FOUND);
     if (aff.status === "REJECTED") throw new ApiError(409, "Already rejected");
-    if (aff.status === "APPROVED") throw new ApiError(409, "Cannot reject an approved affiliate");
 
     await tx.affiliate.update({
       where: { id: affiliateId },
@@ -432,4 +430,44 @@ export async function adminGetAffiliateDetailService(affiliateId: string) {
     commissionBreakdown: byStatus,
     totalClicks: clickStats._count.id,
   };
+}
+
+/**
+ * PATCH /admin/affiliates/:id/update
+ * Update commission rate / type for an already-APPROVED affiliate.
+ * Works regardless of current status (unlike approve which requires PENDING).
+ */
+export async function adminUpdateAffiliateService(
+  adminUserId: string,
+  affiliateId: string,
+  data: { commissionRate?: number; commissionType?: string; adminNote?: string },
+  req?: Request
+) {
+  const aff = await prisma.affiliate.findUnique({ where: { id: affiliateId } });
+  if (!aff) throw new ApiError(404, "Affiliate not found");
+
+  const updateData: any = {};
+  if (data.commissionRate !== undefined) {
+    if (data.commissionRate < 0.01 || data.commissionRate > 0.20)
+      throw new ApiError(400, "Commission rate must be between 1% and 20%");
+    updateData.commissionRate = data.commissionRate;
+  }
+  if (data.commissionType) updateData.commissionType = data.commissionType;
+  if (data.adminNote !== undefined) updateData.adminNote = data.adminNote;
+
+  const updated = await prisma.affiliate.update({
+    where: { id: affiliateId },
+    data: updateData,
+  });
+
+  await createAuditLog({
+    userId:   adminUserId,
+    action:   "AFFILIATE_UPDATED",
+    entity:   "Affiliate",
+    entityId: affiliateId,
+    newValue: updateData,
+    req,
+  });
+
+  return { affiliateId, ...updateData };
 }

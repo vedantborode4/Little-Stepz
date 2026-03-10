@@ -3,6 +3,7 @@ import {
   adminListAffiliatesController,
   adminApproveAffiliateController,
   adminRejectAffiliateController,
+  adminUpdateAffiliateController,
   adminGetAffiliateDetailController,
   adminListCommissionsController,
   adminApproveCommissionController,
@@ -29,6 +30,8 @@ adminAffiliateRouter.get("/:id/details", adminGetAffiliateDetailController);
 adminAffiliateRouter.put("/:id/approve", adminApproveAffiliateController);
 
 adminAffiliateRouter.put("/:id/reject", adminRejectAffiliateController);
+
+adminAffiliateRouter.patch("/:id/update", adminUpdateAffiliateController);
 
 adminAffiliateRouter.get("/commissions", adminListCommissionsController);
 

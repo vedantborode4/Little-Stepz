@@ -81,6 +81,16 @@ export const AdminAffiliateService = {
     const res = await api.put(`/admin/affiliates/${id}/reject`, body)
     return res.data.data
   },
+
+  /**
+   * PATCH /admin/affiliates/:id/update
+   * Update commission rate/type for an already-approved affiliate.
+   * Unlike approve, this works regardless of current status.
+   */
+  update: async (id: string, body: { commissionRate?: number; commissionType?: string; adminNote?: string }) => {
+    const res = await api.patch(`/admin/affiliates/${id}/update`, body)
+    return res.data.data
+  },
 }
 
 // ── Commissions ─────────────────────────────────────────────────────────────

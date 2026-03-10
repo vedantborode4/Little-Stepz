@@ -13,6 +13,7 @@ import {
   adminGetAffiliateDetailService,
   adminApproveAffiliateOnlyService,
   adminRejectAffiliateService,
+  adminUpdateAffiliateService,
 } from "../../services/admin/admin.affiliate.services";
 import { adminListAffiliatesService } from "../../services/affiliate.services";
 import { z } from "zod";
@@ -111,6 +112,26 @@ async function payCommission(req: Request, res: Response) {
   return new ApiResponse(200, result, "Commission marked as paid").send(res);
 }
 
+
+async function updateAffiliate(req: Request, res: Response) {
+  const adminUserId = req.user?.userId;
+  if (!adminUserId) throw new ApiError(401, "Unauthorized");
+
+  const { id: affiliateId } = req.params;
+  if (!affiliateId) throw new ApiError(400, "Affiliate ID required");
+
+  const body = z
+    .object({
+      commissionRate: z.number().min(0.01).max(0.20).optional(),
+      commissionType: z.enum(["PER_ORDER", "LIFETIME"]).optional(),
+      adminNote:      z.string().max(500).optional(),
+    })
+    .parse(req.body);
+
+  const result = await adminUpdateAffiliateService(adminUserId, affiliateId, body, req);
+  return new ApiResponse(200, result, "Affiliate updated").send(res);
+}
+
 export const adminListAffiliatesController    = asyncHandler(listAffiliates);
 export const adminApproveAffiliateController  = asyncHandler(approveAffiliate);
 export const adminRejectAffiliateController   = asyncHandler(rejectAffiliate);
@@ -118,3 +139,4 @@ export const adminGetAffiliateDetailController = asyncHandler(getAffiliateDetail
 export const adminListCommissionsController   = asyncHandler(listCommissions);
 export const adminApproveCommissionController = asyncHandler(approveCommission);
 export const adminPayCommissionController     = asyncHandler(payCommission);
+export const adminUpdateAffiliateController = asyncHandler(updateAffiliate);
