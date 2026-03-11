@@ -38,6 +38,17 @@ async function getProducts(req: Request, res: Response) {
     maxPrice = parsed;
   }
 
+  // Resolve optional category slug → categoryId
+  let categoryId: string | undefined;
+  if (req.query.category) {
+    const { prisma } = await import("@repo/db/client");
+    const cat = await prisma.category.findUnique({
+      where:  { slug: String(req.query.category) },
+      select: { id: true },
+    });
+    categoryId = cat?.id;
+  }
+
   const result = await getProductsService({
     page,
     limit: safeLimit,
@@ -45,6 +56,7 @@ async function getProducts(req: Request, res: Response) {
     inStock,
     minPrice,
     maxPrice,
+    categoryId,
   });
 
   return new ApiResponse(200, result, "Products fetched").send(res);
