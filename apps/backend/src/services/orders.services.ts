@@ -119,7 +119,7 @@ export async function createOrderService(userId: string, data: CreateOrderBody, 
       let discount = new Decimal(0);
       let couponId: string | undefined;
       if (data.couponCode) {
-        const { discount: calcDiscount } = await validateCouponService({ type: 'user', id: userId }, data.couponCode, subtotal);
+        const { discount: calcDiscount } = await validateCouponService({ type: 'user', id: userId }, data.couponCode, subtotal, subtotal);
         discount = calcDiscount;
 
         // Fetch coupon

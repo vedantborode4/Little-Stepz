@@ -73,13 +73,12 @@ export const useCartStore = create<CartState>((set, get) => ({
     set({ isLoading: true })
     try {
       const data = await CartService.getCart()
-
+      // Preserve any applied coupon — revalidateCoupon() will re-check it
+      const { couponCode, discount } = get()
       set({
         items: data.items,
         subtotal: data.subtotal,
-        total: data.subtotal,
-        discount: 0,
-        couponCode: null,
+        total: data.subtotal - discount,
       })
     } finally {
       set({ isLoading: false })

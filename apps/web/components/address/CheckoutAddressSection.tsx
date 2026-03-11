@@ -1,58 +1,43 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { AddressService } from "../../lib/services/address.service"
+import { useEffect } from "react"
 import CheckoutAddressCard from "./CheckoutAddressCard"
 import { useAddressStore } from "../../store/useAddressStore"
 import AddressFormDialog from "./AddressFormDialog"
-import { Skeleton } from "@repo/ui/index"
+import { MapPin, Loader2 } from "lucide-react"
 
 export default function CheckoutAddressSection({ onContinue }: { onContinue: () => void }) {
-  const [addresses, setAddresses] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-
-  const { selectedAddressId, setSelectedAddress } = useAddressStore()
-
-  const load = async () => {
-    const data = await AddressService.getAll()
-
-    setAddresses(data)
-
-    const defaultAddress = data.find((a: any) => a.isDefault)
-
-    if (!selectedAddressId && defaultAddress) {
-      setSelectedAddress(defaultAddress.id)
-    }
-
-    setLoading(false)
-  }
+  const { addresses, selectedAddressId, loading, fetchAddresses } = useAddressStore()
 
   useEffect(() => {
-    load()
+    fetchAddresses()
   }, [])
 
   if (loading) {
-    return <Skeleton className="h-40 w-full rounded-xl" />
+    return (
+      <div className="flex items-center justify-center py-10">
+        <Loader2 size={20} className="animate-spin text-primary" />
+      </div>
+    )
   }
 
   if (!addresses.length) {
     return (
-      <div className="bg-white border rounded-xl p-6 text-center space-y-4">
-        <p className="text-muted">No address found</p>
-        <AddressFormDialog onCreated={load} />
+      <div className="text-center space-y-4 py-6">
+        <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
+          <MapPin size={20} className="text-gray-400" />
+        </div>
+        <p className="text-sm text-gray-500">No saved addresses</p>
+        <AddressFormDialog onCreated={fetchAddresses} />
       </div>
     )
   }
 
   return (
-    <div className="bg-white border rounded-xl p-6 space-y-4">
-
+    <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <h2 className="font-semibold text-lg">
-          Select Delivery Address
-        </h2>
-
-        <AddressFormDialog onCreated={load} />
+        <p className="text-sm text-gray-500">{addresses.length} saved address{addresses.length > 1 ? "es" : ""}</p>
+        <AddressFormDialog onCreated={fetchAddresses} />
       </div>
 
       <div className="space-y-3">
@@ -63,12 +48,11 @@ export default function CheckoutAddressSection({ onContinue }: { onContinue: () 
 
       {selectedAddressId && (
         <button
-            onClick={onContinue}
-            className="w-full bg-primary text-white py-3 rounded-xl font-medium"
-            >
-            Deliver Here
+          onClick={onContinue}
+          className="w-full bg-primary text-white py-3 rounded-xl font-medium hover:opacity-90 transition"
+        >
+          Deliver Here →
         </button>
-
       )}
     </div>
   )

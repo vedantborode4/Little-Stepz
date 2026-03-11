@@ -48,7 +48,11 @@ async function computeCartSubtotal(identifier: CartIdentifier): Promise<{ subtot
 export async function validateCouponService(
   identifier: CartIdentifier,
   code: string,
-  clientOrderAmount: Decimal
+  clientOrderAmount: Decimal,
+  // When called from order creation the subtotal is already verified against real DB
+  // prices — pass it here to skip the cart re-query (which would fail because the
+  // orders route does not use cartMiddleware and cart items may be session-based).
+  trustedSubtotal?: Decimal
 ): Promise<{ discount: Decimal }> {
   const normalizedCode = code.trim().toUpperCase();
 
@@ -68,16 +72,26 @@ export async function validateCouponService(
     throw new ApiError(400, CouponErrorCode.COUPON_USAGE_LIMIT_REACHED);
   }
 
-  const { subtotal, hasInvalidItems } = await computeCartSubtotal(identifier);
+  // Use the pre-verified subtotal from order creation when available.
+  // Otherwise fall back to re-querying the cart (used by the standalone
+  // POST /coupons/validate endpoint which does have a cart identifier).
+  let subtotal: Decimal;
+  if (trustedSubtotal !== undefined) {
+    subtotal = trustedSubtotal;
+  } else {
+    const { subtotal: cartSubtotal, hasInvalidItems } = await computeCartSubtotal(identifier);
+    if (hasInvalidItems) throw new ApiError(400, CouponErrorCode.CART_HAS_INVALID_ITEMS);
+    if (cartSubtotal.lte(0)) throw new ApiError(400, CouponErrorCode.CART_EMPTY);
 
-  if (hasInvalidItems) throw new ApiError(400, CouponErrorCode.CART_HAS_INVALID_ITEMS);
-  if (subtotal.lte(0)) throw new ApiError(400, CouponErrorCode.CART_EMPTY);
-
-  // Check for tampering: client amount should match server (with small tolerance for rounding, e.g., 0.01)
-  if (!clientOrderAmount.equals(subtotal) && clientOrderAmount.sub(subtotal).abs().gt(0.01)) {
-    console.warn(`Order amount mismatch: client=${clientOrderAmount}, server=${subtotal}, identifier=${identifier.id}`);
-    throw new ApiError(400, CouponErrorCode.ORDER_AMOUNT_MISMATCH);
+    // Tamper-check only when we re-derived the subtotal ourselves
+    if (!clientOrderAmount.equals(cartSubtotal) && clientOrderAmount.sub(cartSubtotal).abs().gt(0.01)) {
+      console.warn(`Order amount mismatch: client=${clientOrderAmount}, server=${cartSubtotal}, identifier=${identifier.id}`);
+      throw new ApiError(400, CouponErrorCode.ORDER_AMOUNT_MISMATCH);
+    }
+    subtotal = cartSubtotal;
   }
+
+  if (subtotal.lte(0)) throw new ApiError(400, CouponErrorCode.CART_EMPTY);
 
   if (coupon.minOrderValue && subtotal.lt(coupon.minOrderValue)) {
     throw new ApiError(400, CouponErrorCode.MIN_ORDER_VALUE_NOT_MET);

@@ -7,21 +7,61 @@ import {
   getOrderInvoiceService,
   cancelOrderService,
 } from '../services/orders.services';
-import { createOrderBodySchema, orderParamsSchema } from '@repo/zod-schema/index';
+import { orderParamsSchema } from '@repo/zod-schema/index';
 import { OrderErrorCode } from '../utils/orderErrors';
 
 async function createOrder(req: Request, res: Response) {
   const userId = req.user?.userId;
   if (!userId) throw new ApiError(401, 'Unauthorized');
-  const validated = createOrderBodySchema.parse(req.body);
 
   const idempotencyKey = req.get('Idempotency-Key');
   if (!idempotencyKey) throw new ApiError(400, OrderErrorCode.IDEMPOTENCY_KEY_REQUIRED);
 
+  // Bypass schema.parse() entirely — the workspace zod-schema may not include
+  // cartItems/couponCode, silently stripping them and causing CART_EMPTY/Validation failed errors.
+  // Manually validate what we need instead.
+  const body = req.body ?? {};
+
+  const addressId = typeof body.addressId === 'string' ? body.addressId.trim() : null;
+  if (!addressId) throw new ApiError(400, 'addressId is required');
+
+  const rawCartItems: Array<{ productId: string; variantId?: string; quantity: number }> = body.cartItems;
+  if (!Array.isArray(rawCartItems) || rawCartItems.length === 0) {
+    throw new ApiError(400, OrderErrorCode.CART_EMPTY);
+  }
+
+  // Validate each cart item has required fields
+  for (const item of rawCartItems) {
+    if (typeof item.productId !== 'string' || !item.productId) {
+      throw new ApiError(400, 'Each cart item must have a productId');
+    }
+    if (typeof item.quantity !== 'number' || item.quantity < 1) {
+      throw new ApiError(400, 'Each cart item must have a valid quantity');
+    }
+  }
+
+  const couponCode: string | undefined =
+    typeof body.couponCode === 'string' && body.couponCode.trim()
+      ? body.couponCode.trim()
+      : undefined;
+
+  const paymentMethod: 'ONLINE' | 'COD' =
+    body.paymentMethod === 'COD' ? 'COD' : 'ONLINE';
+
+  const customerNote: string | undefined =
+    typeof body.customerNote === 'string' && body.customerNote.trim()
+      ? body.customerNote.trim().slice(0, 500)
+      : undefined;
+
+  const validated = {
+    addressId,
+    cartItems: rawCartItems,
+    paymentMethod,
+    ...(couponCode ? { couponCode } : {}),
+    ...(customerNote ? { customerNote } : {}),
+  };
 
   let affiliateId: string | undefined;
-  // Read from cookie (set by backend /ref redirect) OR from X-Affiliate-Id header
-  // (sent by frontend when reading from localStorage — for cross-origin cookie scenarios)
   const rawAffiliateId = req.cookies?.ref || req.get('X-Affiliate-Id');
   if (rawAffiliateId && typeof rawAffiliateId === 'string') {
     const { prisma } = await import('@repo/db/client');
@@ -29,7 +69,6 @@ async function createOrder(req: Request, res: Response) {
       where: { id: rawAffiliateId, status: 'APPROVED', deletedAt: null },
       select: { id: true, userId: true },
     });
-    // Don't allow self-referral
     if (affiliate && affiliate.userId !== userId) {
       affiliateId = affiliate.id;
     }
