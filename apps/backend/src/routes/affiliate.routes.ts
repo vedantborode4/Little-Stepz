@@ -5,6 +5,7 @@ import {
   getAffiliateMeController,
   getReferralLinkController,
   handleReferralClickController,
+  trackClickPublicController,
   getAffiliateStatsController,
   getAffiliateClicksController,
   getAffiliateConversionsController,
@@ -22,11 +23,15 @@ import {
 
 export const affiliateRouter: Router = Router();
 
+// Public — no auth required
 affiliateRouter.get(
   "/ref/:referralCode",
   referralClickRateLimiter,
   handleReferralClickController
 );
+
+// Called by frontend /ref/[code] page — no auth, records click and returns affiliateId
+affiliateRouter.post("/track-click", referralClickRateLimiter, trackClickPublicController);
 
 affiliateRouter.use(authMiddleware);
 

@@ -18,6 +18,7 @@ import {
   getAffiliateProfileService,
   getReferralLinkService,
   trackReferralClickService,
+  trackClickPublicService,
   getAffiliateStatsService,
   getAffiliateClicksService,
   getAffiliateConversionsService,
@@ -76,6 +77,15 @@ async function handleReferralClick(req: Request, res: Response) {
   });
 
   return res.redirect(302, redirectUrl);
+}
+
+async function trackClickPublic(req: Request, res: Response) {
+  const { referralCode } = req.body;
+  if (!referralCode || typeof referralCode !== "string") {
+    throw new ApiError(400, "referralCode is required");
+  }
+  const result = await trackClickPublicService(referralCode.toUpperCase(), req);
+  return new ApiResponse(200, result, "Click tracked").send(res);
 }
 
 async function getAffiliateStats(req: Request, res: Response) {
@@ -193,6 +203,7 @@ export const applyAffiliateController        = asyncHandler(applyAffiliate);
 export const getAffiliateMeController        = asyncHandler(getAffiliateMe);
 export const getReferralLinkController       = asyncHandler(getReferralLink);
 export const handleReferralClickController   = asyncHandler(handleReferralClick);
+export const trackClickPublicController      = asyncHandler(trackClickPublic);
 export const getAffiliateStatsController     = asyncHandler(getAffiliateStats);
 export const getAffiliateClicksController    = asyncHandler(getAffiliateClicks);
 export const getAffiliateConversionsController = asyncHandler(getAffiliateConversions);

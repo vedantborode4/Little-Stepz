@@ -1,9 +1,11 @@
 export default function AffiliateStatsCards({ stats }: { stats: any }) {
+  const overview = stats?.overview ?? stats ?? {}
+
   const items = [
-    { label: "Clicks", value: stats?.clicks || 0 },
-    { label: "Conversions", value: stats?.conversions || 0 },
-    { label: "Revenue", value: `₹${stats?.revenue || 0}` },
-    { label: "Commission", value: `₹${stats?.commission || 0}` },
+    { label: "Total Clicks",      value: overview.totalClicks      ?? 0 },
+    { label: "Conversions",       value: overview.totalConversions ?? 0 },
+    { label: "Total Commission",  value: `₹${overview.totalCommission ?? 0}` },
+    { label: "Pending Balance",   value: `₹${overview.pendingBalance  ?? 0}` },
   ]
 
   return (

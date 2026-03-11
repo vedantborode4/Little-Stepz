@@ -241,6 +241,61 @@ export async function trackReferralClickService(
   };
 }
 
+/**
+ * POST /affiliate/track-click  (no auth required)
+ * Called by the frontend /ref/[code] page.
+ * Records the click and returns the affiliateId so the frontend can persist it.
+ */
+export async function trackClickPublicService(
+  referralCode: string,
+  req:          Request
+): Promise<{ affiliateId: string }> {
+  const affiliate = await prisma.affiliate.findUnique({
+    where:  { referralCode: referralCode.toUpperCase() },
+    select: { id: true, status: true },
+  });
+
+  if (!affiliate) throw new ApiError(404, AffiliateErrorCode.INVALID_REFERRAL_CODE);
+
+  if (affiliate.status === "APPROVED") {
+    const ip        = req.ip ?? req.socket?.remoteAddress ?? "unknown";
+    const today     = new Date().toISOString().split("T")[0];
+    const ipDateKey = `${affiliate.id}:${ip}:${today}`;
+    // Prefer the real browser UA sent by the frontend (X-Browser-UA), fall back to request UA
+    const userAgent = req.get("X-Browser-UA") || req.get("User-Agent") || "";
+    const isBotLike = isLikelyBot(userAgent);
+
+    const existingClick = await prisma.affiliateClick.findFirst({
+      where:  { ipDateKey },
+      select: { id: true },
+    });
+    const isUnique = !existingClick && !isBotLike;
+
+    await prisma.$transaction(async (tx) => {
+      await tx.affiliateClick.create({
+        data: {
+          affiliateId: affiliate.id,
+          ip:          ip.substring(0, 45),
+          userAgent:   userAgent.substring(0, 500),
+          referrer:    req.get("Referer")?.substring(0, 500),
+          ipDateKey:   isUnique ? ipDateKey : undefined,
+          isUnique,
+          sessionId:   req.cookies?.sessionId,
+        },
+      });
+
+      if (isUnique) {
+        await tx.affiliate.update({
+          where: { id: affiliate.id },
+          data:  { totalClicks: { increment: 1 } },
+        });
+      }
+    });
+  }
+
+  return { affiliateId: affiliate.id };
+}
+
 export async function getAffiliateStatsService(userId: string) {
   const affiliate = await prisma.affiliate.findUnique({
     where:  { userId },
@@ -904,7 +959,7 @@ function isLikelyBot(userAgent: string): boolean {
   const ua = userAgent.toLowerCase();
   const botPatterns = [
     "bot", "crawler", "spider", "scraper", "wget", "curl",
-    "python-requests", "axios", "java", "libwww", "httpclient",
+    "python-requests", "java", "libwww", "httpclient",
     "go-http-client", "okhttp", "ruby",
   ];
   return botPatterns.some((p) => ua.includes(p));

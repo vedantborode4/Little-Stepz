@@ -19,7 +19,9 @@ async function createOrder(req: Request, res: Response) {
 
 
   let affiliateId: string | undefined;
-  const rawAffiliateId = req.cookies?.ref;
+  // Read from cookie (set by backend /ref redirect) OR from X-Affiliate-Id header
+  // (sent by frontend when reading from localStorage — for cross-origin cookie scenarios)
+  const rawAffiliateId = req.cookies?.ref || req.get('X-Affiliate-Id');
   if (rawAffiliateId && typeof rawAffiliateId === 'string') {
     const { prisma } = await import('@repo/db/client');
     const affiliate = await prisma.affiliate.findUnique({
