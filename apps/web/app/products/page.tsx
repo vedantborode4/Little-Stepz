@@ -26,6 +26,7 @@ export default function ProductsPage() {
   const page = useProductFilterStore((s) => s.page)
   const category = useProductFilterStore((s) => s.category)
   const sort = useProductFilterStore((s) => s.sort)
+  const priceMin = useProductFilterStore((s) => s.priceMin)
   const priceMax = useProductFilterStore((s) => s.priceMax)
   const search = useProductFilterStore((s) => s.search)
   const setFilters = useProductFilterStore((s) => s.setFilters)
@@ -75,9 +76,8 @@ export default function ProductsPage() {
       category: searchParams.get("category") || undefined,
       sort: searchParams.get("sort") || undefined,
       search: searchParams.get("search") || undefined,
-      priceMax: searchParams.get("priceMax")
-        ? Number(searchParams.get("priceMax"))
-        : undefined,
+      priceMin: searchParams.get("priceMin") ? Number(searchParams.get("priceMin")) : undefined,
+      priceMax: searchParams.get("priceMax") ? Number(searchParams.get("priceMax")) : undefined,
     })
 
     hasHydrated.current = true
@@ -98,6 +98,7 @@ export default function ProductsPage() {
           limit: 12,
           category,
           sort,
+          priceMin,
           priceMax,
           search,
         })
@@ -112,7 +113,7 @@ export default function ProductsPage() {
     }
 
     fetchProducts()
-  }, [page, category, sort, priceMax, search])
+  }, [page, category, sort, priceMin, priceMax, search])
 
   /* ---------------- STORE → URL ---------------- */
 
@@ -123,6 +124,7 @@ export default function ProductsPage() {
       page,
       category,
       sort,
+      priceMin,
       priceMax,
       search,
     })
@@ -130,7 +132,7 @@ export default function ProductsPage() {
     if (query !== searchParams.toString()) {
       router.replace(`/products?${query}`, { scroll: false })
     }
-  }, [page, category, sort, priceMax, search, router, searchParams])
+  }, [page, category, sort, priceMin, priceMax, search, router, searchParams])
 
   /* ---------------- UI STATES ---------------- */
 
@@ -168,7 +170,7 @@ export default function ProductsPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
 
-      {/* ✅ BREADCRUMB */}
+      {/* BREADCRUMB */}
       <div className="text-sm text-muted flex items-center gap-2 flex-wrap mb-4">
         <Link href="/" className="hover:text-primary">Home</Link>
         <span>/</span>

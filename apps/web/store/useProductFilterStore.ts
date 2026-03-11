@@ -4,6 +4,7 @@ export interface ProductFilterValues {
   page: number
   category?: string
   sort?: string
+  priceMin?: number
   priceMax?: number
   search?: string
 }
@@ -11,18 +12,19 @@ export interface FilterState {
   page: number
   category?: string
   sort?: string
+  priceMin?: number
   priceMax?: number
-  search?: string   // ✅ ADD THIS
+  search?: string
 
   setFilters: (data: Partial<FilterState>) => void
   resetFilters: () => void
 }
 
-
 export const useProductFilterStore = create<FilterState>((set) => ({
   page: 1,
   category: undefined,
   sort: undefined,
+  priceMin: undefined,
   priceMax: undefined,
   search: "",
 
@@ -30,8 +32,6 @@ export const useProductFilterStore = create<FilterState>((set) => ({
     set((state) => ({
       ...state,
       ...data,
-
-      // reset page when any filter (except page) changes
       page: data.page ?? 1,
     })),
 
@@ -40,6 +40,7 @@ export const useProductFilterStore = create<FilterState>((set) => ({
       page: 1,
       category: undefined,
       sort: undefined,
+      priceMin: undefined,
       priceMax: undefined,
       search: "",
     }),

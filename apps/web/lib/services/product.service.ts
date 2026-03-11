@@ -1,12 +1,22 @@
 import { api } from "../api-client"
 import { Product } from "../../types/product"
 
+const SORT_MAP: Record<string, string> = {
+  price_asc:  "price:asc",
+  price_desc: "price:desc",
+  newest:     "createdAt:desc",
+  oldest:     "createdAt:asc",
+  name_asc:   "name:asc",
+  name_desc:  "name:desc",
+}
+
 export interface GetProductsParams {
   page?: number
   limit?: number
   category?: string
   search?: string
   sort?: string
+  priceMin?: number
   priceMax?: number
 }
 
@@ -48,14 +58,28 @@ export const ProductService = {
       }
     }
 
-    const res = await api.get<BackendResponse>("/products", { params })
+    const backendParams: Record<string, any> = {
+      page:  params?.page,
+      limit: params?.limit,
+    }
+
+    if (params?.sort) {
+      backendParams.sort = SORT_MAP[params.sort] ?? params.sort
+    }
+
+    if (params?.priceMin !== undefined) backendParams.minPrice = params.priceMin
+    if (params?.priceMax !== undefined) backendParams.maxPrice = params.priceMax
+
+    if (params?.category) backendParams.category = params.category
+
+    const res = await api.get<BackendResponse>("/products", { params: backendParams })
 
     return {
       data: res.data.data.products,
       meta: {
-        total: res.data.data.total,
-        page: res.data.data.page,
-        limit: res.data.data.limit,
+        total:      res.data.data.total,
+        page:       res.data.data.page,
+        limit:      res.data.data.limit,
         totalPages: res.data.data.pages,
       },
     }
@@ -70,7 +94,7 @@ export const ProductService = {
     const res = await api.get<BackendResponse>(
       `/products/category/${slug}`,
       {
-        params: { page, limit, sort },
+        params: { page, limit, sort: sort ? (SORT_MAP[sort] ?? sort) : undefined },
       }
     )
 
