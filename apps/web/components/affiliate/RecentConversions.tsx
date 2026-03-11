@@ -9,7 +9,10 @@ export default function RecentConversions() {
 
   useEffect(() => {
     AffiliateService.getConversions().then((res) => {
-      setData(res)
+      setData(res?.conversions ?? [])
+      setLoading(false)
+    }).catch(() => {
+      setData([])
       setLoading(false)
     })
   }, [])

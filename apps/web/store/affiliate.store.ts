@@ -91,9 +91,8 @@ export const useAffiliateStore = create<State>((set) => ({
   fetchClicks: async (query) => {
     try {
       const res = await AffiliateService.getClicks(query)
-
       set({
-        clicks: res?.data ?? [],
+        clicks:     res?.clicks ?? [],
         pagination: res?.pagination ?? null,
       })
     } catch (err) {
@@ -107,10 +106,9 @@ export const useAffiliateStore = create<State>((set) => ({
   fetchConversions: async (query) => {
     try {
       const res = await AffiliateService.getConversions(query)
-
       set({
-        conversions: res?.data ?? [],
-        pagination: res?.pagination ?? null,
+        conversions: res?.conversions ?? [],
+        pagination:  res?.pagination ?? null,
       })
     } catch (err) {
       console.error("Conversions fetch failed", err)
@@ -123,10 +121,9 @@ export const useAffiliateStore = create<State>((set) => ({
   fetchCommissions: async (query) => {
     try {
       const res = await AffiliateService.getCommissions(query)
-
       set({
-        commissions: res?.data ?? [],
-        pagination: res?.pagination ?? null,
+        commissions: res?.commissions ?? [],
+        pagination:  res?.pagination ?? null,
       })
     } catch (err) {
       console.error("Commissions fetch failed", err)
@@ -139,9 +136,8 @@ export const useAffiliateStore = create<State>((set) => ({
   fetchOrders: async (query) => {
     try {
       const res = await AffiliateService.getOrders(query)
-
       set({
-        orders: res?.orders ?? [],
+        orders:     res?.orders ?? [],
         pagination: res?.pagination ?? null,
       })
     } catch (err) {

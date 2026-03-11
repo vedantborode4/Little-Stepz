@@ -9,7 +9,10 @@ export default function CommissionHistory() {
 
   useEffect(() => {
     AffiliateService.getCommissions().then((res) => {
-      setData(res)
+      setData(res?.commissions ?? [])
+      setLoading(false)
+    }).catch(() => {
+      setData([])
       setLoading(false)
     })
   }, [])
