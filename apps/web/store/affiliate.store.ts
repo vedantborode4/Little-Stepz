@@ -64,22 +64,24 @@ export const useAffiliateStore = create<State>((set) => ({
     try {
       set({ loading: true })
 
-      const [profile, stats, link] = await Promise.all([
-        AffiliateService.getMe(),
-        AffiliateService.getStats(),
-        AffiliateService.getReferralLink(),
-      ])
+      const profile = await AffiliateService.getMe()
 
-      set({
-        profile,
-        stats,
-
-        // ✅ correct mapping from backend
-        referralLink: link?.referralLink ?? null,
-        shareLinks: link?.shareLinks ?? null,
-
-        loading: false,
-      })
+      // Only fetch stats + referral link for approved affiliates
+      if (profile?.status === "APPROVED") {
+        const [stats, link] = await Promise.all([
+          AffiliateService.getStats(),
+          AffiliateService.getReferralLink(),
+        ])
+        set({
+          profile,
+          stats,
+          referralLink: link?.referralLink ?? null,
+          shareLinks:   link?.shareLinks   ?? null,
+          loading: false,
+        })
+      } else {
+        set({ profile, stats: null, referralLink: null, shareLinks: null, loading: false })
+      }
     } catch (err) {
       console.error("Affiliate fetch failed", err)
       set({ loading: false })

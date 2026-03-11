@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { ArrowLeft, User, Mail, Calendar, DollarSign, TrendingUp, Settings } from "lucide-react"
+import { ArrowLeft, User, Mail, Calendar, DollarSign, TrendingUp, Settings, MessageSquare, ShieldCheck } from "lucide-react"
 import { AdminAffiliateService, AdminCommissionService } from "../../../../lib/services/admin-affiliate.service"
 import AffiliateStatusBadge from "../../../../components/admin/affiliates/AffiliateStatusBadge"
 import AffiliateApproveModal from "../../../../components/admin/affiliates/AffiliateApproveModal"
@@ -154,6 +154,34 @@ export default function AffiliateDetailPage() {
           </div>
         ))}
       </div>
+
+      {/* Application message (user → admin) + Admin note (admin → user) */}
+      {(affiliate?.applicationMessage || affiliate?.adminNote) && (
+        <div className="grid sm:grid-cols-2 gap-5">
+          {affiliate?.applicationMessage && (
+            <div className="bg-white border border-gray-200 rounded-2xl p-5 space-y-2">
+              <div className="flex items-center gap-2 text-gray-700">
+                <MessageSquare size={15} className="text-primary" />
+                <span className="text-sm font-semibold">Applicant's Message</span>
+              </div>
+              <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">
+                {affiliate.applicationMessage}
+              </p>
+            </div>
+          )}
+          {affiliate?.adminNote && (
+            <div className="bg-white border border-gray-200 rounded-2xl p-5 space-y-2">
+              <div className="flex items-center gap-2 text-gray-700">
+                <ShieldCheck size={15} className="text-blue-500" />
+                <span className="text-sm font-semibold">Admin Note</span>
+              </div>
+              <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">
+                {affiliate.adminNote}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Commission history */}
       <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">

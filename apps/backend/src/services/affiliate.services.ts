@@ -134,6 +134,7 @@ export async function getAffiliateProfileService(userId: string) {
       pendingBalance:  true,
       paidOutBalance:  true,
       approvedAt:      true,
+      adminNote:       true,
       createdAt:       true,
     },
   });

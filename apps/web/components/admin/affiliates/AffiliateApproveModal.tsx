@@ -109,18 +109,19 @@ export default function AffiliateApproveModal({ affiliate, action, onClose, onSu
           </>
         )}
 
-        {/* Admin note */}
+        {/* Admin note — shown to the applicant */}
         <div className="space-y-1.5">
           <label className="text-sm font-medium text-gray-700">
-            {isReject ? "Reason for rejection" : "Admin Note"}{isApprove || isReject ? "" : " (optional)"}
+            {isReject ? "Reason for rejection" : isApprove ? "Note to applicant" : "Admin Note"}
+            <span className="ml-1 text-xs text-gray-400 font-normal">(visible to applicant)</span>
           </label>
           <textarea
             value={adminNote}
             onChange={e => setAdminNote(e.target.value)}
             rows={3}
             placeholder={
-              isApprove ? "Welcome message or instructions..." :
-              isReject  ? "Reason for rejection..." :
+              isApprove ? "Welcome message or instructions for the affiliate..." :
+              isReject  ? "Let the applicant know why their application was rejected..." :
               "Internal note about this change..."
             }
             className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"

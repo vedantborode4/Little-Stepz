@@ -375,7 +375,7 @@ export async function adminGetAffiliateDetailService(affiliateId: string) {
   if (!affiliate) throw new ApiError(404, AffiliateErrorCode.AFFILIATE_NOT_FOUND);
 
   // Aggregated commission stats
-  const [commissionStats, clickStats] = await Promise.all([
+  const [commissionStats, clickStats, applicationLog] = await Promise.all([
     prisma.commission.groupBy({
       by:    ["status"],
       where: { affiliateId, deletedAt: null },
@@ -385,6 +385,11 @@ export async function adminGetAffiliateDetailService(affiliateId: string) {
     prisma.affiliateClick.aggregate({
       where: { affiliateId },
       _count: { id: true },
+    }),
+    prisma.auditLog.findFirst({
+      where:   { action: "AFFILIATE_APPLIED", entity: "Affiliate", entityId: affiliateId },
+      select:  { newValue: true, createdAt: true },
+      orderBy: { createdAt: "asc" },
     }),
   ]);
 
@@ -411,11 +416,12 @@ export async function adminGetAffiliateDetailService(affiliateId: string) {
       totalCommission: affiliate.totalCommission.toNumber(),
       pendingBalance:  affiliate.pendingBalance.toNumber(),
       paidOutBalance:  affiliate.paidOutBalance.toNumber(),
-      approvedAt:      affiliate.approvedAt,
-      approvedBy:      affiliate.approvedBy,
-      adminNote:       affiliate.adminNote,
-      createdAt:       affiliate.createdAt,
-      payoutDetails:   affiliate.payoutDetails,
+      approvedAt:          affiliate.approvedAt,
+      approvedBy:          affiliate.approvedBy,
+      adminNote:           affiliate.adminNote,
+      applicationMessage:  (applicationLog?.newValue as any)?.message ?? null,
+      createdAt:           affiliate.createdAt,
+      payoutDetails:       affiliate.payoutDetails,
     },
     user: affiliate.user,
     recentCommissions: affiliate.commissions.map((c) => ({

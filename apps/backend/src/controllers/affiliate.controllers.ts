@@ -37,8 +37,14 @@ async function applyAffiliate(req: Request, res: Response) {
   const userId = req.user?.userId;
   if (!userId) throw new ApiError(401, "Unauthorized");
 
-  const validated = affiliateApplySchema.parse(req.body);
-  const result    = await applyForAffiliateService(userId, validated, req);
+  // Extract message before schema validation (schema may not include it)
+  const message = typeof req.body?.message === "string" ? req.body.message.trim() : undefined;
+
+  // Validate the rest of the body with the schema (strip unknown keys)
+  const { message: _msg, ...rest } = req.body ?? {};
+  const validated = { ...affiliateApplySchema.parse(rest), ...(message ? { message } : {}) };
+
+  const result = await applyForAffiliateService(userId, validated as any, req);
 
   return new ApiResponse(201, result, "Affiliate application submitted").send(res);
 }
