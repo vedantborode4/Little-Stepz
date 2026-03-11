@@ -17,13 +17,22 @@ export const useOrderStore = create<OrderState>((set) => ({
 
   fetchOrders: async () => {
     set({ loading: true })
-    const data = await OrderService.getAll()
-    set({ orders: data, loading: false })
+    try {
+      const data = await OrderService.getAll()
+      // Backend returns { orders, total } paginated shape
+      set({ orders: Array.isArray(data) ? data : (data?.orders ?? []), loading: false })
+    } catch {
+      set({ loading: false })
+    }
   },
 
   fetchOrderById: async (id) => {
     set({ loading: true })
-    const data = await OrderService.getById(id)
-    set({ currentOrder: data, loading: false })
+    try {
+      const data = await OrderService.getById(id)
+      set({ currentOrder: data, loading: false })
+    } catch {
+      set({ loading: false })
+    }
   },
 }))

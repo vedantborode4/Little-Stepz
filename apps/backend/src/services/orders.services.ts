@@ -215,7 +215,13 @@ export async function getOrdersService(userId: string, page: number, limit: numb
         status: true,
         createdAt: true,
         items: {
-          select: { productId: true, variantId: true, quantity: true, price: true },
+          select: {
+            productId: true,
+            variantId: true,
+            quantity: true,
+            price: true,
+            product: { select: { images: { select: { url: true }, take: 1 } } },
+          },
         },
         payment: { select: { status: true } },
       },
@@ -246,7 +252,18 @@ export async function getOrderByIdService(userId: string, id: string) {
   const order = await prisma.order.findFirst({
     where: { id, userId, deletedAt: null },
     include: {
-      items: true,
+      items: {
+        include: {
+          product: {
+            select: {
+              id: true,
+              name: true,
+              images: { select: { url: true }, take: 1 },
+            },
+          },
+          variant: { select: { id: true, name: true } },
+        },
+      },
       payment: true,
       address: true,
       coupon: { select: { code: true } },
@@ -289,4 +306,50 @@ export async function getOrderInvoiceService(userId: string, id: string) {
     address: order.address,
     coupon: order.coupon?.code,
   };
+}
+
+export async function cancelOrderService(userId: string, orderId: string, reason?: string) {
+  return await runWithRetry(async () => {
+    return await prisma.$transaction(async (tx) => {
+      const order = await tx.order.findFirst({
+        where: { id: orderId, userId, deletedAt: null },
+        include: { items: true },
+      });
+
+      if (!order) throw new ApiError(404, OrderErrorCode.ORDER_NOT_FOUND);
+      if (order.userId !== userId) throw new ApiError(403, OrderErrorCode.UNAUTHORIZED_ACCESS);
+
+      const cancellableStatuses = ['PENDING', 'CONFIRMED'];
+      if (!cancellableStatuses.includes(order.status)) {
+        throw new ApiError(400, OrderErrorCode.INVALID_STATUS_TRANSITION);
+      }
+
+      // Restore stock
+      for (const item of order.items) {
+        if (item.variantId) {
+          await tx.variant.update({
+            where: { id: item.variantId },
+            data: { stock: { increment: item.quantity } },
+          });
+        } else {
+          await tx.product.update({
+            where: { id: item.productId },
+            data: { quantity: { increment: item.quantity } },
+          });
+        }
+      }
+
+      await tx.order.update({
+        where: { id: orderId },
+        data: { status: 'CANCELLED' },
+      });
+
+      await tx.payment.updateMany({
+        where: { orderId, status: { in: ['PENDING', 'INITIATED'] } },
+        data: { status: 'FAILED' },
+      });
+
+      return { orderId, status: 'CANCELLED' };
+    });
+  });
 }
