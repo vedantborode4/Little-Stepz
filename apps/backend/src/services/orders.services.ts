@@ -169,15 +169,6 @@ export async function createOrderService(userId: string, data: CreateOrderBody, 
           data: orderItems.map(item => ({ ...item, orderId: order.id })),
         });
 
-        // Create payment record (stub; integrate gateway)
-        await tx.payment.create({
-          data: {
-            orderId: order.id,
-            gateway: 'stripe', // Stub
-            amount: total,
-          },
-        });
-
         // Clear cart
         await tx.cartItem.updateMany({
           where: { userId, deletedAt: null },
