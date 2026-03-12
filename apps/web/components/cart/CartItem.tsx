@@ -46,7 +46,9 @@ export default function CartItem({ item }: { item: CartItemType }) {
 
         {/* Price */}
         <p className="text-sm font-bold text-gray-900 mt-1.5">
-          ₹{(item.product.price * item.quantity).toLocaleString("en-IN")}
+          ₹{(Number(item.product.price) * item.quantity).toLocaleString("en-IN")}
+
+          (₹{Number(item.product.price).toLocaleString("en-IN")} each)
           {item.quantity > 1 && (
             <span className="text-xs font-normal text-gray-400 ml-1.5">
               (₹{item.product.price} each)

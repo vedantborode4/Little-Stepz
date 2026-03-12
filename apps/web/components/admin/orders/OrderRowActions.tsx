@@ -9,7 +9,7 @@ export default function OrderRowActions({ order, refresh }: any) {
       <OrderActions order={order} refresh={refresh} />
 
       {order.status === "PROCESSING" && (
-        <ShipOrderButton orderId={order.id} refresh={refresh} />
+        <ShipOrderButton orderId={order.id} refresh={refresh} onSuccess={refresh}/>
       )}
 
       {order.status === "RETURN_REQUESTED" && (

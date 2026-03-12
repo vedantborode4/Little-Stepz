@@ -51,7 +51,8 @@ export default function VariantManager({
     setLoading(true)
 
     try {
-      const newVariant = await AdminProductService.createVariant(parsed.data)
+      const { productId: _pid, ...variantBody } = parsed.data as any
+      const newVariant = await AdminProductService.createVariant(productId, variantBody)
       setVariants((p) => [...p, newVariant])
       setForm({ name: "", price: "", stock: "" })
       setErrors({})
