@@ -17,7 +17,7 @@ export default function RootLayout({
           <Navbar />
           {children}
           <Footer />
-          <Toaster richColors position="bottom-right" />
+          <Toaster richColors />
           <Script
             src="https://checkout.razorpay.com/v1/checkout.js"
             strategy="afterInteractive"

@@ -1,74 +1,56 @@
-import Footer from "../components/layout/Footer"
-import HeroCarousel from "../components/home/HeroCarousel"
+"use client"
+
+import { useEffect, useState } from "react"
 import DynamicHeroBanner from "../components/home/DynamicHeroBanner"
 import DynamicPromoBanner from "../components/home/DynamicPromoBanner"
-import SectionHeader from "../components/home/SectionHeader"
-import BrandRow from "../components/home/BrandRow"
 import CategoryGrid from "../components/home/CategoryGrid"
 import PromoBannerRow from "../components/home/PromoBannerRow"
 import WhyChooseUs from "../components/home/WhyChooseUs"
-import BestSellerSlider from "../components/home/BestSellerSlider"
-import AgeGroupGrid from "../components/home/AgeGroupGrid"
-import { Product } from "../types/product"
+import BestSellers from "../components/home/BestSellers"
+import SectionHeader from "../components/home/SectionHeader"
+import { CategoryService } from "../lib/services/category.service"
 import { HeadingFor } from "../components/home/HeadingFor"
 
-const bestSellerProducts: Product[] = [
-  {
-    id: "1",
-    name: "Kids Running Shoes",
-    price: 49.99,
-    image: "/shoes1.jpg",
-  },
-  {
-    id: "2",
-    name: "Toddler Sneakers",
-    price: "39.99",
-    imageUR: "/shoes2.jpg",
-  },
-]
-
-
 export default function Home() {
+  const [categories, setCategories] = useState<any[]>([])
+
+  useEffect(() => {
+    CategoryService.getAll().then(setCategories).catch(() => {})
+  }, [])
+
   return (
-    <>
+    <main className="max-w-7xl mx-auto px-4 space-y-14 py-8">
 
-      <main className="max-w-7xl mx-auto px-4 space-y-20 py-10">
-
-        {/* Hero — shows dynamic CMS banners if available, falls back to static carousel */}
-        <DynamicHeroBanner />
+      {/* Hero banner — dynamic from CMS */}
+      <DynamicHeroBanner />
 
         <section className="container">
           <HeadingFor/>
         </section>
+
+      {/* Shop by Category */}
+      {categories.length > 0 && (
         <section>
-          <SectionHeader title="Shop By Brand" />
-          <BrandRow />
+          <SectionHeader title="Shop by Category" subtitle="Browse our full range of categories" />
+          <CategoryGrid categories={categories} />
         </section>
+      )}
 
-        <section>
-          <SectionHeader title="Shop By Age Group" />
-          <AgeGroupGrid />
-        </section>
+      {/* Promo banners row */}
+      <PromoBannerRow />
 
-        <section>
-          <SectionHeader title="Shop By Category" />
-          <CategoryGrid />
-        </section>
+      {/* Mid-page dynamic banner from CMS */}
+      <DynamicPromoBanner position="HOME_MID" />
 
-        <PromoBannerRow />
+      {/* Best Sellers — dynamic from real order data */}
+      <BestSellers />
 
-        {/* Dynamic mid-page promotional banners from CMS */}
-        <DynamicPromoBanner position="HOME_MID" />
-
-        <section>
-          <SectionHeader title="Best Sellers" />
-          <BestSellerSlider products={bestSellerProducts} />
-        </section>
-
+      {/* Why choose us */}
+      <section>
+        <SectionHeader title="Why Shop With Us" />
         <WhyChooseUs />
-      </main>
+      </section>
 
-      <Footer />
-    </>
+    </main>
   )
 }

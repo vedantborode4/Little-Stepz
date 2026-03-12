@@ -1,7 +1,8 @@
 "use client"
 
 import Image from "next/image"
-import { Trash2 } from "lucide-react"
+import Link from "next/link"
+import { Trash2, Minus, Plus } from "lucide-react"
 import { useCartStore } from "../../store/useCartStore"
 import type { CartItem as CartItemType } from "../../types/cart"
 
@@ -18,57 +19,70 @@ export default function CartItem({ item }: { item: CartItemType }) {
 
   return (
     <div
-      className={`flex gap-4 p-4 border-b last:border-none transition ${
-        isUpdating ? "opacity-60 pointer-events-none" : ""
+      className={`flex gap-4 p-5 border-b border-gray-100 last:border-none transition-opacity ${
+        isUpdating ? "opacity-50 pointer-events-none" : ""
       }`}
     >
-      <div className="relative w-20 h-20 bg-gray-50 rounded-lg overflow-hidden">
-        <Image src={image} alt={item.product.name} fill className="object-contain" />
-      </div>
+      {/* Image */}
+      <Link href={`/products/${item.product.slug}`} className="flex-shrink-0">
+        <div className="relative w-20 h-20 bg-gray-50 rounded-xl overflow-hidden border border-gray-100">
+          <Image src={image} alt={item.product.name} fill className="object-contain p-1" />
+        </div>
+      </Link>
 
-      <div className="flex-1">
-        <h3 className="font-medium">{item.product.name}</h3>
+      {/* Details */}
+      <div className="flex-1 min-w-0">
+        <Link href={`/products/${item.product.slug}`}>
+          <h3 className="font-semibold text-gray-900 text-sm hover:text-primary transition leading-snug line-clamp-2">
+            {item.product.name}
+          </h3>
+        </Link>
 
         {item.variant && (
-          <p className="text-sm text-muted">{item.variant.name}</p>
+          <span className="inline-block mt-1 text-[11px] font-medium bg-gray-100 text-gray-500 px-2 py-0.5 rounded-md">
+            {item.variant.name}
+          </span>
         )}
 
-        <div className="mt-2 font-semibold">
-          ₹{item.product.price}
-        </div>
+        {/* Price */}
+        <p className="text-sm font-bold text-gray-900 mt-1.5">
+          ₹{(item.product.price * item.quantity).toLocaleString("en-IN")}
+          {item.quantity > 1 && (
+            <span className="text-xs font-normal text-gray-400 ml-1.5">
+              (₹{item.product.price} each)
+            </span>
+          )}
+        </p>
 
-        <div className="flex items-center gap-3 mt-2">
-          <button
-            disabled={isUpdating || item.quantity <= 1}
-            onClick={() =>
-              updateQuantity(item.productId, variantId, item.quantity - 1)
-            }
-            className="px-2 border rounded disabled:opacity-50"
-          >
-            −
-          </button>
-
-          <span>{item.quantity}</span>
+        {/* Quantity control */}
+        <div className="flex items-center gap-2 mt-2.5">
+          <div className="flex items-center border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
+            <button
+              disabled={isUpdating || item.quantity <= 1}
+              onClick={() => updateQuantity(item.productId, variantId, item.quantity - 1)}
+              className="p-2 text-gray-500 hover:bg-gray-50 disabled:opacity-40 transition"
+            >
+              <Minus size={13} />
+            </button>
+            <span className="px-3.5 text-sm font-semibold text-gray-900">{item.quantity}</span>
+            <button
+              disabled={isUpdating}
+              onClick={() => updateQuantity(item.productId, variantId, item.quantity + 1)}
+              className="p-2 text-gray-500 hover:bg-gray-50 disabled:opacity-40 transition"
+            >
+              <Plus size={13} />
+            </button>
+          </div>
 
           <button
             disabled={isUpdating}
-            onClick={() =>
-              updateQuantity(item.productId, variantId, item.quantity + 1)
-            }
-            className="px-2 border rounded disabled:opacity-50"
+            onClick={() => removeItem(item.productId, variantId)}
+            className="p-2 rounded-xl text-gray-400 hover:text-red-500 hover:bg-red-50 transition disabled:opacity-40"
           >
-            +
+            <Trash2 size={15} />
           </button>
         </div>
       </div>
-
-      <button
-        disabled={isUpdating}
-        onClick={() => removeItem(item.productId, variantId)}
-        className="text-muted hover:text-red-500 disabled:opacity-50"
-      >
-        <Trash2 size={18} />
-      </button>
     </div>
   )
 }

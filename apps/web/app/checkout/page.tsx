@@ -8,6 +8,7 @@ import CheckoutStepper from "../../components/checkout/CheckoutStepper"
 import CheckoutSummary from "../../components/checkout/CheckoutSummary"
 import Link from "next/link"
 import { toast } from "sonner"
+import { ShoppingBag, LogIn, Loader2 } from "lucide-react"
 
 export default function CheckoutPage() {
   const user = useAuthStore((s) => s.user)
@@ -38,36 +39,70 @@ export default function CheckoutPage() {
 
   if (!items.length && !isLocking) {
     return (
-      <div className="py-24 text-center space-y-4">
-        <h2 className="text-xl font-semibold">Your cart is empty</h2>
-        <Link href="/products" className="text-primary font-medium">Continue Shopping</Link>
+      <div className="max-w-7xl mx-auto px-4 py-24 flex flex-col items-center gap-5">
+        <div className="w-20 h-20 bg-primary/10 rounded-2xl flex items-center justify-center">
+          <ShoppingBag size={32} className="text-primary" />
+        </div>
+        <div className="text-center">
+          <h2 className="text-xl font-bold text-gray-900">Your cart is empty</h2>
+          <p className="text-sm text-gray-400 mt-1.5">Add some products before checking out.</p>
+        </div>
+        <Link
+          href="/products"
+          className="bg-primary text-white px-6 py-3 rounded-xl font-semibold hover:opacity-90 transition shadow-sm"
+        >
+          Continue Shopping
+        </Link>
       </div>
     )
   }
 
   if (!user) {
     return (
-      <div className="py-24 text-center space-y-4">
-        <h2 className="text-xl font-semibold">Please login to continue</h2>
-        <Link href="/signin" className="text-primary font-medium">Go to Sign In</Link>
+      <div className="max-w-7xl mx-auto px-4 py-24 flex flex-col items-center gap-5">
+        <div className="w-20 h-20 bg-primary/10 rounded-2xl flex items-center justify-center">
+          <LogIn size={32} className="text-primary" />
+        </div>
+        <div className="text-center">
+          <h2 className="text-xl font-bold text-gray-900">Sign in to continue</h2>
+          <p className="text-sm text-gray-400 mt-1.5">Please log in to proceed with checkout.</p>
+        </div>
+        <Link
+          href="/signin"
+          className="bg-primary text-white px-6 py-3 rounded-xl font-semibold hover:opacity-90 transition shadow-sm"
+        >
+          Go to Sign In
+        </Link>
       </div>
     )
   }
 
   if (isLocking) {
-    return <div className="py-24 text-center text-muted">Locking latest pricing…</div>
+    return (
+      <div className="max-w-7xl mx-auto px-4 py-24 flex flex-col items-center gap-4">
+        <Loader2 className="w-8 h-8 text-primary animate-spin" />
+        <p className="text-sm text-gray-400">Locking latest pricing…</p>
+      </div>
+    )
   }
 
-  // addressId comes from the store (auto-populated from default address)
   const resolvedAddressId = storeAddressId ?? ""
   const canPlaceOrder = isValid && !!resolvedAddressId && checkoutStep >= 3
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-10 grid lg:grid-cols-3 gap-8">
-      <div className="lg:col-span-2">
-        <CheckoutStepper onStepChange={setCheckoutStep} />
+    <div className="max-w-7xl mx-auto px-4 py-10">
+      {/* Page header */}
+      <div className="mb-8">
+        <h1 className="text-xl font-bold text-gray-900">Checkout</h1>
+        <p className="text-xs text-gray-400 mt-0.5">Complete your purchase securely</p>
       </div>
-      <CheckoutSummary isValid={canPlaceOrder} addressId={resolvedAddressId} />
+
+      <div className="grid lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2">
+          <CheckoutStepper onStepChange={setCheckoutStep} />
+        </div>
+        <CheckoutSummary isValid={canPlaceOrder} addressId={resolvedAddressId} />
+      </div>
     </div>
   )
 }

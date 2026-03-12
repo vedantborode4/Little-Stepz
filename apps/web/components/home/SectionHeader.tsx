@@ -1,11 +1,8 @@
-export default function SectionHeader({
-  title,
-}: {
-  title: string
-}) {
+export default function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
-    <h2 className="text-2xl md:text-3xl font-bold text-center text-primary mb-10">
-      {title}
-    </h2>
+    <div className="mb-6">
+      <h2 className="text-xl font-bold text-gray-900 text-center">{title}</h2>
+      {subtitle && <p className="text-sm text-gray-400 mt-0.5 text-center">{subtitle}</p>}
+    </div>
   )
 }

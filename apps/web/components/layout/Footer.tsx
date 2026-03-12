@@ -1,134 +1,91 @@
-"use client"
-
 import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { useCategoryStore } from "../../store/useCategoryStore"
-import { useEffect } from "react"
-import { Instagram, Twitter, Facebook, Youtube, MapPin, Mail, Phone } from "lucide-react"
+import { Mail, Phone, MapPin, Instagram, Facebook, Twitter } from "lucide-react"
 
 export default function Footer() {
-  const pathname = usePathname()
-  const { tree } = useCategoryStore()
-
-  useEffect(() => {
-    if (pathname.startsWith("/admin") || pathname.startsWith("/affiliate")) return
-    if (!useCategoryStore.getState().tree.length) {
-      useCategoryStore.getState().fetchTree()
-    }
-  }, [])
-
-  if (pathname.startsWith("/admin") || pathname.startsWith("/affiliate")) return null
-
-  // Use real categories from API (first 6)
-  const topCategories = tree.slice(0, 6)
-
   return (
-    <footer className="bg-gray-950 text-gray-400 mt-20">
-      {/* Top section */}
-      <div className="max-w-7xl mx-auto px-6 pt-14 pb-10 grid md:grid-cols-4 gap-10">
+    <footer className="bg-gray-900 text-gray-300 mt-16">
+      <div className="max-w-7xl mx-auto px-6 py-12">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
 
-        {/* Brand column */}
-        <div className="md:col-span-1">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <span className="text-white text-xs font-bold">LS</span>
+          {/* Brand */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+                <span className="text-white text-xs font-bold">LS</span>
+              </div>
+              <span className="font-bold text-white text-sm">Little Stepz</span>
             </div>
-            <span className="text-white font-bold text-base">Little Stepz</span>
+            <p className="text-sm text-gray-400 leading-relaxed">
+              Safe, fun, and thoughtfully designed toys that help children learn through play.
+            </p>
+            <div className="flex gap-3">
+              {[Instagram, Facebook, Twitter].map((Icon, i) => (
+                <a key={i} href="#" className="w-8 h-8 bg-gray-800 rounded-lg flex items-center justify-center hover:bg-primary transition">
+                  <Icon size={14} />
+                </a>
+              ))}
+            </div>
           </div>
-          <p className="text-sm leading-relaxed mb-5 text-gray-500">
-            Premium toys & kids' products delivered to your doorstep. Making childhood magical.
-          </p>
-          <div className="flex gap-3">
-            {[
-              { icon: Instagram, href: "#" },
-              { icon: Facebook, href: "#" },
-              { icon: Twitter, href: "#" },
-              { icon: Youtube, href: "#" },
-            ].map(({ icon: Icon, href }, i) => (
-              <a key={i} href={href} className="w-8 h-8 bg-white/5 hover:bg-primary/20 hover:text-primary rounded-lg flex items-center justify-center transition-colors">
-                <Icon size={15} />
-              </a>
-            ))}
+
+          {/* Categories */}
+          <div>
+            <h4 className="font-semibold text-white mb-4 text-sm">Categories</h4>
+            <ul className="space-y-2.5 text-sm">
+              {["Action Figures", "Board Games", "Soft Toys", "Learning Toys", "Outdoor Play"].map((item) => (
+                <li key={item}>
+                  <Link href={`/products?search=${item.toLowerCase()}`} className="text-gray-400 hover:text-white transition">
+                    {item}
+                  </Link>
+                </li>
+              ))}
+            </ul>
           </div>
-        </div>
 
-        {/* Shop categories */}
-        <div>
-          <h4 className="text-white text-sm font-semibold mb-4">Shop</h4>
-          <ul className="space-y-2.5 text-sm">
-            <li>
-              <Link href="/products" className="hover:text-primary transition-colors">
-                All Products
-              </Link>
-            </li>
-            {topCategories.map((cat) => (
-              <li key={cat.id}>
-                <Link href={`/products/category/${cat.slug}`} className="hover:text-primary transition-colors">
-                  {cat.name}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
+          {/* Information */}
+          <div>
+            <h4 className="font-semibold text-white mb-4 text-sm">Information</h4>
+            <ul className="space-y-2.5 text-sm">
+              {["About Us", "Contact Us", "Shipping Policy", "Return Policy", "Privacy Policy"].map((item) => (
+                <li key={item}>
+                  <a href="#" className="text-gray-400 hover:text-white transition">{item}</a>
+                </li>
+              ))}
+            </ul>
+          </div>
 
-        {/* Account */}
-        <div>
-          <h4 className="text-white text-sm font-semibold mb-4">Account</h4>
-          <ul className="space-y-2.5 text-sm">
-            <li><Link href="/profile" className="hover:text-primary transition-colors">My Profile</Link></li>
-            <li><Link href="/account/orders" className="hover:text-primary transition-colors">My Orders</Link></li>
-            <li><Link href="/wishlist" className="hover:text-primary transition-colors">Wishlist</Link></li>
-            <li><Link href="/cart" className="hover:text-primary transition-colors">Cart</Link></li>
-            <li><Link href="/affiliate/apply" className="hover:text-primary transition-colors">Become Affiliate</Link></li>
-          </ul>
-        </div>
-
-        {/* Contact */}
-        <div>
-          <h4 className="text-white text-sm font-semibold mb-4">Contact</h4>
-          <ul className="space-y-3 text-sm">
-            <li className="flex items-start gap-2.5">
-              <MapPin size={14} className="mt-0.5 text-primary flex-shrink-0" />
-              <span>Mumbai, Maharashtra, India</span>
-            </li>
-            <li className="flex items-center gap-2.5">
-              <Mail size={14} className="text-primary flex-shrink-0" />
-              <a href="mailto:support@littlestepz.in" className="hover:text-primary transition-colors">
-                support@littlestepz.in
-              </a>
-            </li>
-            <li className="flex items-center gap-2.5">
-              <Phone size={14} className="text-primary flex-shrink-0" />
-              <a href="tel:+919876543210" className="hover:text-primary transition-colors">
-                +91 98765 43210
-              </a>
-            </li>
-          </ul>
-
-          <div className="mt-6">
-            <h4 className="text-white text-sm font-semibold mb-3">Newsletter</h4>
+          {/* Contact + Newsletter */}
+          <div className="space-y-4">
+            <h4 className="font-semibold text-white text-sm">Stay Updated</h4>
             <div className="flex gap-2">
               <input
                 placeholder="Your email"
-                className="flex-1 min-w-0 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-primary/50 transition-colors"
+                className="flex-1 px-3 py-2 rounded-xl bg-gray-800 border border-gray-700 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-primary transition"
               />
-              <button className="bg-primary text-white px-3 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition flex-shrink-0">
+              <button className="bg-primary px-4 rounded-xl text-white text-sm font-medium hover:opacity-90 transition">
                 Go
               </button>
             </div>
+            <div className="space-y-2 text-sm text-gray-400">
+              <div className="flex items-center gap-2">
+                <Phone size={13} className="text-gray-500 flex-shrink-0" />
+                <span>+91 98765 43210</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Mail size={13} className="text-gray-500 flex-shrink-0" />
+                <span>hello@littlestepz.in</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <MapPin size={13} className="text-gray-500 flex-shrink-0" />
+                <span>Mumbai, India</span>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Bottom bar */}
-      <div className="border-t border-white/5 py-5">
-        <div className="max-w-7xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-600">
+        {/* Bottom bar */}
+        <div className="border-t border-gray-800 mt-10 pt-6 flex flex-col sm:flex-row justify-between items-center gap-2 text-xs text-gray-500">
           <p>© {new Date().getFullYear()} Little Stepz. All rights reserved.</p>
-          <div className="flex gap-5">
-            <Link href="/privacy" className="hover:text-gray-400 transition-colors">Privacy Policy</Link>
-            <Link href="/terms" className="hover:text-gray-400 transition-colors">Terms of Use</Link>
-            <Link href="/shipping" className="hover:text-gray-400 transition-colors">Shipping Policy</Link>
-          </div>
+          <p>Made with ♥ for little ones</p>
         </div>
       </div>
     </footer>
