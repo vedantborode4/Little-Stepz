@@ -1,10 +1,9 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { AdminService } from "../../lib/services/admin.service"
 import { ProductService } from "../../lib/services/product.service"
 import ProductCard from "../products/ProductCard"
-import { TrendingUp, Loader2 } from "lucide-react"
+import { TrendingUp } from "lucide-react"
 import type { Product } from "../../types/product"
 
 export default function BestSellers() {
@@ -14,36 +13,11 @@ export default function BestSellers() {
   useEffect(() => {
     const load = async () => {
       try {
-        // Get top selling product IDs from admin stats, then fetch full product data
-        const [stats, allProducts] = await Promise.all([
-          AdminService.getStats(),
-          ProductService.getProducts({ limit: 20, sort: "newest" }),
-        ])
-
-        const topIds = (stats.topProducts ?? [])
-          .slice(0, 5)
-          .map((p: any) => p.productId)
-
-        // Match full product objects by id
-        let matched = topIds
-          .map((id: string) => allProducts.data.find((p) => p.id === id))
-          .filter(Boolean) as Product[]
-
-        // Fallback: if not enough matches, fill with newest products
-        if (matched.length < 4) {
-          const extras = allProducts.data
-            .filter((p) => !matched.find((m) => m.id === p.id))
-            .slice(0, 5 - matched.length)
-          matched = [...matched, ...extras]
-        }
-
-        setProducts(matched.slice(0, 5))
+        // Fetch newest products publicly — no admin endpoint needed
+        const res = await ProductService.getProducts({ limit: 5, sort: "newest" })
+        setProducts(res.data.slice(0, 5))
       } catch {
-        // Fallback: just show newest 5
-        try {
-          const res = await ProductService.getProducts({ limit: 5, sort: "newest" })
-          setProducts(res.data.slice(0, 5))
-        } catch { /* silent */ }
+        // silent — home page should never break due to this section
       } finally {
         setLoading(false)
       }
