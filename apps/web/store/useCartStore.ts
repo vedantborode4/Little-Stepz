@@ -212,7 +212,6 @@ revalidateCoupon: async () => {
         total: data.subtotal - get().discount,
       })
 
-      toast.success("Added to cart")
       get().revalidateCoupon()
     } catch {
       set({ items: prev, subtotal: calcSubtotal(prev) })

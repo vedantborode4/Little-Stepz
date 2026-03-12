@@ -3,6 +3,7 @@ import { Toaster } from "sonner"
 import { AuthProvider } from "./providers/auth-provider"
 import Script from "next/script"
 import Navbar from "../components/layout/Navbar"
+import Footer from "../components/layout/Footer"
 
 export default function RootLayout({
   children,
@@ -15,7 +16,8 @@ export default function RootLayout({
         <AuthProvider>
           <Navbar />
           {children}
-          <Toaster richColors />
+          <Footer />
+          <Toaster richColors position="bottom-right" />
           <Script
             src="https://checkout.razorpay.com/v1/checkout.js"
             strategy="afterInteractive"

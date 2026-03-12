@@ -10,9 +10,11 @@ export default function AuthLayout({
         {/* LEFT PANEL - Desktop */}
         <div className="hidden lg:flex flex-col justify-center px-20 bg-gradient-to-br from-primary/10 to-transparent">
           <div className="max-w-md">
-            <h1 className="text-5xl font-bold text-primary leading-tight">
-              Little Stepz
-            </h1>
+            <img
+              src="/logo.png"
+              alt="Little Stepz"
+              className="h-36 w-auto"
+            />
 
             <p className="mt-6 text-lg text-muted leading-relaxed">
               Discover toys that make learning joyful for every
