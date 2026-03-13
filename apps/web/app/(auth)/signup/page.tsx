@@ -28,7 +28,7 @@ export default function SignUpPage() {
   const onSubmit = async (data: SignupData) => {
     try {
       const res = await AuthService.signUp(data)
-      login(res)
+      await login(res)
       router.push("/")
     } catch (error: any) {
       const message =

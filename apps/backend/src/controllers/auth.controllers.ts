@@ -25,7 +25,7 @@ export async function signupController(req: Request, res: Response) {
     res.cookie("accessToken", accessToken, accessTokenCookieOptions);
     res.cookie("refreshToken", refreshToken, refreshTokenCookieOptions);
 
-    return res.status(201).json({ user });
+    return res.status(201).json({ user, accessToken });
   } catch (err) {
     if (err instanceof Error) {
       return res.status(500).json({ message: err.message });
@@ -51,7 +51,7 @@ export async function signinController(req: Request, res: Response) {
     res.cookie("accessToken", accessToken, accessTokenCookieOptions);
     res.cookie("refreshToken", refreshToken, refreshTokenCookieOptions);
 
-    return res.status(200).json({ user });
+    return res.status(200).json({ user, accessToken });
   } catch (err) {
     if (err instanceof Error) {
       return res.status(401).json({ message: err.message });
@@ -98,7 +98,7 @@ export async function refreshController(req: Request, res: Response) {
     res.cookie("accessToken", newAccessToken, accessTokenCookieOptions);
     res.cookie("refreshToken", newRefreshToken, refreshTokenCookieOptions);
 
-    return res.status(200).json({ message: "Token refreshed" });
+    return res.status(200).json({ accessToken: newAccessToken });
   } catch (err) {
     // includes reuse detection → revoke all tokens inside service
     if (err instanceof Error) {

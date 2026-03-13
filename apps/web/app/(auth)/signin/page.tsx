@@ -28,7 +28,7 @@ export default function SignInPage() {
   const onSubmit = async (data: SigninData) => {
     try {
       const res = await AuthService.signIn(data)
-      login(res)
+      await login(res)
       router.push("/")
     } catch (error: any) {
       const message =
@@ -89,7 +89,7 @@ export default function SignInPage() {
         </form>
 
         <p className="text-center text-sm text-muted">
-          Don’t have an account?{" "}
+          Don't have an account?{" "}
           <span
             onClick={() => router.push("/signup")}
             className="text-primary font-semibold cursor-pointer"

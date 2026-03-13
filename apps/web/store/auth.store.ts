@@ -32,7 +32,16 @@ export const useAuthStore = create<AuthState>()(
         }),
 
       logout: () => {
-        useCartStore.getState().clearCart()
+        // Clear cart state locally — do NOT call clearCart() which fires an API request.
+        // During forced logout (e.g. refresh-token failure), that API call would 401,
+        // re-enter the interceptor, and cause a cascading loop.
+        useCartStore.setState({
+          items: [],
+          subtotal: 0,
+          total: 0,
+          discount: 0,
+          couponCode: null,
+        })
 
         set({
           user: null,
@@ -49,9 +58,7 @@ export const useAuthStore = create<AuthState>()(
         user: state.user,
         accessToken: state.accessToken,
         isAuthenticated: state.isAuthenticated,
-        // ✅ isHydrated is intentionally excluded — it's a runtime flag, not persisted session data.
-        // Persisting it caused it to be restored as `false` on every page load,
-        // triggering infinite re-renders in AuthProvider and GuestGuard.
+        // isHydrated is intentionally excluded — runtime flag only
       }),
     }
   )

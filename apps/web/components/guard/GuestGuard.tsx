@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useAuthStore } from "../../store/auth.store"
 
@@ -11,11 +11,12 @@ export default function GuestGuard({
 }) {
   const router = useRouter()
   const { isAuthenticated, isHydrated } = useAuthStore()
+  const hasRedirected = useRef(false)
 
   useEffect(() => {
     if (!isHydrated) return
-
-    if (isAuthenticated) {
+    if (isAuthenticated && !hasRedirected.current) {
+      hasRedirected.current = true
       router.replace("/")
     }
   }, [isAuthenticated, isHydrated, router])

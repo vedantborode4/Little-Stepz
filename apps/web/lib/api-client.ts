@@ -78,6 +78,17 @@ api.interceptors.response.use(
 
       removeAccessToken()
 
+      // Clear Zustand auth state so GuestGuard doesn't see stale isAuthenticated
+      // from localStorage and redirect back to "/" in a loop.
+      // Dynamic import avoids circular dep: api-client → auth.store → cartStore → cart.service → api-client
+      try {
+        const { useAuthStore } = await import("../store/auth.store")
+        useAuthStore.getState().logout()
+      } catch {
+        // If dynamic import fails somehow, clear localStorage directly as fallback
+        try { localStorage.removeItem("auth-storage") } catch {}
+      }
+
       window.location.href = "/signin"
 
       return Promise.reject(err)
