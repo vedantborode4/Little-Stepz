@@ -168,7 +168,7 @@ export default function ProductsPage() {
   /* ---------------- PAGE ---------------- */
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
+    <div className="max-w-7xl bg-white mx-auto px-4 py-8">
 
       {/* BREADCRUMB */}
       <div className="text-sm text-muted flex items-center gap-2 flex-wrap mb-4">
@@ -220,7 +220,7 @@ export default function ProductsPage() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-3 gap-6">
             {products.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}

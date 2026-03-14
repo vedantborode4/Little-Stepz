@@ -93,8 +93,8 @@ export default function CheckoutPage() {
     <div className="max-w-7xl mx-auto px-4 py-10">
       {/* Page header */}
       <div className="mb-8">
-        <h1 className="text-xl font-bold text-gray-900">Checkout</h1>
-        <p className="text-xs text-gray-400 mt-0.5">Complete your purchase securely</p>
+        <h1 className="text-2xl font-medium text-gray-900">Checkout</h1>
+        <p className="text-sm text-gray-400 mt-0.5">Complete your purchase securely</p>
       </div>
 
       <div className="grid lg:grid-cols-3 gap-8">

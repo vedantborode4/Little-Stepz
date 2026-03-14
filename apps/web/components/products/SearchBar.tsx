@@ -19,7 +19,7 @@ export default function SearchBar() {
 
   const wrapperRef = useRef<HTMLDivElement>(null)
 
-  const debouncedSearch = useDebounce(input, 400)
+  const debouncedSearch = useDebounce(input, 200)
 
 
   useEffect(() => {
@@ -91,7 +91,7 @@ export default function SearchBar() {
 
   return (
     <div ref={wrapperRef} className="relative w-full">
-      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+      <Search className="absolute right-1 top-1/2 -translate-y-1/2 w-8 h-8 p-2  bg-primary text-white rounded-lg" />
 
       <input
         value={input}
@@ -102,11 +102,11 @@ export default function SearchBar() {
         onFocus={() => input && setOpen(true)}
         onKeyDown={handleKeyDown}
         placeholder="Search toys..."
-        className="w-full pl-10 pr-4 py-2 rounded-lg border bg-gray-100 text-sm focus:ring-2 focus:ring-primary"
+        className="w-full pl-4 pr-10 py-2 rounded-lg bg-gray-100 text-sm outline-none focus:outline-none focus:ring-0"
       />
 
       {open && (
-        <div className="absolute top-full mt-2 w-full bg-white border rounded-xl shadow-lg z-50">
+        <div className="absolute top-full mt-2 w-full bg-white rounded-md shadow-lg z-50">
 
           {!suggestions.length && (
             <div className="px-4 py-3 text-sm text-muted">

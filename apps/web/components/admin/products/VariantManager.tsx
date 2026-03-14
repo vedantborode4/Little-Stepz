@@ -85,8 +85,7 @@ export default function VariantManager({
   }
 
   return (
-    <div className="bg-white border rounded-xl p-6 space-y-6">
-      <h3 className="font-semibold text-lg">Variants</h3>
+    <div className="bg-white rounded-xl p-2 space-y-6">
 
       <div className="grid grid-cols-4 gap-3">
         <Input

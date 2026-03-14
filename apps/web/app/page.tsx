@@ -43,11 +43,14 @@ export default function Home() {
       <DynamicPromoBanner position="HOME_MID" />
 
       {/* Best Sellers — dynamic from real order data */}
-      <BestSellers />
+      <section>
+        <SectionHeader title="Best Sellers" subtitle="Our most loved products" />
+        <BestSellers />
+      </section>
 
       {/* Why choose us */}
       <section>
-        <SectionHeader title="Why Shop With Us" />
+        <SectionHeader title="Why Choose Us" />
         <WhyChooseUs />
       </section>
 

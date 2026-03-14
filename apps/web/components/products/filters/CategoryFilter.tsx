@@ -18,7 +18,6 @@ export default function CategoryFilter() {
 
   return (
     <div className="space-y-3">
-      <h3 className="font-semibold text-text">Categories</h3>
 
       {tree.map((node) => (
         <CategoryTreeNode key={node.id} node={node} />

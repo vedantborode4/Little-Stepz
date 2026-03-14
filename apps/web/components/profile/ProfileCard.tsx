@@ -42,11 +42,11 @@ export default function ProfileCard() {
 
       <div className="px-6 pb-6">
         {/* Avatar */}
-        <div className="flex items-end justify-between -mt-8 mb-5">
-          <div className="w-16 h-16 bg-primary rounded-2xl border-4 border-white shadow-md flex items-center justify-center">
+        <div className="flex items-end justify-between -mt-8 mb-6">
+          <div className="w-16 h-16 bg-primary rounded-2xl border-4 border-white shadow-md flex items-center justify-center ">
             <span className="text-white font-bold text-lg">{initials}</span>
           </div>
-          <div className="flex gap-2 pt-2">
+          <div className="flex gap-2 pt-2 mb-3">
             <ChangePasswordDialog />
             <EditProfileDialog user={user} onUpdated={setUser} />
           </div>
@@ -55,10 +55,6 @@ export default function ProfileCard() {
         {/* Name + role */}
         <div className="mb-5">
           <h2 className="text-lg font-bold text-gray-900">{user.name || "User"}</h2>
-          <div className="flex items-center gap-1.5 mt-0.5">
-            <Shield size={12} className="text-secondary" />
-            <span className="text-xs font-medium text-secondary">Verified Account</span>
-          </div>
         </div>
 
         {/* Info rows */}

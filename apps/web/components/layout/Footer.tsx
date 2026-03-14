@@ -3,7 +3,7 @@ import { Mail, Phone, MapPin, Instagram, Facebook, Twitter } from "lucide-react"
 
 export default function Footer() {
   return (
-    <footer className="bg-gray-900 text-gray-300 mt-16">
+    <footer className="bg-[#282828] text-gray-300 mt-16">
       <div className="max-w-7xl mx-auto px-6 py-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
 
@@ -56,15 +56,7 @@ export default function Footer() {
           {/* Contact + Newsletter */}
           <div className="space-y-4">
             <h4 className="font-semibold text-white text-sm">Stay Updated</h4>
-            <div className="flex gap-2">
-              <input
-                placeholder="Your email"
-                className="flex-1 px-3 py-2 rounded-xl bg-gray-800 border border-gray-700 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-primary transition"
-              />
-              <button className="bg-primary px-4 rounded-xl text-white text-sm font-medium hover:opacity-90 transition">
-                Go
-              </button>
-            </div>
+
             <div className="space-y-2 text-sm text-gray-400">
               <div className="flex items-center gap-2">
                 <Phone size={13} className="text-gray-500 flex-shrink-0" />
@@ -85,6 +77,7 @@ export default function Footer() {
         {/* Bottom bar */}
         <div className="border-t border-gray-800 mt-10 pt-6 flex flex-col sm:flex-row justify-between items-center gap-2 text-xs text-gray-500">
           <p>© {new Date().getFullYear()} Little Stepz. All rights reserved.</p>
+          <p>Developed by Novixs</p>
           <p>Made with ♥ for little ones</p>
         </div>
       </div>

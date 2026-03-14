@@ -61,9 +61,9 @@ export default function PaymentSection() {
         )
       })}
 
-      <div className="flex items-center gap-2 pt-2 text-xs text-gray-400">
-        <Shield size={13} className="text-secondary" />
-        Click <span className="font-semibold text-gray-600 mx-1">Place Order</span> in the summary to confirm.
+      <div className="flex items-center  pt-2 text-xs text-gray-400">
+        <Shield size={13} className="text-secondary mr-1"/>
+        Click<span className="font-semibold text-gray-600 mx-1">Place Order</span>in the summary to confirm.
       </div>
     </div>
   )

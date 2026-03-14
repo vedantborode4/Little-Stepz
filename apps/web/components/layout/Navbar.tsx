@@ -229,7 +229,7 @@ export default function Navbar() {
                   href="/signin"
                   className="ml-1 px-4 py-1.5 bg-primary text-white text-sm font-medium rounded-lg hover:opacity-90 transition"
                 >
-                  Sign In
+                  Login
                 </Link>
               )}
 

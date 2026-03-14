@@ -46,7 +46,7 @@ export default function EditProfileDialog({ user, onUpdated }: any) {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="flex items-center gap-1.5 border border-gray-200 text-gray-700 px-3.5 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition"
+        className="flex items-center bg-white gap-1.5 border border-gray-200 text-gray-700 px-3.5 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition"
       >
         <Pencil size={13} />
         Edit

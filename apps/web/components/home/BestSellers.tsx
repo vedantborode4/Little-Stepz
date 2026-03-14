@@ -27,25 +27,6 @@ export default function BestSellers() {
 
   return (
     <section>
-      <div className="flex items-center justify-center gap-4 mb-6">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 bg-primary/10 rounded-xl flex items-center justify-center">
-            <TrendingUp size={15} className="text-primary" />
-          </div>
-
-          <div>
-            <h2 className="text-xl font-bold text-gray-900">Best Sellers</h2>
-            <p className="text-xs text-gray-400">Our most loved products</p>
-          </div>
-        </div>
-
-        <a
-          href="/products"
-          className="text-sm font-medium text-primary hover:underline"
-        >
-          View All →
-        </a>
-      </div>
 
       {loading ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
@@ -67,6 +48,15 @@ export default function BestSellers() {
           ))}
         </div>
       )}
+
+            <div className="flex items-center justify-center gap-4 mb-6">
+        <a
+          href="/products"
+          className="text-md font-medium text-primary hover:underline mt-6"
+        >
+          View All →
+        </a>
+      </div>
     </section>
   )
 }

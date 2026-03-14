@@ -51,7 +51,7 @@ export default function ChangePasswordDialog() {
         className="flex items-center gap-1.5 bg-primary text-white px-3.5 py-2 rounded-xl text-sm font-semibold hover:opacity-90 transition shadow-sm"
       >
         <Lock size={13} />
-        Password
+        Change Password
       </button>
 
       {open && (

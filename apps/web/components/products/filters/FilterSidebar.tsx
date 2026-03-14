@@ -5,7 +5,7 @@ import SortFilter from "./SortFilter"
 
 export default function FilterSidebar() {
   return (
-    <aside className="hidden lg:block bg-white rounded-xl p-5 shadow-card h-fit">
+    <aside className="hidden lg:block bg-[#F6F6F6] rounded-xl p-5  h-fit">
 
       <FilterSection title="Category">
         <CategoryFilter />

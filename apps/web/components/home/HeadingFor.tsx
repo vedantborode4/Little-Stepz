@@ -16,10 +16,10 @@ export function HeadingFor() {
           </div>
 
           <div className="space-y-1">
-            <h2 className="text-3xl md:text-4xl font-extrabold text-primary leading-tight">
+            <h2 className="text-3xl md:text-4xl font-bold text-primary leading-tight">
               Made for Little Hands
             </h2>
-            <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 leading-tight">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 leading-tight">
               Made for Big Fun
             </h2>
           </div>
