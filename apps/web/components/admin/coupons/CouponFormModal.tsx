@@ -62,6 +62,10 @@ export default function CouponFormModal({ mode, initialData, onClose, onSuccess 
       const body: CreateCouponBody = {
         ...form,
         code: form.code.trim().toUpperCase(),
+        value: Number(form.value),
+        minOrderValue: form.minOrderValue !== undefined ? Number(form.minOrderValue) : undefined,
+        maxDiscount: form.maxDiscount !== undefined ? Number(form.maxDiscount) : undefined,
+        usageLimit: form.usageLimit !== undefined ? Number(form.usageLimit) : undefined,
         // Convert date strings to ISO — backend accepts ISO strings
         validFrom: form.validFrom ? new Date(form.validFrom).toISOString() : undefined,
         validUntil: form.validUntil ? new Date(form.validUntil).toISOString() : undefined,
@@ -109,7 +113,7 @@ export default function CouponFormModal({ mode, initialData, onClose, onSuccess 
         <Field label={`Discount Value ${form.type === "PERCENTAGE" ? "(%)" : "(₹)"} *`} error={errors.value}>
           <StyledInput type="number" min={0} max={form.type === "PERCENTAGE" ? 100 : undefined}
             value={form.value}
-            onChange={e => setForm(p => ({ ...p, value: Number(e.target.value) }))}
+            onChange={e => setForm(p => ({ ...p, value: e.target.valueAsNumber || 0 }))}
             disabled={mode === "edit" && (initialData?.usedCount ?? 0) > 0}
           />
         </Field>
@@ -118,21 +122,21 @@ export default function CouponFormModal({ mode, initialData, onClose, onSuccess 
           <Field label="Min Order Value (₹)">
             <StyledInput type="number" min={0} placeholder="Optional"
               value={form.minOrderValue ?? ""}
-              onChange={e => setForm(p => ({ ...p, minOrderValue: e.target.value ? Number(e.target.value) : undefined }))} />
+              onChange={e => setForm(p => ({ ...p, minOrderValue: e.target.value === "" ? undefined : (e.target.valueAsNumber || 0) }))} />
           </Field>
 
           {form.type === "PERCENTAGE" && (
             <Field label="Max Discount (₹)">
               <StyledInput type="number" min={0} placeholder="Optional (cap)"
                 value={form.maxDiscount ?? ""}
-                onChange={e => setForm(p => ({ ...p, maxDiscount: e.target.value ? Number(e.target.value) : undefined }))} />
+                onChange={e => setForm(p => ({ ...p, maxDiscount: e.target.value === "" ? undefined : (e.target.valueAsNumber || 0) }))} />
             </Field>
           )}
 
           <Field label="Usage Limit">
             <StyledInput type="number" min={0} placeholder="Leave blank = unlimited"
               value={form.usageLimit ?? ""}
-              onChange={e => setForm(p => ({ ...p, usageLimit: e.target.value ? Number(e.target.value) : undefined }))} />
+              onChange={e => setForm(p => ({ ...p, usageLimit: e.target.value === "" ? undefined : (e.target.valueAsNumber || 0) }))} />
           </Field>
         </div>
 

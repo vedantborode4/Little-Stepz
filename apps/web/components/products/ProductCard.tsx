@@ -87,11 +87,11 @@ export default function ProductCard({ product }: { product: Product }) {
 
       {/* CONTENT */}
       <div className="flex flex-col flex-1 p-4">
-        <h3 className="text-sm font-medium line-clamp-2 min-h-[40px]">
+        <h3 className="text-sm font-medium line-clamp-1 min-h-7">
           {product.name}
         </h3>
 
-        <span className="text-primary font-semibold mt-1">
+        <span className="text-primary font-semibold mb-3">
           ₹{product.price}
         </span>
 

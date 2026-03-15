@@ -16,73 +16,100 @@ export default function CartItem({ item }: { item: CartItemType }) {
   const isUpdating = updatingKey === key
 
   const image = item.product.images?.[0]?.url || "/placeholder.png"
+  const unitPrice = Number(item.product.price)
+  const lineTotal = unitPrice * item.quantity
 
   return (
     <div
-      className={`flex gap-4 p-5 border-b border-gray-100 last:border-none transition-opacity ${
+      className={`group relative flex gap-4 sm:gap-5 px-5 py-4 border-b border-gray-100 last:border-none transition-all duration-200 hover:bg-gray-50/60 ${
         isUpdating ? "opacity-50 pointer-events-none" : ""
       }`}
     >
-      {/* Image */}
-      <Link href={`/products/${item.product.slug}`} className="flex-shrink-0">
-        <div className="relative w-20 h-20 bg-gray-50 rounded-xl overflow-hidden border border-gray-100">
-          <Image src={image} alt={item.product.name} fill className="object-contain p-1" />
+      {/* Product image */}
+      <Link
+        href={`/products/${item.product.slug}`}
+        className="flex-shrink-0 self-start"
+      >
+        <div className="relative w-[84px] h-[84px] rounded-2xl overflow-hidden bg-white border border-gray-100 shadow-sm group-hover:shadow-md transition-shadow duration-200">
+          <Image
+            src={image}
+            alt={item.product.name}
+            fill
+            className="object-contain p-2 scale-95 group-hover:scale-100 transition-transform duration-300"
+          />
         </div>
       </Link>
 
-      {/* Details */}
-      <div className="flex-1 min-w-0">
-        <Link href={`/products/${item.product.slug}`}>
-          <h3 className="font-semibold text-gray-900 text-sm hover:text-primary transition leading-snug line-clamp-2">
-            {item.product.name}
-          </h3>
-        </Link>
+      {/* Info + controls */}
+      <div className="flex flex-1 min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
 
-        {item.variant && (
-          <span className="inline-block mt-1 text-[11px] font-medium bg-gray-100 text-gray-500 px-2 py-0.5 rounded-md">
-            {item.variant.name}
-          </span>
-        )}
+        {/* Left — name, variant, unit price */}
+        <div className="flex-1 min-w-0">
+          <Link href={`/products/${item.product.slug}`}>
+            <h3 className="text-sm font-semibold text-gray-900 leading-snug line-clamp-2 hover:text-primary transition-colors duration-150">
+              {item.product.name}
+            </h3>
+          </Link>
 
-        {/* Price */}
-        <p className="text-sm font-bold text-gray-900 mt-1.5">
-          ₹{(Number(item.product.price) * item.quantity).toLocaleString("en-IN")}
-
-          (₹{Number(item.product.price).toLocaleString("en-IN")} each)
-          {item.quantity > 1 && (
-            <span className="text-xs font-normal text-gray-400 ml-1.5">
-              (₹{item.product.price} each)
+          {item.variant && (
+            <span className="inline-block mt-1.5 text-[10px] font-semibold uppercase tracking-wide bg-gray-100 text-gray-500 px-2 py-0.5 rounded-md">
+              {item.variant.name}
             </span>
           )}
-        </p>
 
-        {/* Quantity control */}
-        <div className="flex items-center gap-2 mt-2.5">
-          <div className="flex items-center border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
-            <button
-              disabled={isUpdating || item.quantity <= 1}
-              onClick={() => updateQuantity(item.productId, variantId, item.quantity - 1)}
-              className="p-2 text-gray-500 hover:bg-gray-50 disabled:opacity-40 transition"
-            >
-              <Minus size={13} />
-            </button>
-            <span className="px-3.5 text-sm font-semibold text-gray-900">{item.quantity}</span>
+          <p className="mt-1.5 text-xs text-gray-400 font-medium">
+            ₹{unitPrice.toLocaleString("en-IN")} each
+          </p>
+
+          {/* Qty stepper + remove — on mobile stays here */}
+          <div className="flex items-center gap-3 mt-3 sm:mt-2.5">
+            {/* Stepper */}
+            <div className="inline-flex items-center rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+              <button
+                disabled={isUpdating || item.quantity <= 1}
+                onClick={() =>
+                  updateQuantity(item.productId, variantId, item.quantity - 1)
+                }
+                className="w-8 h-8 flex items-center justify-center text-gray-500 hover:bg-primary hover:text-white disabled:opacity-30 transition-colors duration-150"
+              >
+                <Minus size={12} />
+              </button>
+              <span className="w-8 text-center text-sm font-bold text-gray-900 select-none">
+                {item.quantity}
+              </span>
+              <button
+                disabled={isUpdating}
+                onClick={() =>
+                  updateQuantity(item.productId, variantId, item.quantity + 1)
+                }
+                className="w-8 h-8 flex items-center justify-center text-gray-500 hover:bg-primary hover:text-white disabled:opacity-30 transition-colors duration-150"
+              >
+                <Plus size={12} />
+              </button>
+            </div>
+
+            {/* Remove */}
             <button
               disabled={isUpdating}
-              onClick={() => updateQuantity(item.productId, variantId, item.quantity + 1)}
-              className="p-2 text-gray-500 hover:bg-gray-50 disabled:opacity-40 transition"
+              onClick={() => removeItem(item.productId, variantId)}
+              className="h-8 w-8 flex items-center justify-center rounded-xl text-gray-300 hover:text-red-500 hover:bg-red-50 transition-all duration-150 disabled:opacity-30"
+              aria-label="Remove item"
             >
-              <Plus size={13} />
+              <Trash2 size={14} />
             </button>
           </div>
+        </div>
 
-          <button
-            disabled={isUpdating}
-            onClick={() => removeItem(item.productId, variantId)}
-            className="p-2 rounded-xl text-gray-400 hover:text-red-500 hover:bg-red-50 transition disabled:opacity-40"
-          >
-            <Trash2 size={15} />
-          </button>
+        {/* Right — line total */}
+        <div className="flex-shrink-0 text-right sm:pl-4 mt-1 sm:mt-0">
+          <p className="text-base font-bold text-gray-900">
+            ₹{lineTotal.toLocaleString("en-IN")}
+          </p>
+          {item.quantity > 1 && (
+            <p className="text-[11px] text-gray-400 mt-0.5">
+              {item.quantity} × ₹{unitPrice.toLocaleString("en-IN")}
+            </p>
+          )}
         </div>
       </div>
     </div>

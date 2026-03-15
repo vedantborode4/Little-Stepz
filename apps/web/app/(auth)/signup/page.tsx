@@ -9,6 +9,7 @@ import { toast } from "sonner"
 import { useAuth } from "../../../hooks/use-auth"
 import { AuthService } from "../../../lib/services/auth.service"
 import { AuthCard, Button, Input } from "@repo/ui/index"
+import PasswordInput from "../../../components/common/PasswordInput"
 
 export default function SignUpPage() {
   const router = useRouter()
@@ -50,7 +51,7 @@ export default function SignUpPage() {
     <GuestGuard>
       <AuthCard>
         <div className="space-y-2 text-center">
-          <h2>Create Account ✨</h2>
+          <h2>Create Account </h2>
           <p className="text-muted">Start your Little Stepz journey</p>
         </div>
 
@@ -84,8 +85,7 @@ export default function SignUpPage() {
           </div>
 
           <div className="space-y-1">
-            <Input
-              type="password"
+            <PasswordInput
               placeholder="Password"
               {...register("password", {
                 onChange: () => clearErrors("password"),

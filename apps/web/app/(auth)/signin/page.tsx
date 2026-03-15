@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation"
 import { AuthService } from "../../../lib/services/auth.service"
 import { useAuth } from "../../../hooks/use-auth"
 import { Button, Input, AuthCard } from "@repo/ui/index"
+import PasswordInput from "../../../components/common/PasswordInput"
 
 export default function SignInPage() {
   const router = useRouter()
@@ -51,7 +52,7 @@ export default function SignInPage() {
     <GuestGuard>
       <AuthCard>
         <div className="space-y-2 text-center">
-          <h2>Welcome Back 👋</h2>
+          <h2>Welcome Back </h2>
           <p className="text-muted">Login to continue shopping</p>
         </div>
 
@@ -71,8 +72,7 @@ export default function SignInPage() {
           </div>
 
           <div className="space-y-1">
-            <Input
-              type="password"
+            <PasswordInput
               placeholder="Password"
               {...register("password", {
                 onChange: () => clearErrors("password"),
