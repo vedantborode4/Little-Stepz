@@ -11,11 +11,6 @@ function getAffiliateId(): string | null {
   }
 }
 
-function generateIdempotencyKey(): string {
-  // Stable per-session per-cart key: userId not available here so use timestamp + random
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
-}
-
 export interface CartItemPayload {
   productId: string
   variantId?: string | null
@@ -25,18 +20,20 @@ export interface CartItemPayload {
 export const CheckoutService = {
   /**
    * Step 1 — Create the order record.
-   * Returns { orderId, total, subtotal, discount }
+   * idempotencyKey is generated ONCE per checkout session by the store
+   * and reused on retries so the backend deduplicates repeated calls.
    */
   createOrder: async (
     addressId: string,
     cartItems: CartItemPayload[],
-    couponCode?: string | null
+    couponCode?: string | null,
+    idempotencyKey?: string
   ) => {
     const affiliateId = getAffiliateId()
-    const headers: Record<string, string> = {
-      "Idempotency-Key": generateIdempotencyKey(),
-    }
-    if (affiliateId) headers["X-Affiliate-Id"] = affiliateId
+    const headers: Record<string, string> = {}
+
+    if (idempotencyKey) headers["Idempotency-Key"] = idempotencyKey
+    if (affiliateId)    headers["X-Affiliate-Id"]  = affiliateId
 
     const res = await api.post(
       "/orders",
@@ -64,7 +61,6 @@ export const CheckoutService = {
 
   /**
    * Step 2b — ONLINE: create Razorpay order for payment.
-   * Returns { razorpayOrderId, orderId, amount, currency, keyId }
    */
   createRazorpayOrder: async (orderId: string) => {
     const res = await api.post("/payments/create", { orderId })

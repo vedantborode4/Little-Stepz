@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useCheckoutStore } from "../../store/useCheckoutStore"
 import CheckoutAddressSection from "../address/CheckoutAddressSection"
 import OrderReview from "./OrderReview"
 import PaymentSection from "./PaymentSection"
@@ -14,7 +15,15 @@ interface Props {
 export default function CheckoutStepper({ onStepChange }: Props) {
   const [step, setStep] = useState(1)
 
+  const resetSession = useCheckoutStore((s) => s.resetSession)
+
   const goToStep = (n: number) => {
+    // Reset the idempotency key whenever the user enters or leaves the
+    // payment step — ensures each fresh attempt gets a unique key and
+    // the backend never sees a stale/duplicate key from a prior attempt.
+    if (n === 3 || step === 3) {
+      resetSession()
+    }
     setStep(n)
     onStepChange?.(n)
   }
