@@ -17,9 +17,9 @@ export default function AffiliateDashboard() {
   if (loading || !profile) {
     return (
       <div className="space-y-5">
-        <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-5">
+        <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-5">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="bg-white border border-gray-200 rounded-2xl p-5 animate-pulse">
+            <div key={i} className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-5 animate-pulse">
               <div className="h-4 bg-gray-100 rounded w-24 mb-4" />
               <div className="h-8 bg-gray-100 rounded w-16 mb-2" />
               <div className="h-3 bg-gray-100 rounded w-20" />
@@ -31,7 +31,7 @@ export default function AffiliateDashboard() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Stats */}
       <AffiliateStatsCards stats={stats} />
 
@@ -39,16 +39,16 @@ export default function AffiliateDashboard() {
       <ReferralLinkCard />
 
       {/* Quick links */}
-      <div className="grid sm:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-5">
         {[
-          { label: "View Clicks",      href: "/affiliate/clicks",      icon: <Link2 size={18} />,  desc: "See all unique visits from your link",    color: "bg-blue-50 text-blue-500" },
-          { label: "View Commissions", href: "/affiliate/commissions", icon: <Clock size={18} />,  desc: "Track your earned commissions",            color: "bg-green-50 text-green-500" },
-          { label: "Request Payout",   href: "/affiliate/payout",      icon: <ArrowRight size={18} />, desc: "Withdraw your pending balance",        color: "bg-orange-50 text-orange-500" },
+          { label: "View Clicks",      href: "/affiliate/clicks",      icon: <Link2 size={18} />,     desc: "See all unique visits from your link",    color: "bg-blue-50 text-blue-500" },
+          { label: "View Commissions", href: "/affiliate/commissions", icon: <Clock size={18} />,     desc: "Track your earned commissions",            color: "bg-green-50 text-green-500" },
+          { label: "Request Payout",   href: "/affiliate/payout",      icon: <ArrowRight size={18} />, desc: "Withdraw your pending balance",           color: "bg-orange-50 text-orange-500" },
         ].map((q) => (
           <Link
             key={q.href}
             href={q.href}
-            className="bg-white border border-gray-200 rounded-2xl p-5 hover:shadow-md transition-shadow flex items-start gap-4 group"
+            className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-5 hover:shadow-md transition-shadow flex items-start gap-3 sm:gap-4 group"
           >
             <div className={`p-2.5 rounded-xl ${q.color} shrink-0`}>{q.icon}</div>
             <div className="flex-1 min-w-0">

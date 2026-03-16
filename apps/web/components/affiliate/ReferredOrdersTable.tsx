@@ -32,10 +32,10 @@ export default function ReferredOrdersTable() {
   }, [])
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4 sm:space-y-5">
       <div>
-        <h1 className="text-xl font-semibold text-gray-900">Referred Orders</h1>
-        <p className="text-sm text-gray-500 mt-0.5">All orders placed by users you referred</p>
+        <h1 className="text-lg sm:text-xl font-semibold text-gray-900">Referred Orders</h1>
+        <p className="text-xs sm:text-sm text-gray-500 mt-0.5">All orders placed by users you referred</p>
       </div>
 
       <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
@@ -48,52 +48,89 @@ export default function ReferredOrdersTable() {
             <p className="text-xs text-gray-400 mt-1">Orders from your referrals will appear here</p>
           </div>
         ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-100">
-              <tr className="text-gray-500 text-left">
-                <th className="p-4 font-medium">Order ID</th>
-                <th className="p-4 font-medium">Total</th>
-                <th className="p-4 font-medium">Payment</th>
-                <th className="p-4 font-medium">Status</th>
-                <th className="p-4 font-medium">Commission</th>
-                <th className="p-4 font-medium text-right">Date</th>
-              </tr>
-            </thead>
-            <tbody>
+          <>
+            {/* Desktop table */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-100">
+                  <tr className="text-gray-500 text-left">
+                    <th className="p-4 font-medium">Order ID</th>
+                    <th className="p-4 font-medium">Total</th>
+                    <th className="p-4 font-medium">Payment</th>
+                    <th className="p-4 font-medium">Status</th>
+                    <th className="p-4 font-medium">Commission</th>
+                    <th className="p-4 font-medium text-right">Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {orders.map((o: any) => (
+                    <tr key={o.id} className="border-t border-gray-100 hover:bg-gray-50/50 transition">
+                      <td className="p-4 font-mono text-xs font-semibold text-gray-700">
+                        #{o.id?.slice(-8).toUpperCase()}
+                      </td>
+                      <td className="p-4 font-semibold text-gray-900">
+                        ₹{o.total?.toLocaleString("en-IN")}
+                      </td>
+                      <td className="p-4">
+                        <span className={`text-xs px-2 py-1 rounded-full font-medium ${paymentColors[o.payment?.status] ?? "bg-gray-100 text-gray-400"}`}>
+                          {o.payment?.status || "—"}
+                        </span>
+                      </td>
+                      <td className="p-4">
+                        <span className={`text-xs px-2 py-1 rounded-full font-medium ${orderStatusColors[o.status] ?? "bg-gray-100 text-gray-500"}`}>
+                          {o.status?.replace(/_/g, " ")}
+                        </span>
+                      </td>
+                      <td className="p-4">
+                        {o.commissions?.length ? (
+                          <span className="text-green-600 font-semibold">
+                            ₹{o.commissions.reduce((s: number, c: any) => s + (c.amount ?? 0), 0).toLocaleString("en-IN")}
+                          </span>
+                        ) : (
+                          <span className="text-gray-300">—</span>
+                        )}
+                      </td>
+                      <td className="p-4 text-gray-400 text-xs text-right">
+                        {new Date(o.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile card list */}
+            <div className="sm:hidden divide-y divide-gray-100">
               {orders.map((o: any) => (
-                <tr key={o.id} className="border-t border-gray-100 hover:bg-gray-50/50 transition">
-                  <td className="p-4 font-mono text-xs font-semibold text-gray-700">
-                    #{o.id?.slice(-8).toUpperCase()}
-                  </td>
-                  <td className="p-4 font-semibold text-gray-900">
-                    ₹{o.total?.toLocaleString("en-IN")}
-                  </td>
-                  <td className="p-4">
-                    <span className={`text-xs px-2 py-1 rounded-full font-medium ${paymentColors[o.payment?.status] ?? "bg-gray-100 text-gray-400"}`}>
+                <div key={o.id} className="p-4 space-y-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-mono text-xs font-semibold text-gray-700">
+                      #{o.id?.slice(-8).toUpperCase()}
+                    </span>
+                    <span className="text-sm font-bold text-gray-900">
+                      ₹{o.total?.toLocaleString("en-IN")}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    <span className={`text-[11px] px-2 py-1 rounded-full font-medium ${paymentColors[o.payment?.status] ?? "bg-gray-100 text-gray-400"}`}>
                       {o.payment?.status || "—"}
                     </span>
-                  </td>
-                  <td className="p-4">
-                    <span className={`text-xs px-2 py-1 rounded-full font-medium ${orderStatusColors[o.status] ?? "bg-gray-100 text-gray-500"}`}>
+                    <span className={`text-[11px] px-2 py-1 rounded-full font-medium ${orderStatusColors[o.status] ?? "bg-gray-100 text-gray-500"}`}>
                       {o.status?.replace(/_/g, " ")}
                     </span>
-                  </td>
-                  <td className="p-4">
                     {o.commissions?.length ? (
-                      <span className="text-green-600 font-semibold">
-                        ₹{o.commissions.reduce((s: number, c: any) => s + (c.amount ?? 0), 0).toLocaleString("en-IN")}
+                      <span className="text-[11px] px-2 py-1 rounded-full font-medium bg-green-50 text-green-600">
+                        +₹{o.commissions.reduce((s: number, c: any) => s + (c.amount ?? 0), 0).toLocaleString("en-IN")} commission
                       </span>
-                    ) : (
-                      <span className="text-gray-300">—</span>
-                    )}
-                  </td>
-                  <td className="p-4 text-gray-400 text-xs text-right">
+                    ) : null}
+                  </div>
+                  <p className="text-xs text-gray-400">
                     {new Date(o.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
-                  </td>
-                </tr>
+                  </p>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+          </>
         )}
       </div>
     </div>

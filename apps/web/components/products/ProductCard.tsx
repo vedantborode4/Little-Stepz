@@ -12,25 +12,17 @@ import { toast } from "sonner"
 
 export default function ProductCard({ product }: { product: Product }) {
   const router = useRouter()
-
   const addItem = useCartStore((s) => s.addItem)
   const toggleWishlist = useWishlistStore((s) => s.toggle)
-
-  const isInWishlist = useWishlistStore((s) =>
-    s.isInWishlist(product.id)
-  )
-
+  const isInWishlist = useWishlistStore((s) => s.isInWishlist(product.id))
   const [isAdding, setIsAdding] = useState(false)
 
   const image = product.images?.[0]?.url || "/placeholder.png"
-
   const variants = product.variants ?? []
   const hasMultipleVariants = variants.length > 1
   const inStock = product.inStock ?? true
 
-  const handleAddToCart = async (
-    e: React.MouseEvent<HTMLButtonElement>
-  ) => {
+  const handleAddToCart = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault()
     e.stopPropagation()
 
@@ -41,13 +33,7 @@ export default function ProductCard({ product }: { product: Product }) {
 
     try {
       setIsAdding(true)
-
-      await addItem({
-        productId: product.id,
-        variantId: variants[0]?.id,
-        quantity: 1,
-      })
-
+      await addItem({ productId: product.id, variantId: variants[0]?.id, quantity: 1 })
       toast.success("Added to cart")
     } finally {
       setIsAdding(false)
@@ -65,8 +51,8 @@ export default function ProductCard({ product }: { product: Product }) {
           src={image}
           alt={product.name}
           fill
-          sizes="(min-width: 1280px) 25vw, (min-width: 640px) 50vw, 100vw"
-          className="object-contain p-4 group-hover:scale-105 transition"
+          sizes="(min-width: 1280px) 25vw, (min-width: 640px) 50vw, 50vw"
+          className="object-contain p-2 sm:p-4 group-hover:scale-105 transition"
         />
 
         <button
@@ -75,38 +61,31 @@ export default function ProductCard({ product }: { product: Product }) {
             e.stopPropagation()
             toggleWishlist(product.id)
           }}
-          className="absolute top-3 right-3 bg-white rounded-full p-2 shadow"
+          className="absolute top-2 right-2 sm:top-3 sm:right-3 bg-white rounded-full p-1.5 sm:p-2 shadow"
         >
           <Heart
-            className={`w-4 h-4 ${
-              isInWishlist ? "fill-primary text-primary" : ""
-            }`}
+            className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isInWishlist ? "fill-primary text-primary" : ""}`}
           />
         </button>
       </div>
 
       {/* CONTENT */}
-      <div className="flex flex-col flex-1 p-4">
-        <h3 className="text-sm font-medium line-clamp-1 min-h-7">
+      <div className="flex flex-col flex-1 p-2.5 sm:p-4">
+        <h3 className="text-xs sm:text-sm font-medium line-clamp-2 sm:line-clamp-1 min-h-[32px] sm:min-h-[28px] leading-tight">
           {product.name}
         </h3>
 
-        <span className="text-primary font-semibold mb-3">
+        <span className="text-primary font-semibold text-sm sm:text-base mb-2 sm:mb-3 mt-0.5">
           ₹{product.price}
         </span>
 
         <button
           onClick={handleAddToCart}
           disabled={!inStock || isAdding}
-          className="mt-auto w-full bg-primary text-white py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 disabled:bg-gray-300"
+          className="mt-auto w-full bg-primary text-white py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium flex items-center justify-center gap-1.5 sm:gap-2 disabled:bg-gray-300"
         >
-          {isAdding && <Loader2 className="w-4 h-4 animate-spin" />}
-
-          {hasMultipleVariants
-            ? "Select Options"
-            : isAdding
-            ? "Adding…"
-            : "Add to Cart"}
+          {isAdding && <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 animate-spin" />}
+          {hasMultipleVariants ? "Select Options" : isAdding ? "Adding…" : "Add to Cart"}
         </button>
       </div>
     </Link>

@@ -11,6 +11,7 @@ import {
   ArrowLeftRight,
   Wallet,
   Home,
+  X,
 } from "lucide-react"
 
 const items = [
@@ -22,7 +23,11 @@ const items = [
   { label: "Payout",      href: "/affiliate/payout",      icon: Wallet },
 ]
 
-export default function AffiliateSidebar() {
+interface Props {
+  onClose?: () => void
+}
+
+export default function AffiliateSidebar({ onClose }: Props) {
   const pathname = usePathname()
 
   const isActive = (href: string) => {
@@ -33,14 +38,26 @@ export default function AffiliateSidebar() {
   return (
     <aside className="w-60 bg-white border-r border-gray-100 min-h-screen flex flex-col">
       {/* Logo */}
-      <div className="px-5 py-5 border-b border-gray-100">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-            <span className="text-white text-xs font-bold">LS</span>
+      <div className="px-5 py-5 border-b border-gray-100 flex items-center justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+              <span className="text-white text-xs font-bold">LS</span>
+            </div>
+            <span className="font-bold text-gray-900 text-sm">Little Stepz</span>
           </div>
-          <span className="font-bold text-gray-900 text-sm">Little Stepz</span>
+          <p className="text-[10px] text-gray-400 mt-0.5 ml-10">Affiliate Panel</p>
         </div>
-        <p className="text-[10px] text-gray-400 mt-0.5 ml-10">Affiliate Panel</p>
+        {/* Close button — only visible on mobile overlay */}
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="lg:hidden p-1.5 rounded-xl text-gray-400 hover:bg-gray-100 transition"
+            aria-label="Close menu"
+          >
+            <X size={16} />
+          </button>
+        )}
       </div>
 
       <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
@@ -51,6 +68,7 @@ export default function AffiliateSidebar() {
             <Link
               key={item.href}
               href={item.href}
+              onClick={onClose}
               className={clsx(
                 "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all",
                 active
@@ -69,6 +87,7 @@ export default function AffiliateSidebar() {
       <div className="p-3 border-t border-gray-100">
         <Link
           href="/"
+          onClick={onClose}
           className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-all"
         >
           <Home size={17} className="text-gray-400" />

@@ -10,26 +10,25 @@ import { HeadingFor } from "../components/home/HeadingFor"
 
 export default function Home() {
   return (
-    <main className="max-w-7xl mx-auto px-4 space-y-14 py-8">
+    <main className="max-w-7xl mx-auto px-4 space-y-8 sm:space-y-14 py-4 sm:py-8">
 
-      {/* Hero banner — dynamic from CMS */}
+      {/* Hero banner */}
       <DynamicHeroBanner />
 
       <section className="container">
         <HeadingFor />
       </section>
 
-      {/* Shop by Category — static, no backend fetch */}
+      {/* Shop by Category */}
       <section>
         <SectionHeader title="Shop by Category" subtitle="Browse our full range of categories" />
         <PromoBannerRow />
       </section>
 
-
-      {/* Mid-page dynamic banner from CMS */}
+      {/* Mid-page dynamic banner */}
       <DynamicPromoBanner position="HOME_MID" />
 
-      {/* Best Sellers — dynamic from real order data */}
+      {/* Best Sellers */}
       <section>
         <SectionHeader title="Best Sellers" subtitle="Our most loved products" />
         <BestSellers />

@@ -12,13 +12,13 @@ export default function ClicksTable() {
   }, [])
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 sm:space-y-5">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900">Clicks</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Unique visits from your referral link</p>
+          <h1 className="text-lg sm:text-xl font-semibold text-gray-900">Clicks</h1>
+          <p className="text-xs sm:text-sm text-gray-500 mt-0.5">Unique visits from your referral link</p>
         </div>
-        <div className="bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm font-medium text-gray-700">
+        <div className="self-start sm:self-auto bg-white border border-gray-200 rounded-xl px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-gray-700">
           {clicks.length} unique clicks
         </div>
       </div>
@@ -33,39 +33,67 @@ export default function ClicksTable() {
             <p className="text-xs text-gray-400 mt-1">Share your referral link to start tracking</p>
           </div>
         ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-100">
-              <tr className="text-gray-500 text-left">
-                <th className="p-4 font-medium">Source</th>
-                <th className="p-4 font-medium">Country</th>
-                <th className="p-4 font-medium">Converted</th>
-                <th className="p-4 font-medium text-right">Date</th>
-              </tr>
-            </thead>
-            <tbody>
+          <>
+            {/* Desktop table */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-100">
+                  <tr className="text-gray-500 text-left">
+                    <th className="p-4 font-medium">Source</th>
+                    <th className="p-4 font-medium">Country</th>
+                    <th className="p-4 font-medium">Converted</th>
+                    <th className="p-4 font-medium text-right">Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {clicks.map((c: any) => (
+                    <tr key={c.id} className="border-t border-gray-100 hover:bg-gray-50/50 transition">
+                      <td className="p-4">
+                        <div className="flex items-center gap-2">
+                          <Globe size={14} className="text-gray-300 shrink-0" />
+                          <span className="text-gray-700 truncate max-w-xs">{c.referrer || "Direct"}</span>
+                        </div>
+                      </td>
+                      <td className="p-4 text-gray-500">{c.country || "—"}</td>
+                      <td className="p-4">
+                        {c.convertedAt ? (
+                          <span className="text-xs bg-green-50 text-green-600 px-2 py-1 rounded-full font-medium">Converted</span>
+                        ) : (
+                          <span className="text-xs bg-gray-100 text-gray-400 px-2 py-1 rounded-full">Not yet</span>
+                        )}
+                      </td>
+                      <td className="p-4 text-gray-400 text-xs text-right">
+                        {new Date(c.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile card list */}
+            <div className="sm:hidden divide-y divide-gray-100">
               {clicks.map((c: any) => (
-                <tr key={c.id} className="border-t border-gray-100 hover:bg-gray-50/50 transition">
-                  <td className="p-4">
-                    <div className="flex items-center gap-2">
-                      <Globe size={14} className="text-gray-300 shrink-0" />
-                      <span className="text-gray-700 truncate max-w-xs">{c.referrer || "Direct"}</span>
+                <div key={c.id} className="p-4 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Globe size={13} className="text-gray-300 shrink-0" />
+                      <span className="text-sm text-gray-700 truncate">{c.referrer || "Direct"}</span>
                     </div>
-                  </td>
-                  <td className="p-4 text-gray-500">{c.country || "—"}</td>
-                  <td className="p-4">
                     {c.convertedAt ? (
-                      <span className="text-xs bg-green-50 text-green-600 px-2 py-1 rounded-full font-medium">Converted</span>
+                      <span className="text-[11px] bg-green-50 text-green-600 px-2 py-1 rounded-full font-medium shrink-0">Converted</span>
                     ) : (
-                      <span className="text-xs bg-gray-100 text-gray-400 px-2 py-1 rounded-full">Not yet</span>
+                      <span className="text-[11px] bg-gray-100 text-gray-400 px-2 py-1 rounded-full shrink-0">Not yet</span>
                     )}
-                  </td>
-                  <td className="p-4 text-gray-400 text-xs text-right">
-                    {new Date(c.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
-                  </td>
-                </tr>
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-gray-400">
+                    <span>{c.country || "Unknown country"}</span>
+                    <span>{new Date(c.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</span>
+                  </div>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+          </>
         )}
       </div>
     </div>

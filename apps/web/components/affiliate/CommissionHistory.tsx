@@ -19,10 +19,10 @@ export default function CommissionHistory() {
   }, [])
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4 sm:space-y-5">
       <div>
-        <h1 className="text-xl font-semibold text-gray-900">Commissions</h1>
-        <p className="text-sm text-gray-500 mt-0.5">Your earned commissions per order</p>
+        <h1 className="text-lg sm:text-xl font-semibold text-gray-900">Commissions</h1>
+        <p className="text-xs sm:text-sm text-gray-500 mt-0.5">Your earned commissions per order</p>
       </div>
 
       <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
@@ -35,40 +35,68 @@ export default function CommissionHistory() {
             <p className="text-xs text-gray-400 mt-1">Commissions are added once referred orders are confirmed</p>
           </div>
         ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-100">
-              <tr className="text-gray-500 text-left">
-                <th className="p-4 font-medium">Order</th>
-                <th className="p-4 font-medium">Order Total</th>
-                <th className="p-4 font-medium">Amount</th>
-                <th className="p-4 font-medium">Status</th>
-                <th className="p-4 font-medium text-right">Date</th>
-              </tr>
-            </thead>
-            <tbody>
+          <>
+            {/* Desktop table */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-100">
+                  <tr className="text-gray-500 text-left">
+                    <th className="p-4 font-medium">Order</th>
+                    <th className="p-4 font-medium">Order Total</th>
+                    <th className="p-4 font-medium">Amount</th>
+                    <th className="p-4 font-medium">Status</th>
+                    <th className="p-4 font-medium text-right">Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {commissions.map((c: any) => (
+                    <tr key={c.id} className="border-t border-gray-100 hover:bg-gray-50/50 transition">
+                      <td className="p-4 font-mono text-xs font-semibold text-gray-700">
+                        #{c.orderId?.slice(-8).toUpperCase()}
+                      </td>
+                      <td className="p-4 text-gray-600">
+                        ₹{c.order?.total?.toLocaleString("en-IN") ?? "—"}
+                      </td>
+                      <td className="p-4 font-semibold text-green-600">
+                        ₹{c.amount?.toLocaleString("en-IN") ?? "—"}
+                      </td>
+                      <td className="p-4">
+                        <span className={`text-xs px-2 py-1 rounded-full font-medium ${statusColors[c.status] ?? "bg-gray-100 text-gray-500"}`}>
+                          {c.status}
+                        </span>
+                      </td>
+                      <td className="p-4 text-gray-400 text-xs text-right">
+                        {new Date(c.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile card list */}
+            <div className="sm:hidden divide-y divide-gray-100">
               {commissions.map((c: any) => (
-                <tr key={c.id} className="border-t border-gray-100 hover:bg-gray-50/50 transition">
-                  <td className="p-4 font-mono text-xs font-semibold text-gray-700">
-                    #{c.orderId?.slice(-8).toUpperCase()}
-                  </td>
-                  <td className="p-4 text-gray-600">
-                    ₹{c.order?.total?.toLocaleString("en-IN") ?? "—"}
-                  </td>
-                  <td className="p-4 font-semibold text-green-600">
-                    ₹{c.amount?.toLocaleString("en-IN") ?? "—"}
-                  </td>
-                  <td className="p-4">
-                    <span className={`text-xs px-2 py-1 rounded-full font-medium ${statusColors[c.status] ?? "bg-gray-100 text-gray-500"}`}>
+                <div key={c.id} className="p-4 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-mono text-xs font-semibold text-gray-700">
+                      #{c.orderId?.slice(-8).toUpperCase()}
+                    </span>
+                    <span className={`text-[11px] px-2 py-1 rounded-full font-medium ${statusColors[c.status] ?? "bg-gray-100 text-gray-500"}`}>
                       {c.status}
                     </span>
-                  </td>
-                  <td className="p-4 text-gray-400 text-xs text-right">
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-500">Order: ₹{c.order?.total?.toLocaleString("en-IN") ?? "—"}</span>
+                    <span className="font-semibold text-green-600">+₹{c.amount?.toLocaleString("en-IN") ?? "—"}</span>
+                  </div>
+                  <p className="text-xs text-gray-400">
                     {new Date(c.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
-                  </td>
-                </tr>
+                  </p>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+          </>
         )}
       </div>
     </div>

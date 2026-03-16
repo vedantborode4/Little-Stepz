@@ -14,16 +14,10 @@ interface Props {
 
 export default function CheckoutStepper({ onStepChange }: Props) {
   const [step, setStep] = useState(1)
-
   const resetSession = useCheckoutStore((s) => s.resetSession)
 
   const goToStep = (n: number) => {
-    // Reset the idempotency key whenever the user enters or leaves the
-    // payment step — ensures each fresh attempt gets a unique key and
-    // the backend never sees a stale/duplicate key from a prior attempt.
-    if (n === 3 || step === 3) {
-      resetSession()
-    }
+    if (n === 3 || step === 3) resetSession()
     setStep(n)
     onStepChange?.(n)
   }
@@ -32,22 +26,22 @@ export default function CheckoutStepper({ onStepChange }: Props) {
 
   const stepMeta = [
     { num: 1, label: "Address", icon: MapPin },
-    { num: 2, label: "Review", icon: ShoppingBag },
+    { num: 2, label: "Review",  icon: ShoppingBag },
     { num: 3, label: "Payment", icon: CreditCard },
   ]
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 sm:space-y-4">
       {/* Step progress bar */}
-      <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-card flex items-center">
+      <div className="bg-white border border-gray-100 rounded-2xl px-4 sm:px-5 py-4 sm:py-5 shadow-card flex items-center">
         {stepMeta.map(({ num, label, icon: Icon }, idx) => {
-          const done = step > num
+          const done   = step > num
           const active = step === num
           return (
             <div key={num} className="flex items-center flex-1 last:flex-none">
-              <div className="flex flex-col items-center gap-1.5 min-w-[64px]">
+              <div className="flex flex-col items-center gap-1 min-w-[48px] sm:min-w-[64px]">
                 <div
-                  className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 ${
+                  className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition-all duration-200 ${
                     done
                       ? "bg-green-500 text-white shadow-sm"
                       : active
@@ -55,10 +49,10 @@ export default function CheckoutStepper({ onStepChange }: Props) {
                       : "bg-gray-100 text-gray-400"
                   }`}
                 >
-                  {done ? <CheckCircle size={17} /> : <Icon size={15} />}
+                  {done ? <CheckCircle size={15} className="sm:w-[17px] sm:h-[17px]" /> : <Icon size={13} className="sm:w-[15px] sm:h-[15px]" />}
                 </div>
                 <span
-                  className={`text-[11px] font-semibold whitespace-nowrap ${
+                  className={`text-[10px] sm:text-[11px] font-semibold whitespace-nowrap ${
                     active ? "text-primary" : done ? "text-green-600" : "text-gray-400"
                   }`}
                 >
@@ -67,7 +61,7 @@ export default function CheckoutStepper({ onStepChange }: Props) {
               </div>
               {idx < stepMeta.length - 1 && (
                 <div
-                  className={`flex-1 h-0.5 mx-2 mb-5 rounded-full transition-all duration-300 ${
+                  className={`flex-1 h-0.5 mx-1 sm:mx-2 mb-4 sm:mb-5 rounded-full transition-all duration-300 ${
                     step > num ? "bg-green-400" : "bg-gray-200"
                   }`}
                 />
@@ -79,10 +73,10 @@ export default function CheckoutStepper({ onStepChange }: Props) {
 
       {/* Step 1 — Address */}
       <div className="bg-white border border-gray-100 rounded-2xl shadow-card overflow-hidden">
-        <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100">
-          <h2 className="font-semibold text-gray-900 flex items-center gap-2.5">
+        <div className="flex justify-between items-center px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-100">
+          <h2 className="font-semibold text-gray-900 flex items-center gap-2 text-sm sm:text-base">
             <span
-              className={`w-6 h-6 rounded-full text-[11px] flex items-center justify-center font-bold ${
+              className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full text-[10px] sm:text-[11px] flex items-center justify-center font-bold shrink-0 ${
                 step > 1 ? "bg-green-500 text-white" : "bg-primary text-white"
               }`}
             >
@@ -91,15 +85,12 @@ export default function CheckoutStepper({ onStepChange }: Props) {
             Delivery Address
           </h2>
           {step > 1 && (
-            <button
-              onClick={() => goToStep(1)}
-              className="text-primary text-sm font-semibold hover:underline"
-            >
+            <button onClick={() => goToStep(1)} className="text-primary text-xs sm:text-sm font-semibold hover:underline shrink-0">
               Change
             </button>
           )}
         </div>
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           {step === 1 && <CheckoutAddressSection onContinue={handleAddressContinue} />}
           {step > 1 && <AddressConfirmed />}
         </div>
@@ -108,10 +99,10 @@ export default function CheckoutStepper({ onStepChange }: Props) {
       {/* Step 2 — Review */}
       {step >= 2 && (
         <div className="bg-white border border-gray-100 rounded-2xl shadow-card overflow-hidden">
-          <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100">
-            <h2 className="font-semibold text-gray-900 flex items-center gap-2.5">
+          <div className="flex justify-between items-center px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-100">
+            <h2 className="font-semibold text-gray-900 flex items-center gap-2 text-sm sm:text-base">
               <span
-                className={`w-6 h-6 rounded-full text-[11px] flex items-center justify-center font-bold ${
+                className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full text-[10px] sm:text-[11px] flex items-center justify-center font-bold shrink-0 ${
                   step > 2 ? "bg-green-500 text-white" : "bg-primary text-white"
                 }`}
               >
@@ -120,20 +111,17 @@ export default function CheckoutStepper({ onStepChange }: Props) {
               Order Review
             </h2>
             {step > 2 && (
-              <button
-                onClick={() => goToStep(2)}
-                className="text-primary text-sm font-semibold hover:underline"
-              >
+              <button onClick={() => goToStep(2)} className="text-primary text-xs sm:text-sm font-semibold hover:underline shrink-0">
                 Change
               </button>
             )}
           </div>
-          <div className="p-6">
+          <div className="p-4 sm:p-6">
             <OrderReview />
             {step === 2 && (
               <button
                 onClick={() => goToStep(3)}
-                className="mt-5 w-full bg-primary text-white py-3.5 rounded-xl font-semibold hover:opacity-90 transition shadow-sm"
+                className="mt-4 sm:mt-5 w-full bg-primary text-white py-3 sm:py-3.5 rounded-xl font-semibold hover:opacity-90 transition shadow-sm text-sm sm:text-base"
               >
                 Continue to Payment
               </button>
@@ -145,15 +133,15 @@ export default function CheckoutStepper({ onStepChange }: Props) {
       {/* Step 3 — Payment */}
       {step >= 3 && (
         <div className="bg-white border border-gray-100 rounded-2xl shadow-card overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-100">
-            <h2 className="font-semibold text-gray-900 flex items-center gap-2.5">
-              <span className="w-6 h-6 rounded-full text-[11px] flex items-center justify-center font-bold bg-primary text-white">
+          <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-100">
+            <h2 className="font-semibold text-gray-900 flex items-center gap-2 text-sm sm:text-base">
+              <span className="w-5 h-5 sm:w-6 sm:h-6 rounded-full text-[10px] sm:text-[11px] flex items-center justify-center font-bold bg-primary text-white shrink-0">
                 3
               </span>
               Payment Method
             </h2>
           </div>
-          <div className="p-6">
+          <div className="p-4 sm:p-6">
             <PaymentSection />
           </div>
         </div>
@@ -176,11 +164,11 @@ function AddressConfirmed() {
   }
 
   return (
-    <div className="bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 flex items-start gap-3">
-      <CheckCircle size={15} className="text-green-500 mt-0.5 shrink-0" />
-      <div className="text-sm">
-        <p className="font-semibold text-gray-900">{addr.name ?? addr.fullName}</p>
-        <p className="text-xs text-gray-400 mt-0.5">
+    <div className="bg-gray-50 border border-gray-100 rounded-xl px-3 sm:px-4 py-3 flex items-start gap-3">
+      <CheckCircle size={14} className="text-green-500 mt-0.5 shrink-0" />
+      <div className="text-sm min-w-0">
+        <p className="font-semibold text-gray-900 truncate">{addr.name ?? addr.fullName}</p>
+        <p className="text-xs text-gray-400 mt-0.5 leading-relaxed">
           {[addr.line1 ?? addr.address, addr.city, addr.state, addr.pincode].filter(Boolean).join(", ")}
         </p>
       </div>

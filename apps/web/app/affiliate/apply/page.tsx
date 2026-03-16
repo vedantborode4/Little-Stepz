@@ -32,7 +32,6 @@ export default function ApplyAffiliatePage() {
 
     try {
       setLoading(true)
-      // Only include message if user typed something
       const payload = trimmed ? { message: trimmed } : {}
       await AffiliateService.apply(payload)
       toast.success("Application submitted 🚀")
@@ -41,7 +40,6 @@ export default function ApplyAffiliatePage() {
       const apiMsg = e?.response?.data?.message
       const errors = e?.response?.data?.errors
 
-      // Surface field-level validation errors from Zod
       if (errors?.message?.[0]) {
         setFieldError(errors.message[0])
       } else if (apiMsg) {
@@ -60,38 +58,38 @@ export default function ApplyAffiliatePage() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Minimal nav */}
-      <header className="bg-white border-b border-gray-100 px-4 sm:px-6 h-14 flex items-center justify-between">
+      <header className="bg-white border-b border-gray-100 px-4 sm:px-6 h-14 flex items-center justify-between sticky top-0 z-40">
         <Link href="/" className="flex items-center gap-2">
-          <div className="w-7 h-7 bg-primary rounded-lg flex items-center justify-center">
+          <div className="w-7 h-7 bg-primary rounded-lg flex items-center justify-center shrink-0">
             <span className="text-white text-[11px] font-bold">LS</span>
           </div>
           <span className="font-bold text-gray-900 text-sm">Little Stepz</span>
         </Link>
-        <Link href="/" className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 transition">
+        <Link href="/" className="flex items-center gap-1.5 text-xs sm:text-sm text-gray-500 hover:text-gray-800 transition">
           <ArrowLeft size={14} />
           Back to store
         </Link>
       </header>
 
       {/* Body */}
-      <div className="flex-1 flex items-center justify-center px-4 py-12">
-        <div className="w-full max-w-2xl space-y-8">
+      <div className="flex-1 flex items-center justify-center px-4 py-8 sm:py-12">
+        <div className="w-full max-w-2xl space-y-6 sm:space-y-8">
 
           {/* Hero */}
           <div className="text-center space-y-3">
-            <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto">
-              <TrendingUp size={26} className="text-primary" />
+            <div className="w-12 h-12 sm:w-14 sm:h-14 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto">
+              <TrendingUp size={24} className="text-primary" />
             </div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 px-2">
               Become a Little Stepz Affiliate
             </h1>
-            <p className="text-gray-500 text-sm sm:text-base">
+            <p className="text-gray-500 text-sm sm:text-base px-2">
               Earn commission for every sale you refer. Free to join, instant tracking.
             </p>
           </div>
 
           {/* Benefits */}
-          <div className="grid sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
             {[
               { icon: <TrendingUp size={18} />, label: "High Commission", sub: "On every referred order", color: "bg-green-50 text-green-600" },
               { icon: <MousePointerClick size={18} />, label: "Real-time Tracking", sub: "Clicks & conversions live", color: "bg-blue-50 text-blue-600" },
@@ -99,7 +97,7 @@ export default function ApplyAffiliatePage() {
             ].map((b) => (
               <div key={b.label} className="bg-white border border-gray-200 rounded-2xl p-4 flex items-start gap-3">
                 <div className={`p-2 rounded-xl shrink-0 ${b.color}`}>{b.icon}</div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-sm font-semibold text-gray-900">{b.label}</p>
                   <p className="text-xs text-gray-400 mt-0.5">{b.sub}</p>
                 </div>
@@ -108,13 +106,13 @@ export default function ApplyAffiliatePage() {
           </div>
 
           {/* Application form card */}
-          <div className="bg-white border border-gray-200 rounded-2xl p-6 space-y-5">
+          <div className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-6 space-y-4 sm:space-y-5">
 
             {/* Status banners */}
             {isPending && (
               <div className="flex items-start gap-3 bg-yellow-50 border border-yellow-200 rounded-xl p-4">
                 <Clock size={18} className="text-yellow-600 shrink-0 mt-0.5" />
-                <div className="space-y-1">
+                <div className="space-y-1 min-w-0">
                   <p className="text-sm font-semibold text-yellow-800">Application under review</p>
                   <p className="text-xs text-yellow-600">We'll notify you once approved. This usually takes 24–48 hours.</p>
                   {profile?.adminNote && (
@@ -130,7 +128,7 @@ export default function ApplyAffiliatePage() {
             {isRejected && (
               <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl p-4">
                 <XCircle size={18} className="text-red-500 shrink-0 mt-0.5" />
-                <div className="space-y-1">
+                <div className="space-y-1 min-w-0">
                   <p className="text-sm font-semibold text-red-700">Application rejected</p>
                   {profile?.adminNote && (
                     <div className="mt-2 pt-2 border-t border-red-200">

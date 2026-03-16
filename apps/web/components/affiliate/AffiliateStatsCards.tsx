@@ -38,16 +38,16 @@ export default function AffiliateStatsCards({ stats }: Props) {
   ]
 
   return (
-    <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-5">
+    <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-5">
       {cards.map((c) => (
-        <div key={c.label} className="bg-white border border-gray-200 rounded-2xl p-5 hover:shadow-md transition-shadow">
-          <div className="flex items-start justify-between mb-3">
-            <p className="text-sm text-gray-500 font-medium">{c.label}</p>
-            <div className={`p-2 rounded-xl ${c.color}`}>{c.icon}</div>
+        <div key={c.label} className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-5 hover:shadow-md transition-shadow">
+          <div className="flex items-start justify-between mb-2 sm:mb-3">
+            <p className="text-xs sm:text-sm text-gray-500 font-medium leading-tight">{c.label}</p>
+            <div className={`p-1.5 sm:p-2 rounded-xl ${c.color} shrink-0 ml-1`}>{c.icon}</div>
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-1">{c.value}</h2>
-          <p className="text-xs text-gray-400 flex items-center gap-1">
-            <TrendingUp size={11} className="text-green-400" />
+          <h2 className="text-lg sm:text-2xl font-bold text-gray-900 mb-1 truncate">{c.value}</h2>
+          <p className="text-[10px] sm:text-xs text-gray-400 flex items-center gap-1 truncate">
+            <TrendingUp size={11} className="text-green-400 shrink-0" />
             {c.sub}
           </p>
         </div>

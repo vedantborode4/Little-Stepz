@@ -39,18 +39,15 @@ export default function CheckoutPage() {
 
   if (!items.length && !isLocking) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-24 flex flex-col items-center gap-5">
-        <div className="w-20 h-20 bg-primary/10 rounded-2xl flex items-center justify-center">
-          <ShoppingBag size={32} className="text-primary" />
+      <div className="max-w-7xl mx-auto px-4 py-16 sm:py-24 flex flex-col items-center gap-5">
+        <div className="w-16 h-16 sm:w-20 sm:h-20 bg-primary/10 rounded-2xl flex items-center justify-center">
+          <ShoppingBag size={28} className="text-primary" />
         </div>
         <div className="text-center">
-          <h2 className="text-xl font-bold text-gray-900">Your cart is empty</h2>
+          <h2 className="text-lg sm:text-xl font-bold text-gray-900">Your cart is empty</h2>
           <p className="text-sm text-gray-400 mt-1.5">Add some products before checking out.</p>
         </div>
-        <Link
-          href="/products"
-          className="bg-primary text-white px-6 py-3 rounded-xl font-semibold hover:opacity-90 transition shadow-sm"
-        >
+        <Link href="/products" className="bg-primary text-white px-6 py-3 rounded-xl font-semibold hover:opacity-90 transition shadow-sm">
           Continue Shopping
         </Link>
       </div>
@@ -59,18 +56,15 @@ export default function CheckoutPage() {
 
   if (!user) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-24 flex flex-col items-center gap-5">
-        <div className="w-20 h-20 bg-primary/10 rounded-2xl flex items-center justify-center">
-          <LogIn size={32} className="text-primary" />
+      <div className="max-w-7xl mx-auto px-4 py-16 sm:py-24 flex flex-col items-center gap-5">
+        <div className="w-16 h-16 sm:w-20 sm:h-20 bg-primary/10 rounded-2xl flex items-center justify-center">
+          <LogIn size={28} className="text-primary" />
         </div>
         <div className="text-center">
-          <h2 className="text-xl font-bold text-gray-900">Sign in to continue</h2>
+          <h2 className="text-lg sm:text-xl font-bold text-gray-900">Sign in to continue</h2>
           <p className="text-sm text-gray-400 mt-1.5">Please log in to proceed with checkout.</p>
         </div>
-        <Link
-          href="/signin"
-          className="bg-primary text-white px-6 py-3 rounded-xl font-semibold hover:opacity-90 transition shadow-sm"
-        >
+        <Link href="/signin" className="bg-primary text-white px-6 py-3 rounded-xl font-semibold hover:opacity-90 transition shadow-sm">
           Go to Sign In
         </Link>
       </div>
@@ -90,18 +84,22 @@ export default function CheckoutPage() {
   const canPlaceOrder = isValid && !!resolvedAddressId && checkoutStep >= 3
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-10">
+    <div className="max-w-7xl mx-auto px-4 py-6 sm:py-10">
       {/* Page header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-medium text-gray-900">Checkout</h1>
-        <p className="text-sm text-gray-400 mt-0.5">Complete your purchase securely</p>
+      <div className="mb-5 sm:mb-8">
+        <h1 className="text-xl sm:text-2xl font-medium text-gray-900">Checkout</h1>
+        <p className="text-xs sm:text-sm text-gray-400 mt-0.5">Complete your purchase securely</p>
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-8">
+      {/* Mobile: stack vertically — summary below stepper */}
+      <div className="grid lg:grid-cols-3 gap-5 sm:gap-8">
         <div className="lg:col-span-2">
           <CheckoutStepper onStepChange={setCheckoutStep} />
         </div>
-        <CheckoutSummary isValid={canPlaceOrder} addressId={resolvedAddressId} />
+        {/* Summary — shows below on mobile, sticky on desktop */}
+        <div className="lg:sticky lg:top-6 lg:self-start">
+          <CheckoutSummary isValid={canPlaceOrder} addressId={resolvedAddressId} />
+        </div>
       </div>
     </div>
   )

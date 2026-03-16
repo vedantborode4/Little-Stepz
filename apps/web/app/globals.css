@@ -31,3 +31,22 @@
 .input {
   @apply w-full border rounded-lg px-3 py-2 text-sm;
 }
+/* ── Mobile Responsive Utilities ── */
+.safe-area-pb {
+  padding-bottom: env(safe-area-inset-bottom, 12px);
+}
+
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* Prevent layout shift on mobile when modals open */
+@media (max-width: 1023px) {
+  html.modal-open body {
+    overflow: hidden;
+  }
+}
