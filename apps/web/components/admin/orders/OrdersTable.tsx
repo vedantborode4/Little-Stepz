@@ -22,10 +22,11 @@ export default function OrdersTable({ data, refresh }: Props) {
     )
   }
 
-  const paymentColor = (status: string) =>
-    status === "PAID" || status === "SUCCESS" ? "bg-green-50 text-green-600"
-    : status === "FAILED" ? "bg-red-50 text-red-500"
-    : "bg-yellow-50 text-yellow-600"
+  const paymentColor = (status: string | undefined) => {
+    if (status === "PAID" || status === "SUCCESS") return "bg-green-50 text-green-600"
+    if (status === "FAILED") return "bg-red-50 text-red-500"
+    return "bg-yellow-50 text-yellow-600"
+  }
 
   return (
     <>
