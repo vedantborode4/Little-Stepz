@@ -23,12 +23,12 @@ export default function CheckoutSummary({
   const resolvedAddressId = addressId || storeAddressId || ""
 
   const handleOrder = async () => {
-    if (!resolvedAddressId) return
+    if (!isValid || !resolvedAddressId || placingOrder) return
     const orderId = await placeOrder(resolvedAddressId)
     if (orderId) router.push(`/order-success/${orderId}`)
   }
 
-  const canPlace = isValid && !!resolvedAddressId && !placingOrder
+  const canPlace = isValid && !placingOrder
 
   return (
     <div className="bg-white border border-gray-100 rounded-2xl shadow-card p-6 space-y-5 h-fit sticky top-6">
