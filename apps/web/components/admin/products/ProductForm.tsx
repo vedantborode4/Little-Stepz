@@ -99,10 +99,10 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
   }
 
   return (
-    <div className="max-w-4xl space-y-6">
+    <div className="max-w-4xl space-y-5 sm:space-y-6">
       {/* Basic info */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-6 space-y-5">
-        <h2 className="font-semibold text-gray-900 text-base">Product Information</h2>
+      <div className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-6 space-y-4 sm:space-y-5">
+        <h2 className="font-semibold text-gray-900 text-sm sm:text-base">Product Information</h2>
 
         <Field label="Product Name" error={errors.name?.[0]}>
           <Input placeholder="e.g. Rowan Exalt Soft Dart Blaster" value={form.name} onChange={e => onChange("name", e.target.value)} />
@@ -121,7 +121,8 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
           />
         </Field>
 
-        <div className="grid grid-cols-3 gap-4">
+        {/* Price + Qty + Category — 1-col on mobile, 3-col on sm+ */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Field label="Price (₹)" error={errors.price?.[0]}>
             <Input type="number" min={0} value={form.price} onChange={e => onChange("price", Number(e.target.value))} />
           </Field>
@@ -143,7 +144,7 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
       <button
         onClick={submit}
         disabled={loading}
-        className="bg-primary text-white px-8 py-3 rounded-xl font-medium hover:bg-primary/90 transition disabled:opacity-60"
+        className="w-full sm:w-auto bg-primary text-white px-6 sm:px-8 py-3 rounded-xl font-medium hover:bg-primary/90 transition disabled:opacity-60"
       >
         {loading ? "Saving…" : mode === "edit" ? "Update Product" : "Create Product"}
       </button>
@@ -151,26 +152,26 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
       {/* Images & Variants — shown after product is saved */}
       {saved && productId && (
         <>
-          <div className="bg-white border border-gray-200 rounded-2xl p-6">
-            <h2 className="font-semibold text-gray-900 text-base mb-4">Product Images</h2>
+          <div className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-6">
+            <h2 className="font-semibold text-gray-900 text-sm sm:text-base mb-4">Product Images</h2>
             <ProductImageManager productId={productId} images={images} onChange={setImages} />
           </div>
 
-          <div className="bg-white border border-gray-200 rounded-2xl p-6">
-            <h2 className="font-semibold text-gray-900 text-base mb-4">Variants</h2>
+          <div className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-6">
+            <h2 className="font-semibold text-gray-900 text-sm sm:text-base mb-4">Variants</h2>
             <VariantManager productId={productId} initialVariants={initialData?.variants || []} />
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-3">
             <button
               onClick={() => router.push("/admin/products")}
-              className="px-8 py-3 border border-gray-200 rounded-xl text-sm text-gray-700 hover:bg-gray-50 font-medium"
+              className="flex-1 sm:flex-none px-6 sm:px-8 py-3 border border-gray-200 rounded-xl text-sm text-gray-700 hover:bg-gray-50 font-medium"
             >
               Back to Products
             </button>
             <button
               onClick={() => router.push("/admin/products/new")}
-              className="px-8 py-3 bg-green-600 text-white rounded-xl text-sm font-medium hover:bg-green-700"
+              className="flex-1 sm:flex-none px-6 sm:px-8 py-3 bg-green-600 text-white rounded-xl text-sm font-medium hover:bg-green-700"
             >
               Add Another Product
             </button>

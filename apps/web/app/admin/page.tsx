@@ -1,23 +1,22 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { ShoppingCart, TrendingUp, Users, DollarSign, MoreHorizontal, TrendingDown, Minus, AlertTriangle } from "lucide-react"
+import { ShoppingCart, TrendingUp, Users, DollarSign, TrendingDown, Minus, AlertTriangle } from "lucide-react"
 import { AdminService, type AdminStats } from "../../lib/services/admin.service"
 import { AdminProductService } from "../../lib/services/admin-product.service"
 import TableSkeleton from "../../components/admin/TableSkeleton"
 import Link from "next/link"
 
-/* ─── Stat Card ─── */
 function StatCard({ title, value, prefix = "", suffix = "", change, icon, color = "bg-primary/10 text-primary" }: any) {
   const isPos = change > 0
   const isNeg = change < 0
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl p-5 hover:shadow-md transition-shadow">
-      <div className="flex items-start justify-between mb-3">
-        <p className="text-sm text-gray-500 font-medium">{title}</p>
-        <div className={`p-2 rounded-xl ${color}`}>{icon}</div>
+    <div className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-5 hover:shadow-md transition-shadow">
+      <div className="flex items-start justify-between mb-2 sm:mb-3">
+        <p className="text-xs sm:text-sm text-gray-500 font-medium leading-tight">{title}</p>
+        <div className={`p-1.5 sm:p-2 rounded-xl ${color} shrink-0 ml-2`}>{icon}</div>
       </div>
-      <h2 className="text-2xl font-bold text-gray-900 mb-2">
+      <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1 truncate">
         {prefix}{typeof value === "number" ? value.toLocaleString("en-IN") : value}{suffix}
       </h2>
       {change !== undefined && (
@@ -26,14 +25,13 @@ function StatCard({ title, value, prefix = "", suffix = "", change, icon, color 
             {isPos ? <TrendingUp size={10} /> : isNeg ? <TrendingDown size={10} /> : <Minus size={10} />}
             {Math.abs(change)}%
           </span>
-          <span className="text-xs text-gray-400">vs last period</span>
+          <span className="text-xs text-gray-400 hidden sm:inline">vs last period</span>
         </div>
       )}
     </div>
   )
 }
 
-/* ─── Pure SVG Revenue Line Chart ─── */
 function RevenueChart({ data }: { data: Array<{ day: string; revenue: number; orders: number }> }) {
   if (!data.length) return <div className="h-40 flex items-center justify-center text-gray-300 text-sm">No revenue data yet</div>
   const revenues = data.map(d => d.revenue)
@@ -53,13 +51,7 @@ function RevenueChart({ data }: { data: Array<{ day: string; revenue: number; or
   const lastPt = pts[pts.length - 1]!
   const firstPt = pts[0]!
   const fillD = `${pathD} L${lastPt.x},${pad.top + h} L${firstPt.x},${pad.top + h} Z`
-
-  const yTicks = [0, 0.25, 0.5, 0.75, 1].map(t => ({
-    val: min + t * range,
-    y: pad.top + h - t * h,
-  }))
-
-  // Show at most 6 labels on x axis
+  const yTicks = [0, 0.25, 0.5, 0.75, 1].map(t => ({ val: min + t * range, y: pad.top + h - t * h }))
   const labelStep = Math.max(1, Math.floor(data.length / 6))
 
   return (
@@ -92,22 +84,16 @@ function RevenueChart({ data }: { data: Array<{ day: string; revenue: number; or
   )
 }
 
-/* ─── Status donut ─── */
 function StatusDonut({ data }: { data: Record<string, number> }) {
   const entries = Object.entries(data).filter(([, v]) => v > 0)
   if (!entries.length) return <div className="h-20 flex items-center justify-center text-gray-300 text-sm">No orders yet</div>
-
   const COLORS = ["#4ECDC4", "#a78bfa", "#fbbf24", "#38bdf8", "#f87171", "#86efac", "#fb923c", "#e879f9"]
   const total = entries.reduce((s, [, v]) => s + v, 0)
-
   let angle = -Math.PI / 2
   const slices = entries.map(([key, val], i) => {
-    const start = angle
-    const sweep = (val / total) * 2 * Math.PI
-    angle += sweep
+    const start = angle; const sweep = (val / total) * 2 * Math.PI; angle += sweep
     return { key, val, start, sweep, color: COLORS[i % COLORS.length] }
   })
-
   const arc = (cx: number, cy: number, r: number, ir: number, start: number, sweep: number) => {
     const x1 = cx + r * Math.cos(start), y1 = cy + r * Math.sin(start)
     const x2 = cx + r * Math.cos(start + sweep), y2 = cy + r * Math.sin(start + sweep)
@@ -116,14 +102,11 @@ function StatusDonut({ data }: { data: Record<string, number> }) {
     const ix2 = cx + ir * Math.cos(start), iy2 = cy + ir * Math.sin(start)
     return `M${x1},${y1} A${r},${r} 0 ${laf} 1 ${x2},${y2} L${ix1},${iy1} A${ir},${ir} 0 ${laf} 0 ${ix2},${iy2} Z`
   }
-
   return (
     <div className="space-y-3">
       <div className="flex justify-center">
-        <svg viewBox="0 0 150 150" width={130} height={130}>
-          {slices.map((s) => (
-            <path key={s.key} d={arc(75, 75, 70, 42, s.start, s.sweep)} fill={s.color} />
-          ))}
+        <svg viewBox="0 0 150 150" width={120} height={120}>
+          {slices.map((s) => (<path key={s.key} d={arc(75, 75, 70, 42, s.start, s.sweep)} fill={s.color} />))}
           <text x={75} y={78} textAnchor="middle" fontSize={14} fontWeight={700} fill="#1f2937">{total}</text>
           <text x={75} y={91} textAnchor="middle" fontSize={8} fill="#9ca3af">orders</text>
         </svg>
@@ -131,7 +114,7 @@ function StatusDonut({ data }: { data: Record<string, number> }) {
       <div className="grid grid-cols-2 gap-1.5">
         {slices.map((s) => (
           <div key={s.key} className="flex items-center gap-1.5 text-xs">
-            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
+            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
             <span className="text-gray-500 truncate">{s.key.replace(/_/g, " ")}</span>
             <span className="ml-auto font-medium text-gray-800">{s.val}</span>
           </div>
@@ -161,106 +144,129 @@ export default function AdminDashboardPage() {
   const revenueChart = stats?.revenueChart ?? []
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 sm:space-y-6">
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3 text-red-700 text-sm">
           <AlertTriangle size={16} /> {error}
         </div>
       )}
 
-      {/* STAT CARDS */}
-      <div className="grid grid-cols-4 gap-5">
-        <StatCard title="Total Revenue (30d)" value={loading ? "—" : kpis?.revenueLast30d ?? 0} prefix="₹" icon={<DollarSign size={16}/>} color="bg-green-50 text-green-600"/>
-        <StatCard title="Total Orders" value={loading ? "—" : kpis?.totalOrders ?? 0} icon={<ShoppingCart size={16}/>} color="bg-blue-50 text-blue-600"/>
-        <StatCard title="Total Users" value={loading ? "—" : kpis?.totalUsers ?? 0} icon={<Users size={16}/>} color="bg-purple-50 text-purple-600"/>
-        <StatCard title="Avg Order Value" value={loading ? "—" : Math.round(kpis?.avgOrderValue ?? 0)} prefix="₹" icon={<TrendingUp size={16}/>} color="bg-primary/10 text-primary"/>
+      {/* KPI Cards — 2 col mobile, 4 col desktop */}
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-5">
+        <StatCard title="Revenue (30d)" value={loading ? "—" : kpis?.revenueLast30d ?? 0} prefix="₹" icon={<DollarSign size={15}/>} color="bg-green-50 text-green-600"/>
+        <StatCard title="Total Orders" value={loading ? "—" : kpis?.totalOrders ?? 0} icon={<ShoppingCart size={15}/>} color="bg-blue-50 text-blue-600"/>
+        <StatCard title="Total Users" value={loading ? "—" : kpis?.totalUsers ?? 0} icon={<Users size={15}/>} color="bg-purple-50 text-purple-600"/>
+        <StatCard title="Avg Order" value={loading ? "—" : Math.round(kpis?.avgOrderValue ?? 0)} prefix="₹" icon={<TrendingUp size={15}/>} color="bg-primary/10 text-primary"/>
       </div>
 
-      {/* SECONDARY STATS */}
-      <div className="grid grid-cols-4 gap-4">
+      {/* Secondary stats — 2 col mobile, 4 col desktop */}
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
         {[
-          { label: "Orders Today", value: kpis?.ordersToday ?? 0, color: "text-blue-600" },
-          { label: "Low Stock Products", value: kpis?.lowStockProducts ?? 0, color: "text-orange-500" },
+          { label: "Orders Today",       value: kpis?.ordersToday ?? 0,       color: "text-blue-600" },
+          { label: "Low Stock",          value: kpis?.lowStockProducts ?? 0,  color: "text-orange-500" },
           { label: "Pending Affiliates", value: kpis?.pendingAffiliates ?? 0, color: "text-purple-600" },
-          { label: "Pending Returns", value: kpis?.pendingReturns ?? 0, color: "text-red-500" },
+          { label: "Pending Returns",    value: kpis?.pendingReturns ?? 0,    color: "text-red-500" },
         ].map(({ label, value, color }) => (
-          <div key={label} className="bg-white border border-gray-200 rounded-xl p-4">
-            <p className="text-xs text-gray-500 mb-1">{label}</p>
-            <p className={`text-xl font-bold ${color}`}>{loading ? "—" : value}</p>
+          <div key={label} className="bg-white border border-gray-200 rounded-xl p-3 sm:p-4">
+            <p className="text-[10px] sm:text-xs text-gray-500 mb-1 leading-tight">{label}</p>
+            <p className={`text-lg sm:text-xl font-bold ${color}`}>{loading ? "—" : value}</p>
           </div>
         ))}
       </div>
 
-      {/* REVENUE CHART + STATUS DONUT */}
-      <div className="grid grid-cols-3 gap-5">
-        <div className="col-span-2 bg-white border border-gray-200 rounded-2xl p-5">
-          <div className="flex items-center justify-between mb-4">
+      {/* Revenue chart + Status donut — stacked on mobile */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5">
+        <div className="lg:col-span-2 bg-white border border-gray-200 rounded-2xl p-4 sm:p-5">
+          <div className="flex items-start sm:items-center justify-between mb-4 gap-2">
             <div>
-              <h3 className="font-semibold text-gray-900">Revenue (Last 30 Days)</h3>
-              <p className="text-sm text-gray-400 mt-0.5">
+              <h3 className="font-semibold text-gray-900 text-sm sm:text-base">Revenue (Last 30 Days)</h3>
+              <p className="text-xs sm:text-sm text-gray-400 mt-0.5">
                 Total: ₹{(kpis?.revenueLast30d ?? 0).toLocaleString("en-IN")}
               </p>
             </div>
-            <span className="text-xs text-gray-400 bg-gray-50 border border-gray-100 px-2 py-1 rounded-lg">
-              {stats?.meta.rangeFrom ? new Date(stats.meta.rangeFrom).toLocaleDateString("en-IN", { day:"numeric", month:"short" }) : ""} →  now
+            <span className="text-xs text-gray-400 bg-gray-50 border border-gray-100 px-2 py-1 rounded-lg shrink-0">
+              {stats?.meta.rangeFrom ? new Date(stats.meta.rangeFrom).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : ""} → now
             </span>
           </div>
           {loading ? <div className="h-40 bg-gray-50 animate-pulse rounded-xl" /> : <RevenueChart data={revenueChart} />}
         </div>
 
-        <div className="bg-white border border-gray-200 rounded-2xl p-5">
-          <h3 className="font-semibold text-gray-900 mb-4">Orders by Status</h3>
+        <div className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-5">
+          <h3 className="font-semibold text-gray-900 mb-4 text-sm sm:text-base">Orders by Status</h3>
           {loading ? <div className="h-32 bg-gray-50 animate-pulse rounded-xl" /> : <StatusDonut data={stats?.ordersByStatus ?? {}} />}
         </div>
       </div>
 
-      {/* TOP PRODUCTS + COMMISSIONS */}
-      <div className="grid grid-cols-3 gap-5">
-        <div className="col-span-2 bg-white border border-gray-200 rounded-2xl p-5">
-          <h3 className="font-semibold text-gray-900 mb-4">Top Selling Products</h3>
+      {/* Top products + Commissions — stacked on mobile */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5">
+        <div className="lg:col-span-2 bg-white border border-gray-200 rounded-2xl p-4 sm:p-5">
+          <h3 className="font-semibold text-gray-900 mb-4 text-sm sm:text-base">Top Selling Products</h3>
           {loading ? <TableSkeleton rows={5} cols={4} /> : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-gray-400 text-left border-b border-gray-100">
-                  <th className="pb-3 font-medium">Product</th>
-                  <th className="pb-3 font-medium">Price</th>
-                  <th className="pb-3 font-medium">Stock</th>
-                  <th className="pb-3 font-medium text-right">Orders</th>
-                </tr>
-              </thead>
-              <tbody>
+            <>
+              {/* Desktop table */}
+              <div className="hidden sm:block overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-gray-400 text-left border-b border-gray-100">
+                      <th className="pb-3 font-medium">Product</th>
+                      <th className="pb-3 font-medium">Price</th>
+                      <th className="pb-3 font-medium">Stock</th>
+                      <th className="pb-3 font-medium text-right">Orders</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stats?.topProducts.map(p => {
+                      const product = products.find(pr => pr.id === p.productId)
+                      return (
+                        <tr key={p.productId} className="border-b border-gray-50 hover:bg-gray-50/50 transition">
+                          <td className="py-3">
+                            <div className="flex items-center gap-2.5">
+                              {product?.images?.[0]?.url && (
+                                <img src={product.images[0].url} className="w-8 h-8 object-cover rounded-lg border border-gray-100 shrink-0" alt={p.name}/>
+                              )}
+                              <span className="font-medium text-gray-800 truncate max-w-[160px]">{p.name}</span>
+                            </div>
+                          </td>
+                          <td className="py-3 text-gray-600">₹{product?.price?.toLocaleString() ?? "—"}</td>
+                          <td className="py-3 text-gray-600">{product?.quantity ?? "—"}</td>
+                          <td className="py-3 text-right font-semibold text-gray-900">{p.totalOrders}</td>
+                        </tr>
+                      )
+                    })}
+                    {!stats?.topProducts.length && !loading && (
+                      <tr><td colSpan={4} className="py-10 text-center text-gray-400">No sales data yet</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              {/* Mobile card list */}
+              <div className="sm:hidden divide-y divide-gray-100">
                 {stats?.topProducts.map(p => {
                   const product = products.find(pr => pr.id === p.productId)
                   return (
-                    <tr key={p.productId} className="border-b border-gray-50 hover:bg-gray-50/50 transition">
-                      <td className="py-3">
-                        <div className="flex items-center gap-2.5">
-                          {product?.images?.[0]?.url && (
-                            <img src={product.images[0].url} className="w-8 h-8 object-cover rounded-lg border border-gray-100" alt={p.name}/>
-                          )}
-                          <span className="font-medium text-gray-800 truncate max-w-[160px]">{p.name}</span>
-                        </div>
-                      </td>
-                      <td className="py-3 text-gray-600">₹{product?.price?.toLocaleString() ?? "—"}</td>
-                      <td className="py-3 text-gray-600">{product?.quantity ?? "—"}</td>
-                      <td className="py-3 text-right font-semibold text-gray-900">{p.totalOrders}</td>
-                    </tr>
+                    <div key={p.productId} className="py-3 flex items-center gap-3">
+                      {product?.images?.[0]?.url && (
+                        <img src={product.images[0].url} className="w-10 h-10 object-cover rounded-xl border border-gray-100 shrink-0" alt={p.name}/>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-gray-800 truncate text-sm">{p.name}</p>
+                        <p className="text-xs text-gray-400">₹{product?.price?.toLocaleString() ?? "—"} · Stock: {product?.quantity ?? "—"}</p>
+                      </div>
+                      <span className="font-bold text-gray-900 text-sm shrink-0">{p.totalOrders} orders</span>
+                    </div>
                   )
                 })}
-                {!stats?.topProducts.length && !loading && (
-                  <tr><td colSpan={4} className="py-10 text-center text-gray-400">No sales data yet</td></tr>
-                )}
-              </tbody>
-            </table>
+              </div>
+            </>
           )}
         </div>
 
-        <div className="bg-white border border-gray-200 rounded-2xl p-5">
-          <h3 className="font-semibold text-gray-900 mb-4">Commissions Summary</h3>
+        <div className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-5">
+          <h3 className="font-semibold text-gray-900 mb-4 text-sm sm:text-base">Commissions Summary</h3>
           {loading ? <div className="space-y-3">{[1,2].map(i => <div key={i} className="h-16 bg-gray-50 animate-pulse rounded-xl"/>)}</div> : (
             <div className="space-y-3">
               {[
-                { label: "Pending", data: stats?.commissions.pending, color: "bg-yellow-50 text-yellow-700 border-yellow-100" },
+                { label: "Pending",  data: stats?.commissions.pending,  color: "bg-yellow-50 text-yellow-700 border-yellow-100" },
                 { label: "Approved", data: stats?.commissions.approved, color: "bg-green-50 text-green-700 border-green-100" },
               ].map(({ label, data, color }) => (
                 <div key={label} className={`border rounded-xl p-3 ${color}`}>
@@ -272,22 +278,23 @@ export default function AdminDashboardPage() {
               <div className="border border-gray-100 rounded-xl p-3 bg-gray-50">
                 <p className="text-xs text-gray-500 mb-1">Payment Success Rate</p>
                 <p className="text-lg font-bold text-gray-900">{stats?.payments.successRate ?? "—"}</p>
-                <p className="text-xs text-gray-400">{stats?.payments.totalSuccess ?? 0} successful payments</p>
+                <p className="text-xs text-gray-400">{stats?.payments.totalSuccess ?? 0} successful</p>
               </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* Quick Links */}
-      <div className="grid grid-cols-4 gap-4">
+      {/* Quick Links — 2 col mobile, 4 col desktop */}
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
         {[
-          { label: "Manage Orders", href: "/admin/orders", color: "bg-blue-50 text-blue-700 border-blue-100" },
-          { label: "Manage Products", href: "/admin/products", color: "bg-green-50 text-green-700 border-green-100" },
-          { label: "Manage Affiliates", href: "/admin/affiliates", color: "bg-purple-50 text-purple-700 border-purple-100" },
-          { label: "Manage Coupons", href: "/admin/coupons", color: "bg-yellow-50 text-yellow-700 border-yellow-100" },
+          { label: "Manage Orders",     href: "/admin/orders",    color: "bg-blue-50 text-blue-700 border-blue-100" },
+          { label: "Manage Products",   href: "/admin/products",  color: "bg-green-50 text-green-700 border-green-100" },
+          { label: "Manage Affiliates", href: "/admin/affiliates",color: "bg-purple-50 text-purple-700 border-purple-100" },
+          { label: "Manage Coupons",    href: "/admin/coupons",   color: "bg-yellow-50 text-yellow-700 border-yellow-100" },
         ].map(({ label, href, color }) => (
-          <Link key={href} href={href} className={`border rounded-xl p-4 text-sm font-medium text-center hover:shadow-sm transition ${color}`}>
+          <Link key={href} href={href}
+            className={`border rounded-xl p-3 sm:p-4 text-xs sm:text-sm font-medium text-center hover:shadow-sm transition ${color}`}>
             {label}
           </Link>
         ))}

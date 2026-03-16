@@ -8,7 +8,6 @@ import AdminPageHeader from "../../../components/admin/AdminPageHeader"
 import TableSkeleton from "../../../components/admin/TableSkeleton"
 
 export default function AdminOrdersPage() {
-  // Explicit type annotation to satisfy TypeScript — prevents "never[]" inference
   const [orders, setOrders] = useState<AdminOrder[]>([])
   const [filters, setFilters] = useState<Record<string, any>>({})
   const [loading, setLoading] = useState(true)
@@ -19,7 +18,6 @@ export default function AdminOrdersPage() {
   const fetchOrders = async () => {
     setLoading(true)
     try {
-      // getOrders returns AdminOrdersResponse directly — no extra .data wrapper
       const res = await AdminOrderService.getOrders({ ...filters, page, limit: 15 })
       setOrders(res.orders ?? [])
       setTotalPages(res.pages ?? 1)
@@ -30,13 +28,10 @@ export default function AdminOrdersPage() {
 
   useEffect(() => { fetchOrders() }, [filters, page])
 
-  const handleFilterChange = (newFilters: any) => {
-    setFilters(newFilters)
-    setPage(1)
-  }
+  const handleFilterChange = (newFilters: any) => { setFilters(newFilters); setPage(1) }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4 sm:space-y-5">
       <AdminPageHeader
         title="Orders"
         subtitle={total ? `${total} total orders` : undefined}
@@ -51,38 +46,22 @@ export default function AdminOrdersPage() {
 
           {totalPages > 1 && (
             <div className="flex items-center justify-between pt-2">
-              <p className="text-sm text-gray-500">
-                Page {page} of {totalPages}
-              </p>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setPage(p => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40 text-lg"
-                >
-                  ‹
-                </button>
+              <p className="text-xs sm:text-sm text-gray-500">Page {page} of {totalPages}</p>
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40 text-lg">‹</button>
                 {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                   const pg = Math.max(1, Math.min(page - 2, totalPages - 4)) + i
                   return (
-                    <button
-                      key={pg}
-                      onClick={() => setPage(pg)}
-                      className={`w-8 h-8 flex items-center justify-center rounded-lg text-sm font-medium transition ${
-                        pg === page ? "bg-primary text-white" : "border border-gray-200 text-gray-600 hover:bg-gray-50"
-                      }`}
-                    >
+                    <button key={pg} onClick={() => setPage(pg)}
+                      className={`w-8 h-8 hidden sm:flex items-center justify-center rounded-lg text-sm font-medium transition ${pg === page ? "bg-primary text-white" : "border border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
                       {pg}
                     </button>
                   )
                 })}
-                <button
-                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40 text-lg"
-                >
-                  ›
-                </button>
+                <span className="sm:hidden text-sm text-gray-600 font-medium px-2">{page}/{totalPages}</span>
+                <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40 text-lg">›</button>
               </div>
             </div>
           )}

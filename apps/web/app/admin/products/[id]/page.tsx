@@ -8,7 +8,6 @@ import ProductForm from "../../../../components/admin/products/ProductForm"
 export default function AdminEditProductPage() {
   const { id } = useParams()
   const router = useRouter()
-
   const [product, setProduct] = useState<any>(null)
 
   useEffect(() => {
@@ -17,11 +16,11 @@ export default function AdminEditProductPage() {
       .catch(() => router.push("/admin/products"))
   }, [])
 
-  if (!product) return <div className="p-10 text-center">Loading…</div>
+  if (!product) return <div className="p-10 text-center text-gray-400">Loading…</div>
 
   return (
-    <div className="max-w-6xl space-y-8">
-      <h1 className="text-2xl font-bold">Edit Product</h1>
+    <div className="space-y-5 sm:space-y-8">
+      <h1 className="text-lg sm:text-2xl font-bold text-gray-900">Edit Product</h1>
       <ProductForm mode="edit" initialData={product} />
     </div>
   )
