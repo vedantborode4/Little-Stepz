@@ -5,15 +5,21 @@ import { ProductService } from "../../lib/services/product.service"
 import ProductCard from "../products/ProductCard"
 import type { Product } from "../../types/product"
 
-export default function BestSellers() {
+interface Props {
+  sort?: string
+  limit?: number
+  showViewAll?: boolean
+}
+
+export default function BestSellers({ sort = "newest", limit = 5, showViewAll = true }: Props) {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await ProductService.getProducts({ limit: 5, sort: "newest" })
-        setProducts(res.data.slice(0, 5))
+        const res = await ProductService.getProducts({ limit, sort })
+        setProducts(res.data.slice(0, limit))
       } catch {
         // silent
       } finally {
@@ -21,7 +27,7 @@ export default function BestSellers() {
       }
     }
     load()
-  }, [])
+  }, [sort, limit])
 
   return (
     <section>
@@ -46,11 +52,13 @@ export default function BestSellers() {
         </div>
       )}
 
-      <div className="flex items-center justify-center gap-4 mb-6">
-        <a href="/products" className="text-md font-medium text-primary hover:underline mt-6">
-          View All →
-        </a>
-      </div>
+      {showViewAll && (
+        <div className="flex items-center justify-center gap-4 mb-6">
+          <a href="/products" className="text-md font-medium text-primary hover:underline mt-6">
+            View All →
+          </a>
+        </div>
+      )}
     </section>
   )
 }

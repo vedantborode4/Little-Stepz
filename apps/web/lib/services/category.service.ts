@@ -4,6 +4,7 @@ export interface CategoryNode {
   id: string
   name: string
   slug: string
+  image?: string | null
   parentId?: string | null
   children?: CategoryNode[]
 }

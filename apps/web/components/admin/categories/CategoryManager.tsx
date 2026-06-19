@@ -78,7 +78,12 @@ export default function CategoryManager() {
             {topLevel.map(c => (
               <React.Fragment key={c.id}>
                 <tr className="border-t border-gray-100 hover:bg-gray-50/50 transition">
-                  <td className="p-4"><div className="flex items-center gap-2"><FolderTree size={14} className="text-primary shrink-0"/><span className="font-semibold text-gray-900">{c.name}</span></div></td>
+                  <td className="p-4"><div className="flex items-center gap-2">
+                    {c.image
+                      // eslint-disable-next-line @next/next/no-img-element
+                      ? <img src={c.image} alt={c.name} className="w-8 h-8 rounded-md object-cover shrink-0"/>
+                      : <FolderTree size={14} className="text-primary shrink-0"/>}
+                    <span className="font-semibold text-gray-900">{c.name}</span></div></td>
                   <td className="p-4 text-gray-500 font-mono text-xs">{c.slug}</td>
                   <td className="p-4 text-gray-400">—</td>
                   <td className="p-4"><span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{children(c.id).length} sub</span></td>
@@ -116,7 +121,10 @@ export default function CategoryManager() {
           <div key={c.id} className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
             <div className="flex items-center justify-between p-4">
               <div className="flex items-center gap-2 min-w-0">
-                <FolderTree size={14} className="text-primary shrink-0"/>
+                {c.image
+                  // eslint-disable-next-line @next/next/no-img-element
+                  ? <img src={c.image} alt={c.name} className="w-8 h-8 rounded-md object-cover shrink-0"/>
+                  : <FolderTree size={14} className="text-primary shrink-0"/>}
                 <div className="min-w-0">
                   <p className="font-semibold text-gray-900 text-sm truncate">{c.name}</p>
                   <p className="text-xs text-gray-400 font-mono">{c.slug}</p>

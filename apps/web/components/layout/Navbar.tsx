@@ -92,7 +92,7 @@ export default function Navbar() {
 
             {/* Logo */}
             <Link href="/" className="flex-shrink-0">
-              <img src="/logo.png" alt="Little Stepz" className="h-11 w-auto" />
+              <img src="/logo.svg" alt="Little Stepz" className="h-11 w-auto" />
             </Link>
 
             {/* Desktop Nav */}
@@ -296,7 +296,7 @@ export default function Navbar() {
       >
         {/* Drawer header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
-          <img src="/logo.png" alt="Little Stepz" className="h-9 w-auto" />
+          <img src="/logo.svg" alt="Little Stepz" className="h-9 w-auto" />
           <button
             onClick={() => setMobileOpen(false)}
             className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-600 hover:bg-gray-200 transition-colors"

@@ -71,7 +71,7 @@ export default function ProductCard({ product }: { product: Product }) {
 
       {/* CONTENT */}
       <div className="flex flex-col flex-1 p-2.5 sm:p-4">
-        <h3 className="text-xs sm:text-sm font-medium line-clamp-2 sm:line-clamp-1 min-h-[32px] sm:min-h-[28px] leading-tight">
+        <h3 className="text-xs sm:text-sm font-medium line-clamp-2 min-h-8.5 sm:min-h-10 leading-snug">
           {product.name}
         </h3>
 

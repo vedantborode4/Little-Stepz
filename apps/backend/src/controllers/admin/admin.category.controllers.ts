@@ -23,7 +23,7 @@ async function updateCategory(req: Request, res: Response) {
   if (!id) throw new ApiError(400, "Category ID is required");
 
 
-  const { name, slug, description, parentId } = req.body;
+  const { name, slug, description, image, parentId } = req.body;
 
   // name and slug are required on update (we always send them from the form)
   if (name !== undefined && typeof name === "string" && !name.trim()) {
@@ -39,6 +39,8 @@ async function updateCategory(req: Request, res: Response) {
   if (slug !== undefined)        updateData.slug        = String(slug).trim();
   // description: empty string → null (treat as "cleared"), actual text → trimmed string
   if (description !== undefined) updateData.description = description === "" ? null : String(description).trim();
+  // image: empty string or null → null (cleared), URL string → trimmed string
+  if (image !== undefined) updateData.image = (image === "" || image === null) ? null : String(image).trim();
 
   // parentId handling:
   //   null or ""  → set parentId to null (make top-level)

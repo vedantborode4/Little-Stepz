@@ -7,6 +7,7 @@ const categorySelect = {
   name: true,
   slug: true,
   description: true,
+  image: true,
   parentId: true,
   deletedAt: true,
 };

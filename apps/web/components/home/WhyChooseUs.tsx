@@ -1,10 +1,10 @@
-import { Truck, ShieldCheck, BadgeCheck, Headphones } from "lucide-react"
+import { Truck, RotateCcw, Wallet, ShieldCheck } from "lucide-react"
 
 const items = [
-  { icon: Truck,        label: "Cash On Delivery",  desc: "Pay when you receive",       color: "bg-blue-50 text-blue-600" },
-  { icon: Truck,        label: "Express Delivery",  desc: "Fast shipping nationwide",   color: "bg-green-50 text-green-600" },
-  { icon: ShieldCheck,  label: "Secure Payments",   desc: "100% safe & encrypted",      color: "bg-purple-50 text-purple-600" },
-  { icon: BadgeCheck,   label: "Quality Assurance", desc: "Curated & tested products",  color: "bg-yellow-50 text-yellow-600" },
+  { icon: Truck,        label: "Free Shipping",    desc: "On orders above ₹499",     color: "bg-green-50 text-green-600" },
+  { icon: RotateCcw,    label: "Easy Returns",     desc: "Hassle-free 7-day returns", color: "bg-blue-50 text-blue-600" },
+  { icon: Wallet,       label: "Cash On Delivery", desc: "Pay when you receive",      color: "bg-yellow-50 text-yellow-600" },
+  { icon: ShieldCheck,  label: "Secure Payments",  desc: "100% safe & encrypted",     color: "bg-purple-50 text-purple-600" },
 ]
 
 export default function WhyChooseUs() {

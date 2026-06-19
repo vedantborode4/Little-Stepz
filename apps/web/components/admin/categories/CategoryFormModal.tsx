@@ -1,10 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useRef, useState } from "react"
 import slugify from "slugify"
 import { AdminCategoryService } from "../../../lib/services/admin-category.service"
+import { AdminProductImageService } from "../../../lib/services/admin-product-image.service"
+import { uploadToCloudinary } from "../../../lib/utils/uploadToCloudinary"
 import { toast } from "sonner"
-import { X } from "lucide-react"
+import { ImagePlus, Loader2, X } from "lucide-react"
 
 interface Category {
   id: string
@@ -31,11 +33,32 @@ export default function CategoryFormModal({
     name: initialData?.name ?? "",
     slug: initialData?.slug ?? "",
     description: initialData?.description ?? "",
+    image: initialData?.image ?? "",
     // Use empty string "" to represent "no parent" in the select widget
     parentId: initialData?.parentId ?? "",
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const handleImageUpload = async (file: File) => {
+    setUploading(true)
+    try {
+      const signature = await AdminProductImageService.getSignature("categories")
+      const uploaded = await uploadToCloudinary(file, {
+        ...signature,
+        folder: signature.folder ?? "categories",
+      })
+      if (!uploaded?.secure_url) throw new Error("Upload failed")
+      setForm((p) => ({ ...p, image: uploaded.secure_url }))
+      toast.success("Image uploaded")
+    } catch (err: any) {
+      toast.error(err?.message || "Image upload failed")
+    } finally {
+      setUploading(false)
+    }
+  }
 
   const onChange = (key: string, value: string) => {
     setErrors((e) => ({ ...e, [key]: "" }))
@@ -66,6 +89,7 @@ export default function CategoryFormModal({
           name: form.name.trim(),
           slug: form.slug.trim(),
           ...(form.description ? { description: form.description.trim() } : {}),
+          ...(form.image ? { image: form.image } : {}),
           // Only send parentId if one is actually selected
           ...(form.parentId ? { parentId: form.parentId } : {}),
         })
@@ -75,6 +99,8 @@ export default function CategoryFormModal({
           name: form.name.trim(),
           slug: form.slug.trim(),
           ...(form.description !== undefined ? { description: form.description.trim() } : {}),
+          // Send "" to clear the image on the backend (treated as null)
+          image: form.image ?? "",
           // Send null explicitly when "No parent" is selected — this clears the parent on the backend
           parentId: form.parentId === "" ? null : form.parentId,
         })
@@ -140,6 +166,71 @@ export default function CategoryFormModal({
             />
           </div>
 
+          {/* Image */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-gray-700">Category Image</label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                if (file) handleImageUpload(file)
+                e.target.value = ""
+              }}
+            />
+            {form.image ? (
+              <div className="relative group rounded-xl overflow-hidden border border-gray-200">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={form.image}
+                  alt="Category preview"
+                  className="w-full h-32 object-cover"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }}
+                />
+                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    className="flex items-center gap-1.5 bg-white text-gray-800 text-xs px-3 py-2 rounded-lg hover:bg-gray-50 transition shadow"
+                  >
+                    {uploading ? <Loader2 size={13} className="animate-spin" /> : <ImagePlus size={13} />}
+                    Replace
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setForm((p) => ({ ...p, image: "" }))}
+                    className="flex items-center gap-1.5 bg-white text-red-500 text-xs px-3 py-2 rounded-lg hover:bg-red-50 transition shadow"
+                  >
+                    <X size={13} /> Remove
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="w-full h-28 border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center gap-2 hover:border-primary/40 hover:bg-primary/5 transition text-gray-400 hover:text-primary disabled:opacity-60"
+              >
+                {uploading ? (
+                  <>
+                    <Loader2 size={20} className="animate-spin" />
+                    <span className="text-xs font-medium">Uploading…</span>
+                  </>
+                ) : (
+                  <>
+                    <ImagePlus size={20} />
+                    <span className="text-xs font-medium">Click to upload category image</span>
+                    <span className="text-[10px] text-gray-300">PNG, JPG, WEBP · recommended 600×600px</span>
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+
           {/* Parent Category */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-gray-700">Parent Category</label>
@@ -168,7 +259,7 @@ export default function CategoryFormModal({
               className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition">
               Cancel
             </button>
-            <button onClick={submit} disabled={loading}
+            <button onClick={submit} disabled={loading || uploading}
               className="flex-1 py-2.5 bg-primary text-white rounded-xl text-sm font-medium disabled:opacity-60 hover:bg-primary/90 transition">
               {loading ? "Saving…" : mode === "create" ? "Create" : "Update"}
             </button>

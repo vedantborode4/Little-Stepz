@@ -6,6 +6,7 @@ const baseCategorySelect = {
   name: true,
   slug: true,
   description: true,
+  image: true,
   parentId: true,
   createdAt: true,
   updatedAt: true,
@@ -16,6 +17,7 @@ type CategoryTree = {
   name: string;
   slug: string;
   description?: string | null;
+  image?: string | null;
   parentId?: string | null;
   createdAt: Date;
   updatedAt: Date;

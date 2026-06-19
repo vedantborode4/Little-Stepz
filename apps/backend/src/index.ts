@@ -7,7 +7,14 @@ import cors from "cors";
 import { webhookRouter } from "./routes/webhook.routes";
 
 const app = express();
-const ORIGIN = process.env.FRONTEND_URL || "http://localhost:3000";
+// Allow-list of dev origins (the `||` chain only ever returned the first value).
+// Includes the Expo web ports so the mobile app's web build can call the API.
+const ORIGIN = [
+  process.env.FRONTEND_URL || "http://localhost:3000",
+  "http://localhost:3000",
+  "http://localhost:8081",
+  "http://localhost:8082",
+];
 
 app.use("/api/v1/webhooks", webhookRouter);
 

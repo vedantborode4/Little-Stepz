@@ -11,6 +11,11 @@ export const createCategorySchema = z.object({
     .optional()
     .transform((val) => val?.trim()),
 
+  image: z.string()
+    .url("Image must be a valid URL")
+    .max(2048, "Image URL is too long")
+    .optional(),
+
   parentId: optionalUuidSchema
 });
 
