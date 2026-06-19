@@ -9,10 +9,11 @@ import SectionHeader from "../components/home/SectionHeader"
 
 export default function Home() {
   return (
-    <main className="max-w-7xl mx-auto px-4 space-y-8 sm:space-y-14 py-4 sm:py-8">
-
-      {/* 1. Hero sliding banners */}
+    <>
+      {/* 1. Hero sliding banners — full width */}
       <DynamicHeroBanner />
+
+      <div className="max-w-7xl mx-auto px-4 space-y-8 sm:space-y-14 py-4 sm:py-8">
 
       {/* 2. Categories */}
       <section>
@@ -43,6 +44,7 @@ export default function Home() {
 
       {/* 7. Footer is rendered globally in the root layout */}
 
-    </main>
+      </div>
+    </>
   )
 }

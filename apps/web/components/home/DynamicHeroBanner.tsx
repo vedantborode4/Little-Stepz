@@ -37,7 +37,7 @@ export default function DynamicHeroBanner() {
 
   if (loading) {
     return (
-      <div className="w-full h-44 sm:h-64 md:h-[620px] bg-gray-100 rounded-2xl animate-pulse" />
+      <div className="w-full h-44 sm:h-64 md:h-[620px] bg-gray-100 animate-pulse" />
     )
   }
 
@@ -46,7 +46,7 @@ export default function DynamicHeroBanner() {
   const b = banners[current]!
 
   return (
-    <div className="relative w-full overflow-hidden rounded-2xl group">
+    <div className="relative w-full overflow-hidden group">
       {/* Image */}
       <div className="relative w-full h-44 sm:h-64 md:h-[600px]">
         <img
@@ -56,14 +56,14 @@ export default function DynamicHeroBanner() {
           className="w-full h-full object-cover transition-opacity duration-500"
           onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }}
         />
-        {/* Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/20 to-transparent" />
 
         {/* Text */}
         <div className="absolute inset-0 flex flex-col justify-center px-4 sm:px-8 md:px-12">
-          <h2 className="text-base sm:text-2xl md:text-4xl font-bold text-white leading-tight max-w-[220px] sm:max-w-md drop-shadow">
-            {b.title}
-          </h2>
+          {b.title && (
+            <h2 className="text-base sm:text-2xl md:text-4xl font-bold text-white leading-tight max-w-[220px] sm:max-w-md drop-shadow">
+              {b.title}
+            </h2>
+          )}
           {b.subtitle && (
             <p className="text-xs sm:text-sm md:text-base text-white/80 mt-1 sm:mt-2 max-w-[200px] sm:max-w-sm drop-shadow line-clamp-2 sm:line-clamp-none">
               {b.subtitle}
