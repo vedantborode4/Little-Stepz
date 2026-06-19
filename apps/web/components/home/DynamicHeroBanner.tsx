@@ -37,7 +37,7 @@ export default function DynamicHeroBanner() {
 
   if (loading) {
     return (
-      <div className="w-full h-44 sm:h-64 md:h-[620px] bg-gray-100 animate-pulse" />
+      <div className="w-full aspect-32/15 bg-gray-100 animate-pulse" />
     )
   }
 
@@ -48,7 +48,7 @@ export default function DynamicHeroBanner() {
   return (
     <div className="relative w-full overflow-hidden group">
       {/* Image */}
-      <div className="relative w-full h-44 sm:h-64 md:h-[600px]">
+      <div className="relative w-full aspect-32/15">
         <img
           key={b.id}
           src={b.imageUrl}
