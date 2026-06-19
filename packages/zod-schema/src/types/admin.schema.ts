@@ -43,7 +43,7 @@ const bannerPositions = [
 
 export const createBannerSchema = z
   .object({
-    title:      z.string().min(1).max(200),
+    title:      z.string().max(200).optional(),
     subtitle:   z.string().max(500).optional(),
     imageUrl:   z.string().url("Must be a valid URL").max(2000),
     linkUrl:    z.string().url("Must be a valid URL").max(2000).optional(),
@@ -68,7 +68,7 @@ export const createBannerSchema = z
 
 export const updateBannerSchema = z
   .object({
-    title:      z.string().min(1).max(200).optional(),
+    title:      z.string().max(200).optional(),
     subtitle:   z.string().max(500).optional(),
     imageUrl:   z.string().url().max(2000).optional(),
     linkUrl:    z.string().url().max(2000).optional(),

@@ -107,7 +107,6 @@ export default function BannerFormModal({ mode, initialData, onClose, onSuccess 
 
   const validate = () => {
     const e: Record<string, string> = {}
-    if (!form.title.trim()) e.title = "Title is required"
     if (!form.imageUrl.trim()) e.imageUrl = "Please upload a banner image"
     if (!form.position) e.position = "Position is required"
     return e
@@ -147,7 +146,7 @@ export default function BannerFormModal({ mode, initialData, onClose, onSuccess 
     <AdminModal title={mode === "create" ? "Add Banner" : "Edit Banner"} onClose={onClose} width="max-w-lg">
       <div className="space-y-4">
 
-        <Field label="Title *" error={errors.title}>
+        <Field label="Title" error={errors.title}>
           <StyledInput
             value={form.title}
             onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}

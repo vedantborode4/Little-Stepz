@@ -16,7 +16,7 @@ export async function adminCreateBannerService(
   return prisma.$transaction(async (tx) => {
     const banner = await tx.banner.create({
       data: {
-        title:      data.title,
+        title:      data.title ?? "",
         subtitle:   data.subtitle,
         imageUrl:   data.imageUrl,
         linkUrl:    data.linkUrl,
