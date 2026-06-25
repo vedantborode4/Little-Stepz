@@ -1,5 +1,5 @@
 import "./globals.css"
-import { Plus_Jakarta_Sans } from "next/font/google"
+import { Inter, Orbitron } from "next/font/google"
 import { Toaster } from "sonner"
 import Script from "next/script"
 
@@ -7,9 +7,15 @@ import { AuthProvider } from "./providers/auth-provider"
 import Navbar from "../components/layout/Navbar"
 import Footer from "../components/layout/Footer"
 
-const plusJakarta = Plus_Jakarta_Sans({
+const inter = Inter({
   subsets: ["latin"],
-  variable: "--font-jakarta",
+  variable: "--font-inter",
+  display: "swap",
+})
+
+const orbitron = Orbitron({
+  subsets: ["latin"],
+  variable: "--font-orbitron",
   display: "swap",
 })
 
@@ -24,7 +30,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={plusJakarta.variable}>
+    <html lang="en" className={`${inter.variable} ${orbitron.variable}`}>
       <body className="font-sans">
         <AuthProvider>
           <Navbar />

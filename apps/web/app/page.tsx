@@ -6,6 +6,7 @@ import PromoBannerRow from "../components/home/PromoBannerRow"
 import WhyChooseUs from "../components/home/WhyChooseUs"
 import BestSellers from "../components/home/BestSellers"
 import SectionHeader from "../components/home/SectionHeader"
+import { HeadingFor } from "../components/home/HeadingFor"
 
 export default function Home() {
   return (
@@ -14,6 +15,11 @@ export default function Home() {
       <DynamicHeroBanner />
 
       <div className="max-w-7xl mx-auto px-4 space-y-8 sm:space-y-14 py-4 sm:py-8">
+
+      {/* Our Promise */}
+      <section className="container">
+        <HeadingFor />
+      </section>
 
       {/* 2. Categories */}
       <section>

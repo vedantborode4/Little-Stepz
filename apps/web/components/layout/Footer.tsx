@@ -9,12 +9,8 @@ export default function Footer() {
 
           {/* Brand — full width on mobile */}
           <div className="col-span-2 md:col-span-1 space-y-4">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center shrink-0">
-                <span className="text-white text-xs font-bold">LS</span>
-              </div>
-              <span className="font-bold text-white text-sm">Little Stepz</span>
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.webp" alt="Little Stepz" className="h-10 w-auto" />
             <p className="text-sm text-gray-400 leading-relaxed">
               Safe, fun, and thoughtfully designed toys that help children learn through play.
             </p>

@@ -11,7 +11,7 @@ export default function AuthLayout({
         <div className="hidden lg:flex flex-col justify-center px-20 bg-gradient-to-br from-primary/10 to-transparent">
           <div className="max-w-md">
             <img
-              src="/logo.svg"
+              src="/logo.webp"
               alt="Little Stepz"
               className="h-36 w-auto"
             />

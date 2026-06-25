@@ -1,6 +1,43 @@
 @import "tailwindcss";
 @source "../../../packages/ui/src/";
+
+@theme inline {
+  --font-sans: var(--font-inter);
+  --font-heading: var(--font-orbitron);
+}
+
+@theme {
+  --color-primary: #FF383C;
+  --color-secondary: #4ECDC4;
+  --color-bg: #FFF7F7;
+  --color-text: #1F2937;
+  --color-muted: #6B7280;
+  --color-border: #F1F5F9;
+
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+
+  --shadow-card: 0 10px 30px rgba(0,0,0,0.06);
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
 @layer base {
+  /* ── Orbitron for headings & brand elements ── */
+  h1, h2, h3, h4 {
+    font-family: var(--font-orbitron), sans-serif;
+    letter-spacing: -0.01em;
+  }
+
   h1 {
     @apply text-[32px] leading-[38px] font-bold;
   }
@@ -13,21 +50,11 @@
     @apply text-[14px] leading-[20px];
   }
 }
-@theme {
-  --color-primary: #FF383C;
-  --color-secondary: #4ECDC4;
-  --color-bg: #FFF7F7;
-  --color-text: #1F2937;
-  --color-muted: #6B7280; 
-  --color-border: #F1F5F9;
 
-  --radius-sm: 8px;
-  --radius-md: 14px;
-  --radius-lg: 20px;
-  --radius-xl: 28px;
-
-  --shadow-card: 0 10px 30px rgba(0,0,0,0.06);
+.font-orbitron {
+  font-family: var(--font-orbitron), sans-serif;
 }
+
 .input {
   @apply w-full border rounded-lg px-3 py-2 text-sm;
 }

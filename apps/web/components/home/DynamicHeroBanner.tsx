@@ -5,6 +5,7 @@ import Link from "next/link"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { BannerService } from "../../lib/services/banner.service"
 import type { AdminBanner } from "../../lib/services/admin-banner.service"
+import HeroFallback from "./HeroFallback"
 
 export default function DynamicHeroBanner() {
   const [banners, setBanners] = useState<AdminBanner[]>([])
@@ -41,7 +42,7 @@ export default function DynamicHeroBanner() {
     )
   }
 
-  if (!banners.length) return null
+  if (!banners.length) return <HeroFallback />
 
   const b = banners[current]!
 
