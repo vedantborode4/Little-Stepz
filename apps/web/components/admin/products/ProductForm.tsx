@@ -8,6 +8,7 @@ import { AdminProductService } from "../../../lib/services/admin-product.service
 import ProductImageManager from "./ProductImageManager"
 import CategoryTreeSelect from "../categories/CategoryTreeSelect"
 import VariantManager from "./VariantManager"
+import RichTextEditor from "../RichTextEditor"
 import { toast } from "sonner"
 
 interface Props {
@@ -38,7 +39,7 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
   const router = useRouter()
   const [productId, setProductId] = useState<string | null>(null)
   const [form, setForm] = useState({
-    name: "", slug: "", description: "", price: 0, quantity: 0, inStock: true, categoryId: "",
+    name: "", slug: "", description: "", longDescription: "", price: "", quantity: 0, inStock: true, categoryId: "",
   })
   const [images, setImages] = useState<any[]>([])
   const [errors, setErrors] = useState<Record<string, string[]>>({})
@@ -51,7 +52,8 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
         name: initialData.name ?? "",
         slug: initialData.slug ?? "",
         description: initialData.description ?? "",
-        price: initialData.price ?? 0,
+        longDescription: initialData.longDescription ?? "",
+        price: initialData.price != null ? String(initialData.price) : "",
         quantity: initialData.quantity ?? 0,
         inStock: initialData.inStock ?? true,
         categoryId: initialData.categoryId ?? initialData.category?.id ?? "",
@@ -72,7 +74,9 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
   }
 
   const submit = async () => {
-    const parsed = createProductSchema.safeParse(form)
+    // Tiptap reports an empty doc as "<p></p>" — treat that as no long description.
+    const payload = { ...form, longDescription: form.longDescription === "<p></p>" ? "" : form.longDescription }
+    const parsed = createProductSchema.safeParse(payload)
     if (!parsed.success) {
       setErrors(parsed.error.flatten().fieldErrors as any)
       toast.error("Please fix the errors below")
@@ -112,19 +116,35 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
           <Input placeholder="auto-generated from name" value={form.slug} onChange={e => onChange("slug", e.target.value)} />
         </Field>
 
-        <Field label="Description" error={errors.description?.[0]}>
+        <Field label="Short Description" error={errors.description?.[0]}>
           <textarea
             className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 min-h-[100px] resize-none"
             value={form.description}
             onChange={e => onChange("description", e.target.value)}
-            placeholder="Describe the product..."
+            placeholder="Short summary shown near the title..."
+          />
+        </Field>
+
+        <Field label="Long Description (formatted)" error={errors.longDescription?.[0]}>
+          <RichTextEditor
+            value={form.longDescription}
+            onChange={html => onChange("longDescription", html)}
           />
         </Field>
 
         {/* Price + Qty + Category — 1-col on mobile, 3-col on sm+ */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Field label="Price (₹)" error={errors.price?.[0]}>
-            <Input type="number" min={0} value={form.price} onChange={e => onChange("price", Number(e.target.value))} />
+            <Input
+              type="text"
+              inputMode="decimal"
+              placeholder="0.00"
+              value={form.price}
+              onChange={e => {
+                const v = e.target.value
+                if (v === "" || /^\d*\.?\d{0,2}$/.test(v)) onChange("price", v)
+              }}
+            />
           </Field>
           <Field label="Quantity" error={errors.quantity?.[0]}>
             <Input type="number" min={0} value={form.quantity} onChange={e => onChange("quantity", Number(e.target.value))} />

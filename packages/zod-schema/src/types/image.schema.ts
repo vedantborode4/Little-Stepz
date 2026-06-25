@@ -14,13 +14,13 @@ export const addProductImageSchema = z.object({
 });
 
 
-export const productImageParamsSchema = z.object({ 
-    imageId: uuidSchema 
+export const productImageParamsSchema = z.object({
+    imageId: uuidSchema
 });
 
 
 export const reorderImageBodySchema = z.object({
-    sortOrder: z.number().int().min(0) 
+    sortOrder: z.number().int().min(0)
 });
 
 

@@ -19,6 +19,7 @@ export interface AdminProduct {
   name: string
   slug: string
   description?: string
+  longDescription?: string | null
   price: number
   quantity: number
   inStock: boolean
@@ -76,7 +77,7 @@ export const AdminProductService = {
 
   /** POST /admin/products  body: CreateProductBody */
   createProduct: async (body: {
-    name: string; slug: string; description?: string
+    name: string; slug: string; description?: string; longDescription?: string
     price: number; quantity?: number; inStock?: boolean; categoryId: string
   }): Promise<AdminProduct> => {
     const res = await api.post("/admin/products", body)
@@ -85,7 +86,7 @@ export const AdminProductService = {
 
   /** PUT /admin/products/:id  body: UpdateProductBody */
   updateProduct: async (id: string, body: Partial<{
-    name: string; slug: string; description: string | null
+    name: string; slug: string; description: string | null; longDescription: string | null
     price: number; quantity: number; inStock: boolean; categoryId: string
   }>): Promise<AdminProduct> => {
     const res = await api.put(`/admin/products/${id}`, body)

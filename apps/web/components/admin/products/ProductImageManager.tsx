@@ -159,7 +159,7 @@ export default function ProductImageManager({
               onDragOver={(e) => { e.preventDefault(); setDragOverId(img.id) }}
               onDragLeave={() => setDragOverId(null)}
               onDrop={(e) => handleDrop(e, img.id)}
-              className={`relative group rounded-xl border-2 overflow-hidden transition cursor-grab
+              className={`relative group rounded-[10px] border-2 overflow-hidden transition cursor-grab
                 ${dragOverId === img.id ? "border-primary scale-95" : "border-gray-100"}`}
             >
               {/* Badge for primary */}

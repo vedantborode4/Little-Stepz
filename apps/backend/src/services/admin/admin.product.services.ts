@@ -6,6 +6,7 @@ const baseProductSelect = {
   name: true,
   slug: true,
   description: true,
+  longDescription: true,
   price: true,
   quantity: true,
   inStock: true,
@@ -15,6 +16,7 @@ const baseProductSelect = {
     select: { id: true, url: true, alt: true, sortOrder: true },
   },
   variants: {
+    where: { deletedAt: null },
     select: { id: true, name: true, price: true, stock: true },
   },
   createdAt: true,
@@ -27,6 +29,7 @@ export async function createProductService(data: {
   name: string;
   slug: string;
   description?: string;
+  longDescription?: string;
   price: number;
   quantity?: number;
   inStock?: boolean;
@@ -65,6 +68,7 @@ export async function updateProductService(
     name: string;
     slug: string;
     description: string | null;
+    longDescription: string | null;
     price: number;
     quantity: number;
     inStock: boolean;

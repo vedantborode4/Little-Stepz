@@ -12,6 +12,10 @@ export const createProductSchema = z.object({
         .max(2000, "Description must be at most 2000 characters")
         .optional(),
 
+    longDescription: z.string()
+        .max(50000, "Long description is too long")
+        .optional(),
+
     price: priceSchema,
 
     quantity: quantitySchema.default(0),

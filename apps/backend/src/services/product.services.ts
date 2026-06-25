@@ -28,6 +28,7 @@ const baseProductSelect = {
   name: true,
   slug: true,
   description: true,
+  longDescription: true,
   price: true,
   quantity: true,
   inStock: true,
@@ -36,7 +37,7 @@ const baseProductSelect = {
     orderBy: { sortOrder: "asc" },
     select: { id: true, url: true, alt: true, sortOrder: true },
   },
-  variants: { select: { id: true, name: true, price: true, stock: true } },
+  variants: { where: { deletedAt: null }, select: { id: true, name: true, price: true, stock: true } },
   createdAt: true,
   updatedAt: true,
 } as const;

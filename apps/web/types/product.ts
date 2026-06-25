@@ -22,6 +22,7 @@ export interface Product {
   name: string
   slug: string
   description?: string | null
+  longDescription?: string | null
   price: string
   quantity: number
   inStock: boolean

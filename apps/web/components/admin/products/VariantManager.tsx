@@ -21,6 +21,8 @@ interface Props {
   onChange?: () => void
 }
 
+const numericGuard = (v: string) => v === "" || /^\d*\.?\d{0,2}$/.test(v)
+
 export default function VariantManager({
   productId,
   initialVariants = [],
@@ -94,10 +96,11 @@ export default function VariantManager({
           onChange={(e) => setForm({ ...form, name: e.target.value })}
         />
         <Input
-          type="number"
+          type="text"
+          inputMode="decimal"
           placeholder="Price"
           value={form.price}
-          onChange={(e) => setForm({ ...form, price: e.target.value })}
+          onChange={(e) => { if (numericGuard(e.target.value)) setForm({ ...form, price: e.target.value }) }}
         />
         <Input
           type="number"
@@ -117,9 +120,10 @@ export default function VariantManager({
             onChange={(e) => updateVariant(v.id, "name", e.target.value)}
           />
           <Input
-            type="number"
-            value={v.price || ""}
-            onChange={(e) => updateVariant(v.id, "price", e.target.value)}
+            type="text"
+            inputMode="decimal"
+            value={v.price ?? ""}
+            onChange={(e) => { if (numericGuard(e.target.value)) updateVariant(v.id, "price", e.target.value) }}
           />
           <Input
             type="number"

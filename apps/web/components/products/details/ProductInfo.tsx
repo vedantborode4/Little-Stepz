@@ -1,7 +1,8 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Product } from "../../../types/product"
+import { RICH_TEXT_CLASS } from "../../../lib/richText"
 import { Heart, Loader2, Zap, ShoppingCart, Star, Shield, Truck } from "lucide-react"
 import { useCartStore } from "../../../store/useCartStore"
 import { useWishlistStore } from "../../../store/useWishlistStore"
@@ -22,6 +23,18 @@ export default function ProductInfo({ product }: { product: Product }) {
   const [selectedVariant, setSelectedVariant] = useState(
     product.variants?.[0] || null
   )
+
+  // Sanitize the rich-text long description on the client only (avoids jsdom/SSR).
+  const [safeLongDesc, setSafeLongDesc] = useState("")
+  useEffect(() => {
+    const html = product.longDescription
+    if (!html) { setSafeLongDesc(""); return }
+    let active = true
+    import("dompurify").then(({ default: DOMPurify }) => {
+      if (active) setSafeLongDesc(DOMPurify.sanitize(html))
+    })
+    return () => { active = false }
+  }, [product.longDescription])
 
   const displayPrice = useMemo(() => {
     if (!selectedVariant) return product.price
@@ -213,7 +226,18 @@ export default function ProductInfo({ product }: { product: Product }) {
         {product.description && (
           <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-card">
             <h3 className="text-sm font-semibold text-gray-900 mb-2.5">About this product</h3>
-            <p className="text-sm text-gray-500 leading-relaxed">{product.description}</p>
+            <p className="text-sm text-gray-500 leading-relaxed whitespace-pre-line">{product.description}</p>
+          </div>
+        )}
+
+        {/* Long description (rich text) */}
+        {safeLongDesc && (
+          <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-card">
+            <h3 className="text-sm font-semibold text-gray-900 mb-2.5">Product Details</h3>
+            <div
+              className={`text-sm text-gray-600 ${RICH_TEXT_CLASS}`}
+              dangerouslySetInnerHTML={{ __html: safeLongDesc }}
+            />
           </div>
         )}
       </div>
