@@ -5,6 +5,8 @@ import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { Product } from "../../types/product"
+import { getDisplayPrices } from "../../lib/pricing"
+import PriceTag from "./PriceTag"
 import { Heart, Loader2 } from "lucide-react"
 import { useCartStore } from "../../store/useCartStore"
 import { useWishlistStore } from "../../store/useWishlistStore"
@@ -75,9 +77,7 @@ export default function ProductCard({ product }: { product: Product }) {
           {product.name}
         </h3>
 
-        <span className="text-primary font-semibold text-sm sm:text-base mb-2 sm:mb-3 mt-0.5">
-          ₹{product.price}
-        </span>
+        <PriceTag prices={getDisplayPrices(product)} className="mb-2 sm:mb-3 mt-0.5" />
 
         <button
           onClick={handleAddToCart}

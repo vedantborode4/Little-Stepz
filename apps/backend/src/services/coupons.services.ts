@@ -1,6 +1,7 @@
 import { prisma } from '@repo/db/client';
 import { ApiError } from '../utils/api';
 import { CouponErrorCode } from '../utils/couponErrors';
+import { resolveChargedPrice } from '../utils/pricing';
 import { Decimal } from 'decimal.js';
 
 type CartIdentifier = { type: "user" | "session"; id: string };
@@ -13,8 +14,8 @@ async function computeCartSubtotal(identifier: CartIdentifier): Promise<{ subtot
       deletedAt: null,
     },
     include: {
-      product: { select: { price: true, deletedAt: true, quantity: true } },
-      variant: { select: { price: true, deletedAt: true, stock: true } },
+      product: { select: { price: true, salePrice: true, isOnSale: true, deletedAt: true, quantity: true } },
+      variant: { select: { price: true, salePrice: true, isOnSale: true, deletedAt: true, stock: true } },
     },
   });
 
@@ -37,7 +38,7 @@ async function computeCartSubtotal(identifier: CartIdentifier): Promise<{ subtot
       continue;
     }
 
-    const price = item.variant?.price ?? item.product.price;
+    const price = resolveChargedPrice(item.product, item.variant);
     subtotal = subtotal.add(price.mul(item.quantity));
   }
 

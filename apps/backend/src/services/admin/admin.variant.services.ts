@@ -9,11 +9,13 @@ type CreateVariantInput = {
   productId: string;
   name: string;
   price?: number;
+  salePrice?: number;
+  isOnSale?: boolean;
   stock?: number;
 };
 
 export async function createVariantService(data: CreateVariantInput) {
-  const { productId, name, price, stock = 0 } = data;
+  const { productId, name, price, salePrice, isOnSale = false, stock = 0 } = data;
   const normalizedName = normalizeVariantName(name);
 
   if (normalizedName.length < 1 || normalizedName.length > 200) {
@@ -54,6 +56,8 @@ export async function createVariantService(data: CreateVariantInput) {
         productId,
         name: normalizedName,
         price: price ?? null,
+        salePrice: salePrice ?? null,
+        isOnSale,
         stock,
       },
     });
@@ -80,6 +84,8 @@ export async function createVariantService(data: CreateVariantInput) {
 type UpdateVariantInput = Partial<{
   name: string;
   price: number | null;
+  salePrice: number | null;
+  isOnSale: boolean;
   stock: number;
 }>;
 
@@ -87,9 +93,15 @@ export async function updateVariantService(
   variantId: string,
   data: UpdateVariantInput
 ) {
-  const { name, price, stock } = data;
+  const { name, price, salePrice, isOnSale, stock } = data;
 
-  if (name === undefined && price === undefined && stock === undefined) {
+  if (
+    name === undefined &&
+    price === undefined &&
+    salePrice === undefined &&
+    isOnSale === undefined &&
+    stock === undefined
+  ) {
     throw new ApiError(400, "No fields provided to update");
   }
 
@@ -141,6 +153,8 @@ export async function updateVariantService(
       data: {
         name: name !== undefined ? normalizeVariantName(name) : undefined,
         price: price !== undefined ? price : undefined,
+        salePrice: salePrice !== undefined ? salePrice : undefined,
+        isOnSale: isOnSale !== undefined ? isOnSale : undefined,
         stock: stock !== undefined ? stock : undefined,
       },
       select: {

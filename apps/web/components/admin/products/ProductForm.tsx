@@ -39,7 +39,7 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
   const router = useRouter()
   const [productId, setProductId] = useState<string | null>(null)
   const [form, setForm] = useState({
-    name: "", slug: "", description: "", longDescription: "", price: "", quantity: 0, inStock: true, categoryId: "",
+    name: "", slug: "", description: "", longDescription: "", price: "", salePrice: "", isOnSale: false, priceDisplay: "BOTH", quantity: 0, inStock: true, categoryId: "",
   })
   const [images, setImages] = useState<any[]>([])
   const [errors, setErrors] = useState<Record<string, string[]>>({})
@@ -54,6 +54,9 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
         description: initialData.description ?? "",
         longDescription: initialData.longDescription ?? "",
         price: initialData.price != null ? String(initialData.price) : "",
+        salePrice: initialData.salePrice != null ? String(initialData.salePrice) : "",
+        isOnSale: initialData.isOnSale ?? false,
+        priceDisplay: initialData.priceDisplay ?? "BOTH",
         quantity: initialData.quantity ?? 0,
         inStock: initialData.inStock ?? true,
         categoryId: initialData.categoryId ?? initialData.category?.id ?? "",
@@ -75,7 +78,12 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
 
   const submit = async () => {
     // Tiptap reports an empty doc as "<p></p>" — treat that as no long description.
-    const payload = { ...form, longDescription: form.longDescription === "<p></p>" ? "" : form.longDescription }
+    // An empty sale-price field must be omitted (not "") so the optional schema accepts it.
+    const payload = {
+      ...form,
+      longDescription: form.longDescription === "<p></p>" ? "" : form.longDescription,
+      salePrice: form.salePrice === "" ? undefined : form.salePrice,
+    }
     const parsed = createProductSchema.safeParse(payload)
     if (!parsed.success) {
       setErrors(parsed.error.flatten().fieldErrors as any)
@@ -132,9 +140,9 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
           />
         </Field>
 
-        {/* Price + Qty + Category — 1-col on mobile, 3-col on sm+ */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <Field label="Price (₹)" error={errors.price?.[0]}>
+        {/* Regular + Sale price — 1-col on mobile, 2-col on sm+ */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Field label="Regular Price (₹)" error={errors.price?.[0]}>
             <Input
               type="text"
               inputMode="decimal"
@@ -145,6 +153,48 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
                 if (v === "" || /^\d*\.?\d{0,2}$/.test(v)) onChange("price", v)
               }}
             />
+          </Field>
+          <Field label="Sale Price (₹)" error={errors.salePrice?.[0]}>
+            <Input
+              type="text"
+              inputMode="decimal"
+              placeholder="0.00"
+              value={form.salePrice}
+              onChange={e => {
+                const v = e.target.value
+                if (v === "" || /^\d*\.?\d{0,2}$/.test(v)) onChange("salePrice", v)
+              }}
+            />
+          </Field>
+        </div>
+
+        <label className="flex items-center gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={form.isOnSale}
+            onChange={e => {
+              const checked = e.target.checked
+              // "Regular only" contradicts charging the sale price — force a valid display.
+              if (checked && form.priceDisplay === "REGULAR") onChange("priceDisplay", "BOTH")
+              onChange("isOnSale", checked)
+            }}
+            className="w-4 h-4 rounded accent-primary"
+          />
+          <span className="text-sm font-medium text-gray-700">On sale — charge the sale price</span>
+        </label>
+
+        {/* Display mode + Qty + Category — 1-col on mobile, 3-col on sm+ */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <Field label="Price display">
+            <select
+              value={form.priceDisplay}
+              onChange={e => onChange("priceDisplay", e.target.value)}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white"
+            >
+              <option value="BOTH">Both (sale + regular struck-through)</option>
+              <option value="REGULAR" disabled={form.isOnSale}>Regular price only{form.isOnSale ? " (unavailable while on sale)" : ""}</option>
+              <option value="SALE">Sale price only</option>
+            </select>
           </Field>
           <Field label="Quantity" error={errors.quantity?.[0]}>
             <Input type="number" min={0} value={form.quantity} onChange={e => onChange("quantity", Number(e.target.value))} />

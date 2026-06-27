@@ -1,5 +1,6 @@
 import { prisma } from "@repo/db/client";
 import { ApiError } from "../utils/api";
+import { withPublicSalePricing } from "../utils/pricing";
 
 type ProductSortField = "createdAt" | "price" | "name" | "updatedAt";
 type SortOrder = "asc" | "desc";
@@ -30,6 +31,9 @@ const baseProductSelect = {
   description: true,
   longDescription: true,
   price: true,
+  salePrice: true,
+  isOnSale: true,
+  priceDisplay: true,
   quantity: true,
   inStock: true,
   category: { select: { id: true, name: true, slug: true } },
@@ -37,7 +41,7 @@ const baseProductSelect = {
     orderBy: { sortOrder: "asc" },
     select: { id: true, url: true, alt: true, sortOrder: true },
   },
-  variants: { where: { deletedAt: null }, select: { id: true, name: true, price: true, stock: true } },
+  variants: { where: { deletedAt: null }, select: { id: true, name: true, price: true, salePrice: true, isOnSale: true, stock: true } },
   createdAt: true,
   updatedAt: true,
 } as const;
@@ -88,7 +92,7 @@ export async function getProductsService({
   ]);
 
   return {
-    products,
+    products: products.map(withPublicSalePricing),
     total,
     page,
     limit,
@@ -107,7 +111,7 @@ export async function getProductBySlugService(slug: string) {
   });
 
   if (!product) throw new ApiError(404, "Product not found");
-  return product;
+  return withPublicSalePricing(product);
 }
 
 // Search products
@@ -128,7 +132,7 @@ export async function searchProductsService(q: string, limit = 20) {
     select: baseProductSelect,
   });
 
-  return { products };
+  return { products: products.map(withPublicSalePricing) };
 }
 
 // Search suggestions

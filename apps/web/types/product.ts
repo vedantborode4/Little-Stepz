@@ -10,10 +10,14 @@ export interface Category {
   slug: string
 }
 
+export type PriceDisplay = "BOTH" | "REGULAR" | "SALE"
+
 export interface Variant {
   id: string
   name: string
   price: string | null
+  salePrice?: string | null
+  isOnSale?: boolean
   stock: number
 }
 
@@ -24,6 +28,9 @@ export interface Product {
   description?: string | null
   longDescription?: string | null
   price: string
+  salePrice?: string | null
+  isOnSale?: boolean
+  priceDisplay?: PriceDisplay
   quantity: number
   inStock: boolean
   category: Category

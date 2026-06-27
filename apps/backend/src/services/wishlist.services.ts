@@ -1,5 +1,6 @@
 import { prisma } from "@repo/db/client";
 import { ApiError } from "../utils/api";
+import { withPublicSalePricing } from "../utils/pricing";
 
 const wishlistItemSelect = {
   id: true,
@@ -9,6 +10,9 @@ const wishlistItemSelect = {
       name: true,
       slug: true,
       price: true,
+      salePrice: true,
+      isOnSale: true,
+      priceDisplay: true,
       images: { take: 1, select: { url: true } },
     },
   },
@@ -26,7 +30,7 @@ export async function getWishlistService(userId: string) {
     orderBy: { createdAt: "desc" },
   });
 
-  return { items };
+  return { items: items.map((i) => ({ ...i, product: withPublicSalePricing(i.product) })) };
 }
 
 export async function addToWishlistService(userId: string, productId: string) {

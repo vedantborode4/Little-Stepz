@@ -2,6 +2,8 @@
 
 import { useState, useMemo, useEffect } from "react"
 import { Product } from "../../../types/product"
+import { getDisplayPrices } from "../../../lib/pricing"
+import PriceTag from "../PriceTag"
 import { RICH_TEXT_CLASS } from "../../../lib/richText"
 import { Heart, Loader2, Zap, ShoppingCart, Star, Shield, Truck } from "lucide-react"
 import { useCartStore } from "../../../store/useCartStore"
@@ -36,10 +38,10 @@ export default function ProductInfo({ product }: { product: Product }) {
     return () => { active = false }
   }, [product.longDescription])
 
-  const displayPrice = useMemo(() => {
-    if (!selectedVariant) return product.price
-    return selectedVariant.price ?? product.price
-  }, [selectedVariant, product.price])
+  const displayPrices = useMemo(
+    () => getDisplayPrices(product, selectedVariant),
+    [product, selectedVariant]
+  )
 
   const inStock = useMemo(() => {
     if (!selectedVariant) return product.inStock
@@ -116,9 +118,7 @@ export default function ProductInfo({ product }: { product: Product }) {
 
         {/* Price + Stock */}
         <div className="flex items-center gap-4">
-          <span className="text-3xl font-bold text-gray-900">
-            ₹{Number(displayPrice).toLocaleString("en-IN")}
-          </span>
+          <PriceTag prices={displayPrices} size="lg" />
           <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
             inStock ? "bg-green-50 text-green-600" : "bg-red-50 text-red-500"
           }`}>

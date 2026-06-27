@@ -4,6 +4,8 @@ import Image from "next/image"
 import Link from "next/link"
 import { Trash2, Minus, Plus } from "lucide-react"
 import { useCartStore } from "../../store/useCartStore"
+import { getChargedPrice, getDisplayPrices, formatINR } from "../../lib/pricing"
+import PriceTag from "../products/PriceTag"
 import type { CartItem as CartItemType } from "../../types/cart"
 
 export default function CartItem({ item }: { item: CartItemType }) {
@@ -16,8 +18,9 @@ export default function CartItem({ item }: { item: CartItemType }) {
   const isUpdating = updatingKey === key
 
   const image = item.product.images?.[0]?.url || "/placeholder.png"
-  const unitPrice = Number(item.product.price)
+  const unitPrice = getChargedPrice(item.product, item.variant)
   const lineTotal = unitPrice * item.quantity
+  const unitPrices = getDisplayPrices(item.product, item.variant)
 
   return (
     <div
@@ -57,9 +60,9 @@ export default function CartItem({ item }: { item: CartItemType }) {
             </span>
           )}
 
-          <p className="mt-1.5 text-xs text-gray-400 font-medium">
-            ₹{unitPrice.toLocaleString("en-IN")} each
-          </p>
+          <div className="mt-1.5 flex items-center gap-1 text-xs text-gray-400 font-medium">
+            <PriceTag prices={unitPrices} /> <span>each</span>
+          </div>
 
           {/* Qty stepper + remove — on mobile stays here */}
           <div className="flex items-center gap-3 mt-3 sm:mt-2.5">
@@ -107,7 +110,7 @@ export default function CartItem({ item }: { item: CartItemType }) {
           </p>
           {item.quantity > 1 && (
             <p className="text-[11px] text-gray-400 mt-0.5">
-              {item.quantity} × ₹{unitPrice.toLocaleString("en-IN")}
+              {item.quantity} × {formatINR(unitPrice)}
             </p>
           )}
         </div>

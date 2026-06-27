@@ -6,6 +6,8 @@ import { toast } from "sonner"
 import { ShoppingCart, Trash2 } from "lucide-react"
 import { useCartStore } from "../../store/useCartStore"
 import { useWishlistStore } from "../../store/useWishlistStore"
+import { getDisplayPrices } from "../../lib/pricing"
+import PriceTag from "../products/PriceTag"
 
 export default function WishlistItem({ item, onRemoved }: any) {
   const addItem = useCartStore((s) => s.addItem)
@@ -50,9 +52,9 @@ export default function WishlistItem({ item, onRemoved }: any) {
           <p className="text-xs text-gray-400 mt-0.5">{item.product.brand.name}</p>
         )}
 
-        <p className="text-sm font-bold text-gray-900 mt-1.5">
-          ₹{item.product.price?.toLocaleString("en-IN")}
-        </p>
+        <div className="mt-1.5">
+          <PriceTag prices={getDisplayPrices(item.product)} />
+        </div>
       </div>
 
       {/* Actions */}

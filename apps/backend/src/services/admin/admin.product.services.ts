@@ -8,6 +8,9 @@ const baseProductSelect = {
   description: true,
   longDescription: true,
   price: true,
+  salePrice: true,
+  isOnSale: true,
+  priceDisplay: true,
   quantity: true,
   inStock: true,
   category: { select: { id: true, name: true, slug: true } },
@@ -17,7 +20,7 @@ const baseProductSelect = {
   },
   variants: {
     where: { deletedAt: null },
-    select: { id: true, name: true, price: true, stock: true },
+    select: { id: true, name: true, price: true, salePrice: true, isOnSale: true, stock: true },
   },
   createdAt: true,
   updatedAt: true,
@@ -31,6 +34,9 @@ export async function createProductService(data: {
   description?: string;
   longDescription?: string;
   price: number;
+  salePrice?: number;
+  isOnSale?: boolean;
+  priceDisplay?: "BOTH" | "REGULAR" | "SALE";
   quantity?: number;
   inStock?: boolean;
   categoryId: string;
@@ -70,6 +76,9 @@ export async function updateProductService(
     description: string | null;
     longDescription: string | null;
     price: number;
+    salePrice: number | null;
+    isOnSale: boolean;
+    priceDisplay: "BOTH" | "REGULAR" | "SALE";
     quantity: number;
     inStock: boolean;
     categoryId: string;

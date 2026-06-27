@@ -108,13 +108,22 @@ model Category {
   updatedAt DateTime @updatedAt
 }
 
+enum PriceDisplay {
+  BOTH
+  REGULAR
+  SALE
+}
+
 model Product {
   id          String   @id @default(uuid())
   name        String
   slug        String   @unique
   description String?
   longDescription String?
-  price       Decimal  @db.Decimal(12,2)
+  price        Decimal      @db.Decimal(12,2)
+  salePrice    Decimal?     @db.Decimal(12,2)
+  isOnSale     Boolean      @default(false)
+  priceDisplay PriceDisplay @default(BOTH)
   quantity    Int      @default(0)
   inStock     Boolean  @default(true)
   categoryId  String
@@ -157,9 +166,11 @@ model Variant {
   productId String
   product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 
-  name   String
-  price  Decimal? @db.Decimal(12,2)
-  stock  Int      @default(0)
+  name      String
+  price     Decimal? @db.Decimal(12,2)
+  salePrice Decimal? @db.Decimal(12,2)
+  isOnSale  Boolean  @default(false)
+  stock     Int      @default(0)
 
   cartItems  CartItem[]
   orderItems OrderItem[]

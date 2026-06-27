@@ -1,6 +1,7 @@
 import { prisma } from "@repo/db/client";
 import { ApiError } from "../utils/api";
 import { OrderErrorCode } from "../utils/orderErrors";
+import { resolveChargedPrice } from "../utils/pricing";
 import { Decimal } from "decimal.js";
 import type { CheckoutCalculateBody} from "@repo/zod-schema/index";
 import { validateCouponService } from "./coupons.services"; 
@@ -39,11 +40,11 @@ export async function calculateCheckoutService(userId: string, data: CheckoutCal
   const [products, variants] = await Promise.all([
     prisma.product.findMany({
       where: { id: { in: productIds }, deletedAt: null },
-      select: { id: true, price: true, quantity: true, inStock: true },
+      select: { id: true, price: true, salePrice: true, isOnSale: true, quantity: true, inStock: true },
     }),
     prisma.variant.findMany({
       where: { id: { in: variantIds }, deletedAt: null },
-      select: { id: true, price: true, stock: true, productId: true },
+      select: { id: true, price: true, salePrice: true, isOnSale: true, stock: true, productId: true },
     }),
   ]);
 
@@ -68,11 +69,11 @@ export async function calculateCheckoutService(userId: string, data: CheckoutCal
         hasInvalidItems = true;
         continue;
       }
-    
-      price = variant.price ?? product.price;
+
+      price = resolveChargedPrice(product, variant);
       stock = variant.stock;
     } else {
-      price = product.price;
+      price = resolveChargedPrice(product);
       stock = product.quantity;
     }
 

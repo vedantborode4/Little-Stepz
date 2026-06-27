@@ -1,6 +1,7 @@
 import { create } from "zustand"
 import { CartService } from "../lib/services/cart.service"
 import { CouponService } from "../lib/services/coupon.service"
+import { getChargedPrice } from "../lib/pricing"
 import type { CartItem } from "../types/cart"
 import { toast } from "sonner"
 
@@ -170,7 +171,7 @@ revalidateCoupon: async () => {
               quantity: i.quantity + payload.quantity,
               subtotal:
                 (i.quantity + payload.quantity) *
-                Number(i.product.price),
+                getChargedPrice(i.product, i.variant),
             }
           : i
       )
@@ -232,7 +233,7 @@ revalidateCoupon: async () => {
         ? {
             ...i,
             quantity,
-            subtotal: quantity * Number(i.product.price),
+            subtotal: quantity * getChargedPrice(i.product, i.variant),
           }
         : i
     )

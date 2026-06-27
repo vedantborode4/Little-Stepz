@@ -1,6 +1,7 @@
 import { prisma } from '@repo/db/client';
 import { ApiError } from '../utils/api';
 import { OrderErrorCode } from '../utils/orderErrors';
+import { resolveChargedPrice } from '../utils/pricing';
 import { Decimal } from 'decimal.js';
 import type { CreateOrderBody } from '@repo/zod-schema/index';
 import { validateCouponService } from './coupons.services';
@@ -60,12 +61,12 @@ export async function createOrderService(userId: string, data: CreateOrderBody, 
 
       const products = await tx.product.findMany({
         where: { id: { in: productIds }, deletedAt: null },
-        select: { id: true, price: true, quantity: true, inStock: true },
+        select: { id: true, price: true, salePrice: true, isOnSale: true, quantity: true, inStock: true },
       });
 
       const variants = await tx.variant.findMany({
         where: { id: { in: variantIds }, deletedAt: null },
-        select: { id: true, price: true, stock: true, productId: true },
+        select: { id: true, price: true, salePrice: true, isOnSale: true, stock: true, productId: true },
       });
 
       const productMap = new Map(products.map(p => [p.id, p]));
@@ -82,10 +83,10 @@ export async function createOrderService(userId: string, data: CreateOrderBody, 
         if (variantId) {
           const variant = variantMap.get(variantId);
           if (!variant || variant.productId !== item.productId) throw new ApiError(400, OrderErrorCode.VARIANT_DELETED);
-          price = variant.price ?? product.price;
+          price = resolveChargedPrice(product, variant);
           stock = variant.stock;
         } else {
-          price = product.price;
+          price = resolveChargedPrice(product);
           stock = product.quantity;
         }
 

@@ -1,5 +1,6 @@
 import { prisma } from "@repo/db/client";
 import { ApiError } from "../utils/api";
+import { resolveChargedPrice } from "../utils/pricing";
 import type {
   AddCartItemBody,
   UpdateCartItemBody,
@@ -32,6 +33,9 @@ export async function getCartService(identifier: CartIdentifier) {
           name: true,
           slug: true,
           price: true,
+          salePrice: true,
+          isOnSale: true,
+          priceDisplay: true,
           images: { take: 1, select: { url: true } },
           deletedAt: true,
         },
@@ -41,6 +45,8 @@ export async function getCartService(identifier: CartIdentifier) {
           id: true,
           name: true,
           price: true,
+          salePrice: true,
+          isOnSale: true,
           deletedAt: true,
         },
       },
@@ -56,10 +62,14 @@ export async function getCartService(identifier: CartIdentifier) {
 
   let subtotal = 0;
   const enhancedItems = validItems.map((item) => {
-    const price = item.variant?.price ?? item.product.price;
+    const price = resolveChargedPrice(item.product, item.variant);
     subtotal += item.quantity * Number(price);
     return {
       ...item,
+      product: { ...item.product, salePrice: item.product.isOnSale ? item.product.salePrice : null },
+      variant: item.variant
+        ? { ...item.variant, salePrice: item.variant.isOnSale ? item.variant.salePrice : null }
+        : item.variant,
       subtotal: item.quantity * Number(price),
     };
   });

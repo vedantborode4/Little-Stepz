@@ -2,6 +2,8 @@
 
 import Image from "next/image"
 import { useCartStore } from "../../store/useCartStore"
+import { getDisplayPrices } from "../../lib/pricing"
+import PriceTag from "../products/PriceTag"
 
 export default function OrderReview() {
   const items = useCartStore((s) => s.items)
@@ -28,7 +30,9 @@ export default function OrderReview() {
                 {item.variant.name}
               </span>
             )}
-            <p className="text-xs text-gray-400 mt-1">Qty: {item.quantity}</p>
+            <div className="mt-1 flex items-center gap-1 text-xs text-gray-400">
+              <PriceTag prices={getDisplayPrices(item.product, item.variant)} /> <span>· Qty: {item.quantity}</span>
+            </div>
           </div>
 
           <div className="text-sm font-bold text-gray-900 flex-shrink-0 self-center">

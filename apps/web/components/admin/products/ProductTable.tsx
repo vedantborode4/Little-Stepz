@@ -106,7 +106,16 @@ export default function AdminProductsTable() {
                       </div>
                     </td>
                     <td className="p-4 text-gray-600">{p.category?.name || "—"}</td>
-                    <td className="p-4 font-semibold text-gray-900">₹{p.price?.toLocaleString()}</td>
+                    <td className="p-4 font-semibold text-gray-900">
+                      {p.isOnSale && p.salePrice != null ? (
+                        <span className="flex flex-col leading-tight">
+                          <span>₹{Number(p.salePrice).toLocaleString()}</span>
+                          <span className="text-xs text-gray-400 line-through font-normal">₹{p.price?.toLocaleString()}</span>
+                        </span>
+                      ) : (
+                        <>₹{p.price?.toLocaleString()}</>
+                      )}
+                    </td>
                     <td className="p-4 text-gray-700">{p.quantity}</td>
                     <td className="p-4 text-gray-600">{p.variants?.length || 0}</td>
                     <td className="p-4">
@@ -134,7 +143,7 @@ export default function AdminProductsTable() {
                 <img src={p.images?.[0]?.url || "/placeholder.png"} className="w-12 h-12 object-cover rounded-xl border border-gray-100 shrink-0" alt={p.name}/>
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-gray-900 truncate text-sm">{p.name}</p>
-                  <p className="text-xs text-gray-500">{p.category?.name || "—"} · ₹{p.price?.toLocaleString()}</p>
+                  <p className="text-xs text-gray-500">{p.category?.name || "—"} · ₹{(p.isOnSale && p.salePrice != null ? Number(p.salePrice) : p.price)?.toLocaleString()}{p.isOnSale && p.salePrice != null && <span className="line-through text-gray-300 ml-1">₹{p.price?.toLocaleString()}</span>}</p>
                   <div className="flex items-center gap-2 mt-1">
                     <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${p.inStock ? "bg-green-50 text-green-600" : "bg-red-50 text-red-500"}`}>
                       {p.inStock ? "In Stock" : "Out"}

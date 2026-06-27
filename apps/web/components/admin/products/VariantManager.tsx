@@ -12,6 +12,8 @@ interface Variant {
   id: string
   name: string
   price?: number | null
+  salePrice?: number | null
+  isOnSale?: boolean
   stock?: number
 }
 
@@ -29,7 +31,7 @@ export default function VariantManager({
   onChange,
 }: Props) {
   const [variants, setVariants] = useState<Variant[]>(initialVariants)
-  const [form, setForm] = useState({ name: "", price: "", stock: "" })
+  const [form, setForm] = useState({ name: "", price: "", salePrice: "", isOnSale: false, stock: "" })
   const [errors, setErrors] = useState<any>({})
   const [loading, setLoading] = useState(false)
 
@@ -42,6 +44,8 @@ export default function VariantManager({
       productId,
       name: form.name,
       price: form.price ? Number(form.price) : undefined,
+      salePrice: form.salePrice ? Number(form.salePrice) : undefined,
+      isOnSale: form.isOnSale,
       stock: form.stock ? Number(form.stock) : undefined,
     })
 
@@ -56,7 +60,7 @@ export default function VariantManager({
       const { productId: _pid, ...variantBody } = parsed.data as any
       const newVariant = await AdminProductService.createVariant(productId, variantBody)
       setVariants((p) => [...p, newVariant])
-      setForm({ name: "", price: "", stock: "" })
+      setForm({ name: "", price: "", salePrice: "", isOnSale: false, stock: "" })
       setErrors({})
       onChange?.()
     } finally {
@@ -70,10 +74,18 @@ export default function VariantManager({
     )
     setVariants(updated)
 
-    const parsed = updateVariantBodySchema.safeParse({
-      [key]: key === "name" ? value : Number(value),
-    })
+    const current = updated.find((v) => v.id === id)!
+    const payload: Record<string, any> = {}
+    if (key === "name") payload.name = value
+    else if (key === "isOnSale") {
+      payload.isOnSale = value
+      // Include the existing sale price so the "on sale needs a sale price" rule can pass.
+      if (current.salePrice != null && current.salePrice !== ("" as any)) payload.salePrice = Number(current.salePrice)
+    } else {
+      payload[key] = Number(value)
+    }
 
+    const parsed = updateVariantBodySchema.safeParse(payload)
     if (!parsed.success) return
 
     await AdminProductService.updateVariant(id, parsed.data)
@@ -89,7 +101,7 @@ export default function VariantManager({
   return (
     <div className="bg-white rounded-xl p-2 space-y-6">
 
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 items-center">
         <Input
           placeholder="Variant name"
           value={form.name}
@@ -98,9 +110,16 @@ export default function VariantManager({
         <Input
           type="text"
           inputMode="decimal"
-          placeholder="Price"
+          placeholder="Regular price"
           value={form.price}
           onChange={(e) => { if (numericGuard(e.target.value)) setForm({ ...form, price: e.target.value }) }}
+        />
+        <Input
+          type="text"
+          inputMode="decimal"
+          placeholder="Sale price"
+          value={form.salePrice}
+          onChange={(e) => { if (numericGuard(e.target.value)) setForm({ ...form, salePrice: e.target.value }) }}
         />
         <Input
           type="number"
@@ -111,10 +130,17 @@ export default function VariantManager({
         <Button loading={loading} onClick={createVariant}>
           Add
         </Button>
+        <label className="col-span-2 sm:col-span-5 flex items-center gap-2 text-sm text-gray-700">
+          <input type="checkbox" checked={form.isOnSale} onChange={(e) => setForm({ ...form, isOnSale: e.target.checked })} className="w-4 h-4 rounded accent-primary" />
+          On sale — charge this variant&apos;s sale price
+        </label>
       </div>
+      {(errors.salePrice?.[0] || errors.price?.[0]) && (
+        <p className="text-xs text-red-500">{errors.salePrice?.[0] || errors.price?.[0]}</p>
+      )}
 
       {variants.map((v) => (
-        <div key={v.id} className="grid grid-cols-4 gap-3">
+        <div key={v.id} className="grid grid-cols-2 sm:grid-cols-5 gap-3 items-center">
           <Input
             value={v.name}
             onChange={(e) => updateVariant(v.id, "name", e.target.value)}
@@ -122,8 +148,16 @@ export default function VariantManager({
           <Input
             type="text"
             inputMode="decimal"
+            placeholder="Regular price"
             value={v.price ?? ""}
             onChange={(e) => { if (numericGuard(e.target.value)) updateVariant(v.id, "price", e.target.value) }}
+          />
+          <Input
+            type="text"
+            inputMode="decimal"
+            placeholder="Sale price"
+            value={v.salePrice ?? ""}
+            onChange={(e) => { if (numericGuard(e.target.value)) updateVariant(v.id, "salePrice", e.target.value) }}
           />
           <Input
             type="number"
@@ -133,6 +167,10 @@ export default function VariantManager({
           <Button className="bg-red-500" onClick={() => removeVariant(v.id)}>
             Delete
           </Button>
+          <label className="col-span-2 sm:col-span-5 flex items-center gap-2 text-sm text-gray-700">
+            <input type="checkbox" checked={v.isOnSale ?? false} onChange={(e) => updateVariant(v.id, "isOnSale", e.target.checked)} className="w-4 h-4 rounded accent-primary" />
+            On sale
+          </label>
         </div>
       ))}
 
