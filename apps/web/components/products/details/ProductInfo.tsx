@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
-import { Product } from "../../../types/product"
+import { Product, Variant } from "../../../types/product"
 import { getDisplayPrices } from "../../../lib/pricing"
 import PriceTag from "../PriceTag"
 import { RICH_TEXT_CLASS } from "../../../lib/richText"
@@ -11,7 +11,15 @@ import { useWishlistStore } from "../../../store/useWishlistStore"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 
-export default function ProductInfo({ product }: { product: Product }) {
+export default function ProductInfo({
+  product,
+  selectedVariant: controlledVariant,
+  onSelectVariant,
+}: {
+  product: Product
+  selectedVariant?: Variant | null
+  onSelectVariant?: (v: Variant) => void
+}) {
   const addItem = useCartStore((s) => s.addItem)
   const toggleWishlist = useWishlistStore((s) => s.toggle)
   const router = useRouter()
@@ -22,9 +30,15 @@ export default function ProductInfo({ product }: { product: Product }) {
   const [isAdding, setIsAdding] = useState(false)
   const [isBuyingNow, setIsBuyingNow] = useState(false)
 
-  const [selectedVariant, setSelectedVariant] = useState(
+  const [internalVariant, setInternalVariant] = useState(
     product.variants?.[0] || null
   )
+  // Controlled by the page (so the gallery can react) with a local fallback.
+  const selectedVariant = controlledVariant !== undefined ? controlledVariant : internalVariant
+  const setSelectedVariant = (v: Variant) => {
+    setInternalVariant(v)
+    onSelectVariant?.(v)
+  }
 
   // Sanitize the rich-text long description on the client only (avoids jsdom/SSR).
   const [safeLongDesc, setSafeLongDesc] = useState("")

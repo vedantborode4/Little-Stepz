@@ -17,7 +17,7 @@ export default function CartItem({ item }: { item: CartItemType }) {
   const key = `${item.productId}-${variantId ?? "no-variant"}`
   const isUpdating = updatingKey === key
 
-  const image = item.product.images?.[0]?.url || "/placeholder.png"
+  const image = item.variant?.images?.[0]?.url || item.product.images?.[0]?.url || "/placeholder.png"
   const unitPrice = getChargedPrice(item.product, item.variant)
   const lineTotal = unitPrice * item.quantity
   const unitPrices = getDisplayPrices(item.product, item.variant)

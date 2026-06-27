@@ -3,11 +3,13 @@ import { Request, Response } from "express";
 import { asyncHandler, ApiResponse, ApiError } from "../../utils/api";
 import {
   addProductImageSchema,
+  addVariantImageSchema,
   productImageParamsSchema,
   reorderImageBodySchema,
 } from "@repo/zod-schema/index";
 import {
   addProductImageService,
+  addVariantImageService,
   reorderProductImageService,
   deleteProductImageService,
   replaceProductImageService,
@@ -29,6 +31,24 @@ export const addProductImageController = asyncHandler(
     );
 
     return new ApiResponse(201, image, "Product image added").send(res);
+  }
+);
+
+export const addVariantImageController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const parsed = addVariantImageSchema.safeParse({
+      params: req.params,
+      body: req.body,
+    });
+    if (!parsed.success)
+      throw new ApiError(400, "Invalid variant image data", parsed.error.flatten().fieldErrors);
+
+    const image = await addVariantImageService(
+      parsed.data.params.variantId,
+      parsed.data.body
+    );
+
+    return new ApiResponse(201, image, "Variant image added").send(res);
   }
 );
 
@@ -55,15 +75,17 @@ export const deleteProductImageController = asyncHandler(
 
 export const getCloudinarySignatureController = asyncHandler(
   async (req: Request, res: Response) => {
-    const { productId } = req.query;
+    const { productId, variantId } = req.query;
 
-    if (!productId) {
-      throw new ApiError(400, "productId is required");
+    if (!productId && !variantId) {
+      throw new ApiError(400, "productId or variantId is required");
     }
 
     const timestamp = Math.round(Date.now() / 1000);
 
-    const folder = `products/${productId}`;
+    const folder = variantId
+      ? `variants/${variantId}`
+      : `products/${productId}`;
 
     const signature = cloudinary.utils.api_sign_request(
       { timestamp, folder },

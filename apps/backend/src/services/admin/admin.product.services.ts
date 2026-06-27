@@ -15,12 +15,20 @@ const baseProductSelect = {
   inStock: true,
   category: { select: { id: true, name: true, slug: true } },
   images: {
+    where: { variantId: null },
     orderBy: { sortOrder: "asc" },
     select: { id: true, url: true, alt: true, sortOrder: true },
   },
   variants: {
     where: { deletedAt: null },
-    select: { id: true, name: true, price: true, salePrice: true, isOnSale: true, stock: true },
+    select: {
+      id: true, name: true, price: true, salePrice: true, isOnSale: true, stock: true,
+      images: {
+        where: { deletedAt: null },
+        orderBy: { sortOrder: "asc" },
+        select: { id: true, url: true, alt: true, sortOrder: true },
+      },
+    },
   },
   createdAt: true,
   updatedAt: true,

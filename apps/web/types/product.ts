@@ -19,6 +19,7 @@ export interface Variant {
   salePrice?: string | null
   isOnSale?: boolean
   stock: number
+  images?: ProductImage[]
 }
 
 export interface Product {

@@ -99,7 +99,7 @@ export default function OrdersPage() {
           <div className="space-y-4">
             {orders.map((order) => {
               const images = order.items
-                ?.map((i: any) => i.product?.images?.[0]?.url)
+                ?.map((i: any) => i.variant?.images?.[0]?.url || i.product?.images?.[0]?.url)
                 .filter(Boolean)
                 .slice(0, 3) ?? []
               const itemCount = order.items?.length ?? 0

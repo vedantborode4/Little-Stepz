@@ -244,9 +244,9 @@ export default function OrderDetailsPage() {
 
         {o.items?.map((item: any) => (
           <div key={item.id} className="flex items-center gap-4 py-3 border-t border-gray-50 first:border-0">
-            {item.product?.images?.[0]?.url ? (
+            {(item.variant?.images?.[0]?.url || item.product?.images?.[0]?.url) ? (
               <img
-                src={item.product.images[0].url}
+                src={item.variant?.images?.[0]?.url || item.product.images[0].url}
                 alt={item.product.name}
                 className="w-14 h-14 object-cover rounded-xl border border-gray-100"
               />

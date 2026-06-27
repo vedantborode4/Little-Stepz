@@ -14,6 +14,7 @@ export interface ProductVariant {
   salePrice?: number | null
   isOnSale?: boolean
   stock: number
+  images?: ProductImage[]
 }
 
 export type PriceDisplay = "BOTH" | "REGULAR" | "SALE"

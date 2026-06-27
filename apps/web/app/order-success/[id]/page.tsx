@@ -122,9 +122,9 @@ export default function OrderSuccessPage() {
                     const itemTotal = Number(item.price ?? 0) * Number(item.quantity ?? 1)
                     return (
                       <div key={item.id ?? item.productId} className="flex items-center gap-3">
-                        {item.product?.images?.[0]?.url ? (
+                        {(item.variant?.images?.[0]?.url || item.product?.images?.[0]?.url) ? (
                           <img
-                            src={item.product.images[0].url}
+                            src={item.variant?.images?.[0]?.url || item.product.images[0].url}
                             alt={item.product.name}
                             className="w-11 h-11 object-cover rounded-lg border border-gray-100"
                           />

@@ -9,8 +9,21 @@ export const AdminProductImageService = {
     return res.data.data
   },
 
+  getVariantSignature: async (variantId: string) => {
+    const res = await api.get(
+      "/admin/products/images/upload-signature",
+      { params: { variantId } }
+    )
+    return res.data.data
+  },
+
   addImage: async (productId: string, payload: any) => {
     const res = await api.post(`/admin/products/${productId}/images`, payload)
+    return res.data.data
+  },
+
+  addVariantImage: async (variantId: string, payload: any) => {
+    const res = await api.post(`/admin/products/variants/${variantId}/images`, payload)
     return res.data.data
   },
 

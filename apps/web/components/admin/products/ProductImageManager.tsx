@@ -10,12 +10,15 @@ interface Props {
   productId: string
   images: any[]
   onChange: (imgs: any[]) => void
+  /** When set, images are managed for this variant instead of the product. */
+  variantId?: string
 }
 
 export default function ProductImageManager({
   productId,
   images,
   onChange,
+  variantId,
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
   const replaceInputRef = useRef<HTMLInputElement>(null)
@@ -24,17 +27,27 @@ export default function ProductImageManager({
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
 
+  const getSignature = () =>
+    variantId
+      ? AdminProductImageService.getVariantSignature(variantId)
+      : AdminProductImageService.getSignature(productId)
+
+  const addImage = (payload: any) =>
+    variantId
+      ? AdminProductImageService.addVariantImage(variantId, payload)
+      : AdminProductImageService.addImage(productId, payload)
+
   /* ─── Add new images ─── */
   const handleUpload = async (files: FileList | null) => {
     if (!files || !files.length) return
     setUploading(true)
     try {
-      const signature = await AdminProductImageService.getSignature(productId)
+      const signature = await getSignature()
       const newImages = [...images]
 
       for (const file of Array.from(files)) {
         const uploaded = await uploadToCloudinary(file, signature)
-        const saved = await AdminProductImageService.addImage(productId, {
+        const saved = await addImage({
           url: uploaded.secure_url,
           publicId: uploaded.public_id,
         })
@@ -54,7 +67,7 @@ export default function ProductImageManager({
   const handleReplace = async (file: File, imageId: string) => {
     setReplacingId(imageId)
     try {
-      const signature = await AdminProductImageService.getSignature(productId)
+      const signature = await getSignature()
       const uploaded = await uploadToCloudinary(file, signature)
       const updated = await AdminProductImageService.replaceImage(imageId, {
         url: uploaded.secure_url,

@@ -208,16 +208,21 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
           <input type="checkbox" checked={form.inStock} onChange={e => onChange("inStock", e.target.checked)} className="w-4 h-4 rounded accent-primary" />
           <span className="text-sm font-medium text-gray-700">Product is in stock</span>
         </label>
-      </div>
 
-      {/* Save button */}
-      <button
-        onClick={submit}
-        disabled={loading}
-        className="w-full sm:w-auto bg-primary text-white px-6 sm:px-8 py-3 rounded-xl font-medium hover:bg-primary/90 transition disabled:opacity-60"
-      >
-        {loading ? "Saving…" : mode === "edit" ? "Update Product" : "Create Product"}
-      </button>
+        {/* Save — scoped to product details only */}
+        <div className="pt-4 border-t border-gray-100 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+          <button
+            onClick={submit}
+            disabled={loading}
+            className="w-full sm:w-auto bg-primary text-white px-6 sm:px-8 py-3 rounded-xl font-medium hover:bg-primary/90 transition disabled:opacity-60"
+          >
+            {loading ? "Saving…" : mode === "edit" ? "Update Product Details" : "Create Product"}
+          </button>
+          <p className="text-xs text-gray-400">
+            Saves product details only. Images and variants are saved in their own sections below.
+          </p>
+        </div>
+      </div>
 
       {/* Images & Variants — shown after product is saved */}
       {saved && productId && (

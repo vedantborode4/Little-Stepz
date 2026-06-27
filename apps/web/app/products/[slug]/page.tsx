@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
 
 import { ProductService } from "../../../lib/services/product.service"
-import type { Product } from "../../../types/product"
+import type { Product, Variant } from "../../../types/product"
 
 import ProductGallery from "../../../components/products/details/ProductGallery"
 import ProductInfo from "../../../components/products/details/ProductInfo"
@@ -20,6 +20,7 @@ export default function ProductDetailsPage() {
   const slug = params?.slug
 
   const [product, setProduct] = useState<Product | null>(null)
+  const [selectedVariant, setSelectedVariant] = useState<Variant | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
 
@@ -34,6 +35,7 @@ export default function ProductDetailsPage() {
         setError(false)
         const data = await ProductService.getBySlug(slug)
         setProduct(data)
+        setSelectedVariant(data.variants?.[0] || null)
       } catch {
         setError(true)
       } finally {
@@ -94,8 +96,15 @@ export default function ProductDetailsPage() {
       <Breadcrumbs product={product} />
 
       <div className="grid lg:grid-cols-2 gap-10">
-        <ProductGallery images={product.images} />
-        <ProductInfo product={product} />
+        <ProductGallery
+          key={selectedVariant?.id ?? "product"}
+          images={selectedVariant?.images?.length ? selectedVariant.images : product.images}
+        />
+        <ProductInfo
+          product={product}
+          selectedVariant={selectedVariant}
+          onSelectVariant={setSelectedVariant}
+        />
       </div>
 
       {/* Review section - full width below */}

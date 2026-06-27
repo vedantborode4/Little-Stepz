@@ -19,6 +19,7 @@ export interface CartItem {
     price: string
     salePrice?: string | null
     isOnSale?: boolean
+    images?: { url: string }[]
   } | null
 
   subtotal: number

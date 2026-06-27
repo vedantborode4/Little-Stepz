@@ -14,6 +14,19 @@ export const addProductImageSchema = z.object({
 });
 
 
+export const addVariantImageSchema = z.object({
+    params:  z.object({
+        variantId: uuidSchema,
+    }),
+    body: z.object({
+        url: z.string().url(),
+        publicId: z.string().min(1),
+        alt: z.string().max(200).optional(),
+        sortOrder: z.number().int().min(0).optional(),
+    }),
+});
+
+
 export const productImageParamsSchema = z.object({
     imageId: uuidSchema
 });
@@ -25,5 +38,6 @@ export const reorderImageBodySchema = z.object({
 
 
 export type AddProductImageData = z.infer<typeof addProductImageSchema>;
+export type AddVariantImageData = z.infer<typeof addVariantImageSchema>;
 export type ProductImageParams = z.infer<typeof productImageParamsSchema>;
 export type ReorderImageBody = z.infer<typeof reorderImageBodySchema>;

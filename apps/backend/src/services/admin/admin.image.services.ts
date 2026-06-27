@@ -10,12 +10,57 @@ type AddImageInput = {
   publicId: string;
 };
 
+const imageSelect = {
+  id: true,
+  url: true,
+  alt: true,
+  sortOrder: true,
+} as const;
+
+// Images are scoped to a product, and optionally to a specific variant of that
+// product. Variant images carry both productId (parent) and variantId.
+async function createScopedImage(
+  tx: any,
+  productId: string,
+  variantId: string | null,
+  data: AddImageInput
+) {
+  const scope = { productId, variantId, deletedAt: null };
+
+  const imageCount = await tx.productImage.count({ where: scope });
+  if (imageCount >= 8) {
+    throw new ApiError(
+      400,
+      `Maximum 8 images allowed per ${variantId ? "variant" : "product"}`
+    );
+  }
+
+  const lastOrder = await tx.productImage.findFirst({
+    where: scope,
+    orderBy: { sortOrder: "desc" },
+    select: { sortOrder: true },
+  });
+
+  const sortOrder = data.sortOrder ?? (lastOrder?.sortOrder ?? -1) + 1;
+
+  return tx.productImage.create({
+    data: {
+      productId,
+      variantId,
+      url: data.url,
+      publicId: data.publicId,
+      alt: data.alt,
+      sortOrder,
+    },
+    select: imageSelect,
+  });
+}
+
 export async function addProductImageService(
   productId: string,
   data: AddImageInput
 ) {
   return prisma.$transaction(async (tx) => {
-
     const product = await tx.product.findFirst({
       where: { id: productId, deletedAt: null },
       select: { id: true },
@@ -25,43 +70,25 @@ export async function addProductImageService(
       throw new ApiError(404, "Product not found");
     }
 
-    const imageCount = await tx.productImage.count({
-      where: { productId, deletedAt: null },
+    return createScopedImage(tx, productId, null, data);
+  });
+}
+
+export async function addVariantImageService(
+  variantId: string,
+  data: AddImageInput
+) {
+  return prisma.$transaction(async (tx) => {
+    const variant = await tx.variant.findFirst({
+      where: { id: variantId, deletedAt: null },
+      select: { id: true, productId: true },
     });
 
-    if (imageCount >= 8) {
-      throw new ApiError(400, "Maximum 8 images allowed per product");
+    if (!variant) {
+      throw new ApiError(404, "Variant not found");
     }
 
-    const lastOrder = await tx.productImage.findFirst({
-      where: {
-        productId,
-        deletedAt: null,
-      },
-      orderBy: { sortOrder: "desc" },
-      select: { sortOrder: true },
-    });
-
-    const sortOrder =
-      data.sortOrder ?? (lastOrder?.sortOrder ?? -1) + 1;
-
-    const image = await tx.productImage.create({
-      data: {
-        productId,
-        url: data.url,
-        publicId: data.publicId,
-        alt: data.alt,
-        sortOrder,
-      },
-      select: {
-        id: true,
-        url: true,
-        alt: true,
-        sortOrder: true,
-      },
-    });
-
-    return image;
+    return createScopedImage(tx, variant.productId, variantId, data);
   });
 }
 
@@ -72,7 +99,7 @@ export async function reorderProductImageService(
   return prisma.$transaction(async (tx) => {
     const image = await tx.productImage.findFirst({
       where: { id: imageId, deletedAt: null },
-      select: { id: true, productId: true, sortOrder: true },
+      select: { id: true, productId: true, variantId: true, sortOrder: true },
     });
 
     if (!image) {
@@ -90,6 +117,7 @@ export async function reorderProductImageService(
       await tx.productImage.updateMany({
         where: {
           productId: image.productId,
+          variantId: image.variantId,
           deletedAt: null,
           sortOrder: {
             gt: image.sortOrder,
@@ -102,6 +130,7 @@ export async function reorderProductImageService(
       await tx.productImage.updateMany({
         where: {
           productId: image.productId,
+          variantId: image.variantId,
           deletedAt: null,
           sortOrder: {
             gte: newOrder,
@@ -133,7 +162,7 @@ export async function deleteProductImageService(imageId: string) {
   await prisma.$transaction(async (tx) => {
     const image = await tx.productImage.findFirst({
       where: { id: imageId, deletedAt: null },
-      select: { id: true, productId: true, sortOrder: true, publicId: true },
+      select: { id: true, productId: true, variantId: true, sortOrder: true, publicId: true },
     });
 
     if (!image) {
@@ -150,6 +179,7 @@ export async function deleteProductImageService(imageId: string) {
     await tx.productImage.updateMany({
       where: {
         productId: image.productId,
+        variantId: image.variantId,
         deletedAt: null,
         sortOrder: { gt: image.sortOrder },
       },
