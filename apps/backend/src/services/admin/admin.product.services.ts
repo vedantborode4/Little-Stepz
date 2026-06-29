@@ -1,5 +1,6 @@
 import { prisma } from "@repo/db/client";
 import { ApiError } from "../../utils/api";
+import { notifyRestockedPreOrders } from "../preorder.services";
 
 const baseProductSelect = {
   id: true,
@@ -13,6 +14,11 @@ const baseProductSelect = {
   priceDisplay: true,
   quantity: true,
   inStock: true,
+  preOrderEnabled: true,
+  bookingAmount: true,
+  preOrderLimit: true,
+  preOrderCount: true,
+  preOrderNote: true,
   category: { select: { id: true, name: true, slug: true } },
   images: {
     where: { variantId: null },
@@ -48,6 +54,10 @@ export async function createProductService(data: {
   quantity?: number;
   inStock?: boolean;
   categoryId: string;
+  preOrderEnabled?: boolean;
+  bookingAmount?: number;
+  preOrderLimit?: number;
+  preOrderNote?: string;
 }) {
   if (!data.slug?.trim()) {
     throw new ApiError(400, "Slug is required");
@@ -90,6 +100,10 @@ export async function updateProductService(
     quantity: number;
     inStock: boolean;
     categoryId: string;
+    preOrderEnabled: boolean;
+    bookingAmount: number | null;
+    preOrderLimit: number | null;
+    preOrderNote: string | null;
   }>
 ) {
   const product = await prisma.product.findFirst({
@@ -138,6 +152,11 @@ export async function updateProductService(
     data: updateData,
     select: baseProductSelect,
   });
+
+  // Restock event: product went from unavailable -> available. Notify product-level pre-orders.
+  if (product.quantity <= 0 && updated.quantity > 0) {
+    void notifyRestockedPreOrders(id, null);
+  }
 
   return updated;
 }

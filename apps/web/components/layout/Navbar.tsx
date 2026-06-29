@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { ShoppingCart, Heart, LogOut, User, ChevronDown, Menu, X, Package, Percent, LayoutDashboard, ChevronRight, Search } from "lucide-react"
+import { ShoppingCart, Heart, LogOut, User, ChevronDown, Menu, X, Package, Percent, LayoutDashboard, ChevronRight, Search, Clock } from "lucide-react"
 import { useAuthStore } from "../../store/auth.store"
 import { useCartStore } from "../../store/useCartStore"
 import { useWishlistStore } from "../../store/useWishlistStore"
@@ -152,6 +152,10 @@ export default function Navbar() {
               <Link href="/products" className="px-3 py-2 rounded-lg text-gray-600 hover:text-primary hover:bg-gray-50 transition-colors">
                 All Products
               </Link>
+
+              <Link href="/pre-orders" className="px-3 py-2 rounded-lg text-gray-600 hover:text-primary hover:bg-gray-50 transition-colors">
+                Pre-Order
+              </Link>
             </nav>
 
             {/* Desktop Search */}
@@ -217,6 +221,7 @@ export default function Navbar() {
                       <div className="py-1">
                         <MenuItem href="/profile" icon={User} label="My Profile" onClick={() => setOpenUser(false)} />
                         <MenuItem href="/account/orders" icon={Package} label="My Orders" onClick={() => setOpenUser(false)} />
+                        <MenuItem href="/account/pre-orders" icon={Clock} label="My Pre-Orders" onClick={() => setOpenUser(false)} />
                         {isAdmin && (
                           <MenuItem href="/admin" icon={LayoutDashboard} label="Admin Panel" onClick={() => setOpenUser(false)} accent />
                         )}
@@ -359,6 +364,7 @@ export default function Navbar() {
           {/* All Products */}
           <div className="px-3 pb-1">
             <MobileNavLink href="/products" icon={<ShoppingCart size={15} className="text-gray-400" />} label="All Products" />
+            <MobileNavLink href="/pre-orders" icon={<Clock size={15} className="text-gray-400" />} label="Pre-Order" />
           </div>
 
           {/* Categories with accordion */}
@@ -434,6 +440,7 @@ export default function Navbar() {
               <div className="space-y-0.5">
                 <MobileNavLink href="/profile" icon={<User size={15} className="text-gray-400" />} label="My Profile" />
                 <MobileNavLink href="/account/orders" icon={<Package size={15} className="text-gray-400" />} label="My Orders" />
+                <MobileNavLink href="/account/pre-orders" icon={<Clock size={15} className="text-gray-400" />} label="My Pre-Orders" />
                 {isAdmin && (
                   <MobileNavLink href="/admin" icon={<LayoutDashboard size={15} className="text-primary" />} label="Admin Panel" accent />
                 )}

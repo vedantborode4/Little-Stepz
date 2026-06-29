@@ -36,6 +36,11 @@ const baseProductSelect = {
   priceDisplay: true,
   quantity: true,
   inStock: true,
+  preOrderEnabled: true,
+  bookingAmount: true,
+  preOrderLimit: true,
+  preOrderCount: true,
+  preOrderNote: true,
   category: { select: { id: true, name: true, slug: true } },
   images: {
     where: { variantId: null },
@@ -66,6 +71,7 @@ export async function getProductsService({
   minPrice,
   maxPrice,
   categoryId,
+  preOrder,
 }: {
   page?: number;
   limit?: number;
@@ -74,6 +80,7 @@ export async function getProductsService({
   minPrice?: number;
   maxPrice?: number;
   categoryId?: string;
+  preOrder?: boolean;
 }) {
   const skip = (page - 1) * limit;
   const { field, order } = parseSort(sort);
@@ -81,6 +88,8 @@ export async function getProductsService({
   const where: any = {
     deletedAt: null
   };
+
+  if (preOrder !== undefined) where.preOrderEnabled = preOrder;
 
   if (inStock !== undefined) where.inStock = inStock;
   if (categoryId) where.categoryId = categoryId;

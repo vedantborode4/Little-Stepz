@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { optionalPriceSchema, priceSchema, quantitySchema, slugSchema, uuidSchema } from "./common";
+import { optionalPriceSchema, priceSchema, stockSchema, slugSchema, uuidSchema } from "./common";
 
 const productBaseSchema = z.object({
     name: z.string()
@@ -28,17 +28,22 @@ const productBaseSchema = z.object({
         .optional()
         .default("BOTH"),
 
-    quantity: quantitySchema.default(0),
+    quantity: stockSchema.default(0),
 
     inStock: z.boolean()
         .optional()
         .default(true),
 
-    categoryId: uuidSchema
+    categoryId: uuidSchema,
+
+    preOrderEnabled: z.boolean().optional().default(false),
+    bookingAmount: optionalPriceSchema,
+    preOrderLimit: z.coerce.number().int().positive().optional(),
+    preOrderNote: z.string().max(200).optional(),
 });
 
 const refineSalePrice = (
-    data: { price?: number; salePrice?: number; isOnSale?: boolean; priceDisplay?: string },
+    data: { price?: number; salePrice?: number; isOnSale?: boolean; priceDisplay?: string; preOrderEnabled?: boolean; bookingAmount?: number },
     ctx: z.RefinementCtx
 ) => {
     if (data.salePrice != null && data.price != null && data.salePrice >= data.price) {
@@ -61,6 +66,26 @@ const refineSalePrice = (
             path: ["priceDisplay"],
             message: "Cannot show only the regular price while the product is on sale",
         });
+    }
+    if (data.preOrderEnabled && (data.bookingAmount == null || data.bookingAmount <= 0)) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["bookingAmount"],
+            message: "Set a booking amount to enable pre-orders",
+        });
+    }
+    if (data.bookingAmount != null) {
+        // Validate against the price the customer is actually charged (sale price when on sale),
+        // so the booking can never meet/exceed what they'd pay — which would break the balance.
+        const effectivePrice =
+            data.isOnSale && data.salePrice != null ? data.salePrice : data.price;
+        if (effectivePrice != null && data.bookingAmount >= effectivePrice) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ["bookingAmount"],
+                message: "Booking amount must be less than the (sale) price",
+            });
+        }
     }
 };
 

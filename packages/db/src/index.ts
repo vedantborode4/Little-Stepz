@@ -13,6 +13,7 @@ import {
   ReturnStatus,
   ShipmentStatus,
   BannerPosition,
+  PreOrderStatus,
 } from "@prisma/client";
 
 export const prisma = new PrismaClient();
@@ -31,4 +32,5 @@ export {
   ReturnStatus,
   ShipmentStatus,
   BannerPosition,
+  PreOrderStatus,
 };

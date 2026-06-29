@@ -34,6 +34,7 @@ model User {
   affiliate     Affiliate?
   refreshTokens RefreshToken[]
   auditLogs     AuditLog[]
+  preOrders     PreOrder[]
 
   deletedAt DateTime?
 
@@ -83,6 +84,7 @@ model Address {
   isDefault Boolean @default(false)
 
   orders    Order[]
+  preOrders PreOrder[]
 
   deletedAt DateTime?
 
@@ -128,6 +130,12 @@ model Product {
   inStock     Boolean  @default(true)
   categoryId  String
 
+  preOrderEnabled Boolean  @default(false)
+  bookingAmount   Decimal? @db.Decimal(12,2)
+  preOrderLimit   Int?
+  preOrderCount   Int      @default(0)
+  preOrderNote    String?
+
   category     Category      @relation(fields: [categoryId], references: [id])
   images       ProductImage[]
   variants     Variant[]
@@ -135,6 +143,7 @@ model Product {
   wishlistItem WishlistItem[]
   orderItems   OrderItem[]
   reviews      Review[]
+  preOrders    PreOrder[]
 
   deletedAt DateTime?
 
@@ -180,12 +189,71 @@ model Variant {
   cartItems  CartItem[]
   orderItems OrderItem[]
   images     ProductImage[]
+  preOrders  PreOrder[]
 
   deletedAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   @@unique([productId, name])
+}
+
+enum PreOrderStatus {
+  PENDING_BOOKING
+  BOOKED
+  AWAITING_BALANCE
+  COMPLETED
+  EXPIRED
+  CANCELLED
+  REFUNDED
+}
+
+model PreOrder {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  variantId String?
+  variant   Variant? @relation(fields: [variantId], references: [id])
+  quantity  Int      @default(1)
+  addressId String?
+  address   Address? @relation(fields: [addressId], references: [id])
+
+  unitPrice       Decimal @db.Decimal(12,2)
+  bookingAmount   Decimal @db.Decimal(12,2)
+  shippingCharges Decimal @default(0) @db.Decimal(12,2)
+  totalAmount     Decimal @db.Decimal(12,2)
+  balanceAmount   Decimal @db.Decimal(12,2)
+
+  status PreOrderStatus @default(PENDING_BOOKING)
+
+  bookingRazorpayOrderId   String?   @unique
+  bookingRazorpayPaymentId String?   @unique
+  bookingPaidAt            DateTime?
+
+  balanceToken             String?   @unique
+  balanceRazorpayOrderId   String?   @unique
+  balanceRazorpayPaymentId String?   @unique
+  balancePaidAt            DateTime?
+  notifiedAt               DateTime?
+  balanceDueAt             DateTime?
+
+  refundId   String?
+  refundedAt DateTime?
+
+  orderId String? @unique
+  order   Order?  @relation(fields: [orderId], references: [id])
+
+  idempotencyKey String @unique
+
+  deletedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([productId])
+  @@index([status])
 }
 
 model CartItem {
@@ -307,6 +375,7 @@ model Order {
   commissions          Commission[]
   returns              Return[]
   shipments            Shipment[]
+  preOrder             PreOrder?
 
   affiliateId String?
   affiliate   Affiliate? @relation(fields: [affiliateId], references: [id])

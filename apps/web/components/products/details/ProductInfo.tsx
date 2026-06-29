@@ -5,10 +5,11 @@ import { Product, Variant } from "../../../types/product"
 import { getDisplayPrices } from "../../../lib/pricing"
 import PriceTag from "../PriceTag"
 import { RICH_TEXT_CLASS } from "../../../lib/richText"
-import { Heart, Loader2, Zap, ShoppingCart, Star, Shield, Truck } from "lucide-react"
+import { Heart, Loader2, Zap, ShoppingCart, Star, Shield, Truck, Clock } from "lucide-react"
 import { useCartStore } from "../../../store/useCartStore"
 import { useWishlistStore } from "../../../store/useWishlistStore"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { toast } from "sonner"
 
 export default function ProductInfo({
@@ -66,6 +67,8 @@ export default function ProductInfo({
     if (!selectedVariant) return product.quantity ?? 10
     return selectedVariant.stock
   }, [selectedVariant, product.quantity])
+
+  const canPreOrder = !inStock && !!product.preOrderEnabled && product.bookingAmount != null
 
   const handleAddToCart = async () => {
     if (isAdding) return
@@ -134,11 +137,27 @@ export default function ProductInfo({
         <div className="flex items-center gap-4">
           <PriceTag prices={displayPrices} size="lg" />
           <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-            inStock ? "bg-green-50 text-green-600" : "bg-red-50 text-red-500"
+            inStock ? "bg-green-50 text-green-600" : canPreOrder ? "bg-primary/10 text-primary" : "bg-red-50 text-red-500"
           }`}>
-            {inStock ? "● In Stock" : "● Out of Stock"}
+            {inStock ? "● In Stock" : canPreOrder ? "● Pre-Order" : "● Out of Stock"}
           </span>
         </div>
+
+        {/* Pre-order banner */}
+        {canPreOrder && (
+          <div className="bg-primary/5 border border-primary/15 rounded-xl p-3.5 flex items-start gap-2.5">
+            <Clock size={16} className="text-primary flex-shrink-0 mt-0.5" />
+            <div className="text-sm">
+              <p className="font-semibold text-primary">
+                Pre-order now · Pay ₹{Number(product.bookingAmount).toLocaleString("en-IN")} booking
+              </p>
+              <p className="text-primary/70 text-xs mt-0.5">
+                Pay the balance via a secure link when it's back in stock.
+                {product.preOrderNote ? ` ${product.preOrderNote}` : ""}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Rating placeholder */}
         <div className="flex items-center gap-1.5">
@@ -200,22 +219,34 @@ export default function ProductInfo({
 
         {/* CTA buttons — desktop */}
         <div className="hidden lg:flex gap-3 pt-1">
-          <button
-            onClick={handleAddToCart}
-            disabled={!inStock || isAdding || isBuyingNow}
-            className="flex-1 border-2 border-primary text-primary py-3.5 rounded-xl font-semibold hover:bg-primary/5 transition disabled:opacity-50 flex items-center justify-center gap-2"
-          >
-            {isAdding ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShoppingCart size={17} />}
-            {isAdding ? "Adding…" : "Add to Cart"}
-          </button>
-          <button
-            onClick={handleBuyNow}
-            disabled={!inStock || isAdding || isBuyingNow}
-            className="flex-1 bg-primary text-white py-3.5 rounded-xl font-semibold hover:opacity-90 transition disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm"
-          >
-            {isBuyingNow ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap size={17} />}
-            {isBuyingNow ? "Please wait…" : "Buy Now"}
-          </button>
+          {canPreOrder ? (
+            <Link
+              href={`/pre-order/${product.slug}${selectedVariant ? `?variant=${selectedVariant.id}` : ""}`}
+              className="flex-1 bg-primary text-white py-3.5 rounded-xl font-semibold hover:opacity-90 transition flex items-center justify-center gap-2 shadow-sm"
+            >
+              <Clock size={17} />
+              Pre-Order · ₹{Number(product.bookingAmount).toLocaleString("en-IN")}
+            </Link>
+          ) : (
+            <>
+              <button
+                onClick={handleAddToCart}
+                disabled={!inStock || isAdding || isBuyingNow}
+                className="flex-1 border-2 border-primary text-primary py-3.5 rounded-xl font-semibold hover:bg-primary/5 transition disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isAdding ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShoppingCart size={17} />}
+                {isAdding ? "Adding…" : "Add to Cart"}
+              </button>
+              <button
+                onClick={handleBuyNow}
+                disabled={!inStock || isAdding || isBuyingNow}
+                className="flex-1 bg-primary text-white py-3.5 rounded-xl font-semibold hover:opacity-90 transition disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm"
+              >
+                {isBuyingNow ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap size={17} />}
+                {isBuyingNow ? "Please wait…" : "Buy Now"}
+              </button>
+            </>
+          )}
         </div>
 
         {/* Trust badges */}
@@ -258,22 +289,34 @@ export default function ProductInfo({
 
       {/* Mobile sticky CTA */}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 p-3 flex gap-2.5 z-30 shadow-lg">
-        <button
-          onClick={handleAddToCart}
-          disabled={!inStock || isAdding || isBuyingNow}
-          className="flex-1 border-2 border-primary text-primary py-3 rounded-xl font-semibold disabled:opacity-50 flex items-center justify-center gap-1.5 text-sm"
-        >
-          {isAdding && <Loader2 className="w-4 h-4 animate-spin" />}
-          {isAdding ? "Adding…" : "Add to Cart"}
-        </button>
-        <button
-          onClick={handleBuyNow}
-          disabled={!inStock || isAdding || isBuyingNow}
-          className="flex-1 bg-primary text-white py-3 rounded-xl font-semibold disabled:opacity-50 flex items-center justify-center gap-1.5 text-sm shadow-sm"
-        >
-          {isBuyingNow ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap size={15} />}
-          {isBuyingNow ? "…" : "Buy Now"}
-        </button>
+        {canPreOrder ? (
+          <Link
+            href={`/pre-order/${product.slug}${selectedVariant ? `?variant=${selectedVariant.id}` : ""}`}
+            className="flex-1 bg-primary text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-1.5 text-sm shadow-sm"
+          >
+            <Clock size={15} />
+            Pre-Order · ₹{Number(product.bookingAmount).toLocaleString("en-IN")}
+          </Link>
+        ) : (
+          <>
+            <button
+              onClick={handleAddToCart}
+              disabled={!inStock || isAdding || isBuyingNow}
+              className="flex-1 border-2 border-primary text-primary py-3 rounded-xl font-semibold disabled:opacity-50 flex items-center justify-center gap-1.5 text-sm"
+            >
+              {isAdding && <Loader2 className="w-4 h-4 animate-spin" />}
+              {isAdding ? "Adding…" : "Add to Cart"}
+            </button>
+            <button
+              onClick={handleBuyNow}
+              disabled={!inStock || isAdding || isBuyingNow}
+              className="flex-1 bg-primary text-white py-3 rounded-xl font-semibold disabled:opacity-50 flex items-center justify-center gap-1.5 text-sm shadow-sm"
+            >
+              {isBuyingNow ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap size={15} />}
+              {isBuyingNow ? "…" : "Buy Now"}
+            </button>
+          </>
+        )}
       </div>
     </>
   )

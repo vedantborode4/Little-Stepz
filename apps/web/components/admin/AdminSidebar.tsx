@@ -5,12 +5,13 @@ import { usePathname } from "next/navigation"
 import clsx from "clsx"
 import {
   LayoutDashboard, ShoppingCart, Package, Users, Ticket,
-  Star, Image, FolderTree, DollarSign, Wallet, Home, X,
+  Star, Image, FolderTree, DollarSign, Wallet, Home, X, CalendarClock,
 } from "lucide-react"
 
 const items = [
   { label: "Dashboard",   href: "/admin",              icon: LayoutDashboard },
   { label: "Orders",      href: "/admin/orders",        icon: ShoppingCart },
+  { label: "Pre-Orders",  href: "/admin/pre-orders",    icon: CalendarClock },
   { label: "Products",    href: "/admin/products",      icon: Package },
   { label: "Categories",  href: "/admin/categories",    icon: FolderTree },
   { label: "Affiliates",  href: "/admin/affiliates",    icon: Users },

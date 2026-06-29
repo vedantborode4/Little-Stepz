@@ -5,6 +5,7 @@ import DynamicPromoBanner from "../components/home/DynamicPromoBanner"
 import PromoBannerRow from "../components/home/PromoBannerRow"
 import WhyChooseUs from "../components/home/WhyChooseUs"
 import BestSellers from "../components/home/BestSellers"
+import PreOrderHome from "../components/home/PreOrderHome"
 import SectionHeader from "../components/home/SectionHeader"
 import { HeadingFor } from "../components/home/HeadingFor"
 
@@ -47,6 +48,9 @@ export default function Home() {
         <SectionHeader title="Best Sellers" subtitle="Our most loved products" />
         <BestSellers sort="newest" />
       </section>
+
+      {/* 7. Pre-Order (self-hides when empty) */}
+      <PreOrderHome />
 
       {/* 7. Footer is rendered globally in the root layout */}
 

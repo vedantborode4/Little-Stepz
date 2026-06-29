@@ -23,6 +23,7 @@ async function getProducts(req: Request, res: Response) {
   const safeLimit = Math.min(limit, 100);
   const sort = sanitizeString((req.query.sort as string) || "createdAt:desc");
   const inStock = req.query.inStock ? req.query.inStock === "true" : undefined;
+  const preOrder = req.query.preOrder ? req.query.preOrder === "true" : undefined;
 
   let minPrice: number | undefined;
   if (req.query.minPrice !== undefined) {
@@ -57,6 +58,7 @@ async function getProducts(req: Request, res: Response) {
     minPrice,
     maxPrice,
     categoryId,
+    preOrder,
   });
 
   return new ApiResponse(200, result, "Products fetched").send(res);

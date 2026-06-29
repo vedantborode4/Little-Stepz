@@ -11,6 +11,7 @@ import { cartRouter } from "./cart.routes";
 import { couponsRouter } from "./coupons.routes";
 import { checkoutRouter } from "./checkout.routes";
 import { ordersRouter } from "./orders.routes";
+import { preOrderRouter } from "./preorder.routes";
 import { paymentRouter }  from "./payment.routes";
 import { webhookRouter }  from "./webhook.routes";
 import { affiliateRouter }  from "./affiliate.routes";
@@ -44,6 +45,8 @@ appRouter.use("/coupons", couponsRouter)
 appRouter.use("/checkout", checkoutRouter)
 
 appRouter.use("/orders", ordersRouter)
+
+appRouter.use("/pre-orders", preOrderRouter)
 
 appRouter.use("/payments",   paymentRouter);
 

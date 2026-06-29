@@ -23,6 +23,7 @@ export default function ProductCard({ product }: { product: Product }) {
   const variants = product.variants ?? []
   const hasMultipleVariants = variants.length > 1
   const inStock = product.inStock ?? true
+  const isPreOrder = !inStock && !!product.preOrderEnabled && product.bookingAmount != null
 
   const handleAddToCart = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault()
@@ -49,6 +50,11 @@ export default function ProductCard({ product }: { product: Product }) {
     >
       {/* IMAGE */}
       <div className="relative w-full aspect-square bg-gray-50">
+        {isPreOrder && (
+          <span className="absolute top-2 left-2 z-10 text-[10px] font-bold bg-primary text-white px-2 py-0.5 rounded-full uppercase tracking-wide">
+            Pre-Order
+          </span>
+        )}
         <Image
           src={image}
           alt={product.name}
@@ -79,14 +85,23 @@ export default function ProductCard({ product }: { product: Product }) {
 
         <PriceTag prices={getDisplayPrices(product)} className="mb-2 sm:mb-3 mt-0.5" />
 
-        <button
-          onClick={handleAddToCart}
-          disabled={!inStock || isAdding}
-          className="mt-auto w-full bg-primary text-white py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium flex items-center justify-center gap-1.5 sm:gap-2 disabled:bg-gray-300"
-        >
-          {isAdding && <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 animate-spin" />}
-          {hasMultipleVariants ? "Select Options" : isAdding ? "Adding…" : "Add to Cart"}
-        </button>
+        {isPreOrder ? (
+          <button
+            onClick={(e) => { e.preventDefault(); router.push(`/products/${product.slug}`) }}
+            className="mt-auto w-full bg-primary text-white py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium flex items-center justify-center gap-1.5"
+          >
+            Pre-Order
+          </button>
+        ) : (
+          <button
+            onClick={handleAddToCart}
+            disabled={!inStock || isAdding}
+            className="mt-auto w-full bg-primary text-white py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium flex items-center justify-center gap-1.5 sm:gap-2 disabled:bg-gray-300"
+          >
+            {isAdding && <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 animate-spin" />}
+            {hasMultipleVariants ? "Select Options" : isAdding ? "Adding…" : "Add to Cart"}
+          </button>
+        )}
       </div>
     </Link>
   )

@@ -5,6 +5,7 @@ import slugify from "slugify"
 import { useRouter } from "next/navigation"
 import { createProductSchema } from "@repo/zod-schema/index"
 import { AdminProductService } from "../../../lib/services/admin-product.service"
+import { getApiError, firstFieldError } from "../../../lib/errors"
 import ProductImageManager from "./ProductImageManager"
 import CategoryTreeSelect from "../categories/CategoryTreeSelect"
 import VariantManager from "./VariantManager"
@@ -40,6 +41,7 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
   const [productId, setProductId] = useState<string | null>(null)
   const [form, setForm] = useState({
     name: "", slug: "", description: "", longDescription: "", price: "", salePrice: "", isOnSale: false, priceDisplay: "BOTH", quantity: 0, inStock: true, categoryId: "",
+    preOrderEnabled: false, bookingAmount: "", preOrderLimit: "", preOrderNote: "",
   })
   const [images, setImages] = useState<any[]>([])
   const [errors, setErrors] = useState<Record<string, string[]>>({})
@@ -60,6 +62,10 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
         quantity: initialData.quantity ?? 0,
         inStock: initialData.inStock ?? true,
         categoryId: initialData.categoryId ?? initialData.category?.id ?? "",
+        preOrderEnabled: initialData.preOrderEnabled ?? false,
+        bookingAmount: initialData.bookingAmount != null ? String(initialData.bookingAmount) : "",
+        preOrderLimit: initialData.preOrderLimit != null ? String(initialData.preOrderLimit) : "",
+        preOrderNote: initialData.preOrderNote ?? "",
       })
       setImages(initialData.images || [])
       setProductId(initialData.id)
@@ -83,11 +89,16 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
       ...form,
       longDescription: form.longDescription === "<p></p>" ? "" : form.longDescription,
       salePrice: form.salePrice === "" ? undefined : form.salePrice,
+      bookingAmount: form.bookingAmount === "" ? undefined : form.bookingAmount,
+      preOrderLimit: form.preOrderLimit === "" ? undefined : form.preOrderLimit,
+      preOrderNote: form.preOrderNote === "" ? undefined : form.preOrderNote,
     }
     const parsed = createProductSchema.safeParse(payload)
     if (!parsed.success) {
-      setErrors(parsed.error.flatten().fieldErrors as any)
-      toast.error("Please fix the errors below")
+      const fieldErrors = parsed.error.flatten().fieldErrors
+      setErrors(fieldErrors as any)
+      console.error("[ProductForm] validation failed:", fieldErrors)
+      toast.error(firstFieldError(fieldErrors) || "Please check the highlighted fields")
       return
     }
 
@@ -104,7 +115,10 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
         toast.success("Product created! Now add images and variants.")
       }
     } catch (e: any) {
-      toast.error(e?.response?.data?.message || "Failed to save product")
+      console.error("[ProductForm] save failed:", e?.response?.data ?? e)
+      const { message, fieldErrors } = getApiError(e, "Failed to save product")
+      if (fieldErrors) setErrors(fieldErrors)
+      toast.error(message)
     } finally {
       setLoading(false)
     }
@@ -208,6 +222,47 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
           <input type="checkbox" checked={form.inStock} onChange={e => onChange("inStock", e.target.checked)} className="w-4 h-4 rounded accent-primary" />
           <span className="text-sm font-medium text-gray-700">Product is in stock</span>
         </label>
+
+        {/* Pre-order */}
+        <div className="pt-4 border-t border-gray-100 space-y-4">
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input type="checkbox" checked={form.preOrderEnabled} onChange={e => onChange("preOrderEnabled", e.target.checked)} className="w-4 h-4 rounded accent-primary" />
+            <span className="text-sm font-medium text-gray-700">Allow pre-orders when out of stock</span>
+          </label>
+          {form.preOrderEnabled && (
+            <div className="space-y-4 pl-7">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <Field label="Booking amount (₹)" error={errors.bookingAmount?.[0]}>
+                  <Input
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="0.00"
+                    value={form.bookingAmount}
+                    onChange={e => {
+                      const v = e.target.value
+                      if (v === "" || /^\d*\.?\d{0,2}$/.test(v)) onChange("bookingAmount", v)
+                    }}
+                  />
+                </Field>
+                <Field label="Pre-order limit (optional)" error={errors.preOrderLimit?.[0]}>
+                  <Input
+                    type="number"
+                    min={1}
+                    placeholder="Unlimited"
+                    value={form.preOrderLimit}
+                    onChange={e => onChange("preOrderLimit", e.target.value)}
+                  />
+                </Field>
+                <Field label="Availability note (optional)" error={errors.preOrderNote?.[0]}>
+                  <Input placeholder="e.g. Ships by 15 Aug" value={form.preOrderNote} onChange={e => onChange("preOrderNote", e.target.value)} />
+                </Field>
+              </div>
+              <p className="text-xs text-gray-400">
+                Customers pay the booking amount now; the balance is collected via a secure link when you raise stock above 0.
+              </p>
+            </div>
+          )}
+        </div>
 
         {/* Save — scoped to product details only */}
         <div className="pt-4 border-t border-gray-100 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">

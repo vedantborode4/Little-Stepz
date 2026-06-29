@@ -15,6 +15,7 @@ import {
   buildShiprocketPayload,
 } from "../utils/shiprocket.client";
 import { processAffiliateCommissionService, reverseAffiliateCommissionsService } from "./affiliate.services";
+import { reconcilePreOrderByRazorpayOrderId } from "./preorder.services";
 import { Decimal } from "decimal.js";
 import type {
   CreatePaymentBody,
@@ -458,6 +459,7 @@ async function handlePaymentCaptured(payload: any): Promise<void> {
 
   if (!razorpayOrderId || !razorpayPaymentId) return;
 
+  let foundPayment = true;
   await withRetry(async () => {
     await prisma.$transaction(async (tx) => {
       const payments = await tx.$queryRaw<Array<{
@@ -470,7 +472,7 @@ async function handlePaymentCaptured(payload: any): Promise<void> {
       `;
 
       const payment = payments[0];
-      if (!payment) return; // Order not found in our system — ignore
+      if (!payment) { foundPayment = false; return; } // not a normal order payment — maybe a pre-order leg
 
       if (payment.status === "SUCCESS") return;
 
@@ -516,6 +518,13 @@ async function handlePaymentCaptured(payload: any): Promise<void> {
       });
     });
   });
+
+  // Backup reconciliation for pre-order booking/balance legs (not in the Payment table).
+  if (!foundPayment) {
+    await reconcilePreOrderByRazorpayOrderId(razorpayOrderId, razorpayPaymentId, entity).catch((err) =>
+      console.error("[webhook] pre-order reconcile failed:", err)
+    );
+  }
 }
 
 async function handlePaymentFailed(payload: any): Promise<void> {

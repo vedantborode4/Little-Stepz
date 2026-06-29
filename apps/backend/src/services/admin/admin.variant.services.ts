@@ -1,5 +1,6 @@
 import { prisma } from "@repo/db/client";
 import { ApiError } from "../../utils/api";
+import { notifyRestockedPreOrders } from "../preorder.services";
 
 
 const normalizeVariantName = (name: string) =>
@@ -118,12 +119,13 @@ export async function updateVariantService(
     throw new ApiError(400, "Stock cannot be negative");
   }
 
-  return prisma.$transaction(async (tx) => {
+  const { updated, restocked, productId } = await prisma.$transaction(async (tx) => {
     const variant = await tx.variant.findUnique({
       where: { id: variantId },
       select: {
         id: true,
         productId: true,
+        stock: true,
       },
     });
     if (!variant) {
@@ -182,8 +184,18 @@ export async function updateVariantService(
       });
     }
 
-    return updated;
+    const newStock = stock !== undefined ? stock : variant.stock;
+    const restocked = variant.stock <= 0 && newStock > 0;
+
+    return { updated, restocked, productId: variant.productId };
   });
+
+  // Restock event for this variant — notify variant-level pre-orders.
+  if (restocked) {
+    void notifyRestockedPreOrders(productId, variantId);
+  }
+
+  return updated;
 }
 
 export async function deleteVariantService(variantId: string) {

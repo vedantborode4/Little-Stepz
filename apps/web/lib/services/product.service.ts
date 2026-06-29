@@ -18,6 +18,7 @@ export interface GetProductsParams {
   sort?: string
   priceMin?: number
   priceMax?: number
+  preOrder?: boolean
 }
 
 interface BackendResponse {
@@ -71,6 +72,8 @@ export const ProductService = {
     if (params?.priceMax !== undefined) backendParams.maxPrice = params.priceMax
 
     if (params?.category) backendParams.category = params.category
+
+    if (params?.preOrder) backendParams.preOrder = "true"
 
     const res = await api.get<BackendResponse>("/products", { params: backendParams })
 

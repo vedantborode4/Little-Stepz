@@ -1,5 +1,5 @@
 import z from "zod";
-import { optionalPriceSchema, priceSchema, quantitySchema, uuidSchema } from "./common";
+import { optionalPriceSchema, priceSchema, stockSchema, uuidSchema } from "./common";
 
 const variantBaseSchema = z.object({
     productId:uuidSchema,
@@ -7,7 +7,7 @@ const variantBaseSchema = z.object({
     price: priceSchema.optional(),
     salePrice: optionalPriceSchema,
     isOnSale: z.boolean().optional().default(false),
-    stock: quantitySchema.optional(),
+    stock: stockSchema.optional(),
 });
 
 const refineVariantSalePrice = (

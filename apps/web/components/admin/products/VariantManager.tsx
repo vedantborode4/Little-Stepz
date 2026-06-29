@@ -7,6 +7,7 @@ import {
   updateVariantBodySchema,
 } from "@repo/zod-schema/index"
 import { AdminProductService } from "../../../lib/services/admin-product.service"
+import { getApiError, firstFieldError } from "../../../lib/errors"
 import ProductImageManager from "./ProductImageManager"
 import { ImageIcon, Loader2 } from "lucide-react"
 import { toast } from "sonner"
@@ -62,7 +63,10 @@ export default function VariantManager({
     })
 
     if (!parsed.success) {
-      setErrors(parsed.error.flatten().fieldErrors)
+      const fieldErrors = parsed.error.flatten().fieldErrors
+      setErrors(fieldErrors)
+      console.error("[VariantManager] validation failed:", fieldErrors)
+      toast.error(firstFieldError(fieldErrors) || "Please check the variant fields")
       return
     }
 
@@ -75,6 +79,9 @@ export default function VariantManager({
       setForm({ name: "", price: "", salePrice: "", isOnSale: false, stock: "" })
       setErrors({})
       onChange?.()
+    } catch (e: any) {
+      console.error("[VariantManager] create failed:", e?.response?.data ?? e)
+      toast.error(getApiError(e, "Failed to add variant").message)
     } finally {
       setLoading(false)
     }
@@ -94,8 +101,9 @@ export default function VariantManager({
 
     const parsed = updateVariantBodySchema.safeParse(payload)
     if (!parsed.success) {
-      const fe = parsed.error.flatten().fieldErrors as any
-      toast.error(fe.salePrice?.[0] || fe.price?.[0] || fe.name?.[0] || "Please fix the variant fields")
+      const fieldErrors = parsed.error.flatten().fieldErrors
+      console.error("[VariantManager] validation failed:", fieldErrors)
+      toast.error(firstFieldError(fieldErrors) || "Please check the variant fields")
       return
     }
 
@@ -110,21 +118,27 @@ export default function VariantManager({
       toast.success("Variant saved")
       onChange?.()
     } catch (e: any) {
-      toast.error(e?.response?.data?.message || "Failed to save variant")
+      console.error("[VariantManager] save failed:", e?.response?.data ?? e)
+      toast.error(getApiError(e, "Failed to save variant").message)
     } finally {
       setSavingId(null)
     }
   }
 
   const removeVariant = async (id: string) => {
-    await AdminProductService.deleteVariant(id)
-    setVariants((p) => p.filter((v) => v.id !== id))
-    setDirtyIds((prev) => {
-      const next = new Set(prev)
-      next.delete(id)
-      return next
-    })
-    onChange?.()
+    try {
+      await AdminProductService.deleteVariant(id)
+      setVariants((p) => p.filter((v) => v.id !== id))
+      setDirtyIds((prev) => {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
+      onChange?.()
+    } catch (e: any) {
+      console.error("[VariantManager] delete failed:", e?.response?.data ?? e)
+      toast.error(getApiError(e, "Failed to delete variant").message)
+    }
   }
 
   return (

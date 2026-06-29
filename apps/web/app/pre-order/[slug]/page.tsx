@@ -1,0 +1,172 @@
+"use client"
+
+import { useEffect, useMemo, useRef, useState } from "react"
+import { useParams, useSearchParams, useRouter } from "next/navigation"
+import { toast } from "sonner"
+import { Clock, Loader2, MapPin } from "lucide-react"
+import { ProductService } from "../../../lib/services/product.service"
+import { AddressService } from "../../../lib/services/address.service"
+import { PreOrderService } from "../../../lib/services/preorder.service"
+import { getChargedPrice } from "../../../lib/pricing"
+import { openRazorpay } from "../../../lib/openRazorpay"
+import type { Product } from "../../../types/product"
+
+const inr = (n: number) => `₹${Number(n).toLocaleString("en-IN")}`
+const SHIPPING = 5
+
+export default function PreOrderCheckoutPage() {
+  const params = useParams<{ slug: string }>()
+  const search = useSearchParams()
+  const router = useRouter()
+  const variantId = search?.get("variant") || undefined
+
+  const [product, setProduct] = useState<Product | null>(null)
+  const [addresses, setAddresses] = useState<any[]>([])
+  const [addressId, setAddressId] = useState<string>("")
+  const [quantity, setQuantity] = useState(1)
+  const [loading, setLoading] = useState(true)
+  const [placing, setPlacing] = useState(false)
+  // Stable per-attempt key so retries de-duplicate server-side.
+  const idemKey = useRef(`${Date.now()}-${Math.random().toString(36).slice(2, 10)}`)
+
+  useEffect(() => {
+    if (!params?.slug) return
+    ;(async () => {
+      try {
+        const [p, addr] = await Promise.all([
+          ProductService.getBySlug(params.slug),
+          AddressService.getAll().catch(() => []),
+        ])
+        setProduct(p)
+        setAddresses(addr || [])
+        const def = (addr || []).find((a: any) => a.isDefault) || (addr || [])[0]
+        if (def) setAddressId(def.id)
+      } catch {
+        toast.error("Could not load pre-order")
+      } finally {
+        setLoading(false)
+      }
+    })()
+  }, [params?.slug])
+
+  const variant = useMemo(
+    () => product?.variants?.find((v) => v.id === variantId) || null,
+    [product, variantId]
+  )
+
+  const maxQty = product?.preOrderLimit
+    ? Math.max(1, product.preOrderLimit - (product.preOrderCount ?? 0))
+    : 99
+
+  const unit = product ? getChargedPrice(product, variant) : 0
+  const booking = product?.bookingAmount != null ? Number(product.bookingAmount) : 0
+  const total = unit * quantity + SHIPPING
+  const balance = Math.max(0, total - booking)
+
+  const confirm = async () => {
+    if (!product) return
+    if (!addressId) { toast.error("Select a delivery address"); return }
+    setPlacing(true)
+    try {
+      const init = await PreOrderService.create({
+        productId: product.id,
+        variantId: variant?.id,
+        quantity,
+        addressId,
+      }, idemKey.current)
+      const result = await openRazorpay({
+        keyId: init.keyId,
+        amount: init.amount,
+        currency: init.currency,
+        razorpayOrderId: init.razorpayOrderId,
+        description: `Pre-order booking — ${product.name}`,
+      })
+      if (!result) { setPlacing(false); return }
+      await PreOrderService.verifyBooking(init.preOrderId, result)
+      toast.success("Pre-order confirmed 🎉")
+      router.push("/account/pre-orders")
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || "Pre-order failed")
+      setPlacing(false)
+    }
+  }
+
+  if (loading) {
+    return <div className="max-w-2xl mx-auto px-4 py-16 text-center text-gray-400">Loading…</div>
+  }
+  if (!product || !product.preOrderEnabled) {
+    return <div className="max-w-2xl mx-auto px-4 py-16 text-center text-gray-500">Pre-order not available for this product.</div>
+  }
+
+  return (
+    <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
+      <div className="flex items-center gap-2 text-primary">
+        <Clock size={18} />
+        <h1 className="text-xl font-bold">Pre-Order</h1>
+      </div>
+
+      {/* Product */}
+      <div className="bg-white border border-gray-200 rounded-2xl p-4 flex gap-4">
+        <img
+          src={variant?.images?.[0]?.url || product.images?.[0]?.url || "/placeholder.png"}
+          alt={product.name}
+          className="w-20 h-20 object-contain rounded-xl border border-gray-100"
+        />
+        <div className="flex-1">
+          <p className="font-semibold text-gray-900">{product.name}</p>
+          {variant && <p className="text-xs text-gray-400 mt-0.5">{variant.name}</p>}
+          <p className="text-sm text-gray-600 mt-1">{inr(unit)} each</p>
+          {product.preOrderNote && <p className="text-xs text-primary mt-1">{product.preOrderNote}</p>}
+        </div>
+        <div className="flex items-center border border-gray-200 rounded-xl overflow-hidden h-9">
+          <button onClick={() => setQuantity((q) => Math.max(1, q - 1))} className="px-3 text-gray-500">−</button>
+          <span className="px-3 text-sm font-semibold">{quantity}</span>
+          <button onClick={() => setQuantity((q) => Math.min(maxQty, q + 1))} className="px-3 text-gray-500">+</button>
+        </div>
+      </div>
+
+      {/* Address */}
+      <div className="bg-white border border-gray-200 rounded-2xl p-4 space-y-3">
+        <div className="flex items-center gap-2 text-gray-900 font-semibold text-sm">
+          <MapPin size={16} /> Delivery address
+        </div>
+        {addresses.length === 0 ? (
+          <p className="text-sm text-gray-500">
+            No saved address. <a href="/account/addresses" className="text-primary font-medium">Add one</a> first.
+          </p>
+        ) : (
+          addresses.map((a) => (
+            <label key={a.id} className={`flex gap-3 border rounded-xl p-3 cursor-pointer ${addressId === a.id ? "border-primary bg-primary/5" : "border-gray-200"}`}>
+              <input type="radio" className="accent-primary mt-1" checked={addressId === a.id} onChange={() => setAddressId(a.id)} />
+              <div className="text-sm">
+                <p className="font-medium text-gray-900">{a.name} · {a.phone}</p>
+                <p className="text-gray-500">{a.address}, {a.city}, {a.state} {a.pincode}</p>
+              </div>
+            </label>
+          ))
+        )}
+      </div>
+
+      {/* Summary */}
+      <div className="bg-white border border-gray-200 rounded-2xl p-4 space-y-2 text-sm">
+        <div className="flex justify-between text-gray-600"><span>Subtotal ({quantity})</span><span>{inr(unit * quantity)}</span></div>
+        <div className="flex justify-between text-gray-600"><span>Shipping</span><span>{inr(SHIPPING)}</span></div>
+        <div className="flex justify-between text-gray-900 font-semibold border-t border-gray-100 pt-2"><span>Order total</span><span>{inr(total)}</span></div>
+        <div className="flex justify-between text-primary font-semibold"><span>Pay now (booking)</span><span>{inr(booking)}</span></div>
+        <div className="flex justify-between text-gray-500"><span>Balance later</span><span>{inr(balance)}</span></div>
+      </div>
+
+      <button
+        onClick={confirm}
+        disabled={placing || !addressId}
+        className="w-full bg-primary text-white py-3.5 rounded-xl font-semibold hover:opacity-90 transition disabled:opacity-50 flex items-center justify-center gap-2"
+      >
+        {placing && <Loader2 size={16} className="animate-spin" />}
+        {placing ? "Processing…" : `Pay ₹${booking.toLocaleString("en-IN")} & Pre-Order`}
+      </button>
+      <p className="text-xs text-gray-400 text-center">
+        You'll receive a secure link to pay the remaining {inr(balance)} when the item is back in stock.
+      </p>
+    </div>
+  )
+}

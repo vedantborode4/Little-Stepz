@@ -6,6 +6,7 @@ import { adminProductRouter } from "./admin.product.routes";
 import { adminReviewRouter } from "./admin.review.routes";
 import { adminCouponsRouter } from "./admin.coupons.routes";
 import { adminOrdersRouter } from "./admin.orders.routes";
+import { adminPreOrderRouter } from "./admin.preorder.routes";
 import { adminPaymentRouter } from "./admin.payment.routes";
 import { adminAffiliateRouter } from "./admin.affiliate.routes";
 import { 
@@ -26,6 +27,8 @@ adminRouter.use("/reviews", adminReviewRouter);
 adminRouter.use("/coupons",adminCouponsRouter);
 
 adminRouter.use("/orders", adminOrdersRouter);
+
+adminRouter.use("/pre-orders", adminPreOrderRouter);
 
 adminRouter.use("/", adminPaymentRouter);
 

@@ -31,6 +31,11 @@ export interface AdminProduct {
   priceDisplay?: PriceDisplay
   quantity: number
   inStock: boolean
+  preOrderEnabled?: boolean
+  bookingAmount?: number | null
+  preOrderLimit?: number | null
+  preOrderCount?: number
+  preOrderNote?: string | null
   categoryId?: string
   category?: { id: string; name: string; slug: string }
   images: ProductImage[]
@@ -88,6 +93,7 @@ export const AdminProductService = {
     name: string; slug: string; description?: string; longDescription?: string
     price: number; salePrice?: number; isOnSale?: boolean; priceDisplay?: PriceDisplay
     quantity?: number; inStock?: boolean; categoryId: string
+    preOrderEnabled?: boolean; bookingAmount?: number; preOrderLimit?: number; preOrderNote?: string
   }): Promise<AdminProduct> => {
     const res = await api.post("/admin/products", body)
     return res.data.data
@@ -98,6 +104,7 @@ export const AdminProductService = {
     name: string; slug: string; description: string | null; longDescription: string | null
     price: number; salePrice: number | null; isOnSale: boolean; priceDisplay: PriceDisplay
     quantity: number; inStock: boolean; categoryId: string
+    preOrderEnabled: boolean; bookingAmount: number; preOrderLimit: number; preOrderNote: string
   }>): Promise<AdminProduct> => {
     const res = await api.put(`/admin/products/${id}`, body)
     return res.data.data

@@ -34,6 +34,11 @@ export interface Product {
   priceDisplay?: PriceDisplay
   quantity: number
   inStock: boolean
+  preOrderEnabled?: boolean
+  bookingAmount?: string | null
+  preOrderLimit?: number | null
+  preOrderCount?: number
+  preOrderNote?: string | null
   category: Category
   images: ProductImage[]
   variants: Variant[]
