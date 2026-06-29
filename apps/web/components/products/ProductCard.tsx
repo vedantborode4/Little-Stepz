@@ -49,7 +49,7 @@ export default function ProductCard({ product }: { product: Product }) {
       className="group h-full flex flex-col bg-white rounded-xl shadow-card hover:shadow-lg transition overflow-hidden"
     >
       {/* IMAGE */}
-      <div className="relative w-full aspect-square bg-gray-50">
+      <div className="relative w-full aspect-square bg-white">
         {isPreOrder && (
           <span className="absolute top-2 left-2 z-10 text-[10px] font-bold bg-primary text-white px-2 py-0.5 rounded-full uppercase tracking-wide">
             Pre-Order

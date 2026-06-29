@@ -50,7 +50,13 @@ export default function CategoryProductsPage() {
   }, [slug, tree])
 
   useEffect(() => {
+    setPage(1)
+  }, [slug])
+
+  useEffect(() => {
     if (!slug) return
+
+    let ignore = false
 
     const fetchCategoryProducts = async () => {
       try {
@@ -63,16 +69,22 @@ export default function CategoryProductsPage() {
           12
         )
 
+        if (ignore) return
+
         setProducts(res.data)
         setTotalPages(res.meta.totalPages)
       } catch {
-        setError(true)
+        if (!ignore) setError(true)
       } finally {
-        setLoading(false)
+        if (!ignore) setLoading(false)
       }
     }
 
     fetchCategoryProducts()
+
+    return () => {
+      ignore = true
+    }
   }, [slug, page])
 
   if (loading) return <ProductGridSkeleton />

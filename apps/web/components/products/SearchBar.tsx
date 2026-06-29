@@ -60,7 +60,7 @@ export default function SearchBar() {
     setInput(safe)
     setOpen(false)
 
-    router.push("/products")
+    router.push(`/products?search=${encodeURIComponent(safe)}`)
   }
 
 
