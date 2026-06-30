@@ -5,8 +5,9 @@ import { useParams, useSearchParams, useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { Clock, Loader2, MapPin } from "lucide-react"
 import { ProductService } from "../../../lib/services/product.service"
-import { AddressService } from "../../../lib/services/address.service"
 import { PreOrderService } from "../../../lib/services/preorder.service"
+import CheckoutAddressSection from "../../../components/address/CheckoutAddressSection"
+import { useAddressStore } from "../../../store/useAddressStore"
 import { getChargedPrice } from "../../../lib/pricing"
 import { openRazorpay } from "../../../lib/openRazorpay"
 import type { Product } from "../../../types/product"
@@ -21,11 +22,10 @@ export default function PreOrderCheckoutPage() {
   const variantId = search?.get("variant") || undefined
 
   const [product, setProduct] = useState<Product | null>(null)
-  const [addresses, setAddresses] = useState<any[]>([])
-  const [addressId, setAddressId] = useState<string>("")
   const [quantity, setQuantity] = useState(1)
   const [loading, setLoading] = useState(true)
   const [placing, setPlacing] = useState(false)
+  const addressId = useAddressStore((s) => s.selectedAddressId) ?? ""
   // Stable per-attempt key so retries de-duplicate server-side.
   const idemKey = useRef(`${Date.now()}-${Math.random().toString(36).slice(2, 10)}`)
 
@@ -33,14 +33,8 @@ export default function PreOrderCheckoutPage() {
     if (!params?.slug) return
     ;(async () => {
       try {
-        const [p, addr] = await Promise.all([
-          ProductService.getBySlug(params.slug),
-          AddressService.getAll().catch(() => []),
-        ])
+        const p = await ProductService.getBySlug(params.slug)
         setProduct(p)
-        setAddresses(addr || [])
-        const def = (addr || []).find((a: any) => a.isDefault) || (addr || [])[0]
-        if (def) setAddressId(def.id)
       } catch {
         toast.error("Could not load pre-order")
       } finally {
@@ -130,21 +124,7 @@ export default function PreOrderCheckoutPage() {
         <div className="flex items-center gap-2 text-gray-900 font-semibold text-sm">
           <MapPin size={16} /> Delivery address
         </div>
-        {addresses.length === 0 ? (
-          <p className="text-sm text-gray-500">
-            No saved address. <a href="/account/addresses" className="text-primary font-medium">Add one</a> first.
-          </p>
-        ) : (
-          addresses.map((a) => (
-            <label key={a.id} className={`flex gap-3 border rounded-xl p-3 cursor-pointer ${addressId === a.id ? "border-primary bg-primary/5" : "border-gray-200"}`}>
-              <input type="radio" className="accent-primary mt-1" checked={addressId === a.id} onChange={() => setAddressId(a.id)} />
-              <div className="text-sm">
-                <p className="font-medium text-gray-900">{a.name} · {a.phone}</p>
-                <p className="text-gray-500">{a.address}, {a.city}, {a.state} {a.pincode}</p>
-              </div>
-            </label>
-          ))
-        )}
+        <CheckoutAddressSection />
       </div>
 
       {/* Summary */}

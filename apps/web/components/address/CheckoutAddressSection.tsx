@@ -6,7 +6,7 @@ import { useAddressStore } from "../../store/useAddressStore"
 import AddressFormDialog from "./AddressFormDialog"
 import { MapPin, Loader2, ArrowRight } from "lucide-react"
 
-export default function CheckoutAddressSection({ onContinue }: { onContinue: () => void }) {
+export default function CheckoutAddressSection({ onContinue }: { onContinue?: () => void }) {
   const { addresses, selectedAddressId, loading, fetchAddresses } = useAddressStore()
 
   useEffect(() => {
@@ -51,7 +51,7 @@ export default function CheckoutAddressSection({ onContinue }: { onContinue: () 
         ))}
       </div>
 
-      {selectedAddressId && (
+      {selectedAddressId && onContinue && (
         <button
           onClick={onContinue}
           className="w-full bg-primary text-white py-3 rounded-xl font-semibold hover:opacity-90 transition flex items-center justify-center gap-2 shadow-sm"

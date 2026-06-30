@@ -96,7 +96,7 @@ export default function Navbar() {
             </Link>
 
             {/* Desktop Nav */}
-            <nav className="hidden md:flex items-center text-sm font-medium">
+            <nav className="hidden md:flex items-center text-sm font-medium font-orbitron">
               {/* Categories mega menu */}
               <div
                 className="relative"
@@ -105,7 +105,7 @@ export default function Navbar() {
               >
                 <button className={clsx(
                   "flex items-center gap-1 px-3 py-2 rounded-lg transition-colors",
-                  openMega ? "text-primary bg-primary/5" : "text-gray-600 hover:text-primary hover:bg-gray-50"
+                  openMega ? "text-primary bg-primary/5" : "text-gray-600 hover:text-primary hover:bg-primary/5"
                 )}>
                   Categories
                   <ChevronDown size={14} className={clsx("transition-transform", openMega && "rotate-180")} />
@@ -149,11 +149,11 @@ export default function Navbar() {
                 </div>
               </div>
 
-              <Link href="/products" className="px-3 py-2 rounded-lg text-gray-600 hover:text-primary hover:bg-gray-50 transition-colors">
+              <Link href="/products" className="px-3 py-2 rounded-lg text-gray-600 hover:text-primary hover:bg-primary/5 transition-colors">
                 All Products
               </Link>
 
-              <Link href="/pre-orders" className="px-3 py-2 rounded-lg text-gray-600 hover:text-primary hover:bg-gray-50 transition-colors">
+              <Link href="/pre-orders" className="px-3 py-2 rounded-lg text-gray-600 hover:text-primary hover:bg-primary/5 transition-colors">
                 Pre-Order
               </Link>
             </nav>
@@ -168,7 +168,7 @@ export default function Navbar() {
 
               {/* Mobile: search toggle */}
               <button
-                className="md:hidden p-2 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors"
+                className="md:hidden p-2 rounded-lg text-gray-600 hover:bg-primary/5 transition-colors"
                 onClick={() => setMobileSearchOpen((p) => !p)}
                 aria-label="Search"
               >
@@ -176,7 +176,7 @@ export default function Navbar() {
               </button>
 
               {/* Wishlist */}
-              <Link href="/wishlist" className="relative p-2 rounded-lg text-gray-600 hover:text-primary hover:bg-gray-50 transition-colors">
+              <Link href="/wishlist" className="relative p-2 rounded-lg text-gray-600 hover:text-primary hover:bg-primary/5 transition-colors">
                 <Heart size={20} />
                 {wishlistItems.length > 0 && (
                   <span className="absolute top-1 right-1 w-4 h-4 bg-primary text-white text-[10px] font-bold rounded-full flex items-center justify-center">
@@ -186,7 +186,7 @@ export default function Navbar() {
               </Link>
 
               {/* Cart */}
-              <Link href="/cart" className="relative p-2 rounded-lg text-gray-600 hover:text-primary hover:bg-gray-50 transition-colors">
+              <Link href="/cart" className="relative p-2 rounded-lg text-gray-600 hover:text-primary hover:bg-primary/5 transition-colors">
                 <ShoppingCart size={20} />
                 {cartItems.length > 0 && (
                   <span className="absolute top-1 right-1 w-4 h-4 bg-primary text-white text-[10px] font-bold rounded-full flex items-center justify-center">
@@ -202,7 +202,7 @@ export default function Navbar() {
                     onClick={() => setOpenUser((p) => !p)}
                     className={clsx(
                       "flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-lg transition-colors text-sm font-medium",
-                      openUser ? "bg-primary/5 text-primary" : "text-gray-700 hover:bg-gray-50"
+                      openUser ? "bg-primary/5 text-primary" : "text-gray-700 hover:bg-primary/5"
                     )}
                   >
                     <div className="w-7 h-7 bg-primary/10 text-primary rounded-full flex items-center justify-center font-bold text-xs">
@@ -213,7 +213,7 @@ export default function Navbar() {
                   </button>
 
                   {openUser && (
-                    <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-100 rounded-2xl shadow-xl py-2 z-50 overflow-hidden">
+                    <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-100 rounded-2xl shadow-xl py-2 z-50 overflow-hidden font-orbitron">
                       <div className="px-4 py-3 border-b border-gray-50">
                         <p className="text-sm font-semibold text-gray-900 truncate">{user.name}</p>
                         <p className="text-xs text-gray-400 truncate">{user.email}</p>
@@ -263,7 +263,7 @@ export default function Navbar() {
 
               {/* Mobile: hamburger */}
               <button
-                className="md:hidden p-2 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors"
+                className="md:hidden p-2 rounded-lg text-gray-600 hover:bg-primary/5 transition-colors"
                 onClick={() => setMobileOpen((p) => !p)}
                 aria-label={mobileOpen ? "Close menu" : "Open menu"}
               >
@@ -324,7 +324,7 @@ export default function Navbar() {
         )}
 
         {/* Scrollable nav area */}
-        <nav className="flex-1 overflow-y-auto">
+        <nav className="flex-1 overflow-y-auto font-orbitron">
 
           {/* Quick actions — cart + wishlist */}
           <div className="grid grid-cols-2 gap-2.5 px-4 pt-4 pb-2">
@@ -384,7 +384,7 @@ export default function Navbar() {
                             expandedCategory === parent.id ? null : parent.id
                           )
                         }
-                        className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold text-gray-800 hover:bg-gray-50 transition-colors text-left"
+                        className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold text-gray-800 hover:bg-primary/5 transition-colors text-left"
                       >
                         <span>{parent.name}</span>
                         <ChevronRight
@@ -398,7 +398,7 @@ export default function Navbar() {
                     ) : (
                       <Link
                         href={`/products/category/${parent.slug}`}
-                        className="flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold text-gray-800 hover:bg-gray-50 transition-colors"
+                        className="flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold text-gray-800 hover:bg-primary/5 transition-colors"
                       >
                         {parent.name}
                       </Link>
@@ -417,7 +417,7 @@ export default function Navbar() {
                           <Link
                             key={child.id}
                             href={`/products/category/${child.slug}`}
-                            className="flex items-center px-3 py-2 rounded-xl text-sm text-gray-600 hover:bg-gray-50 hover:text-primary transition-colors"
+                            className="flex items-center px-3 py-2 rounded-xl text-sm text-gray-600 hover:bg-primary/5 hover:text-primary transition-colors"
                           >
                             {child.name}
                           </Link>
@@ -483,7 +483,7 @@ export default function Navbar() {
               </Link>
               <Link
                 href="/signup"
-                className="w-full flex items-center justify-center py-3 rounded-xl text-sm font-semibold border border-gray-200 text-gray-700 hover:bg-gray-50 transition"
+                className="w-full flex items-center justify-center py-3 rounded-xl text-sm font-semibold border border-gray-200 text-gray-700 hover:bg-primary/5 transition"
               >
                 Create Account
               </Link>
@@ -505,7 +505,7 @@ function MenuItem({ href, icon: Icon, label, onClick, accent }: {
       onClick={onClick}
       className={clsx(
         "flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors",
-        accent ? "text-primary hover:bg-primary/5" : "text-gray-700 hover:bg-gray-50"
+        accent ? "text-primary hover:bg-primary/5" : "text-gray-700 hover:bg-primary/5"
       )}
     >
       <Icon size={15} className={accent ? "text-primary" : "text-gray-400"} />
@@ -525,7 +525,7 @@ function MobileNavLink({ href, icon, label, accent }: {
         "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors",
         accent
           ? "text-primary font-semibold hover:bg-primary/5"
-          : "text-gray-700 font-medium hover:bg-gray-50"
+          : "text-gray-700 font-medium hover:bg-primary/5"
       )}
     >
       <span className="flex-shrink-0">{icon}</span>

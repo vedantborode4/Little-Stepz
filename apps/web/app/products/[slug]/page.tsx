@@ -95,11 +95,13 @@ export default function ProductDetailsPage() {
     <div className="max-w-7xl mx-auto px-4 py-8 space-y-10">
       <Breadcrumbs product={product} />
 
-      <div className="grid lg:grid-cols-2 gap-10">
-        <ProductGallery
-          key={selectedVariant?.id ?? "product"}
-          images={selectedVariant?.images?.length ? selectedVariant.images : product.images}
-        />
+      <div className="grid lg:grid-cols-2 gap-10 lg:items-start">
+        <div className="lg:sticky lg:top-20 self-start">
+          <ProductGallery
+            key={selectedVariant?.id ?? "product"}
+            images={selectedVariant?.images?.length ? selectedVariant.images : product.images}
+          />
+        </div>
         <ProductInfo
           product={product}
           selectedVariant={selectedVariant}

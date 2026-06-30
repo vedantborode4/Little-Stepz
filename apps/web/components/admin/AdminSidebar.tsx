@@ -52,7 +52,7 @@ export default function AdminSidebar({ onClose }: Props) {
         )}
       </div>
 
-      <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
+      <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto font-orbitron">
         {items.map((item) => {
           const Icon = item.icon
           const active = isActive(item.href)
@@ -65,7 +65,7 @@ export default function AdminSidebar({ onClose }: Props) {
                 "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all",
                 active
                   ? "bg-primary text-white shadow-sm"
-                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                  : "text-gray-600 hover:bg-primary/5 hover:text-primary"
               )}
             >
               <Icon size={17} className={active ? "text-white" : "text-gray-400"} />
@@ -79,7 +79,7 @@ export default function AdminSidebar({ onClose }: Props) {
         <Link
           href="/"
           onClick={onClose}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-all"
+          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:bg-primary/5 hover:text-primary transition-all"
         >
           <Home size={17} className="text-gray-400" />
           Back to Store
