@@ -137,7 +137,7 @@ export default function ProductsPage() {
       </div>
 
       <h1 className="text-xl sm:text-3xl font-bold text-primary text-center mb-5 sm:mb-8">
-        {isSearchMode ? `Search results for "${search}"` : categoryName || "Toys & Games"}
+        {isSearchMode ? `Search results for "${search}"` : categoryName || "All Products"}
       </h1>
 
       <div className={`grid gap-4 sm:gap-8 ${isSearchMode ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-[260px_1fr]"}`}>
