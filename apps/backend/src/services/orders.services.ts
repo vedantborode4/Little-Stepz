@@ -221,7 +221,7 @@ export async function getOrdersService(userId: string, page: number, limit: numb
             variantId: true,
             quantity: true,
             price: true,
-            product: { select: { images: { where: { variantId: null }, orderBy: { sortOrder: "asc" }, select: { url: true }, take: 1 } } },
+            product: { select: { images: { where: { variantId: null, deletedAt: null }, orderBy: { sortOrder: "asc" }, select: { url: true }, take: 1 } } },
             variant: { select: { images: { where: { deletedAt: null }, orderBy: { sortOrder: "asc" }, select: { url: true }, take: 1 } } },
           },
         },
@@ -260,7 +260,7 @@ export async function getOrderByIdService(userId: string, id: string) {
             select: {
               id: true,
               name: true,
-              images: { where: { variantId: null }, orderBy: { sortOrder: "asc" }, select: { url: true }, take: 1 },
+              images: { where: { variantId: null, deletedAt: null }, orderBy: { sortOrder: "asc" }, select: { url: true }, take: 1 },
             },
           },
           variant: { select: { id: true, name: true, images: { where: { deletedAt: null }, orderBy: { sortOrder: "asc" }, select: { url: true }, take: 1 } } },

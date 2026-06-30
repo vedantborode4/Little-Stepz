@@ -58,7 +58,7 @@ const preOrderSelect = {
   balancePaidAt: true,
   orderId: true,
   createdAt: true,
-  product: { select: { id: true, name: true, slug: true, images: { where: { variantId: null }, take: 1, select: { url: true } } } },
+  product: { select: { id: true, name: true, slug: true, images: { where: { variantId: null, deletedAt: null }, take: 1, select: { url: true } } } },
   variant: { select: { id: true, name: true } },
 } as const;
 

@@ -43,7 +43,7 @@ const baseProductSelect = {
   preOrderNote: true,
   category: { select: { id: true, name: true, slug: true } },
   images: {
-    where: { variantId: null },
+    where: { variantId: null, deletedAt: null },
     orderBy: { sortOrder: "asc" },
     select: { id: true, url: true, alt: true, sortOrder: true },
   },

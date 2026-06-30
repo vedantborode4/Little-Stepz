@@ -13,7 +13,7 @@ const wishlistItemSelect = {
       salePrice: true,
       isOnSale: true,
       priceDisplay: true,
-      images: { where: { variantId: null }, orderBy: { sortOrder: "asc" }, take: 1, select: { url: true } },
+      images: { where: { variantId: null, deletedAt: null }, orderBy: { sortOrder: "asc" }, take: 1, select: { url: true } },
     },
   },
   createdAt: true,
