@@ -57,6 +57,12 @@ export interface AdminWithdrawal {
 // ── Affiliates ──────────────────────────────────────────────────────────────
 
 export const AdminAffiliateService = {
+  /** POST /admin/affiliates/invite  body: { email } — emails the apply link */
+  invite: async (email: string) => {
+    const res = await api.post("/admin/affiliates/invite", { email })
+    return res.data.data as { email: string; inviteUrl: string; emailSent: boolean }
+  },
+
   /** GET /admin/affiliates?status=&page=&limit= */
   getAll: async (params?: { status?: string; page?: number; limit?: number }) => {
     const res = await api.get("/admin/affiliates", { params })

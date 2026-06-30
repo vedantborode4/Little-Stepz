@@ -14,10 +14,11 @@ import {
   adminApproveAffiliateOnlyService,
   adminRejectAffiliateService,
   adminUpdateAffiliateService,
+  adminInviteAffiliateService,
 } from "../../services/admin/admin.affiliate.services";
 import { adminListAffiliatesService } from "../../services/affiliate.services";
 import { z } from "zod";
-import { paginationSchema } from "@repo/zod-schema/index";
+import { paginationSchema, emailSchema } from "@repo/zod-schema/index";
 
 async function listAffiliates(req: Request, res: Response) {
   const { status } = req.query;
@@ -132,6 +133,19 @@ async function updateAffiliate(req: Request, res: Response) {
   return new ApiResponse(200, result, "Affiliate updated").send(res);
 }
 
+async function inviteAffiliate(req: Request, res: Response) {
+  const { email } = z.object({ email: emailSchema }).parse(req.body);
+
+  const result = await adminInviteAffiliateService(email);
+
+  const message = result.emailSent
+    ? "Invite email sent"
+    : "Invite link generated — email service is unavailable, share the link instead";
+
+  return new ApiResponse(200, result, message).send(res);
+}
+
+export const adminInviteAffiliateController    = asyncHandler(inviteAffiliate);
 export const adminListAffiliatesController    = asyncHandler(listAffiliates);
 export const adminApproveAffiliateController  = asyncHandler(approveAffiliate);
 export const adminRejectAffiliateController   = asyncHandler(rejectAffiliate);

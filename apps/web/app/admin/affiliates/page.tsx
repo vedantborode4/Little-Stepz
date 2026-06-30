@@ -7,6 +7,7 @@ import AdminPageHeader from "../../../components/admin/AdminPageHeader"
 import TableSkeleton from "../../../components/admin/TableSkeleton"
 import AffiliateStatusBadge from "../../../components/admin/affiliates/AffiliateStatusBadge"
 import AffiliateApproveModal from "../../../components/admin/affiliates/AffiliateApproveModal"
+import AffiliateInviteModal from "../../../components/admin/affiliates/AffiliateInviteModal"
 import { toast } from "sonner"
 import Link from "next/link"
 
@@ -21,6 +22,7 @@ export default function AdminAffiliatesPage() {
   const [selected, setSelected] = useState<string[]>([])
   const [modalAffiliate, setModalAffiliate] = useState<AdminAffiliate | null>(null)
   const [modalAction, setModalAction] = useState<"approve" | "reject">("approve")
+  const [inviteOpen, setInviteOpen] = useState(false)
 
   const fetch = async () => {
     setLoading(true)
@@ -44,7 +46,7 @@ export default function AdminAffiliatesPage() {
     <div className="space-y-4 sm:space-y-5">
       <AdminPageHeader title="Affiliates" subtitle={`${pagination.total} total`}
         action={
-          <button className="flex items-center gap-2 bg-primary text-white px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-sm font-medium hover:bg-primary/90 transition">
+          <button onClick={() => setInviteOpen(true)} className="flex items-center gap-2 bg-primary text-white px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-sm font-medium hover:bg-primary/90 transition">
             <UserPlus size={15} /> <span className="hidden sm:inline">Invite Affiliate</span><span className="sm:hidden">Invite</span>
           </button>
         }
@@ -156,6 +158,8 @@ export default function AdminAffiliatesPage() {
         <AffiliateApproveModal affiliate={modalAffiliate} action={modalAction}
           onClose={() => setModalAffiliate(null)} onSuccess={() => { setModalAffiliate(null); fetch() }} />
       )}
+
+      {inviteOpen && <AffiliateInviteModal onClose={() => setInviteOpen(false)} />}
     </div>
   )
 }

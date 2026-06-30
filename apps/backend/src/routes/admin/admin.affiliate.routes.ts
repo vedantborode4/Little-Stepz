@@ -8,6 +8,7 @@ import {
   adminListCommissionsController,
   adminApproveCommissionController,
   adminPayCommissionController,
+  adminInviteAffiliateController,
 } from "../../controllers/admin/admin.affiliate.controllers";
 import {
   adminListWithdrawalsController,
@@ -18,6 +19,8 @@ export const adminAffiliateRouter: Router = Router();
 
 
 adminAffiliateRouter.get("/", adminListAffiliatesController);
+
+adminAffiliateRouter.post("/invite", adminInviteAffiliateController);
 
 adminAffiliateRouter.put("/:id/resolve", adminApproveAffiliateController);
 

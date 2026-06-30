@@ -86,6 +86,21 @@ export function sendBackInStockEmail(to: string, p: {
   });
 }
 
+export function sendAffiliateInviteEmail(to: string, p: { inviteUrl: string }) {
+  return sendEmail({
+    to,
+    subject: "You're invited to join the Little Stepz Affiliate Program",
+    html: shell("Become a Little Stepz Affiliate 🤝", `
+      <p>You've been invited to join the <strong>Little Stepz Affiliate Program</strong>.</p>
+      <p>Earn commission for every customer you refer. Apply using the link below to get started:</p>
+      <p style="margin:24px 0">
+        <a href="${p.inviteUrl}" style="background:#111;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600">Apply now</a>
+      </p>
+      <p style="font-size:13px;color:#666">Or copy this link into your browser: ${p.inviteUrl}</p>
+    `),
+  });
+}
+
 export function sendBalancePaidEmail(to: string, p: {
   productName: string;
   orderId: string;

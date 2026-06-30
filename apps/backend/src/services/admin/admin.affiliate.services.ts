@@ -2,6 +2,7 @@ import { prisma } from "@repo/db/client";
 import { ApiError } from "../../utils/api";
 import { AffiliateErrorCode } from "../../utils/affiliateErrors";
 import { createAuditLogInTx, createAuditLog } from "../../utils/auditLog";
+import { sendAffiliateInviteEmail } from "../../utils/email";
 import { Decimal } from "decimal.js";
 import type {
   AdminCommissionsQuery,
@@ -476,4 +477,18 @@ export async function adminUpdateAffiliateService(
   });
 
   return { affiliateId, ...updateData };
+}
+
+/**
+ * Invite someone to apply to the affiliate program by emailing them the public
+ * apply link. Email sending is fail-soft, so the apply link is always returned
+ * for the admin to share manually.
+ */
+export async function adminInviteAffiliateService(email: string) {
+  const baseUrl = process.env.FRONTEND_URL ?? "https://yourdomain.com";
+  const inviteUrl = `${baseUrl}/affiliate/apply`;
+
+  const emailSent = await sendAffiliateInviteEmail(email, { inviteUrl });
+
+  return { email, inviteUrl, emailSent };
 }
