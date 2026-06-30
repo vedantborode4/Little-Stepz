@@ -1,6 +1,7 @@
 import Link from "next/link"
 import Image from "next/image"
 import { ArrowRight } from "lucide-react"
+import CountUp from "../common/CountUp"
 
 const STATS = [
   { value: "500+", label: "Cities" },
@@ -26,12 +27,13 @@ export default function HeroFallback() {
             Now Shipping Pan-India · 500+ Cities
           </span>
 
-          {/* Heading */}
-          <h1 className="mt-5 text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.05] text-text text-center">
-            India&apos;s #1 Store for
-            <br />
-            <span className="text-primary underline decoration-primary/50 underline-offset-[6px]">RC Cars</span> &amp;
-            <br />
+          {/* Heading — forced 3 lines on sm+, natural wrap on mobile to avoid overflow */}
+          <h1 className="mt-5 text-3xl sm:text-5xl lg:text-6xl font-bold leading-[1.1] sm:leading-[1.05] text-text text-center text-balance wrap-break-word">
+            India&apos;s #1 Store for{" "}
+            <br className="hidden sm:block" />
+            <span className="text-primary underline decoration-primary/50 underline-offset-[6px]">RC Cars</span>{" "}
+            &amp;{" "}
+            <br className="hidden sm:block" />
             Collectibles
           </h1>
 
@@ -61,10 +63,12 @@ export default function HeroFallback() {
           </div>
 
           {/* Stats / counters */}
-          <div className="mt-10 flex flex-wrap justify-center gap-x-6 gap-y-4 sm:gap-x-10">
+          <div className="mt-8 sm:mt-10 grid grid-cols-2 sm:flex sm:flex-wrap justify-center gap-x-6 gap-y-5 sm:gap-x-10 w-full max-w-sm sm:max-w-none">
             {STATS.map((s, i) => (
-              <div key={s.label} className={i > 0 ? "pl-6 sm:pl-10 border-l border-gray-200" : ""}>
-                <p className="font-orbitron text-2xl sm:text-3xl font-bold text-text leading-none">{s.value}</p>
+              <div key={s.label} className={i > 0 ? "sm:pl-10 sm:border-l sm:border-gray-200" : ""}>
+                <p className="font-orbitron text-2xl sm:text-3xl font-bold text-text leading-none">
+                  <CountUp value={s.value} delay={i * 120} />
+                </p>
                 <p className="mt-1 text-[10px] sm:text-xs font-medium uppercase tracking-wider text-muted">{s.label}</p>
               </div>
             ))}
