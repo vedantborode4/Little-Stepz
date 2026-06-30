@@ -8,6 +8,7 @@ import BestSellers from "../components/home/BestSellers"
 import PreOrderHome from "../components/home/PreOrderHome"
 import SectionHeader from "../components/home/SectionHeader"
 import { HeadingFor } from "../components/home/HeadingFor"
+import WhyChooseLittleStepz from "../components/home/WhyChooseLittleStepz"
 
 export default function Home() {
   return (
@@ -52,9 +53,12 @@ export default function Home() {
       {/* 7. Pre-Order (self-hides when empty) */}
       <PreOrderHome />
 
-      {/* 7. Footer is rendered globally in the root layout */}
-
       </div>
+
+      {/* 8. Why Choose Little Stepz — full-width band above the footer */}
+      <WhyChooseLittleStepz />
+
+      {/* Footer is rendered globally in the root layout */}
     </>
   )
 }

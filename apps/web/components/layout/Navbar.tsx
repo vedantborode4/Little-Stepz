@@ -153,7 +153,10 @@ export default function Navbar() {
                 All Products
               </Link>
 
-              <Link href="/pre-orders" className="px-3 py-2 rounded-lg text-gray-600 hover:text-primary hover:bg-primary/5 transition-colors">
+              <Link href="/pre-orders" className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-gray-600 hover:text-primary hover:bg-primary/5 transition-colors">
+                <span className="text-[9px] font-bold uppercase tracking-wide bg-primary text-white px-1.5 py-0.5 rounded-full leading-none">
+                  New
+                </span>
                 Pre-Order
               </Link>
             </nav>
@@ -364,7 +367,7 @@ export default function Navbar() {
           {/* All Products */}
           <div className="px-3 pb-1">
             <MobileNavLink href="/products" icon={<ShoppingCart size={15} className="text-gray-400" />} label="All Products" />
-            <MobileNavLink href="/pre-orders" icon={<Clock size={15} className="text-gray-400" />} label="Pre-Order" />
+            <MobileNavLink href="/pre-orders" icon={<Clock size={15} className="text-gray-400" />} label="Pre-Order" badge="New" />
           </div>
 
           {/* Categories with accordion */}
@@ -515,8 +518,8 @@ function MenuItem({ href, icon: Icon, label, onClick, accent }: {
 }
 
 // ── Mobile drawer nav link ────────────────────────────────────────────────
-function MobileNavLink({ href, icon, label, accent }: {
-  href: string; icon: React.ReactNode; label: string; accent?: boolean
+function MobileNavLink({ href, icon, label, accent, badge }: {
+  href: string; icon: React.ReactNode; label: string; accent?: boolean; badge?: string
 }) {
   return (
     <Link
@@ -530,6 +533,11 @@ function MobileNavLink({ href, icon, label, accent }: {
     >
       <span className="flex-shrink-0">{icon}</span>
       {label}
+      {badge && (
+        <span className="text-[9px] font-bold uppercase tracking-wide bg-primary text-white px-1.5 py-0.5 rounded-full leading-none">
+          {badge}
+        </span>
+      )}
     </Link>
   )
 }
