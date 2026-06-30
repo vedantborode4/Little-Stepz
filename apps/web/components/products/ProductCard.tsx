@@ -88,7 +88,7 @@ export default function ProductCard({ product }: { product: Product }) {
           alt={product.name}
           fill
           sizes="(min-width: 1280px) 25vw, (min-width: 640px) 50vw, 50vw"
-          className="object-contain p-2 sm:p-4 transition-transform duration-300 ease-out group-hover:scale-110"
+          className="object-contain transition-transform duration-300 ease-out group-hover:scale-110"
         />
 
         <button
