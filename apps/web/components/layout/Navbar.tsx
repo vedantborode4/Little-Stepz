@@ -96,7 +96,7 @@ export default function Navbar() {
             </Link>
 
             {/* Desktop Nav */}
-            <nav className="hidden md:flex items-center text-sm font-medium font-orbitron">
+            <nav className="hidden md:flex items-center text-sm font-medium font-orbitron uppercase">
               {/* Categories mega menu */}
               <div
                 className="relative"
@@ -154,10 +154,10 @@ export default function Navbar() {
               </Link>
 
               <Link href="/pre-orders" className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-gray-600 hover:text-primary hover:bg-primary/5 transition-colors">
+                Pre-Order
                 <span className="text-[9px] font-bold uppercase tracking-wide bg-primary text-white px-1.5 py-0.5 rounded-full leading-none">
                   New
                 </span>
-                Pre-Order
               </Link>
             </nav>
 
@@ -258,7 +258,7 @@ export default function Navbar() {
               ) : (
                 <Link
                   href="/signin"
-                  className="hidden md:flex ml-1 px-4 py-1.5 bg-primary text-white text-sm font-medium rounded-lg hover:opacity-90 transition"
+                  className="hidden md:flex ml-1 px-4 py-1.5 bg-primary text-white text-sm font-medium font-orbitron uppercase rounded-lg hover:opacity-90 transition"
                 >
                   Login
                 </Link>
@@ -327,7 +327,7 @@ export default function Navbar() {
         )}
 
         {/* Scrollable nav area */}
-        <nav className="flex-1 overflow-y-auto font-orbitron">
+        <nav className="flex-1 overflow-y-auto font-orbitron uppercase">
 
           {/* Quick actions — cart + wishlist */}
           <div className="grid grid-cols-2 gap-2.5 px-4 pt-4 pb-2">

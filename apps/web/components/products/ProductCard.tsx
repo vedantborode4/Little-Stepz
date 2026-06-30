@@ -116,18 +116,22 @@ export default function ProductCard({ product }: { product: Product }) {
         {isPreOrder ? (
           <button
             onClick={(e) => { e.preventDefault(); router.push(`/products/${product.slug}`) }}
-            className="mt-auto w-full bg-primary text-white py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium flex items-center justify-center gap-1.5"
+            className="group/btn relative overflow-hidden mt-auto w-full bg-primary text-white py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium"
           >
-            Pre-Order
+            <span className="pointer-events-none absolute inset-0 -translate-x-full skew-x-12 bg-linear-to-r from-transparent via-white/40 to-transparent transition-transform duration-700 group-hover/btn:translate-x-full" />
+            <span className="relative flex items-center justify-center gap-1.5">Pre-Order</span>
           </button>
         ) : (
           <button
             onClick={handleAddToCart}
             disabled={!inStock || isAdding}
-            className="mt-auto w-full bg-primary text-white py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium flex items-center justify-center gap-1.5 sm:gap-2 disabled:bg-gray-300"
+            className="group/btn relative overflow-hidden mt-auto w-full bg-primary text-white py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium disabled:bg-gray-300"
           >
-            {isAdding && <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 animate-spin" />}
-            {hasMultipleVariants ? "Select Options" : isAdding ? "Adding…" : "Add to Cart"}
+            <span className="pointer-events-none absolute inset-0 -translate-x-full skew-x-12 bg-linear-to-r from-transparent via-white/40 to-transparent transition-transform duration-700 group-hover/btn:translate-x-full" />
+            <span className="relative flex items-center justify-center gap-1.5 sm:gap-2">
+              {isAdding && <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 animate-spin" />}
+              {hasMultipleVariants ? "Select Options" : isAdding ? "Adding…" : "Add to Cart"}
+            </span>
           </button>
         )}
       </div>

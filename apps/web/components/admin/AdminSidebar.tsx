@@ -52,7 +52,7 @@ export default function AdminSidebar({ onClose }: Props) {
         )}
       </div>
 
-      <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto font-orbitron">
+      <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
         {items.map((item) => {
           const Icon = item.icon
           const active = isActive(item.href)

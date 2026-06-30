@@ -53,10 +53,10 @@ export default function HeroFallback() {
               </span>
             </Link>
             <Link
-              href="/affiliate/apply"
+              href="/pre-orders"
               className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-7 py-3 text-sm font-semibold text-text hover:border-primary/40 hover:text-primary transition"
             >
-              Wholesale Enquiry
+              Pre-Order
             </Link>
           </div>
 
