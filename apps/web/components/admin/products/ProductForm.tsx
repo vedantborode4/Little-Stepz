@@ -79,7 +79,8 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
       [key]: value,
       ...(key === "name" ? { slug: slugify(value, { lower: true, strict: true }) } : {}),
     }))
-    setErrors(p => ({ ...p, [key]: [] }))
+    // Editing the name regenerates the slug, so clear any stale slug error too.
+    setErrors(p => ({ ...p, [key]: [], ...(key === "name" ? { slug: [] } : {}) }))
   }
 
   const submit = async () => {

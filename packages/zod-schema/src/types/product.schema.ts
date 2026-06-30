@@ -4,7 +4,7 @@ import { optionalPriceSchema, priceSchema, stockSchema, slugSchema, uuidSchema }
 const productBaseSchema = z.object({
     name: z.string()
         .min(2, "Product name must be at least 2 characters")
-        .max(150, "Product name must be at most 150 characters"),
+        .max(200, "Product name must be at most 200 characters"),
 
     slug: slugSchema,
 
