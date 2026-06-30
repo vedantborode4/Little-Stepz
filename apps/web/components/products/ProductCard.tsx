@@ -74,7 +74,7 @@ export default function ProductCard({ product }: { product: Product }) {
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       style={{ transform }}
-      className="group h-full flex flex-col bg-white rounded-xl shadow-card hover:shadow-lg transition-[transform,box-shadow] duration-150 ease-out will-change-transform overflow-hidden"
+      className="group h-full flex flex-col bg-white rounded-xl border border-gray-100 shadow-card hover:shadow-[0_18px_40px_-14px_rgba(0,0,0,0.22)] hover:border-primary/20 transition-[transform,box-shadow,border-color] duration-150 ease-out will-change-transform overflow-hidden"
     >
       {/* IMAGE */}
       <div className="relative w-full aspect-square bg-white">
@@ -97,17 +97,17 @@ export default function ProductCard({ product }: { product: Product }) {
             e.stopPropagation()
             toggleWishlist(product.id)
           }}
-          className="absolute top-2 right-2 sm:top-3 sm:right-3 bg-white rounded-full p-1.5 sm:p-2 shadow"
+          className="absolute top-2 right-2 sm:top-3 sm:right-3 bg-white/90 backdrop-blur-sm rounded-full p-1.5 sm:p-2 shadow transition-transform duration-200 hover:scale-110 hover:text-primary active:scale-90"
         >
           <Heart
-            className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isInWishlist ? "fill-primary text-primary" : ""}`}
+            className={`w-3.5 h-3.5 sm:w-4 sm:h-4 transition-colors ${isInWishlist ? "fill-primary text-primary" : ""}`}
           />
         </button>
       </div>
 
       {/* CONTENT */}
       <div className="flex flex-col flex-1 p-2.5 sm:p-4">
-        <h3 className="text-xs sm:text-sm font-medium line-clamp-2 min-h-8.5 sm:min-h-10 leading-snug">
+        <h3 className="text-xs sm:text-sm font-medium line-clamp-2 min-h-8.5 sm:min-h-10 leading-snug transition-colors group-hover:text-primary">
           {product.name}
         </h3>
 
