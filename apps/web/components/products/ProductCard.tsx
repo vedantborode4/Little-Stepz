@@ -3,7 +3,7 @@
 import Link from "next/link"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { Product } from "../../types/product"
 import { getDisplayPrices } from "../../lib/pricing"
 import PriceTag from "./PriceTag"
@@ -18,6 +18,29 @@ export default function ProductCard({ product }: { product: Product }) {
   const toggleWishlist = useWishlistStore((s) => s.toggle)
   const isInWishlist = useWishlistStore((s) => s.isInWishlist(product.id))
   const [isAdding, setIsAdding] = useState(false)
+
+  const cardRef = useRef<HTMLAnchorElement>(null)
+  const [transform, setTransform] = useState("")
+
+  const MAX_TILT = 9
+  const HOVER_SCALE = 1.04
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    const el = cardRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const px = (e.clientX - rect.left) / rect.width
+    const py = (e.clientY - rect.top) / rect.height
+    const ry = (px - 0.5) * 2 * MAX_TILT
+    const rx = -(py - 0.5) * 2 * MAX_TILT
+    setTransform(
+      `perspective(1000px) rotateX(${rx.toFixed(2)}deg) rotateY(${ry.toFixed(2)}deg) scale(${HOVER_SCALE})`
+    )
+  }
+
+  const handleMouseEnter = () => setTransform(`perspective(1000px) scale(${HOVER_SCALE})`)
+  const handleMouseLeave = () =>
+    setTransform("perspective(1000px) rotateX(0deg) rotateY(0deg) scale(1)")
 
   const image = product.images?.[0]?.url || "/placeholder.png"
   const variants = product.variants ?? []
@@ -45,8 +68,13 @@ export default function ProductCard({ product }: { product: Product }) {
 
   return (
     <Link
+      ref={cardRef}
       href={`/products/${product.slug}`}
-      className="group h-full flex flex-col bg-white rounded-xl shadow-card hover:shadow-lg transition overflow-hidden"
+      onMouseMove={handleMouseMove}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      style={{ transform }}
+      className="group h-full flex flex-col bg-white rounded-xl shadow-card hover:shadow-lg transition-[transform,box-shadow] duration-150 ease-out will-change-transform overflow-hidden"
     >
       {/* IMAGE */}
       <div className="relative w-full aspect-square bg-white">
@@ -60,7 +88,7 @@ export default function ProductCard({ product }: { product: Product }) {
           alt={product.name}
           fill
           sizes="(min-width: 1280px) 25vw, (min-width: 640px) 50vw, 50vw"
-          className="object-contain p-2 sm:p-4 group-hover:scale-105 transition"
+          className="object-contain p-2 sm:p-4 transition-transform duration-300 ease-out group-hover:scale-110"
         />
 
         <button
