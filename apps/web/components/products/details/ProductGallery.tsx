@@ -16,7 +16,7 @@ export default function ProductGallery({ images }: { images: ProductImage[] }) {
       <div className="space-y-3">
         {/* Main image */}
         <div
-          className="relative border border-gray-100 rounded-2xl bg-white overflow-hidden group cursor-zoom-in shadow-card"
+          className="relative border border-gray-100 rounded-[10px] bg-white overflow-hidden group cursor-zoom-in shadow-card"
           onClick={() => setZoomed(true)}
         >
           <Image

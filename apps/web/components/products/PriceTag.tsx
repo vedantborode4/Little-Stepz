@@ -15,8 +15,8 @@ interface Props {
 export default function PriceTag({ prices, size = "sm", className = "" }: Props) {
   const { regular, sale, mode, showDiscount, discountPct } = prices
 
-  const main = size === "lg" ? "text-3xl font-bold text-gray-900" : "text-primary font-semibold text-sm sm:text-base"
-  const struck = size === "lg" ? "text-base text-gray-400 line-through" : "text-xs text-gray-400 line-through"
+  const main = size === "lg" ? "font-orbitron text-3xl font-bold text-gray-900" : "font-orbitron text-primary font-semibold text-sm sm:text-base"
+  const struck = size === "lg" ? "font-orbitron text-base text-gray-400 line-through" : "font-orbitron text-xs text-gray-400 line-through"
   const badge = size === "lg" ? "text-xs px-2 py-0.5" : "text-[10px] px-1.5 py-0.5"
 
   if (mode === "REGULAR" || (mode === "BOTH" && !showDiscount)) {

@@ -27,10 +27,17 @@ export default function Footer() {
           <div>
             <h4 className="font-semibold text-white mb-3 sm:mb-4 text-sm">Categories</h4>
             <ul className="space-y-2 text-sm">
-              {["Action Figures", "Board Games", "Soft Toys", "Learning Toys", "Outdoor Play"].map((item) => (
-                <li key={item}>
-                  <Link href={`/products?search=${item.toLowerCase()}`} className="text-gray-400 hover:text-white transition text-xs sm:text-sm">
-                    {item}
+              {[
+                { label: "Blocks", slug: "blocks" },
+                { label: "Die Cast Cars", slug: "die-cast-cars" },
+                { label: "Hyper go Cars", slug: "hyper-go-cars" },
+                { label: "Licensed Cars", slug: "licensed-cars" },
+                { label: "RC Cars", slug: "rc-cars" },
+                { label: "Stanley Cars", slug: "stanley-cars" },
+              ].map((item) => (
+                <li key={item.slug}>
+                  <Link href={`/products/category/${item.slug}`} className="text-gray-400 hover:text-white transition text-xs sm:text-sm">
+                    {item.label}
                   </Link>
                 </li>
               ))}

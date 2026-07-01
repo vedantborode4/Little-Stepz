@@ -32,9 +32,9 @@ export default function BestSellers({ sort = "newest", limit = 5, showViewAll = 
   return (
     <section>
       {loading ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+        <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory scrollbar-none pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 sm:pb-0 sm:overflow-visible sm:grid sm:grid-cols-3 lg:grid-cols-5 sm:gap-4">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="bg-white border border-gray-200 rounded-2xl overflow-hidden animate-pulse">
+            <div key={i} className="min-w-[46%] shrink-0 snap-start sm:min-w-0 bg-white border border-gray-200 rounded-2xl overflow-hidden animate-pulse">
               <div className="aspect-square bg-gray-100" />
               <div className="p-3 sm:p-4 space-y-2">
                 <div className="h-4 bg-gray-200 rounded" />
@@ -45,9 +45,11 @@ export default function BestSellers({ sort = "newest", limit = 5, showViewAll = 
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+        <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory scrollbar-none pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 sm:pb-0 sm:overflow-visible sm:grid sm:grid-cols-3 lg:grid-cols-5 sm:gap-4">
           {products.map((p) => (
-            <ProductCard key={p.id} product={p} />
+            <div key={p.id} className="min-w-[46%] shrink-0 snap-start sm:min-w-0">
+              <ProductCard product={p} />
+            </div>
           ))}
         </div>
       )}
