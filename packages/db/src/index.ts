@@ -1,5 +1,6 @@
 import {
   PrismaClient,
+  Prisma,
   Role,
   CouponType,
   OrderStatus,
@@ -19,6 +20,7 @@ import {
 export const prisma = new PrismaClient();
 
 export {
+  Prisma,
   Role,
   CouponType,
   OrderStatus,

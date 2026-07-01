@@ -118,13 +118,16 @@ export default function SearchBar() {
             <div
               key={item.slug}
               onClick={() => goToSearch(item.name)}
-              className={`px-4 py-2 cursor-pointer text-sm ${
+              className={`flex items-baseline justify-between gap-2 px-4 py-2 cursor-pointer text-sm ${
                 index === activeIndex
                   ? "bg-primary/10"
                   : "hover:bg-gray-50"
               }`}
             >
-              {item.name}
+              <span className="truncate">{item.name}</span>
+              {item.category && (
+                <span className="shrink-0 text-xs text-gray-400">in {item.category}</span>
+              )}
             </div>
           ))}
         </div>
