@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import { useRef, useState } from "react"
 import { Product } from "../../types/product"
 import { getDisplayPrices } from "../../lib/pricing"
+import { cldFill } from "../../lib/utils/cloudinaryUrl"
 import PriceTag from "./PriceTag"
 import { Heart, Loader2 } from "lucide-react"
 import { useCartStore } from "../../store/useCartStore"
@@ -42,7 +43,7 @@ export default function ProductCard({ product }: { product: Product }) {
   const handleMouseLeave = () =>
     setTransform("perspective(1000px) rotateX(0deg) rotateY(0deg) scale(1)")
 
-  const image = product.images?.[0]?.url || "/placeholder.png"
+  const image = cldFill(product.images?.[0]?.url || "/placeholder.png")
   const variants = product.variants ?? []
   const hasMultipleVariants = variants.length > 1
   const inStock = product.inStock ?? true
@@ -88,7 +89,7 @@ export default function ProductCard({ product }: { product: Product }) {
           alt={product.name}
           fill
           sizes="(min-width: 1280px) 25vw, (min-width: 640px) 50vw, 50vw"
-          className="object-contain transition-transform duration-300 ease-out group-hover:scale-110"
+          className="object-cover transition-transform duration-300 ease-out group-hover:scale-110"
         />
 
         <button
