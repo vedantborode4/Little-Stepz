@@ -13,49 +13,49 @@ import WhyChooseLittleStepz from "../components/home/WhyChooseLittleStepz"
 export default function Home() {
   return (
     <>
-      {/* 1. Hero sliding banners — full width */}
+      {/* 1. Hero — full width */}
       <DynamicHeroBanner />
 
-      <div className="max-w-7xl mx-auto px-4 space-y-8 sm:space-y-14 py-4 sm:py-8">
-
-      {/* Our Promise */}
-      <section className="container">
-        <HeadingFor />
-      </section>
-
-      {/* 2. Categories */}
-      <section>
+      {/* 2. Categories — white */}
+      <div className="max-w-7xl mx-auto px-4 py-8 sm:py-12">
         <SectionHeader title="Shop by Category" subtitle="Browse our full range of categories" />
         <PromoBannerRow />
-      </section>
-
-      {/* 3. Features (free shipping, easy returns, COD, secure payments) */}
-      <section>
-        <SectionHeader title="Why Shop With Us" />
-        <WhyChooseUs />
-      </section>
-
-      {/* 4. Deals of the Day */}
-      <section>
-        <SectionHeader title="Deals of the Day" subtitle="Grab today's best prices" />
-        <BestSellers sort="price_asc" />
-      </section>
-
-      {/* 5. Flash sale / promo banners */}
-      <DynamicPromoBanner position="HOME_MID" />
-
-      {/* 6. Best Sellers */}
-      <section>
-        <SectionHeader title="Best Sellers" subtitle="Our most loved products" />
-        <BestSellers sort="newest" />
-      </section>
-
-      {/* 7. Pre-Order (self-hides when empty) */}
-      <PreOrderHome />
-
       </div>
 
-      {/* 8. Why Choose Little Stepz — full-width band above the footer */}
+      {/* 3. Why Shop With Us — red band */}
+      <section className="bg-bg">
+        <div className="max-w-7xl mx-auto px-4 py-10 sm:py-14">
+          <SectionHeader title="Why Shop With Us" />
+          <WhyChooseUs />
+        </div>
+      </section>
+
+      {/* 4–6. Deals · Banners · Best Sellers — white */}
+      <div className="max-w-7xl mx-auto px-4 py-8 sm:py-12 space-y-10 sm:space-y-14">
+        <section>
+          <SectionHeader title="Deals of the Day" subtitle="Grab today's best prices" />
+          <BestSellers sort="price_asc" />
+        </section>
+
+        <DynamicPromoBanner position="HOME_MID" />
+
+        <section>
+          <SectionHeader title="Best Sellers" subtitle="Our most loved products" />
+          <BestSellers sort="newest" />
+        </section>
+      </div>
+
+      {/* 7. About Us — red band */}
+      <section className="bg-bg">
+        <div className="max-w-7xl mx-auto px-4 py-10 sm:py-14">
+          <HeadingFor />
+        </div>
+      </section>
+
+      {/* 8. Pre-Order — white (self-hides when empty) */}
+      <PreOrderHome />
+
+      {/* 9. Why Choose Little Stepz — red band */}
       <WhyChooseLittleStepz />
 
       {/* Footer is rendered globally in the root layout */}

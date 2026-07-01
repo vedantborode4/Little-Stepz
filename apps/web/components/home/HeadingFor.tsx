@@ -12,7 +12,7 @@ export function HeadingFor() {
             <div className="w-7 h-7 bg-primary/10 rounded-lg flex items-center justify-center">
               <Sparkles size={13} className="text-primary" />
             </div>
-            <span className="text-xs font-semibold text-primary uppercase tracking-wider">Our Promise</span>
+            <span className="text-xs font-semibold text-primary uppercase tracking-wider">About Us</span>
           </div>
 
           <div className="space-y-1">
@@ -25,10 +25,10 @@ export function HeadingFor() {
           </div>
 
           <Link
-            href="/products"
+            href="/about"
             className="inline-flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:opacity-90 transition w-fit shadow-sm mt-2"
           >
-            Shop Now <ArrowRight size={14} />
+            Read Our Story <ArrowRight size={14} />
           </Link>
         </div>
 

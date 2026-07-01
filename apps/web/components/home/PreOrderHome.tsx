@@ -28,7 +28,7 @@ export default function PreOrderHome({ limit = 5 }: { limit?: number }) {
   if (!loading && products.length === 0) return null
 
   return (
-    <section>
+    <section className="max-w-7xl mx-auto px-4 py-8 sm:py-12">
       <SectionHeader title="Pre-Order Now" subtitle="Reserve upcoming & out-of-stock arrivals" />
 
       {loading ? (
