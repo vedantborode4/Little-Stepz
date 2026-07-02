@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { useOrderStore } from "../../../../store/useOrderStore"
 import { OrderService } from "../../../../lib/services/order.service"
+import { cldFill } from "../../../../lib/utils/cloudinaryUrl"
 import {
   Package, MapPin, CreditCard, ArrowLeft,
   RotateCcw, XCircle, ChevronRight, Truck, CheckCircle, Clock
@@ -246,7 +247,7 @@ export default function OrderDetailsPage() {
           <div key={item.id} className="flex items-center gap-4 py-3 border-t border-gray-50 first:border-0">
             {(item.variant?.images?.[0]?.url || item.product?.images?.[0]?.url) ? (
               <img
-                src={item.variant?.images?.[0]?.url || item.product.images[0].url}
+                src={cldFill(item.variant?.images?.[0]?.url || item.product.images[0].url, 200)}
                 alt={item.product.name}
                 className="w-14 h-14 object-cover rounded-xl border border-gray-100"
               />

@@ -7,13 +7,14 @@ import { ShoppingCart, Trash2 } from "lucide-react"
 import { useCartStore } from "../../store/useCartStore"
 import { useWishlistStore } from "../../store/useWishlistStore"
 import { getDisplayPrices } from "../../lib/pricing"
+import { cldFill } from "../../lib/utils/cloudinaryUrl"
 import PriceTag from "../products/PriceTag"
 
 export default function WishlistItem({ item, onRemoved }: any) {
   const addItem = useCartStore((s) => s.addItem)
   const toggle = useWishlistStore((s) => s.toggle)
 
-  const image = item.product.images?.[0]?.url || "/placeholder.png"
+  const image = cldFill(item.product.images?.[0]?.url || "/placeholder.png", 200)
 
   const handleAddToCart = async () => {
     await addItem({ productId: item.product.id, quantity: 1 })
@@ -35,7 +36,7 @@ export default function WishlistItem({ item, onRemoved }: any) {
             src={image}
             alt={item.product.name}
             fill
-            className="object-contain p-1.5"
+            className="object-cover"
           />
         </div>
       </Link>

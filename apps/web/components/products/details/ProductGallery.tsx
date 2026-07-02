@@ -4,12 +4,13 @@ import Image from "next/image"
 import { useState } from "react"
 import type { ProductImage } from "../../../types/product"
 import { ZoomIn } from "lucide-react"
+import { cldFill } from "../../../lib/utils/cloudinaryUrl"
 
 export default function ProductGallery({ images }: { images: ProductImage[] }) {
   const [active, setActive] = useState(0)
   const [zoomed, setZoomed] = useState(false)
 
-  const mainImage = images?.[active]?.url || "/placeholder.png"
+  const activeUrl = images?.[active]?.url || "/placeholder.png"
 
   return (
     <>
@@ -20,11 +21,11 @@ export default function ProductGallery({ images }: { images: ProductImage[] }) {
           onClick={() => setZoomed(true)}
         >
           <Image
-            src={mainImage}
+            src={cldFill(activeUrl, 800)}
             alt=""
-            width={600}
-            height={600}
-            className="mx-auto object-contain h-[420px] transition-transform duration-300 group-hover:scale-105"
+            width={800}
+            height={800}
+            className="w-full object-cover h-[420px] transition-transform duration-300 group-hover:scale-105"
           />
           <div className="absolute top-4 right-4 bg-white/90 border border-gray-100 rounded-xl p-2 opacity-0 group-hover:opacity-100 transition shadow-sm">
             <ZoomIn size={16} className="text-gray-500" />
@@ -42,18 +43,18 @@ export default function ProductGallery({ images }: { images: ProductImage[] }) {
             <button
               key={img.id}
               onClick={() => setActive(i)}
-              className={`flex-shrink-0 border-2 rounded-xl p-1.5 transition-all duration-150 bg-white ${
+              className={`flex-shrink-0 border-2 rounded-sm p-1.5 transition-all duration-150 bg-white ${
                 i === active
                   ? "border-primary shadow-sm"
                   : "border-gray-100 hover:border-gray-300"
               }`}
             >
               <Image
-                src={img.url}
+                src={cldFill(img.url, 160)}
                 alt=""
                 width={64}
                 height={64}
-                className="object-contain w-14 h-14"
+                className="object-cover w-14 h-14 rounded-[6px]"
               />
             </button>
           ))}
@@ -68,7 +69,7 @@ export default function ProductGallery({ images }: { images: ProductImage[] }) {
         >
           <div className="bg-white rounded-2xl p-4 max-w-2xl w-full shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <Image
-              src={mainImage}
+              src={activeUrl}
               alt=""
               width={800}
               height={800}

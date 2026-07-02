@@ -6,6 +6,7 @@ import { Trash2, Minus, Plus } from "lucide-react"
 import { useCartStore } from "../../store/useCartStore"
 import { getChargedPrice, getDisplayPrices, formatINR } from "../../lib/pricing"
 import PriceTag from "../products/PriceTag"
+import { cldFill } from "../../lib/utils/cloudinaryUrl"
 import type { CartItem as CartItemType } from "../../types/cart"
 
 export default function CartItem({ item }: { item: CartItemType }) {
@@ -17,7 +18,7 @@ export default function CartItem({ item }: { item: CartItemType }) {
   const key = `${item.productId}-${variantId ?? "no-variant"}`
   const isUpdating = updatingKey === key
 
-  const image = item.variant?.images?.[0]?.url || item.product.images?.[0]?.url || "/placeholder.png"
+  const image = cldFill(item.variant?.images?.[0]?.url || item.product.images?.[0]?.url || "/placeholder.png", 200)
   const unitPrice = getChargedPrice(item.product, item.variant)
   const lineTotal = unitPrice * item.quantity
   const unitPrices = getDisplayPrices(item.product, item.variant)
@@ -38,7 +39,7 @@ export default function CartItem({ item }: { item: CartItemType }) {
             src={image}
             alt={item.product.name}
             fill
-            className="object-contain p-2 scale-95 group-hover:scale-100 transition-transform duration-300"
+            className="object-cover group-hover:scale-105 transition-transform duration-300"
           />
         </div>
       </Link>

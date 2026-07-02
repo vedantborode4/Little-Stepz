@@ -3,6 +3,7 @@
 import Image from "next/image"
 import { useCartStore } from "../../store/useCartStore"
 import { getDisplayPrices } from "../../lib/pricing"
+import { cldFill } from "../../lib/utils/cloudinaryUrl"
 import PriceTag from "../products/PriceTag"
 
 export default function OrderReview() {
@@ -14,10 +15,10 @@ export default function OrderReview() {
         <div key={item.id} className="flex gap-3.5 py-3 border-b border-gray-100 last:border-none">
           <div className="relative w-14 h-14 bg-gray-50 rounded-xl border border-gray-100 flex-shrink-0 overflow-hidden">
             <Image
-              src={item.variant?.images?.[0]?.url || item.product.images?.[0]?.url || "/placeholder.png"}
+              src={cldFill(item.variant?.images?.[0]?.url || item.product.images?.[0]?.url || "/placeholder.png", 160)}
               alt={item.product.name}
               fill
-              className="object-contain p-1"
+              className="object-cover"
             />
           </div>
 

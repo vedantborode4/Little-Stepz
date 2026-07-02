@@ -9,6 +9,7 @@ import {
   Clock, CheckCircle, XCircle, RotateCcw, AlertCircle
 } from "lucide-react"
 import { PreOrderService, type PreOrderSummary, type PreOrderStatus } from "../../../../lib/services/preorder.service"
+import { cldFill } from "../../../../lib/utils/cloudinaryUrl"
 
 const inr = (n: number) => `₹${Number(n).toLocaleString("en-IN")}`
 
@@ -134,7 +135,7 @@ export default function PreOrderDetailsPage() {
           </div>
           <div className="flex items-center gap-4">
             <img
-              src={po.product.images?.[0]?.url || "/placeholder.png"}
+              src={cldFill(po.product.images?.[0]?.url || "/placeholder.png", 200)}
               alt={po.product.name}
               className="w-16 h-16 object-cover rounded-xl border border-gray-100 shrink-0"
             />

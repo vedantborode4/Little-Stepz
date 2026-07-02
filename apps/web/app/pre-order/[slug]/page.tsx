@@ -9,6 +9,7 @@ import { PreOrderService } from "../../../lib/services/preorder.service"
 import CheckoutAddressSection from "../../../components/address/CheckoutAddressSection"
 import { useAddressStore } from "../../../store/useAddressStore"
 import { getChargedPrice } from "../../../lib/pricing"
+import { cldFill } from "../../../lib/utils/cloudinaryUrl"
 import { openRazorpay } from "../../../lib/openRazorpay"
 import type { Product } from "../../../types/product"
 
@@ -102,9 +103,9 @@ export default function PreOrderCheckoutPage() {
       {/* Product */}
       <div className="bg-white border border-gray-200 rounded-2xl p-4 flex gap-4">
         <img
-          src={variant?.images?.[0]?.url || product.images?.[0]?.url || "/placeholder.png"}
+          src={cldFill(variant?.images?.[0]?.url || product.images?.[0]?.url || "/placeholder.png", 200)}
           alt={product.name}
-          className="w-20 h-20 object-contain rounded-xl border border-gray-100"
+          className="w-20 h-20 object-cover rounded-xl border border-gray-100"
         />
         <div className="flex-1">
           <p className="font-semibold text-gray-900">{product.name}</p>

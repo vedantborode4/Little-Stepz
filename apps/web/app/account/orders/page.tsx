@@ -3,6 +3,7 @@
 import AuthGuard from "../../../components/guard/AuthGuard"
 import { useEffect } from "react"
 import { useOrderStore } from "../../../store/useOrderStore"
+import { cldFill } from "../../../lib/utils/cloudinaryUrl"
 import Link from "next/link"
 import {
   Package, ChevronRight, ShoppingBag, Clock,
@@ -131,7 +132,7 @@ export default function OrdersPage() {
                       {images.map((url: string, idx: number) => (
                         <img
                           key={idx}
-                          src={url}
+                          src={cldFill(url, 160)}
                           alt=""
                           className="w-14 h-14 object-cover rounded-xl border border-gray-100"
                         />
