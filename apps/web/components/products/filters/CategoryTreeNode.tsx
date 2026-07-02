@@ -3,8 +3,7 @@
 import { useState, memo } from "react"
 import { ChevronDown } from "lucide-react"
 import { CategoryNode } from "../../../lib/services/category.service"
-import { useProductFilterStore } from "../../../store/useProductFilterStore"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import clsx from "clsx"
 
 interface Props {
@@ -15,20 +14,15 @@ function CategoryTreeNode({ node }: Props) {
   const [open, setOpen] = useState(false)
 
   const router = useRouter()
+  const pathname = usePathname()
 
-  const activeCategory = useProductFilterStore((s) => s.category)
-  const setFilters = useProductFilterStore((s) => s.setFilters)
-
-  const isActive = activeCategory === node.slug
+  const isActive = pathname === `/products/category/${node.slug}`
 
   const handleCategoryClick = () => {
-    // ✅ update filter store
-    setFilters({
-      category: node.slug,
-      page: 1,
-    })
-
-    // ✅ navigate to slug page
+    // Navigate straight to the category page — the category route drives the
+    // fetch by its slug, so we must NOT also poke the filter store here (doing
+    // so made the All Products page fire a competing URL update and left it
+    // stuck on an empty, filtered state).
     router.push(`/products/category/${node.slug}`)
   }
 
