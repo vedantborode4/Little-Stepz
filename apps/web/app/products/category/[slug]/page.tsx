@@ -56,6 +56,18 @@ export default function CategoryProductsPage() {
     }
   }, [slug, tree])
 
+  // Entering a category: clear any leftover global sort/price filters so the
+  // category isn't accidentally over-filtered (which would hide products and
+  // collapse pagination to a single page).
+  useEffect(() => {
+    useProductFilterStore.getState().setFilters({
+      sort: undefined,
+      priceMin: undefined,
+      priceMax: undefined,
+      page: 1,
+    })
+  }, [slug])
+
   useEffect(() => {
     setPage(1)
   }, [slug, sort, priceMin, priceMax])

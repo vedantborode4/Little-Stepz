@@ -74,6 +74,19 @@ export default function ProductsPage() {
     hasHydrated.current = true
   }, [searchParams])
 
+  // Keep `search` in sync with the URL after hydration. Navigating to /products
+  // with no ?search (e.g. the "All Products" link) must exit search mode so the
+  // full, paginated grid shows again — otherwise a stale search hides pagination.
+  useEffect(() => {
+    if (!hasHydrated.current) return
+    const urlSearch = searchParams.get("search") || undefined
+    const storeSearch = useProductFilterStore.getState().search || undefined
+    if (urlSearch !== storeSearch) {
+      setFilters({ search: urlSearch, page: Number(searchParams.get("page") || 1) })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
+
   useEffect(() => {
     if (!hasHydrated.current) return
     const fetchProducts = async () => {
