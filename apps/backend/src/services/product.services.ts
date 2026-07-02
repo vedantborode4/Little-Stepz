@@ -89,7 +89,12 @@ export async function getProductsService({
     deletedAt: null
   };
 
-  if (preOrder !== undefined) where.preOrderEnabled = preOrder;
+  if (preOrder !== undefined) {
+    where.preOrderEnabled = preOrder;
+    // A product is only "actively" on pre-order once it's out of stock — an
+    // in-stock product just sells normally even if pre-order is enabled.
+    if (preOrder) where.inStock = false;
+  }
 
   if (inStock !== undefined) where.inStock = inStock;
   if (categoryId) where.categoryId = categoryId;

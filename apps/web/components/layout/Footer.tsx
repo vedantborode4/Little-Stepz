@@ -87,7 +87,17 @@ export default function Footer() {
         {/* Bottom bar */}
         <div className="border-t border-gray-800 mt-8 sm:mt-10 pt-5 sm:pt-6 flex flex-col sm:flex-row justify-between items-center gap-2 text-xs text-gray-500 text-center">
           <p>© {new Date().getFullYear()} Little Stepz. All rights reserved.</p>
-          <p>Developed by Novixs</p>
+          <p>
+            Developed by{" "}
+            <a
+              href="https://novixs.in"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-white transition"
+            >
+              Novixs Web Services
+            </a>
+          </p>
           <p>Made with ♥ for little ones</p>
         </div>
       </div>
