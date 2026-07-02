@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from "react"
 import { useParams } from "next/navigation"
 import { useCategoryStore } from "../../../../store/useCategoryStore"
+import { useProductFilterStore } from "../../../../store/useProductFilterStore"
 
 import Breadcrumbs from "../../../../components/common/Breadcrumbs"
 
@@ -20,6 +21,11 @@ export default function CategoryProductsPage() {
   const { slug } = useParams<{ slug: string }>()
 
   const { tree } = useCategoryStore()
+
+  // Applied (post-"Apply") sort/price from the filter sidebar
+  const sort = useProductFilterStore((s) => s.sort)
+  const priceMin = useProductFilterStore((s) => s.priceMin)
+  const priceMax = useProductFilterStore((s) => s.priceMax)
 
   const [products, setProducts] = useState<Product[]>([])
   const [totalPages, setTotalPages] = useState(1)
@@ -51,7 +57,7 @@ export default function CategoryProductsPage() {
 
   useEffect(() => {
     setPage(1)
-  }, [slug])
+  }, [slug, sort, priceMin, priceMax])
 
   useEffect(() => {
     if (!slug) return
@@ -66,7 +72,10 @@ export default function CategoryProductsPage() {
         const res = await ProductService.getByCategorySlug(
           slug,
           page,
-          12
+          12,
+          sort,
+          priceMin,
+          priceMax
         )
 
         if (ignore) return
@@ -85,7 +94,7 @@ export default function CategoryProductsPage() {
     return () => {
       ignore = true
     }
-  }, [slug, page])
+  }, [slug, page, sort, priceMin, priceMax])
 
   if (loading) return <ProductGridSkeleton />
 

@@ -3,12 +3,13 @@
 import { useProductFilterStore } from "../../../store/useProductFilterStore"
 
 export default function SortFilter() {
-  const { sort, setFilters } = useProductFilterStore()
+  const draftSort = useProductFilterStore((s) => s.draftSort)
+  const setDraft = useProductFilterStore((s) => s.setDraft)
 
   return (
     <select
-      value={sort || ""}
-      onChange={(e) => setFilters({ sort: e.target.value || undefined, page: 1 })}
+      value={draftSort || ""}
+      onChange={(e) => setDraft({ draftSort: e.target.value || undefined })}
       className="w-full border border-gray-200 rounded-lg h-11 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white"
     >
       <option value="">Default (Newest)</option>

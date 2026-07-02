@@ -8,36 +8,35 @@ const MAX = 50000
 const STEP = 100
 
 export default function PriceFilter() {
-  const priceMin = useProductFilterStore((s) => s.priceMin)
-  const priceMax = useProductFilterStore((s) => s.priceMax)
+  const draftMin = useProductFilterStore((s) => s.draftPriceMin)
+  const draftMax = useProductFilterStore((s) => s.draftPriceMax)
+  const setDraft = useProductFilterStore((s) => s.setDraft)
 
-  const [localMin, setLocalMin] = useState(priceMin ?? MIN)
-  const [localMax, setLocalMax] = useState(priceMax ?? MAX)
+  const [localMin, setLocalMin] = useState(draftMin ?? MIN)
+  const [localMax, setLocalMax] = useState(draftMax ?? MAX)
 
-  // Sync store → local when external reset happens
-  useEffect(() => { setLocalMin(priceMin ?? MIN) }, [priceMin])
-  useEffect(() => { setLocalMax(priceMax ?? MAX) }, [priceMax])
+  // Sync draft → local (e.g. after Apply / Clear / URL hydration)
+  useEffect(() => { setLocalMin(draftMin ?? MIN) }, [draftMin])
+  useEffect(() => { setLocalMax(draftMax ?? MAX) }, [draftMax])
 
-  // Debounce store updates
-  useEffect(() => {
-    const t = setTimeout(() => {
-      useProductFilterStore.getState().setFilters({
-        priceMin: localMin > MIN ? localMin : undefined,
-        priceMax: localMax < MAX ? localMax : undefined,
-        page: 1,
-      })
-    }, 400)
-    return () => clearTimeout(t)
-  }, [localMin, localMax])
+  // Write to the draft only — nothing refetches until the user hits "Apply".
+  const commitDraft = (min: number, max: number) => {
+    setDraft({
+      draftPriceMin: min > MIN ? min : undefined,
+      draftPriceMax: max < MAX ? max : undefined,
+    })
+  }
 
   const handleMinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = Math.min(Number(e.target.value), localMax - STEP)
     setLocalMin(val)
+    commitDraft(val, localMax)
   }
 
   const handleMaxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = Math.max(Number(e.target.value), localMin + STEP)
     setLocalMax(val)
+    commitDraft(localMin, val)
   }
 
   const minPct = ((localMin - MIN) / (MAX - MIN)) * 100
@@ -100,7 +99,7 @@ export default function PriceFilter() {
             type="number"
             min={MIN} max={localMax - STEP} step={STEP}
             value={localMin}
-            onChange={(e) => setLocalMin(Math.min(Number(e.target.value), localMax - STEP))}
+            onChange={handleMinChange}
             className="w-full pl-6 pr-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
         </div>
@@ -111,7 +110,7 @@ export default function PriceFilter() {
             type="number"
             min={localMin + STEP} max={MAX} step={STEP}
             value={localMax}
-            onChange={(e) => setLocalMax(Math.max(Number(e.target.value), localMin + STEP))}
+            onChange={handleMaxChange}
             className="w-full pl-6 pr-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
         </div>

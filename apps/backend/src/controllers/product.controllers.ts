@@ -100,11 +100,24 @@ async function getProductsByCategorySlug(req: Request, res: Response) {
   const { page, limit } = paginationSchema.parse(req.query);
   const sort = sanitizeString((req.query.sort as string) || "createdAt:desc");
 
+  let minPrice: number | undefined;
+  let maxPrice: number | undefined;
+  if (req.query.minPrice !== undefined) {
+    const parsed = Number(req.query.minPrice);
+    if (!Number.isNaN(parsed)) minPrice = parsed;
+  }
+  if (req.query.maxPrice !== undefined) {
+    const parsed = Number(req.query.maxPrice);
+    if (!Number.isNaN(parsed)) maxPrice = parsed;
+  }
+
   const result = await getProductsByCategorySlugService(
     categorySlug,
     page,
     limit,
-    sort
+    sort,
+    minPrice,
+    maxPrice
   );
 
   return new ApiResponse(200, result, "Category products fetched").send(res);

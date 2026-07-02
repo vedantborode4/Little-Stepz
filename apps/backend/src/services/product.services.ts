@@ -288,7 +288,9 @@ export async function getProductsByCategorySlugService(
   categorySlug: string,
   page = 1,
   limit = 20,
-  sort = "createdAt:desc"
+  sort = "createdAt:desc",
+  minPrice?: number,
+  maxPrice?: number
 ) {
   const category = await prisma.category.findUnique({
     where: { slug: categorySlug },
@@ -302,5 +304,7 @@ export async function getProductsByCategorySlugService(
     limit,
     sort,
     categoryId: category.id,
+    minPrice,
+    maxPrice,
   });
 }

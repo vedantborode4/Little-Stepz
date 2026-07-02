@@ -6,8 +6,11 @@ import CategoryFilter from "./CategoryFilter"
 import PriceFilter from "./PriceFilter"
 import SortFilter from "./SortFilter"
 import { SlidersHorizontal, X } from "lucide-react"
+import { useProductFilterStore } from "../../../store/useProductFilterStore"
 
 export default function MobileFilterDrawer() {
+  const applyDraft = useProductFilterStore((s) => s.applyDraft)
+
   return (
     <Dialog.Root>
       <Dialog.Trigger className="lg:hidden flex items-center gap-2 border border-gray-200 px-4 h-10 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition bg-white shadow-sm">
@@ -43,7 +46,10 @@ export default function MobileFilterDrawer() {
 
           {/* Apply button */}
           <div className="p-4 border-t border-gray-100 shrink-0 safe-area-pb">
-            <Dialog.Close className="w-full bg-primary text-white py-3 rounded-xl text-sm font-semibold hover:opacity-90 transition">
+            <Dialog.Close
+              onClick={() => applyDraft()}
+              className="w-full bg-primary text-white py-3 rounded-xl text-sm font-semibold hover:opacity-90 transition"
+            >
               Apply Filters
             </Dialog.Close>
           </div>

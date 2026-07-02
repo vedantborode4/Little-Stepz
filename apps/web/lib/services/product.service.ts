@@ -92,12 +92,20 @@ export const ProductService = {
     slug: string,
     page = 1,
     limit = 12,
-    sort?: string
+    sort?: string,
+    priceMin?: number,
+    priceMax?: number
   ): Promise<PaginatedProducts> => {
     const res = await api.get<BackendResponse>(
       `/products/category/${slug}`,
       {
-        params: { page, limit, sort: sort ? (SORT_MAP[sort] ?? sort) : undefined },
+        params: {
+          page,
+          limit,
+          sort: sort ? (SORT_MAP[sort] ?? sort) : undefined,
+          minPrice: priceMin,
+          maxPrice: priceMax,
+        },
       }
     )
 
