@@ -6,6 +6,7 @@ import { useCartStore } from "../../store/useCartStore"
 import { useAddressStore } from "../../store/useAddressStore"
 import CheckoutStepper from "../../components/checkout/CheckoutStepper"
 import CheckoutSummary from "../../components/checkout/CheckoutSummary"
+import DynamicPromoBanner from "../../components/home/DynamicPromoBanner"
 import Link from "next/link"
 import { toast } from "sonner"
 import { ShoppingBag, LogIn, Loader2 } from "lucide-react"
@@ -85,6 +86,8 @@ export default function CheckoutPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 sm:py-10">
+      <DynamicPromoBanner position="CHECKOUT_TOP" className="mb-5 sm:mb-8" />
+
       {/* Page header */}
       <div className="mb-5 sm:mb-8">
         <h1 className="text-xl sm:text-2xl font-medium text-gray-900">Checkout</h1>

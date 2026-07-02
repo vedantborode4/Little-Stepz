@@ -15,6 +15,7 @@ import ProductGridSkeleton from "../../../../components/products/ProductGridSkel
 import { Pagination } from "../../../../components/products/Pagination"
 import FilterSidebar from "../../../../components/products/filters/FilterSidebar"
 import MobileFilterDrawer from "../../../../components/products/filters/MobileFilterDrawer"
+import DynamicPromoBanner from "../../../../components/home/DynamicPromoBanner"
 import Link from "next/link"
 
 export default function CategoryProductsPage() {
@@ -139,6 +140,8 @@ export default function CategoryProductsPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8 space-y-6">
+
+      <DynamicPromoBanner position="CATEGORY_TOP" />
 
       <Breadcrumbs />
 

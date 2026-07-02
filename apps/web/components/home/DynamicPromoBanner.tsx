@@ -28,16 +28,14 @@ export default function DynamicPromoBanner({ position, className = "" }: Props) 
               <img
                 src={b.imageUrl}
                 alt={b.altText ?? b.title}
-                className="w-full object-cover hover:scale-[1.01] transition-transform duration-300"
-                style={{ maxHeight: 200 }}
+                className="w-full object-cover max-h-30 sm:max-h-40 lg:max-h-50 hover:scale-[1.01] transition-transform duration-300"
               />
             </Link>
           ) : (
             <img
               src={b.imageUrl}
               alt={b.altText ?? b.title}
-              className="w-full object-cover"
-              style={{ maxHeight: 200 }}
+              className="w-full object-cover max-h-30 sm:max-h-40 lg:max-h-50"
             />
           )}
         </div>
