@@ -275,6 +275,23 @@ export default function ProductInfo({
           </div>
         )}
 
+        {/* Specifications */}
+        {Array.isArray(product.specifications) && product.specifications.length > 0 && (
+          <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-card">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">Specifications</h3>
+            <table className="w-full table-fixed text-sm">
+              <tbody>
+                {product.specifications.map((spec, i) => (
+                  <tr key={i} className="border-b border-gray-50 last:border-0 align-top">
+                    <td className="py-2.5 pr-3 sm:pr-4 text-gray-500 font-medium wrap-break-word w-2/5 sm:w-1/3">{spec.label}</td>
+                    <td className="py-2.5 text-gray-800 wrap-break-word">{spec.value}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
         {/* Long description (rich text) */}
         {safeLongDesc && (
           <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-card">

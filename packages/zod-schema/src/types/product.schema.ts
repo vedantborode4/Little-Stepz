@@ -36,6 +36,13 @@ const productBaseSchema = z.object({
 
     categoryId: uuidSchema,
 
+    specifications: z.array(
+        z.object({
+            label: z.string().trim().min(1, "Label is required").max(100, "Label is too long"),
+            value: z.string().trim().min(1, "Value is required").max(500, "Value is too long"),
+        })
+    ).max(50, "Too many specification rows").optional(),
+
     preOrderEnabled: z.boolean().optional().default(false),
     bookingAmount: optionalPriceSchema,
     preOrderLimit: z.coerce.number().int().positive().optional(),

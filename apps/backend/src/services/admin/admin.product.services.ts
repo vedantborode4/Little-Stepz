@@ -14,6 +14,7 @@ const baseProductSelect = {
   priceDisplay: true,
   quantity: true,
   inStock: true,
+  specifications: true,
   preOrderEnabled: true,
   bookingAmount: true,
   preOrderLimit: true,
@@ -54,6 +55,7 @@ export async function createProductService(data: {
   quantity?: number;
   inStock?: boolean;
   categoryId: string;
+  specifications?: { label: string; value: string }[];
   preOrderEnabled?: boolean;
   bookingAmount?: number;
   preOrderLimit?: number;
@@ -100,6 +102,7 @@ export async function updateProductService(
     quantity: number;
     inStock: boolean;
     categoryId: string;
+    specifications: { label: string; value: string }[];
     preOrderEnabled: boolean;
     bookingAmount: number | null;
     preOrderLimit: number | null;
@@ -143,7 +146,16 @@ export async function updateProductService(
 
   const updateData: typeof data & { inStock?: boolean } = { ...data };
 
-  if (data.quantity !== undefined && activeVariantsCount === 0) {
+  if (activeVariantsCount > 0) {
+    // Variant product: availability is derived from the variants, never the
+    // form's inStock/quantity input — otherwise the flag drifts out of sync
+    // (e.g. a stocked variant product wrongly marked out of stock).
+    const hasStock =
+      (await prisma.variant.count({
+        where: { productId: id, deletedAt: null, stock: { gt: 0 } },
+      })) > 0;
+    updateData.inStock = hasStock;
+  } else if (data.quantity !== undefined) {
     updateData.inStock = data.quantity > 0;
   }
 

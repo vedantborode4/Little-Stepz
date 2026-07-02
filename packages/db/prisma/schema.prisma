@@ -130,6 +130,8 @@ model Product {
   inStock     Boolean  @default(true)
   categoryId  String
 
+  specifications Json?
+
   preOrderEnabled Boolean  @default(false)
   bookingAmount   Decimal? @db.Decimal(12,2)
   preOrderLimit   Int?

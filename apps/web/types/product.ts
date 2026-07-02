@@ -4,6 +4,11 @@ export interface ProductImage {
   alt?: string | null
 }
 
+export interface ProductSpecification {
+  label: string
+  value: string
+}
+
 export interface Category {
   id: string
   name: string
@@ -34,6 +39,7 @@ export interface Product {
   priceDisplay?: PriceDisplay
   quantity: number
   inStock: boolean
+  specifications?: ProductSpecification[] | null
   preOrderEnabled?: boolean
   bookingAmount?: string | null
   preOrderLimit?: number | null

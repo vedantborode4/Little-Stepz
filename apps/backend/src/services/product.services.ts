@@ -36,6 +36,7 @@ const baseProductSelect = {
   priceDisplay: true,
   quantity: true,
   inStock: true,
+  specifications: true,
   preOrderEnabled: true,
   bookingAmount: true,
   preOrderLimit: true,
@@ -91,9 +92,25 @@ export async function getProductsService({
 
   if (preOrder !== undefined) {
     where.preOrderEnabled = preOrder;
-    // A product is only "actively" on pre-order once it's out of stock — an
-    // in-stock product just sells normally even if pre-order is enabled.
-    if (preOrder) where.inStock = false;
+    // A product is only "actively" on pre-order once it's genuinely out of stock.
+    // Derive availability from the variants themselves (a variant product is in
+    // stock if ANY active variant has stock) rather than the denormalized
+    // `inStock` flag, which can drift out of sync.
+    if (preOrder) {
+      where.AND = [
+        // No active variant currently has stock (trivially true for products
+        // that have no variants at all).
+        { variants: { none: { deletedAt: null, stock: { gt: 0 } } } },
+        // Either it's a variant product (variants exist, all sold out) or a
+        // simple product whose own quantity has run out.
+        {
+          OR: [
+            { variants: { some: { deletedAt: null } } },
+            { quantity: { lte: 0 } },
+          ],
+        },
+      ];
+    }
   }
 
   if (inStock !== undefined) where.inStock = inStock;

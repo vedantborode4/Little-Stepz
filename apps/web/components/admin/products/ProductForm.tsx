@@ -10,6 +10,7 @@ import ProductImageManager from "./ProductImageManager"
 import CategoryTreeSelect from "../categories/CategoryTreeSelect"
 import VariantManager from "./VariantManager"
 import RichTextEditor from "../RichTextEditor"
+import SpecificationsEditor, { type SpecRow } from "./SpecificationsEditor"
 import { toast } from "sonner"
 
 interface Props {
@@ -44,6 +45,7 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
     preOrderEnabled: false, bookingAmount: "", preOrderLimit: "", preOrderNote: "",
   })
   const [images, setImages] = useState<any[]>([])
+  const [specifications, setSpecifications] = useState<SpecRow[]>([])
   const [errors, setErrors] = useState<Record<string, string[]>>({})
   const [loading, setLoading] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -68,6 +70,11 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
         preOrderNote: initialData.preOrderNote ?? "",
       })
       setImages(initialData.images || [])
+      setSpecifications(
+        Array.isArray(initialData.specifications)
+          ? initialData.specifications.map((s: any) => ({ label: s?.label ?? "", value: s?.value ?? "" }))
+          : []
+      )
       setProductId(initialData.id)
       setSaved(true)
     }
@@ -86,6 +93,10 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
   const submit = async () => {
     // Tiptap reports an empty doc as "<p></p>" — treat that as no long description.
     // An empty sale-price field must be omitted (not "") so the optional schema accepts it.
+    // Drop blank rows; send undefined (not []) so the optional schema is happy.
+    const cleanSpecs = specifications
+      .map(s => ({ label: s.label.trim(), value: s.value.trim() }))
+      .filter(s => s.label && s.value)
     const payload = {
       ...form,
       longDescription: form.longDescription === "<p></p>" ? "" : form.longDescription,
@@ -93,6 +104,7 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
       bookingAmount: form.bookingAmount === "" ? undefined : form.bookingAmount,
       preOrderLimit: form.preOrderLimit === "" ? undefined : form.preOrderLimit,
       preOrderNote: form.preOrderNote === "" ? undefined : form.preOrderNote,
+      specifications: cleanSpecs.length ? cleanSpecs : undefined,
     }
     const parsed = createProductSchema.safeParse(payload)
     if (!parsed.success) {
@@ -153,6 +165,13 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
             value={form.longDescription}
             onChange={html => onChange("longDescription", html)}
           />
+        </Field>
+
+        <Field label="Specifications" error={errors.specifications?.[0]}>
+          <SpecificationsEditor rows={specifications} onChange={setSpecifications} />
+          <p className="text-xs text-gray-400">
+            Shown as a table on the product page. Leave empty to hide it.
+          </p>
         </Field>
 
         {/* Regular + Sale price — 1-col on mobile, 2-col on sm+ */}
