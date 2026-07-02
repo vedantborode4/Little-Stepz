@@ -9,6 +9,8 @@ import { Heart, Loader2, Zap, ShoppingCart, Star, Shield, Truck, Clock } from "l
 import { useCartStore } from "../../../store/useCartStore"
 import { useWishlistStore } from "../../../store/useWishlistStore"
 import { useReviewStore } from "../../../store/useReviewStore"
+import OptionSelector from "./OptionSelector"
+import { findVariant, type Selection } from "../../../lib/variants/matrix"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { toast } from "sonner"
@@ -44,6 +46,23 @@ export default function ProductInfo({
   // Clicking the active variant again clears it, returning to the base product.
   const toggleVariant = (v: Variant) =>
     setSelectedVariant(selectedVariant?.id === v.id ? null : v)
+
+  // Structured (Size/Color) products drive the selection through option axes; the
+  // resolved variant is derived from the picked values.
+  const hasOptions = (product.options?.length ?? 0) > 0
+  const [selection, setSelection] = useState<Selection>({})
+  const handleOptionSelect = (optionId: string, valueId: string) =>
+    setSelection((prev) => {
+      const next = { ...prev }
+      if (next[optionId] === valueId) delete next[optionId]
+      else next[optionId] = valueId
+      return next
+    })
+  useEffect(() => {
+    if (!hasOptions) return
+    setSelectedVariant(findVariant(product, selection))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selection])
 
   // Sanitize the rich-text long description on the client only (avoids jsdom/SSR).
   const [safeLongDesc, setSafeLongDesc] = useState("")
@@ -167,8 +186,30 @@ export default function ProductInfo({
           </div>
         )}
 
-        {/* Variants — optional; tap to select, tap again to clear back to base */}
-        {product.variants?.length > 0 && (
+        {/* Structured options (Size / Color) — resolve to a variant */}
+        {hasOptions && (
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-end">
+              {Object.keys(selection).length > 0 && (
+                <button
+                  onClick={() => setSelection({})}
+                  className="text-xs font-medium text-primary hover:opacity-80"
+                >
+                  Clear · show base
+                </button>
+              )}
+            </div>
+            <OptionSelector
+              product={product}
+              selection={selection}
+              onSelect={handleOptionSelect}
+              disabled={isAdding || isBuyingNow}
+            />
+          </div>
+        )}
+
+        {/* Legacy flat variants — optional; tap to select, tap again to clear */}
+        {!hasOptions && product.variants?.length > 0 && (
           <div className="space-y-2.5">
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold text-gray-700">Select Variant</p>

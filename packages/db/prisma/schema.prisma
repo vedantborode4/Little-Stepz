@@ -141,6 +141,7 @@ model Product {
   category     Category      @relation(fields: [categoryId], references: [id])
   images       ProductImage[]
   variants     Variant[]
+  options      ProductOption[]
   cartItems    CartItem[]
   wishlistItem WishlistItem[]
   orderItems   OrderItem[]
@@ -191,17 +192,71 @@ model Variant {
   isOnSale  Boolean  @default(false)
   stock     Int      @default(0)
 
-  cartItems  CartItem[]
-  orderItems OrderItem[]
-  images     ProductImage[]
-  preOrders  PreOrder[]
+  cartItems    CartItem[]
+  orderItems   OrderItem[]
+  images       ProductImage[]
+  preOrders    PreOrder[]
+  optionValues VariantOptionValue[]
 
   deletedAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // Active-name uniqueness is enforced by a partial unique index (see the
+  // structured_variants migration) so a soft-deleted name can be reused.
+  @@index([productId])
+}
+
+model ProductOption {
+  id        String   @id @default(uuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  name      String
+  sortOrder Int      @default(0)
+
+  values    ProductOptionValue[]
+
+  deletedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@unique([productId, name])
   @@index([productId])
+}
+
+model ProductOptionValue {
+  id        String   @id @default(uuid())
+  optionId  String
+  option    ProductOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
+  value     String
+  swatchHex String?
+  sortOrder Int      @default(0)
+
+  variantLinks VariantOptionValue[]
+
+  deletedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([optionId, value])
+  @@index([optionId])
+}
+
+model VariantOptionValue {
+  id            String @id @default(uuid())
+  variantId     String
+  variant       Variant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  optionValueId String
+  optionValue   ProductOptionValue @relation(fields: [optionValueId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([variantId, optionValueId])
+  @@index([variantId])
+  @@index([optionValueId])
 }
 
 enum PreOrderStatus {

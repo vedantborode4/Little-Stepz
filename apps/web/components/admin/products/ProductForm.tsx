@@ -9,8 +9,10 @@ import { getApiError, firstFieldError } from "../../../lib/errors"
 import ProductImageManager from "./ProductImageManager"
 import CategoryTreeSelect from "../categories/CategoryTreeSelect"
 import VariantManager from "./VariantManager"
+import VariantMatrixGenerator from "./VariantMatrixGenerator"
 import RichTextEditor from "../RichTextEditor"
 import SpecificationsEditor, { type SpecRow } from "./SpecificationsEditor"
+import type { ProductOption, ProductVariant } from "../../../lib/services/admin-product.service"
 import { toast } from "sonner"
 
 interface Props {
@@ -46,6 +48,9 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
   })
   const [images, setImages] = useState<any[]>([])
   const [specifications, setSpecifications] = useState<SpecRow[]>([])
+  const [variants, setVariants] = useState<ProductVariant[]>([])
+  const [productOptions, setProductOptions] = useState<ProductOption[]>([])
+  const [variantsVersion, setVariantsVersion] = useState(0)
   const [errors, setErrors] = useState<Record<string, string[]>>({})
   const [loading, setLoading] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -75,10 +80,26 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
           ? initialData.specifications.map((s: any) => ({ label: s?.label ?? "", value: s?.value ?? "" }))
           : []
       )
+      setVariants(initialData.variants || [])
+      setProductOptions(initialData.options || [])
       setProductId(initialData.id)
       setSaved(true)
     }
   }, [initialData])
+
+  // Reload variants + options after the matrix generator (or an option removal)
+  // changes them server-side, and force the VariantManager to reseed.
+  const refreshVariants = async () => {
+    if (!productId) return
+    try {
+      const p = await AdminProductService.getProductById(productId)
+      setVariants(p.variants || [])
+      setProductOptions(p.options || [])
+      setVariantsVersion((v) => v + 1)
+    } catch {
+      /* non-fatal — the generator already toasted success */
+    }
+  }
 
   const onChange = (key: string, value: any) => {
     setForm(p => ({
@@ -307,9 +328,19 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
             <ProductImageManager productId={productId} images={images} onChange={setImages} />
           </div>
 
-          <div className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-6">
-            <h2 className="font-semibold text-gray-900 text-sm sm:text-base mb-4">Variants</h2>
-            <VariantManager productId={productId} initialVariants={initialData?.variants || []} />
+          <div className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-6 space-y-5">
+            <div>
+              <h2 className="font-semibold text-gray-900 text-sm sm:text-base mb-1">Options & variant matrix</h2>
+              <p className="text-xs text-gray-400 mb-4">
+                Define axes like Size and Color, then generate every combination as a variant. You can fine-tune each variant&apos;s price and stock below.
+              </p>
+              <VariantMatrixGenerator productId={productId} options={productOptions} onGenerated={refreshVariants} />
+            </div>
+
+            <div className="border-t border-gray-100 pt-5">
+              <h2 className="font-semibold text-gray-900 text-sm sm:text-base mb-4">Variants</h2>
+              <VariantManager key={variantsVersion} productId={productId} initialVariants={variants} />
+            </div>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3">

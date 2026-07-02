@@ -27,12 +27,25 @@ const baseProductSelect = {
     orderBy: { sortOrder: "asc" },
     select: { id: true, url: true, alt: true, sortOrder: true },
   },
+  options: {
+    where: { deletedAt: null },
+    orderBy: { sortOrder: "asc" },
+    select: {
+      id: true, name: true, sortOrder: true,
+      values: {
+        where: { deletedAt: null },
+        orderBy: { sortOrder: "asc" },
+        select: { id: true, value: true, swatchHex: true, sortOrder: true },
+      },
+    },
+  },
   variants: {
     where: { deletedAt: null },
     orderBy: { sortOrder: "asc" },
     select: {
       id: true, name: true, sku: true, sortOrder: true, isDefault: true,
       price: true, salePrice: true, isOnSale: true, stock: true,
+      optionValues: { select: { optionValueId: true } },
       images: {
         where: { deletedAt: null },
         orderBy: { sortOrder: "asc" },

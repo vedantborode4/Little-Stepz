@@ -17,6 +17,20 @@ export interface Category {
 
 export type PriceDisplay = "BOTH" | "REGULAR" | "SALE"
 
+export interface ProductOptionValue {
+  id: string
+  value: string
+  swatchHex?: string | null
+  sortOrder?: number
+}
+
+export interface ProductOption {
+  id: string
+  name: string
+  sortOrder?: number
+  values: ProductOptionValue[]
+}
+
 export interface Variant {
   id: string
   name: string
@@ -25,6 +39,7 @@ export interface Variant {
   isOnSale?: boolean
   stock: number
   images?: ProductImage[]
+  optionValues?: { optionValueId: string }[]
 }
 
 export interface Product {
@@ -48,6 +63,7 @@ export interface Product {
   category: Category
   images: ProductImage[]
   variants: Variant[]
+  options?: ProductOption[]
   createdAt: string
   updatedAt: string
 }

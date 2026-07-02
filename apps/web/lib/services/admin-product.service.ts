@@ -18,6 +18,26 @@ export interface ProductVariant {
   isOnSale?: boolean
   stock: number
   images?: ProductImage[]
+  optionValues?: { optionValueId: string }[]
+}
+
+export interface ProductOptionValue {
+  id: string
+  value: string
+  swatchHex?: string | null
+  sortOrder?: number
+}
+
+export interface ProductOption {
+  id: string
+  name: string
+  sortOrder?: number
+  values: ProductOptionValue[]
+}
+
+export interface MatrixBody {
+  options: { name: string; values: { value: string; swatchHex?: string | null }[] }[]
+  defaults?: { price?: number; salePrice?: number; isOnSale?: boolean; stock?: number }
 }
 
 export interface VariantBody {
@@ -54,6 +74,7 @@ export interface AdminProduct {
   category?: { id: string; name: string; slug: string }
   images: ProductImage[]
   variants: ProductVariant[]
+  options?: ProductOption[]
   createdAt: string
   updatedAt: string
 }
@@ -165,5 +186,18 @@ export const AdminProductService = {
   /** DELETE /admin/products/variants/:id */
   deleteVariant: async (id: string) => {
     await api.delete(`/admin/products/variants/${id}`)
+  },
+
+  // ── Options / variant matrix ──────────────────────────────────────────────
+
+  /** POST /admin/products/:productId/variants/matrix */
+  generateVariantMatrix: async (productId: string, body: MatrixBody): Promise<{ created: number; skipped: number; total: number }> => {
+    const res = await api.post(`/admin/products/${productId}/variants/matrix`, body)
+    return res.data.data
+  },
+
+  /** DELETE /admin/products/options/:optionId */
+  deleteOption: async (optionId: string) => {
+    await api.delete(`/admin/products/options/${optionId}`)
   },
 }
