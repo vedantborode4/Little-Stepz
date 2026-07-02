@@ -17,12 +17,15 @@ import {
 //      stock: z.number().int().min(0).optional()
 
 export const createVariantController = asyncHandler(async (req: Request, res: Response) => {
-  const { productId, name, price, salePrice, isOnSale, stock } = createVariantBodySchema.parse({
-    ...req.body,
-    productId: req.params.productId,
-  });
+  const { productId, name, sku, sortOrder, isDefault, price, salePrice, isOnSale, stock } =
+    createVariantBodySchema.parse({
+      ...req.body,
+      productId: req.params.productId,
+    });
 
-  const variant = await createVariantService({ productId, name, price, salePrice, isOnSale, stock });
+  const variant = await createVariantService({
+    productId, name, sku, sortOrder, isDefault, price, salePrice, isOnSale, stock,
+  });
 
   return new ApiResponse(201, variant, "Variant created successfully").send(res);
 });

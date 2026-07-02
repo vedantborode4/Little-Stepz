@@ -4,6 +4,9 @@ import { optionalPriceSchema, priceSchema, stockSchema, uuidSchema } from "./com
 const variantBaseSchema = z.object({
     productId:uuidSchema,
     name: z.string().min(1).max(200),
+    sku: z.string().trim().max(64).nullish(),
+    sortOrder: z.coerce.number().int().min(0).optional(),
+    isDefault: z.boolean().optional(),
     price: priceSchema.optional(),
     salePrice: optionalPriceSchema,
     isOnSale: z.boolean().optional().default(false),

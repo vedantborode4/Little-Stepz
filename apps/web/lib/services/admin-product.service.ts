@@ -10,11 +10,25 @@ export interface ProductImage {
 export interface ProductVariant {
   id: string
   name: string
+  sku?: string | null
+  sortOrder?: number
+  isDefault?: boolean
   price: number | null
   salePrice?: number | null
   isOnSale?: boolean
   stock: number
   images?: ProductImage[]
+}
+
+export interface VariantBody {
+  name: string
+  sku?: string | null
+  sortOrder?: number
+  isDefault?: boolean
+  price?: number | null
+  salePrice?: number | null
+  isOnSale?: boolean
+  stock?: number
 }
 
 export type PriceDisplay = "BOTH" | "REGULAR" | "SALE"
@@ -136,14 +150,14 @@ export const AdminProductService = {
 
   // ── Variants ────────────────────────────────────────────────────────────
 
-  /** POST /admin/products/:productId/variants  body: { name, price?, salePrice?, isOnSale?, stock? } */
-  createVariant: async (productId: string, body: { name: string; price?: number | null; salePrice?: number | null; isOnSale?: boolean; stock?: number }): Promise<ProductVariant> => {
+  /** POST /admin/products/:productId/variants */
+  createVariant: async (productId: string, body: VariantBody): Promise<ProductVariant> => {
     const res = await api.post(`/admin/products/${productId}/variants`, body)
     return res.data.data
   },
 
-  /** PUT /admin/products/variants/:id  body: { name?, price?, salePrice?, isOnSale?, stock? } */
-  updateVariant: async (id: string, body: { name?: string; price?: number | null; salePrice?: number | null; isOnSale?: boolean; stock?: number }): Promise<ProductVariant> => {
+  /** PUT /admin/products/variants/:id */
+  updateVariant: async (id: string, body: Partial<VariantBody>): Promise<ProductVariant> => {
     const res = await api.put(`/admin/products/variants/${id}`, body)
     return res.data.data
   },

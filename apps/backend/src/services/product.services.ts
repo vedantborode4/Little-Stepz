@@ -50,6 +50,7 @@ const baseProductSelect = {
   },
   variants: {
     where: { deletedAt: null },
+    orderBy: { sortOrder: "asc" },
     select: {
       id: true, name: true, price: true, salePrice: true, isOnSale: true, stock: true,
       images: {

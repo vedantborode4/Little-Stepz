@@ -1,6 +1,7 @@
 import { prisma } from "@repo/db/client";
 import { ApiError } from "../../utils/api";
 import { notifyRestockedPreOrders } from "../preorder.services";
+import { deriveInStock } from "../../utils/inventory";
 
 const baseProductSelect = {
   id: true,
@@ -28,8 +29,10 @@ const baseProductSelect = {
   },
   variants: {
     where: { deletedAt: null },
+    orderBy: { sortOrder: "asc" },
     select: {
-      id: true, name: true, price: true, salePrice: true, isOnSale: true, stock: true,
+      id: true, name: true, sku: true, sortOrder: true, isDefault: true,
+      price: true, salePrice: true, isOnSale: true, stock: true,
       images: {
         where: { deletedAt: null },
         orderBy: { sortOrder: "asc" },
@@ -148,13 +151,9 @@ export async function updateProductService(
 
   if (activeVariantsCount > 0) {
     // Variant product: availability is derived from the variants, never the
-    // form's inStock/quantity input — otherwise the flag drifts out of sync
-    // (e.g. a stocked variant product wrongly marked out of stock).
-    const hasStock =
-      (await prisma.variant.count({
-        where: { productId: id, deletedAt: null, stock: { gt: 0 } },
-      })) > 0;
-    updateData.inStock = hasStock;
+    // form's inStock/quantity input — otherwise the flag drifts out of sync.
+    // Uses the same shared derivation as the variant services.
+    updateData.inStock = await deriveInStock(prisma, id);
   } else if (data.quantity !== undefined) {
     updateData.inStock = data.quantity > 0;
   }

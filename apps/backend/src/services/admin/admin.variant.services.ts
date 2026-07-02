@@ -1,11 +1,15 @@
 import { prisma } from "@repo/db/client";
 import { ApiError } from "../../utils/api";
 import { notifyRestockedPreOrders } from "../preorder.services";
+import { syncProductInStock } from "../../utils/inventory";
 
 
 type CreateVariantInput = {
   productId: string;
   name: string;
+  sku?: string | null;
+  sortOrder?: number;
+  isDefault?: boolean;
   price?: number;
   salePrice?: number;
   isOnSale?: boolean;
@@ -13,10 +17,11 @@ type CreateVariantInput = {
 };
 
 export async function createVariantService(data: CreateVariantInput) {
-  const { productId, name, price, salePrice, isOnSale = false, stock = 0 } = data;
+  const { productId, name, sku, sortOrder, isDefault = false, price, salePrice, isOnSale = false, stock = 0 } = data;
   // Store the name exactly as the admin typed it (trimmed) — only the duplicate
   // check below is case-insensitive.
   const displayName = name.trim();
+  const cleanSku = sku?.trim() || null;
 
   if (displayName.length < 1 || displayName.length > 200) {
     throw new ApiError(400, "Variant name must be 1-200 characters");
@@ -31,7 +36,7 @@ export async function createVariantService(data: CreateVariantInput) {
   return prisma.$transaction(async (tx) => {
     const product = await tx.product.findUnique({
       where: { id: productId },
-      select: { id: true, inStock: true },
+      select: { id: true },
     });
     if (!product) {
       throw new ApiError(404, "Product not found");
@@ -51,10 +56,26 @@ export async function createVariantService(data: CreateVariantInput) {
       );
     }
 
+    if (cleanSku) {
+      const skuTaken = await tx.variant.findUnique({ where: { sku: cleanSku }, select: { id: true } });
+      if (skuTaken) throw new ApiError(409, `SKU '${cleanSku}' is already in use`);
+    }
+
+    // At most one default variant per product.
+    if (isDefault) {
+      await tx.variant.updateMany({
+        where: { productId, deletedAt: null, isDefault: true },
+        data: { isDefault: false },
+      });
+    }
+
     const variant = await tx.variant.create({
       data: {
         productId,
         name: displayName,
+        sku: cleanSku,
+        sortOrder: sortOrder ?? 0,
+        isDefault,
         price: price ?? null,
         salePrice: salePrice ?? null,
         isOnSale,
@@ -62,20 +83,7 @@ export async function createVariantService(data: CreateVariantInput) {
       },
     });
 
-    const hasStock =
-      (await tx.variant.count({
-        where: {
-          productId,
-          stock: { gt: 0 },
-          deletedAt: null,
-        },
-      })) > 0;
-    if (hasStock !== product.inStock) {
-      await tx.product.update({
-        where: { id: productId },
-        data: { inStock: hasStock },
-      });
-    }
+    await syncProductInStock(tx, productId);
 
     return variant;
   });
@@ -83,6 +91,9 @@ export async function createVariantService(data: CreateVariantInput) {
 
 type UpdateVariantInput = Partial<{
   name: string;
+  sku: string | null;
+  sortOrder: number;
+  isDefault: boolean;
   price: number | null;
   salePrice: number | null;
   isOnSale: boolean;
@@ -93,10 +104,13 @@ export async function updateVariantService(
   variantId: string,
   data: UpdateVariantInput
 ) {
-  const { name, price, salePrice, isOnSale, stock } = data;
+  const { name, sku, sortOrder, isDefault, price, salePrice, isOnSale, stock } = data;
 
   if (
     name === undefined &&
+    sku === undefined &&
+    sortOrder === undefined &&
+    isDefault === undefined &&
     price === undefined &&
     salePrice === undefined &&
     isOnSale === undefined &&
@@ -117,6 +131,8 @@ export async function updateVariantService(
   if (stock !== undefined && stock < 0) {
     throw new ApiError(400, "Stock cannot be negative");
   }
+
+  const cleanSku = sku === undefined ? undefined : sku?.trim() || null;
 
   const { updated, restocked, productId } = await prisma.$transaction(async (tx) => {
     const variant = await tx.variant.findUnique({
@@ -149,10 +165,29 @@ export async function updateVariantService(
       }
     }
 
+    if (cleanSku) {
+      const skuTaken = await tx.variant.findFirst({
+        where: { sku: cleanSku, NOT: { id: variantId } },
+        select: { id: true },
+      });
+      if (skuTaken) throw new ApiError(409, `SKU '${cleanSku}' is already in use`);
+    }
+
+    // At most one default variant per product.
+    if (isDefault) {
+      await tx.variant.updateMany({
+        where: { productId: variant.productId, deletedAt: null, isDefault: true, NOT: { id: variantId } },
+        data: { isDefault: false },
+      });
+    }
+
     const updated = await tx.variant.update({
       where: { id: variantId },
       data: {
         name: name !== undefined ? name.trim() : undefined,
+        sku: cleanSku,
+        sortOrder: sortOrder !== undefined ? sortOrder : undefined,
+        isDefault: isDefault !== undefined ? isDefault : undefined,
         price: price !== undefined ? price : undefined,
         salePrice: salePrice !== undefined ? salePrice : undefined,
         isOnSale: isOnSale !== undefined ? isOnSale : undefined,
@@ -164,24 +199,7 @@ export async function updateVariantService(
       },
     });
 
-    const hasStock =
-      (await tx.variant.count({
-        where: {
-          productId: updated.productId,
-          stock: { gt: 0 },
-          deletedAt: null,
-        },
-      })) > 0;
-    const product = await tx.product.findUnique({
-      where: { id: updated.productId },
-      select: { inStock: true },
-    });
-    if (product && hasStock !== product.inStock) {
-      await tx.product.update({
-        where: { id: updated.productId },
-        data: { inStock: hasStock },
-      });
-    }
+    await syncProductInStock(tx, updated.productId);
 
     const newStock = stock !== undefined ? stock : variant.stock;
     const restocked = variant.stock <= 0 && newStock > 0;
@@ -215,32 +233,8 @@ export async function deleteVariantService(variantId: string) {
       data: { deletedAt: new Date() },
     });
 
-    // Re-derive availability: if active variants remain, use their stock; if the
-    // last variant was just removed, fall back to the product's own quantity so
-    // it becomes a simple product again instead of being stranded out of stock.
-    const remainingVariants = await tx.variant.count({
-      where: { productId: variant.productId, deletedAt: null },
-    });
-    const product = await tx.product.findUnique({
-      where: { id: variant.productId },
-      select: { inStock: true, quantity: true },
-    });
-
-    let hasStock: boolean;
-    if (remainingVariants > 0) {
-      hasStock =
-        (await tx.variant.count({
-          where: { productId: variant.productId, stock: { gt: 0 }, deletedAt: null },
-        })) > 0;
-    } else {
-      hasStock = (product?.quantity ?? 0) > 0;
-    }
-
-    if (product && hasStock !== product.inStock) {
-      await tx.product.update({
-        where: { id: variant.productId },
-        data: { inStock: hasStock },
-      });
-    }
+    // Re-derive availability via the shared helper: active variants remaining →
+    // from their stock; last variant removed → falls back to product.quantity.
+    await syncProductInStock(tx, variant.productId);
   });
 }
