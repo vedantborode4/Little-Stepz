@@ -35,7 +35,9 @@ export default function ProductDetailsPage() {
         setError(false)
         const data = await ProductService.getBySlug(slug)
         setProduct(data)
-        setSelectedVariant(data.variants?.[0] || null)
+        // Default to the base product (no variant). Variants are optional — the
+        // customer opts into one by clicking, and can toggle back to the base.
+        setSelectedVariant(null)
       } catch {
         setError(true)
       } finally {

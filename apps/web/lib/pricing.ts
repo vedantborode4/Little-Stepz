@@ -61,4 +61,22 @@ export function getChargedPrice(
   return onSale && sale != null ? sale : regular
 }
 
+/**
+ * Charged-price span across the base product and all its variants. Used by the
+ * product card to show "From ₹X" when variants make the price a range. The base
+ * product (no variant) is included because it stays purchasable on its own.
+ */
+export function getPriceRange(
+  product: ProductPriceParts,
+  variants?: VariantPriceParts[] | null
+): { min: number; max: number; single: boolean } {
+  const prices = [getChargedPrice(product, null)]
+  if (Array.isArray(variants)) {
+    for (const v of variants) prices.push(getChargedPrice(product, v))
+  }
+  const min = Math.min(...prices)
+  const max = Math.max(...prices)
+  return { min, max, single: min === max }
+}
+
 export const formatINR = (n: number) => `₹${n.toLocaleString("en-IN")}`

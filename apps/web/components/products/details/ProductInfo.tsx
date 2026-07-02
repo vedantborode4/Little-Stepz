@@ -20,7 +20,7 @@ export default function ProductInfo({
 }: {
   product: Product
   selectedVariant?: Variant | null
-  onSelectVariant?: (v: Variant) => void
+  onSelectVariant?: (v: Variant | null) => void
 }) {
   const addItem = useCartStore((s) => s.addItem)
   const toggleWishlist = useWishlistStore((s) => s.toggle)
@@ -33,15 +33,17 @@ export default function ProductInfo({
   const [isAdding, setIsAdding] = useState(false)
   const [isBuyingNow, setIsBuyingNow] = useState(false)
 
-  const [internalVariant, setInternalVariant] = useState(
-    product.variants?.[0] || null
-  )
+  // Default to no variant → the base product is shown. Variants are optional.
+  const [internalVariant, setInternalVariant] = useState<Variant | null>(null)
   // Controlled by the page (so the gallery can react) with a local fallback.
   const selectedVariant = controlledVariant !== undefined ? controlledVariant : internalVariant
-  const setSelectedVariant = (v: Variant) => {
+  const setSelectedVariant = (v: Variant | null) => {
     setInternalVariant(v)
     onSelectVariant?.(v)
   }
+  // Clicking the active variant again clears it, returning to the base product.
+  const toggleVariant = (v: Variant) =>
+    setSelectedVariant(selectedVariant?.id === v.id ? null : v)
 
   // Sanitize the rich-text long description on the client only (avoids jsdom/SSR).
   const [safeLongDesc, setSafeLongDesc] = useState("")
@@ -74,10 +76,6 @@ export default function ProductInfo({
 
   const handleAddToCart = async () => {
     if (isAdding) return
-    if (product.variants?.length > 1 && !selectedVariant) {
-      toast.error("Please select a variant")
-      return
-    }
     try {
       setIsAdding(true)
       await addItem({ productId: product.id, variantId: selectedVariant?.id, quantity })
@@ -91,10 +89,6 @@ export default function ProductInfo({
 
   const handleBuyNow = async () => {
     if (isBuyingNow) return
-    if (product.variants?.length > 1 && !selectedVariant) {
-      toast.error("Please select a variant")
-      return
-    }
     try {
       setIsBuyingNow(true)
       await addItem({ productId: product.id, variantId: selectedVariant?.id, quantity })
@@ -173,20 +167,33 @@ export default function ProductInfo({
           </div>
         )}
 
-        {/* Variants */}
+        {/* Variants — optional; tap to select, tap again to clear back to base */}
         {product.variants?.length > 0 && (
           <div className="space-y-2.5">
-            <p className="text-sm font-semibold text-gray-700">Select Variant</p>
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-gray-700">Select Variant</p>
+              {selectedVariant && (
+                <button
+                  onClick={() => setSelectedVariant(null)}
+                  className="text-xs font-medium text-primary hover:opacity-80"
+                >
+                  Clear · show base
+                </button>
+              )}
+            </div>
             <div className="flex flex-wrap gap-2">
               {product.variants.map((variant) => {
                 const active = selectedVariant?.id === variant.id
+                const out = variant.stock <= 0
                 return (
                   <button
                     key={variant.id}
-                    disabled={isAdding || isBuyingNow}
-                    onClick={() => setSelectedVariant(variant)}
+                    disabled={out || isAdding || isBuyingNow}
+                    onClick={() => toggleVariant(variant)}
                     className={`px-4 py-2 border rounded-xl text-sm font-medium transition-all ${
-                      active
+                      out
+                        ? "border-gray-200 text-gray-300 line-through cursor-not-allowed"
+                        : active
                         ? "border-primary bg-primary/10 text-primary shadow-sm"
                         : "border-gray-200 text-gray-600 hover:border-primary hover:text-primary"
                     }`}

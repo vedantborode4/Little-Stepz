@@ -215,22 +215,31 @@ export async function deleteVariantService(variantId: string) {
       data: { deletedAt: new Date() },
     });
 
-    const hasStock =
-      (await tx.variant.count({
-        where: {
-          productId: variant.productId,
-          stock: { gt: 0 },
-          deletedAt: null,
-        },
-      })) > 0;
+    // Re-derive availability: if active variants remain, use their stock; if the
+    // last variant was just removed, fall back to the product's own quantity so
+    // it becomes a simple product again instead of being stranded out of stock.
+    const remainingVariants = await tx.variant.count({
+      where: { productId: variant.productId, deletedAt: null },
+    });
     const product = await tx.product.findUnique({
       where: { id: variant.productId },
-      select: { inStock: true },
+      select: { inStock: true, quantity: true },
     });
-    if (product && !hasStock && product.inStock) {
+
+    let hasStock: boolean;
+    if (remainingVariants > 0) {
+      hasStock =
+        (await tx.variant.count({
+          where: { productId: variant.productId, stock: { gt: 0 }, deletedAt: null },
+        })) > 0;
+    } else {
+      hasStock = (product?.quantity ?? 0) > 0;
+    }
+
+    if (product && hasStock !== product.inStock) {
       await tx.product.update({
         where: { id: variant.productId },
-        data: { inStock: false },
+        data: { inStock: hasStock },
       });
     }
   });

@@ -3,7 +3,7 @@ import { optionalPriceSchema, priceSchema, stockSchema, uuidSchema } from "./com
 
 const variantBaseSchema = z.object({
     productId:uuidSchema,
-    name: z.string().min(1).max(100),
+    name: z.string().min(1).max(200),
     price: priceSchema.optional(),
     salePrice: optionalPriceSchema,
     isOnSale: z.boolean().optional().default(false),
@@ -26,6 +26,16 @@ const refineVariantSalePrice = (
             code: z.ZodIssueCode.custom,
             path: ["salePrice"],
             message: "Set a sale price to put this variant on sale",
+        });
+    }
+    // A variant sale only takes effect when the variant also sets its own regular
+    // price (the charged-price resolver keys off variant.price). Without it the
+    // sale would be silently ignored, so require the regular price up front.
+    if ((data.isOnSale || data.salePrice != null) && data.price == null) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["price"],
+            message: "Set the variant's regular price to use its own sale price",
         });
     }
 };

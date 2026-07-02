@@ -93,20 +93,12 @@ async function addOrUpdateCartItem(
 ) {
   const product = await tx.product.findFirst({
     where: { id: productId, deletedAt: null },
-    include: {
-      variants: {
-        where: { deletedAt: null },
-        select: { id: true },
-      },
-    },
   });
 
   if (!product) throw new ApiError(404, "Product not found");
 
-  const activeVariantsCount = product.variants.length;
-  if (!variantId && activeVariantsCount > 0)
-    throw new ApiError(400, "Variant required for this product");
-
+  // Variants are optional refinements — the base product (no variant) remains
+  // purchasable on its own product-level stock even when variants exist.
   let stock = product.quantity;
 
   if (variantId) {
