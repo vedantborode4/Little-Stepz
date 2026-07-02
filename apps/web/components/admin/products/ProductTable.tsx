@@ -100,8 +100,8 @@ export default function AdminProductsTable() {
                       <div className="flex items-center gap-3">
                         <img src={p.images?.[0]?.url || "/placeholder.png"} className="w-10 h-10 object-cover rounded-xl border border-gray-100 shrink-0" alt={p.name}/>
                         <div>
-                          <p className="font-medium text-gray-900 max-w-[180px] truncate">{p.name}</p>
-                          <p className="text-xs text-gray-400 font-mono">{p.slug}</p>
+                          <p className="font-medium text-gray-900 max-w-[320px] truncate">{p.name}</p>
+                          <p className="text-xs text-gray-400 font-mono max-w-[320px] truncate">{p.slug}</p>
                         </div>
                       </div>
                     </td>
@@ -119,7 +119,7 @@ export default function AdminProductsTable() {
                     <td className="p-4 text-gray-700">{p.quantity}</td>
                     <td className="p-4 text-gray-600">{p.variants?.length || 0}</td>
                     <td className="p-4">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${p.inStock ? "bg-green-50 text-green-600" : "bg-red-50 text-red-500"}`}>
+                      <span className={`inline-block whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-medium ${p.inStock ? "bg-green-50 text-green-600" : "bg-red-50 text-red-500"}`}>
                         {p.inStock ? "In Stock" : "Out of Stock"}
                       </span>
                     </td>

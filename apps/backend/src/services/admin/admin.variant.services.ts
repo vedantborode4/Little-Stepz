@@ -3,9 +3,6 @@ import { ApiError } from "../../utils/api";
 import { notifyRestockedPreOrders } from "../preorder.services";
 
 
-const normalizeVariantName = (name: string) =>
-  name.trim().toLowerCase();
-
 type CreateVariantInput = {
   productId: string;
   name: string;
@@ -17,9 +14,11 @@ type CreateVariantInput = {
 
 export async function createVariantService(data: CreateVariantInput) {
   const { productId, name, price, salePrice, isOnSale = false, stock = 0 } = data;
-  const normalizedName = normalizeVariantName(name);
+  // Store the name exactly as the admin typed it (trimmed) — only the duplicate
+  // check below is case-insensitive.
+  const displayName = name.trim();
 
-  if (normalizedName.length < 1 || normalizedName.length > 200) {
+  if (displayName.length < 1 || displayName.length > 200) {
     throw new ApiError(400, "Variant name must be 1-200 characters");
   }
   if (price !== undefined && price < 0) {
@@ -41,21 +40,21 @@ export async function createVariantService(data: CreateVariantInput) {
     const existingVariant = await tx.variant.findFirst({
       where: {
         productId,
-        name: normalizedName,
+        name: { equals: displayName, mode: "insensitive" },
       },
       select: { id: true },
     });
     if (existingVariant) {
       throw new ApiError(
         409,
-        `Variant '${name.trim()}' already exists for this product`
+        `Variant '${displayName}' already exists for this product`
       );
     }
 
     const variant = await tx.variant.create({
       data: {
         productId,
-        name: normalizedName,
+        name: displayName,
         price: price ?? null,
         salePrice: salePrice ?? null,
         isOnSale,
@@ -133,11 +132,11 @@ export async function updateVariantService(
     }
 
     if (name !== undefined) {
-      const normalizedName = normalizeVariantName(name);
+      const displayName = name.trim();
       const existingVariant = await tx.variant.findFirst({
         where: {
           productId: variant.productId,
-          name: normalizedName,
+          name: { equals: displayName, mode: "insensitive" },
           NOT: { id: variantId },
         },
         select: { id: true },
@@ -145,7 +144,7 @@ export async function updateVariantService(
       if (existingVariant) {
         throw new ApiError(
           409,
-          `Variant '${name.trim()}' already exists for this product`
+          `Variant '${displayName}' already exists for this product`
         );
       }
     }
@@ -153,7 +152,7 @@ export async function updateVariantService(
     const updated = await tx.variant.update({
       where: { id: variantId },
       data: {
-        name: name !== undefined ? normalizeVariantName(name) : undefined,
+        name: name !== undefined ? name.trim() : undefined,
         price: price !== undefined ? price : undefined,
         salePrice: salePrice !== undefined ? salePrice : undefined,
         isOnSale: isOnSale !== undefined ? isOnSale : undefined,

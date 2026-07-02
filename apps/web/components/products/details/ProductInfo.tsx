@@ -8,6 +8,7 @@ import { RICH_TEXT_CLASS } from "../../../lib/richText"
 import { Heart, Loader2, Zap, ShoppingCart, Star, Shield, Truck, Clock } from "lucide-react"
 import { useCartStore } from "../../../store/useCartStore"
 import { useWishlistStore } from "../../../store/useWishlistStore"
+import { useReviewStore } from "../../../store/useReviewStore"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { toast } from "sonner"
@@ -26,6 +27,7 @@ export default function ProductInfo({
   const router = useRouter()
 
   const isInWishlist = useWishlistStore((s) => s.isInWishlist(product.id))
+  const reviewStats = useReviewStore((s) => s.stats)
 
   const [quantity, setQuantity] = useState(1)
   const [isAdding, setIsAdding] = useState(false)
@@ -159,13 +161,17 @@ export default function ProductInfo({
           </div>
         )}
 
-        {/* Rating placeholder */}
-        <div className="flex items-center gap-1.5">
-          {[1,2,3,4,5].map((i) => (
-            <Star key={i} size={14} className={i <= 4 ? "fill-amber-400 text-amber-400" : "text-gray-200 fill-gray-200"} />
-          ))}
-          <span className="text-xs text-gray-400 ml-1">4.0 · Customer Reviews</span>
-        </div>
+        {/* Rating — from real reviews; hidden when the product has none */}
+        {reviewStats && reviewStats.total > 0 && (
+          <div className="flex items-center gap-1.5">
+            {[1,2,3,4,5].map((i) => (
+              <Star key={i} size={14} className={i <= Math.round(reviewStats.average) ? "fill-amber-400 text-amber-400" : "text-gray-200 fill-gray-200"} />
+            ))}
+            <span className="text-xs text-gray-400 ml-1">
+              {reviewStats.average.toFixed(1)} · {reviewStats.total} review{reviewStats.total !== 1 ? "s" : ""}
+            </span>
+          </div>
+        )}
 
         {/* Variants */}
         {product.variants?.length > 0 && (

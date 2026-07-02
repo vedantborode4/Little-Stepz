@@ -67,7 +67,9 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
   /* ---------------- FETCH REVIEWS ---------------- */
 
   fetchReviews: async (productId) => {
-    set({ loading: true, page: 1 })
+    // Clear stale data up front so a previous product's rating never bleeds
+    // onto this one before the request resolves.
+    set({ loading: true, page: 1, reviews: [], stats: null })
 
     try {
       const res = await ReviewService.getByProduct(productId, 1)
