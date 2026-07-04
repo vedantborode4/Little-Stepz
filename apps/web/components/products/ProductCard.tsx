@@ -78,7 +78,7 @@ export default function ProductCard({ product }: { product: Product }) {
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       style={{ transform }}
-      className="group h-full flex flex-col bg-white rounded-xl border border-gray-100 shadow-card hover:shadow-[0_18px_40px_-14px_rgba(0,0,0,0.22)] hover:border-primary/20 transition-[transform,box-shadow,border-color] duration-150 ease-out will-change-transform overflow-hidden"
+      className="group relative h-full flex flex-col bg-white rounded-xl border border-gray-100 shadow-card hover:shadow-[0_18px_40px_-14px_rgba(0,0,0,0.22)] hover:border-primary/20 transition-[transform,box-shadow,border-color] duration-150 ease-out will-change-transform overflow-hidden"
     >
       {/* IMAGE */}
       <div className="relative w-full aspect-square bg-white overflow-hidden rounded-t-xl">
@@ -145,6 +145,9 @@ export default function ProductCard({ product }: { product: Product }) {
           </button>
         )}
       </div>
+
+      {/* Red bottom accent on hover (~3px, animated from the left) */}
+      <span className="pointer-events-none absolute inset-x-0 bottom-0 h-[3px] bg-primary origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-200 ease-out" />
     </Link>
   )
 }

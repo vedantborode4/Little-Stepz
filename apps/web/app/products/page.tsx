@@ -14,6 +14,7 @@ import ProductGridSkeleton from "../../components/products/ProductGridSkeleton"
 import { Pagination } from "../../components/products/Pagination"
 import FilterSidebar from "../../components/products/filters/FilterSidebar"
 import MobileFilterDrawer from "../../components/products/filters/MobileFilterDrawer"
+import DynamicPromoBanner from "../../components/home/DynamicPromoBanner"
 
 import type { Product } from "../../types/product"
 
@@ -115,17 +116,9 @@ export default function ProductsPage() {
 
   if (loading) return <ProductGridSkeleton />
   if (error) return <p className="text-center text-red-500 py-10">Failed to load products</p>
-  if (!products.length)
-    return (
-      <div className="text-center py-16 space-y-3 px-4">
-        <p className="text-base sm:text-lg font-medium">No results found for "{search}"</p>
-        <button onClick={() => setFilters({ search: "", page: 1 })} className="text-primary font-medium">
-          Clear search
-        </button>
-      </div>
-    )
 
   const categoryName = getCategoryName(category)
+  const hasNoResults = !products.length
 
   return (
     <div className="max-w-7xl bg-white mx-auto px-3 sm:px-4 py-5 sm:py-8">
@@ -154,7 +147,14 @@ export default function ProductsPage() {
       </h1>
 
       <div className={`grid gap-4 sm:gap-8 ${isSearchMode ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-[260px_1fr]"}`}>
-        {!isSearchMode && <FilterSidebar />}
+        {/* Sidebar (filters + promo) stays mounted even when there are no results,
+            so a too-narrow price filter can always be adjusted/cleared. */}
+        {!isSearchMode && (
+          <div className="space-y-4">
+            <FilterSidebar />
+            <DynamicPromoBanner position="PRODUCT_SIDEBAR" />
+          </div>
+        )}
 
         <div className="w-full">
           {!isSearchMode && (
@@ -163,13 +163,30 @@ export default function ProductsPage() {
             </div>
           )}
 
-          <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-6">
-            {products.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
+          {hasNoResults ? (
+            <div className="text-center py-16 space-y-3 px-4">
+              <p className="text-base sm:text-lg font-medium text-gray-700">
+                {isSearchMode ? `No results found for "${search}"` : "No products match these filters"}
+              </p>
+              <p className="text-sm text-gray-400">Try widening your price range or clearing the filters.</p>
+              <button
+                onClick={() => setFilters({ search: "", priceMin: undefined, priceMax: undefined, page: 1 })}
+                className="text-primary font-medium"
+              >
+                Clear filters
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-6">
+                {products.map((product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
+              </div>
 
-          {!isSearchMode && <Pagination totalPages={totalPages} />}
+              {!isSearchMode && <Pagination totalPages={totalPages} />}
+            </>
+          )}
         </div>
       </div>
     </div>

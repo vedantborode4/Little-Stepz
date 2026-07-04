@@ -39,7 +39,7 @@ interface Props {
 }
 
 const POSITIONS: BannerPosition[] = [
-  "HOME_HERO", "HOME_MID", "CATEGORY_TOP", "CHECKOUT_TOP",
+  "HOME_HERO", "HOME_MID", "CATEGORY_TOP", "PRODUCT_SIDEBAR", "CHECKOUT_TOP",
 ]
 
 export default function BannerFormModal({ mode, initialData, onClose, onSuccess }: Props) {

@@ -163,7 +163,10 @@ export default function CategoryProductsPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-8">
 
-        <FilterSidebar />
+        <div className="space-y-4">
+          <FilterSidebar />
+          <DynamicPromoBanner position="PRODUCT_SIDEBAR" />
+        </div>
 
         <div className="w-full">
 

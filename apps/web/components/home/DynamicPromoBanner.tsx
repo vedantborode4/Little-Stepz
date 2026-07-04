@@ -6,7 +6,7 @@ import { BannerService } from "../../lib/services/banner.service"
 import type { AdminBanner } from "../../lib/services/admin-banner.service"
 
 interface Props {
-  position: "HOME_MID" | "CATEGORY_TOP" | "CHECKOUT_TOP"
+  position: "HOME_HERO" | "HOME_MID" | "CATEGORY_TOP" | "PRODUCT_SIDEBAR" | "CHECKOUT_TOP"
   className?: string
 }
 

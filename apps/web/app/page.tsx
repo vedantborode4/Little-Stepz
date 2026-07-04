@@ -7,7 +7,7 @@ import WhyChooseUs from "../components/home/WhyChooseUs"
 import BestSellers from "../components/home/BestSellers"
 import PreOrderHome from "../components/home/PreOrderHome"
 import SectionHeader from "../components/home/SectionHeader"
-import { HeadingFor } from "../components/home/HeadingFor"
+import AboutUs from "../components/home/AboutUs"
 import WhyChooseLittleStepz from "../components/home/WhyChooseLittleStepz"
 
 export default function Home() {
@@ -48,7 +48,7 @@ export default function Home() {
       {/* 7. About Us — red band */}
       <section className="bg-bg">
         <div className="max-w-7xl mx-auto px-4 py-10 sm:py-14">
-          <HeadingFor />
+          <AboutUs />
         </div>
       </section>
 
