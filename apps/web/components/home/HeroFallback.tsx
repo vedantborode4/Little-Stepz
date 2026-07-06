@@ -46,7 +46,7 @@ export default function HeroFallback() {
           <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
             <Link
               href="/products"
-              className="group relative inline-flex items-center gap-2 overflow-hidden rounded-full bg-primary px-7 py-3 text-sm font-semibold uppercase tracking-wide text-white shadow-lg shadow-primary/20 transition hover:opacity-90"
+              className="group relative inline-flex items-center gap-2 overflow-hidden rounded-full bg-primary px-7 py-3 text-sm font-sora font-semibold uppercase tracking-wide text-white shadow-lg shadow-primary/20 transition hover:opacity-90"
             >
               {/* flash sweep on hover */}
               <span className="pointer-events-none absolute inset-0 -translate-x-full skew-x-12 bg-linear-to-r from-transparent via-white/40 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
@@ -56,7 +56,7 @@ export default function HeroFallback() {
             </Link>
             <Link
               href="/pre-orders"
-              className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-7 py-3 text-sm font-semibold text-text hover:border-primary/40 hover:text-primary transition"
+              className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-7 py-3 text-sm font-sora font-semibold text-text hover:border-primary/40 hover:text-primary transition"
             >
               Pre-Order
             </Link>
@@ -66,7 +66,7 @@ export default function HeroFallback() {
           <div className="mt-8 sm:mt-10 grid grid-cols-2 sm:flex sm:flex-wrap justify-center gap-x-6 gap-y-5 sm:gap-x-10 w-full max-w-sm sm:max-w-none">
             {STATS.map((s, i) => (
               <div key={s.label} className={i > 0 ? "sm:pl-10 sm:border-l sm:border-gray-200" : ""}>
-                <p className="font-orbitron text-2xl sm:text-3xl font-bold text-text leading-none">
+                <p className="font-anton text-2xl sm:text-3xl text-text leading-none tracking-wide">
                   <CountUp value={s.value} delay={i * 120} />
                 </p>
                 <p className="mt-1 text-[10px] sm:text-xs font-medium uppercase tracking-wider text-muted">{s.label}</p>

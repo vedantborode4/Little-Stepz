@@ -45,7 +45,7 @@ export default function AboutUs() {
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary">
             About Little Stepz
           </p>
-          <h2 className="font-orbitron mt-3 text-3xl sm:text-4xl font-bold leading-tight text-text">
+          <h2 className="font-anton mt-3 text-3xl sm:text-4xl leading-tight text-text">
             India&apos;s Premier RC &amp;{" "}
             <span className="text-primary">Diecast Destination</span>
           </h2>
@@ -90,7 +90,7 @@ export default function AboutUs() {
               <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl ${f.iconBg}`}>
                 {f.emoji}
               </div>
-              <h3 className="font-orbitron mt-3 text-sm font-bold text-text">{f.title}</h3>
+              <h3 className="font-manrope mt-3 text-sm font-bold text-text">{f.title}</h3>
               <p className="mt-1.5 text-xs text-muted leading-relaxed">{f.desc}</p>
             </div>
           ))}
@@ -103,7 +103,7 @@ export default function AboutUs() {
           <div key={s.label} className="px-4 py-6 text-center">
             <AnimatedCounter
               value={s.value}
-              className="font-orbitron block text-2xl sm:text-3xl font-bold text-text"
+              className="font-anton block text-2xl sm:text-3xl text-text tracking-wide"
             />
             <p className="mt-1 text-[10px] sm:text-xs font-semibold uppercase tracking-widest text-muted">
               {s.label}

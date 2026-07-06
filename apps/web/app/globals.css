@@ -2,8 +2,8 @@
 @source "../../../packages/ui/src/";
 
 @theme inline {
-  --font-sans: var(--font-inter);
-  --font-heading: var(--font-orbitron);
+  --font-sans: var(--font-manrope);
+  --font-heading: var(--font-anton);
 }
 
 @theme {
@@ -25,32 +25,55 @@
 html { scroll-behavior: smooth; }
 
 body {
-  font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
+  /* Body / sub-headings → Manrope */
+  font-family: var(--font-manrope), system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
 }
 
 @layer base {
-  /* ── Orbitron for headings & brand elements ── */
-  h1, h2, h3, h4 {
-    font-family: var(--font-orbitron), sans-serif;
+  /* ── Display headings → Anton ── */
+  h1, h2 {
+    font-family: var(--font-anton), sans-serif;
+    letter-spacing: 0.01em;
+  }
+
+  /* ── Sub-headings → Manrope (medium) ── */
+  h3, h4 {
+    font-family: var(--font-manrope), sans-serif;
     letter-spacing: -0.01em;
+    font-weight: 500;
   }
 
   h1 {
-    @apply text-[32px] leading-[38px] font-bold;
+    @apply text-[32px] leading-[38px];
   }
 
   h2 {
-    @apply text-[24px] leading-[30px] font-semibold;
+    @apply text-[24px] leading-[30px];
   }
 
   p {
     @apply text-[14px] leading-[20px];
   }
+
+  /* ── Buttons → Sora SemiBold ── */
+  button {
+    font-family: var(--font-sora), sans-serif;
+    font-weight: 600;
+  }
 }
 
+.font-anton {
+  font-family: var(--font-anton), sans-serif;
+}
+.font-manrope {
+  font-family: var(--font-manrope), sans-serif;
+}
+.font-sora {
+  font-family: var(--font-sora), sans-serif;
+}
 .font-orbitron {
   font-family: var(--font-orbitron), sans-serif;
 }

@@ -61,7 +61,7 @@ export default function WhyChooseLittleStepz() {
           <p className="text-primary text-xs sm:text-sm font-bold uppercase tracking-[0.2em]">
             Our Advantage
           </p>
-          <h2 className="font-orbitron mt-2 text-3xl sm:text-4xl font-bold text-text">
+          <h2 className="font-anton mt-2 text-3xl sm:text-4xl text-text">
             Why Choose Little Stepz
           </h2>
           <p className="mt-3 max-w-2xl mx-auto text-sm sm:text-base text-muted leading-relaxed">
@@ -81,7 +81,7 @@ export default function WhyChooseLittleStepz() {
                   {a.icon}
                 </div>
 
-                <h3 className="font-orbitron mt-4 text-lg font-bold text-text">
+                <h3 className="font-manrope mt-4 text-lg font-bold text-text">
                   {a.title}
                 </h3>
                 <p className="mt-2 text-sm text-muted leading-relaxed">
