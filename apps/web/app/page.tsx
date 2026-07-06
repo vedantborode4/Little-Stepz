@@ -34,8 +34,8 @@ export default function Home() {
       {/* 4–6. Deals · Banners · Best Sellers — white */}
       <div className="max-w-7xl mx-auto px-4 py-8 sm:py-12 space-y-10 sm:space-y-14">
         <section>
-          <SectionHeader title="Deals of the Day" subtitle="Grab today's best prices" />
-          <BestSellers sort="price_asc" />
+          <SectionHeader title="Best Sellers" subtitle="Our most-loved products" />
+          <BestSellers sort="bestselling" />
         </section>
 
         <DynamicPromoBanner position="HOME_MID" />

@@ -98,7 +98,16 @@ export async function getProductsService({
   preOrder?: boolean;
 }) {
   const skip = (page - 1) * limit;
-  const { field, order } = parseSort(sort);
+
+  // "bestselling" ranks by how many times a product has been ordered (order-item rows),
+  // falling back to newest. Everything else uses the standard field sort.
+  const isBestSelling = sort.startsWith("bestselling");
+  const orderBy: any = isBestSelling
+    ? [{ orderItems: { _count: "desc" } }, { createdAt: "desc" }]
+    : (() => {
+        const { field, order } = parseSort(sort);
+        return { [field]: order };
+      })();
 
   const where: any = {
     deletedAt: null
@@ -141,7 +150,7 @@ export async function getProductsService({
       where,
       skip,
       take: limit,
-      orderBy: { [field]: order },
+      orderBy,
       select: baseProductSelect,
     }),
     prisma.product.count({ where }),
