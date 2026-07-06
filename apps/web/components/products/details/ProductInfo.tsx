@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from "react"
 import { Product, Variant } from "../../../types/product"
 import { getDisplayPrices } from "../../../lib/pricing"
 import PriceTag from "../PriceTag"
+import ProductShare from "../ProductShare"
 import { RICH_TEXT_CLASS } from "../../../lib/richText"
 import { Heart, Loader2, Zap, ShoppingCart, Star, Shield, Truck, Clock } from "lucide-react"
 import { useCartStore } from "../../../store/useCartStore"
@@ -136,16 +137,25 @@ export default function ProductInfo({
             )}
             <h1 className="text-2xl font-bold text-gray-900 mt-2 leading-tight">{product.name}</h1>
           </div>
-          <button
-            onClick={handleWishlist}
-            className={`w-11 h-11 flex-shrink-0 flex items-center justify-center rounded-xl border transition-all ${
-              isInWishlist
-                ? "border-primary bg-primary/10 text-primary"
-                : "border-gray-200 text-gray-400 hover:border-primary hover:text-primary hover:bg-primary/5"
-            }`}
-          >
-            <Heart className={`w-5 h-5 ${isInWishlist ? "fill-primary" : ""}`} />
-          </button>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              onClick={handleWishlist}
+              className={`w-11 h-11 flex items-center justify-center rounded-xl border transition-all ${
+                isInWishlist
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-gray-200 text-gray-400 hover:border-primary hover:text-primary hover:bg-primary/5"
+              }`}
+            >
+              <Heart className={`w-5 h-5 ${isInWishlist ? "fill-primary" : ""}`} />
+            </button>
+            <ProductShare
+              slug={product.slug}
+              name={product.name}
+              className="flex items-center gap-2"
+              buttonClassName="w-11 h-11 flex items-center justify-center rounded-xl border border-gray-200 text-gray-400 hover:border-primary hover:text-primary hover:bg-primary/5 transition-all"
+              iconSize={18}
+            />
+          </div>
         </div>
 
         {/* Price + Stock */}

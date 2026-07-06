@@ -8,6 +8,7 @@ import { Product } from "../../types/product"
 import { getDisplayPrices, getPriceRange, formatINR } from "../../lib/pricing"
 import { cldFill } from "../../lib/utils/cloudinaryUrl"
 import PriceTag from "./PriceTag"
+import ProductShare from "./ProductShare"
 import { Heart, Loader2 } from "lucide-react"
 import { useCartStore } from "../../store/useCartStore"
 import { useWishlistStore } from "../../store/useWishlistStore"
@@ -107,6 +108,15 @@ export default function ProductCard({ product }: { product: Product }) {
             className={`w-3.5 h-3.5 sm:w-4 sm:h-4 transition-colors ${isInWishlist ? "fill-primary text-primary" : ""}`}
           />
         </button>
+
+        {/* Quick share — always on mobile, hover-reveal on desktop */}
+        <ProductShare
+          slug={product.slug}
+          name={product.name}
+          className="absolute right-2 sm:right-3 top-11 sm:top-14 z-10 flex flex-col gap-1.5 transition-opacity duration-200 opacity-100 lg:opacity-0 lg:group-hover:opacity-100"
+          buttonClassName="bg-white/90 backdrop-blur-sm rounded-full p-1.5 sm:p-2 shadow text-gray-600 hover:text-primary hover:scale-110 active:scale-90 transition"
+          iconSize={14}
+        />
       </div>
 
       {/* CONTENT */}
