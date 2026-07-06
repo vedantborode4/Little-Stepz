@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { ProductService } from "../../lib/services/product.service"
-import ProductCard from "../products/ProductCard"
+import ProductSlider from "./ProductSlider"
 import type { Product } from "../../types/product"
 
 interface Props {
@@ -11,7 +11,7 @@ interface Props {
   showViewAll?: boolean
 }
 
-export default function BestSellers({ sort = "newest", limit = 5, showViewAll = true }: Props) {
+export default function BestSellers({ sort = "newest", limit = 12, showViewAll = true }: Props) {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -45,13 +45,7 @@ export default function BestSellers({ sort = "newest", limit = 5, showViewAll = 
           ))}
         </div>
       ) : (
-        <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory scrollbar-none pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 sm:pb-0 sm:overflow-visible sm:grid sm:grid-cols-3 lg:grid-cols-5 sm:gap-4">
-          {products.map((p) => (
-            <div key={p.id} className="basis-[46%] min-w-0 shrink-0 snap-start sm:basis-auto">
-              <ProductCard product={p} />
-            </div>
-          ))}
-        </div>
+        <ProductSlider products={products} />
       )}
 
       {showViewAll && (

@@ -6,6 +6,7 @@ import PromoBannerRow from "../components/home/PromoBannerRow"
 import WhyChooseUs from "../components/home/WhyChooseUs"
 import BestSellers from "../components/home/BestSellers"
 import PreOrderHome from "../components/home/PreOrderHome"
+import CategorySection from "../components/home/CategorySection"
 import SectionHeader from "../components/home/SectionHeader"
 import AboutUs from "../components/home/AboutUs"
 import WhyChooseLittleStepz from "../components/home/WhyChooseLittleStepz"
@@ -40,9 +41,13 @@ export default function Home() {
         <DynamicPromoBanner position="HOME_MID" />
 
         <section>
-          <SectionHeader title="Best Sellers" subtitle="Our most loved products" />
+          <SectionHeader title="New Arrivals" subtitle="Fresh drops, just in" />
           <BestSellers sort="newest" />
         </section>
+
+        {/* Category spotlights — 2-column, self-hide when empty */}
+        <CategorySection slug="stunt-cars" title="Stunt Cars" subtitle="Flips, spins and off-road tricks" />
+        <CategorySection slug="rc-crawlers" title="RC Crawlers" subtitle="Conquer any terrain" />
       </div>
 
       {/* 7. About Us — red band */}
