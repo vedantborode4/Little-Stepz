@@ -96,7 +96,7 @@ export default function Navbar() {
             </Link>
 
             {/* Desktop Nav */}
-            <nav className="hidden md:flex items-center text-sm font-semibold uppercase">
+            <nav className="hidden md:flex items-center text-sm font-bold uppercase">
               {/* Categories mega menu */}
               <div
                 className="relative"
@@ -216,7 +216,7 @@ export default function Navbar() {
                   </button>
 
                   {openUser && (
-                    <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-100 rounded-2xl shadow-xl py-2 z-50 overflow-hidden font-semibold">
+                    <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-100 rounded-2xl shadow-xl py-2 z-50 overflow-hidden font-bold">
                       <div className="px-4 py-3 border-b border-gray-50">
                         <p className="text-sm font-semibold text-gray-900 truncate">{user.name}</p>
                         <p className="text-xs text-gray-400 truncate">{user.email}</p>
@@ -258,7 +258,7 @@ export default function Navbar() {
               ) : (
                 <Link
                   href="/signin"
-                  className="hidden md:flex ml-1 px-4 py-1.5 bg-primary text-white text-sm font-sora font-semibold uppercase rounded-lg hover:opacity-90 transition"
+                  className="hidden md:flex ml-1 px-4 py-1.5 bg-primary text-white text-sm font-sora font-bold uppercase rounded-lg hover:opacity-90 transition"
                 >
                   Login
                 </Link>
@@ -327,7 +327,7 @@ export default function Navbar() {
         )}
 
         {/* Scrollable nav area */}
-        <nav className="flex-1 overflow-y-auto font-semibold uppercase">
+        <nav className="flex-1 overflow-y-auto font-bold uppercase">
 
           {/* Quick actions — cart + wishlist */}
           <div className="grid grid-cols-2 gap-2.5 px-4 pt-4 pb-2">

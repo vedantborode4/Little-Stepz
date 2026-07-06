@@ -3,7 +3,7 @@
 
 @theme inline {
   --font-sans: var(--font-manrope);
-  --font-heading: var(--font-anton);
+  --font-heading: var(--font-manrope);
 }
 
 @theme {
@@ -27,23 +27,25 @@ html { scroll-behavior: smooth; }
 body {
   /* Body / sub-headings → Manrope */
   font-family: var(--font-manrope), system-ui, -apple-system, sans-serif;
+  font-weight: 500;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
 }
 
 @layer base {
-  /* ── Display headings → Anton ── */
+  /* ── Display headings → Manrope Bold ── */
   h1, h2 {
-    font-family: var(--font-anton), sans-serif;
-    letter-spacing: 0.01em;
+    font-family: var(--font-manrope), sans-serif;
+    letter-spacing: -0.01em;
+    font-weight: 700;
   }
 
-  /* ── Sub-headings → Manrope (medium) ── */
+  /* ── Sub-headings → Manrope SemiBold ── */
   h3, h4 {
     font-family: var(--font-manrope), sans-serif;
     letter-spacing: -0.01em;
-    font-weight: 500;
+    font-weight: 600;
   }
 
   h1 {
@@ -58,15 +60,16 @@ body {
     @apply text-[14px] leading-[20px];
   }
 
-  /* ── Buttons → Sora SemiBold ── */
+  /* ── Buttons → Sora Bold ── */
   button {
     font-family: var(--font-sora), sans-serif;
-    font-weight: 600;
+    font-weight: 700;
   }
 }
 
 .font-anton {
-  font-family: var(--font-anton), sans-serif;
+  font-family: var(--font-manrope), sans-serif;
+  font-weight: 700;
 }
 .font-manrope {
   font-family: var(--font-manrope), sans-serif;

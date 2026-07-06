@@ -1,5 +1,3 @@
-import AnimatedCounter from "./AnimatedCounter"
-
 const FEATURES = [
   {
     emoji: "🏎️",
@@ -28,13 +26,6 @@ const FEATURES = [
 ]
 
 const TAGS = ["Direct Importer", "Wholesaler", "Retailer", "Pan-India"]
-
-const STATS = [
-  { value: "2025", label: "Founded" },
-  { value: "500+", label: "Cities" },
-  { value: "23+", label: "Products" },
-  { value: "100%", label: "Authentic" },
-]
 
 export default function AboutUs() {
   return (
@@ -95,21 +86,6 @@ export default function AboutUs() {
             </div>
           ))}
         </div>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden divide-x divide-y sm:divide-y-0 divide-gray-100">
-        {STATS.map((s) => (
-          <div key={s.label} className="px-4 py-6 text-center">
-            <AnimatedCounter
-              value={s.value}
-              className="font-anton block text-2xl sm:text-3xl text-text tracking-wide"
-            />
-            <p className="mt-1 text-[10px] sm:text-xs font-semibold uppercase tracking-widest text-muted">
-              {s.label}
-            </p>
-          </div>
-        ))}
       </div>
     </div>
   )

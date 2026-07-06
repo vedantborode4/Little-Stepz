@@ -13,11 +13,11 @@ const STATS = [
 // Default hero shown when no HOME_HERO banner is active.
 export default function HeroFallback() {
   return (
-    <section className="relative w-full overflow-hidden bg-bg lg:aspect-32/15">
+    <section className="relative w-full overflow-hidden bg-bg lg:min-h-[calc(100vh-4rem)] lg:flex lg:items-center">
       {/* soft themed backdrop — centered */}
       <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[640px] w-[640px] rounded-full bg-primary/10 blur-3xl" />
 
-      <div className="relative lg:h-full max-w-7xl mx-auto px-4 flex flex-col items-center justify-center text-center py-12 sm:py-16 lg:py-0">
+      <div className="relative w-full max-w-7xl mx-auto px-4 flex flex-col items-center justify-center text-center py-12 sm:py-16 lg:py-20">
 
         {/* COPY */}
         <div className="flex flex-col items-center">
