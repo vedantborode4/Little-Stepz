@@ -1,7 +1,7 @@
 import { api } from "../api-client"
 
 export type BannerPosition =
-  | "HOME_HERO" | "HOME_MID" | "CATEGORY_TOP" | "PRODUCT_SIDEBAR" | "CHECKOUT_TOP"
+  | "HOME_HERO" | "MOBILE_HERO" | "HOME_MID" | "CATEGORY_TOP" | "PRODUCT_SIDEBAR" | "CHECKOUT_TOP"
 
 export interface AdminBanner {
   id: string
