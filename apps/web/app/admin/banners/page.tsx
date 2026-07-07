@@ -9,7 +9,8 @@ import AdminModal from "../../../components/admin/AdminModal"
 import { toast } from "sonner"
 
 const POSITION_COLORS: Record<string, string> = {
-  HOME_HERO: "bg-primary/10 text-primary", HOME_MID: "bg-blue-50 text-blue-700",
+  HOME_HERO: "bg-primary/10 text-primary", MOBILE_HERO: "bg-pink-50 text-pink-700",
+  HOME_MID: "bg-blue-50 text-blue-700",
   CATEGORY_TOP: "bg-green-50 text-green-700", PRODUCT_SIDEBAR: "bg-purple-50 text-purple-700",
   CHECKOUT_TOP: "bg-orange-50 text-orange-700",
 }

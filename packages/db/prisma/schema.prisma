@@ -828,10 +828,11 @@ model AffiliateWithdrawal {
 
 enum BannerPosition {
   HOME_HERO
+  MOBILE_HERO
   HOME_MID
   CATEGORY_TOP
   PRODUCT_SIDEBAR
-  CHECKOUT_TOP  
+  CHECKOUT_TOP
 }
 
 model Banner {

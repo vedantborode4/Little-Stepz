@@ -35,6 +35,7 @@ export const adminStatsQuerySchema = z.object({
 
 const bannerPositions = [
   "HOME_HERO",
+  "MOBILE_HERO",
   "HOME_MID",
   "CATEGORY_TOP",
   "PRODUCT_SIDEBAR",
