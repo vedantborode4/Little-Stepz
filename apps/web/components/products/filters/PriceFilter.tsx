@@ -47,7 +47,7 @@ export default function PriceFilter() {
       {/* Track + dual thumbs */}
       <div className="relative h-5 flex items-center">
         {/* Background track */}
-        <div className="absolute w-full h-1.5 bg-gray-200 rounded-full" />
+        <div className="absolute w-full h-1.5 bg-surface-3 rounded-full" />
         {/* Active range */}
         <div
           className="absolute h-1.5 bg-primary rounded-full"
@@ -94,30 +94,30 @@ export default function PriceFilter() {
       {/* Number inputs */}
       <div className="flex items-center gap-2">
         <div className="flex-1 relative">
-          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400">₹</span>
+          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-faint">₹</span>
           <input
             type="number"
             min={MIN} max={localMax - STEP} step={STEP}
             value={localMin}
             onChange={handleMinChange}
-            className="w-full pl-6 pr-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20"
+            className="w-full pl-6 pr-2 py-1.5 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
         </div>
-        <span className="text-gray-300 text-xs">—</span>
+        <span className="text-faint text-xs">—</span>
         <div className="flex-1 relative">
-          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400">₹</span>
+          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-faint">₹</span>
           <input
             type="number"
             min={localMin + STEP} max={MAX} step={STEP}
             value={localMax}
             onChange={handleMaxChange}
-            className="w-full pl-6 pr-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20"
+            className="w-full pl-6 pr-2 py-1.5 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
         </div>
       </div>
 
       {/* Labels */}
-      <div className="flex justify-between text-xs text-gray-400">
+      <div className="flex justify-between text-xs text-faint">
         <span>Min</span>
         <span className="text-primary font-medium">
           ₹{localMin.toLocaleString()} – ₹{localMax.toLocaleString()}

@@ -102,11 +102,11 @@ export default function SearchBar() {
         onFocus={() => input && setOpen(true)}
         onKeyDown={handleKeyDown}
         placeholder="Search toys..."
-        className="w-full pl-4 pr-10 py-2 rounded-lg bg-gray-100 text-sm outline-none focus:outline-none focus:ring-0"
+        className="w-full pl-4 pr-10 py-2 rounded-lg bg-surface-2 text-sm outline-none focus:outline-none focus:ring-0"
       />
 
       {open && (
-        <div className="absolute top-full mt-2 w-full bg-white rounded-md shadow-lg z-50">
+        <div className="absolute top-full mt-2 w-full bg-surface rounded-md shadow-lg z-50">
 
           {!suggestions.length && (
             <div className="px-4 py-3 text-sm text-muted">
@@ -121,12 +121,12 @@ export default function SearchBar() {
               className={`flex items-baseline justify-between gap-2 px-4 py-2 cursor-pointer text-sm ${
                 index === activeIndex
                   ? "bg-primary/10"
-                  : "hover:bg-gray-50"
+                  : "hover:bg-surface-2"
               }`}
             >
               <span className="truncate">{item.name}</span>
               {item.category && (
-                <span className="shrink-0 text-xs text-gray-400">in {item.category}</span>
+                <span className="shrink-0 text-xs text-faint">in {item.category}</span>
               )}
             </div>
           ))}

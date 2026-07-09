@@ -113,7 +113,7 @@ export default function CategoryProductsPage() {
 
   if (error)
     return (
-      <p className="text-center text-red-500 py-10">
+      <p className="text-center text-red-500 dark:text-red-400 py-10">
         Failed to load category products
       </p>
     )
@@ -140,7 +140,7 @@ export default function CategoryProductsPage() {
           {fallbackCategory && (
             <Link
               href={`/products/category/${fallbackCategory.slug}`}
-              className="px-5 py-2.5 rounded-lg border text-sm font-medium hover:bg-gray-50 transition"
+              className="px-5 py-2.5 rounded-lg border text-sm font-medium hover:bg-surface-2 transition"
             >
               Browse other categories
             </Link>

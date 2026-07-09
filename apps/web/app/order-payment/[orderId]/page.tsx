@@ -81,31 +81,31 @@ export default function OrderPaymentPage() {
   if (state === "success") {
     return (
       <div className="min-h-[60vh] flex items-center justify-center px-4">
-        <div className="bg-white border border-gray-100 rounded-2xl p-8 max-w-md w-full shadow-card text-center space-y-5">
-          <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto">
-            <CheckCircle size={32} className="text-green-500" />
+        <div className="bg-surface border border-border rounded-2xl p-8 max-w-md w-full shadow-card text-center space-y-5">
+          <div className="w-16 h-16 bg-green-50 dark:bg-green-500/15 rounded-full flex items-center justify-center mx-auto">
+            <CheckCircle size={32} className="text-green-500 dark:text-green-400" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">Payment Successful!</h1>
+            <h1 className="text-xl font-bold text-text">Payment Successful!</h1>
             <p className="text-sm text-muted mt-1">Your order has been confirmed.</p>
           </div>
           {order && (
-            <div className="bg-gray-50 rounded-xl p-4 text-left space-y-2 text-sm">
+            <div className="bg-surface-2 rounded-xl p-4 text-left space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted">Order ID</span>
-                <span className="font-mono font-medium text-gray-800 text-xs">{order.id}</span>
+                <span className="font-mono font-medium text-text text-xs">{order.id}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted">Amount Paid</span>
-                <span className="font-semibold text-gray-900">₹{Number(order.total).toLocaleString("en-IN")}</span>
+                <span className="font-semibold text-text">₹{Number(order.total).toLocaleString("en-IN")}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted">Payment Method</span>
-                <span className="text-gray-700 capitalize">{order.paymentMethod?.replace(/_/g, " ") ?? "Online"}</span>
+                <span className="text-muted capitalize">{order.paymentMethod?.replace(/_/g, " ") ?? "Online"}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted">Status</span>
-                <span className="text-green-600 font-medium capitalize">{order.status?.replace(/_/g, " ").toLowerCase()}</span>
+                <span className="text-green-600 dark:text-green-400 font-medium capitalize">{order.status?.replace(/_/g, " ").toLowerCase()}</span>
               </div>
             </div>
           )}
@@ -115,7 +115,7 @@ export default function OrderPaymentPage() {
               View Order Details
             </Link>
             <Link href="/products"
-              className="w-full border border-gray-200 text-gray-700 py-3 rounded-xl text-sm font-medium hover:bg-gray-50 transition text-center">
+              className="w-full border border-border text-muted py-3 rounded-xl text-sm font-medium hover:bg-surface-2 transition text-center">
               Continue Shopping
             </Link>
           </div>
@@ -127,12 +127,12 @@ export default function OrderPaymentPage() {
   if (state === "failed") {
     return (
       <div className="min-h-[60vh] flex items-center justify-center px-4">
-        <div className="bg-white border border-gray-100 rounded-2xl p-8 max-w-md w-full shadow-card text-center space-y-5">
-          <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto">
-            <XCircle size={32} className="text-red-500" />
+        <div className="bg-surface border border-border rounded-2xl p-8 max-w-md w-full shadow-card text-center space-y-5">
+          <div className="w-16 h-16 bg-red-50 dark:bg-red-500/15 rounded-full flex items-center justify-center mx-auto">
+            <XCircle size={32} className="text-red-500 dark:text-red-400" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">Payment Failed</h1>
+            <h1 className="text-xl font-bold text-text">Payment Failed</h1>
             <p className="text-sm text-muted mt-1">
               We couldn't process your payment. Your cart is intact — please try again.
             </p>
@@ -143,7 +143,7 @@ export default function OrderPaymentPage() {
               Try Again
             </Link>
             <Link href="/account/orders"
-              className="w-full border border-gray-200 text-gray-700 py-3 rounded-xl text-sm font-medium hover:bg-gray-50 transition text-center">
+              className="w-full border border-border text-muted py-3 rounded-xl text-sm font-medium hover:bg-surface-2 transition text-center">
               View Orders
             </Link>
           </div>
@@ -154,18 +154,18 @@ export default function OrderPaymentPage() {
 
   return (
     <div className="min-h-[60vh] flex items-center justify-center px-4">
-      <div className="bg-white border border-gray-100 rounded-2xl p-8 max-w-md w-full shadow-card text-center space-y-5">
-        <div className="w-16 h-16 bg-yellow-50 rounded-full flex items-center justify-center mx-auto">
-          <Clock size={32} className="text-yellow-500" />
+      <div className="bg-surface border border-border rounded-2xl p-8 max-w-md w-full shadow-card text-center space-y-5">
+        <div className="w-16 h-16 bg-yellow-50 dark:bg-yellow-500/15 rounded-full flex items-center justify-center mx-auto">
+          <Clock size={32} className="text-yellow-500 dark:text-yellow-400" />
         </div>
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Payment Processing</h1>
+          <h1 className="text-xl font-bold text-text">Payment Processing</h1>
           <p className="text-sm text-muted mt-1">
             Your payment is being verified. This usually takes a few seconds.
           </p>
         </div>
         {attempts >= MAX_POLLS && (
-          <div className="bg-yellow-50 border border-yellow-100 rounded-xl p-3 text-sm text-yellow-700">
+          <div className="bg-yellow-50 dark:bg-yellow-500/15 border border-yellow-100 dark:border-yellow-500/20 rounded-xl p-3 text-sm text-yellow-700 dark:text-yellow-300">
             Taking longer than expected. Check your orders page for the latest status.
           </div>
         )}
@@ -176,7 +176,7 @@ export default function OrderPaymentPage() {
             <RefreshCw size={15} /> Check Again
           </button>
           <Link href="/account/orders"
-            className="w-full border border-gray-200 text-gray-700 py-3 rounded-xl text-sm font-medium hover:bg-gray-50 transition text-center">
+            className="w-full border border-border text-muted py-3 rounded-xl text-sm font-medium hover:bg-surface-2 transition text-center">
             View My Orders
           </Link>
         </div>

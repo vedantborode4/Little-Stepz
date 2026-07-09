@@ -32,20 +32,20 @@ export default function SimilarProducts({ categoryId }: { categoryId: string }) 
           <Sparkles size={16} className="text-primary" />
         </div>
         <div>
-          <h2 className="text-xl font-bold text-gray-900">You May Also Like</h2>
-          <p className="text-xs text-gray-400 mt-0.5">From the same category</p>
+          <h2 className="text-xl font-bold text-text">You May Also Like</h2>
+          <p className="text-xs text-faint mt-0.5">From the same category</p>
         </div>
       </div>
 
       {loading ? (
         <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-5">
           {[1,2,3,4].map((i) => (
-            <div key={i} className="bg-white border border-gray-100 rounded-2xl overflow-hidden animate-pulse">
-              <div className="aspect-square bg-gray-100" />
+            <div key={i} className="bg-surface border border-border rounded-2xl overflow-hidden animate-pulse">
+              <div className="aspect-square bg-surface-2" />
               <div className="p-4 space-y-2.5">
-                <div className="h-3 bg-gray-100 rounded-full w-3/4" />
-                <div className="h-3 bg-gray-100 rounded-full w-1/2" />
-                <div className="h-9 bg-gray-100 rounded-xl" />
+                <div className="h-3 bg-surface-2 rounded-full w-3/4" />
+                <div className="h-3 bg-surface-2 rounded-full w-1/2" />
+                <div className="h-9 bg-surface-2 rounded-xl" />
               </div>
             </div>
           ))}

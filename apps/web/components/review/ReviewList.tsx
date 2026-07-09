@@ -15,7 +15,7 @@ export default function ReviewList({ productId }: { productId: string }) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-10 text-gray-400">
+      <div className="flex items-center justify-center py-10 text-faint">
         <Loader2 size={18} className="animate-spin mr-2" />
         <span className="text-sm">Loading reviews...</span>
       </div>
@@ -24,7 +24,7 @@ export default function ReviewList({ productId }: { productId: string }) {
 
   if (!reviews.length) {
     return (
-      <p className="text-sm text-gray-400 text-center py-6">
+      <p className="text-sm text-faint text-center py-6">
         No reviews yet. Be the first to review this product!
       </p>
     )
@@ -39,7 +39,7 @@ export default function ReviewList({ productId }: { productId: string }) {
       {page < totalPages && (
         <button
           onClick={() => loadMore(productId)}
-          className="w-full border border-gray-200 text-gray-600 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition flex items-center justify-center gap-2"
+          className="w-full border border-border text-muted py-2.5 rounded-xl text-sm font-medium hover:bg-surface-2 transition flex items-center justify-center gap-2"
         >
           <ChevronDown size={15} />
           Load More Reviews

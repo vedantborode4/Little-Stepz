@@ -14,9 +14,9 @@ import { ImagePlus, Loader2, X } from "lucide-react"
 function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <label className="text-sm font-medium text-gray-700">{label}</label>
+      <label className="text-sm font-medium text-muted">{label}</label>
       {children}
-      {error && <p className="text-xs text-red-500">{error}</p>}
+      {error && <p className="text-xs text-red-500 dark:text-red-400">{error}</p>}
     </div>
   )
 }
@@ -25,7 +25,7 @@ function StyledInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...props}
-      className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+      className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
     />
   )
 }
@@ -178,7 +178,7 @@ export default function BannerFormModal({ mode, initialData, onClose, onSuccess 
           />
 
           {form.imageUrl ? (
-            <div className="relative group rounded-xl overflow-hidden border border-gray-200">
+            <div className="relative group rounded-xl overflow-hidden border border-border">
               <img
                 src={form.imageUrl}
                 alt="Banner preview"
@@ -190,7 +190,7 @@ export default function BannerFormModal({ mode, initialData, onClose, onSuccess 
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploading}
-                  className="flex items-center gap-1.5 bg-white text-gray-800 text-xs px-3 py-2 rounded-lg hover:bg-gray-50 transition shadow"
+                  className="flex items-center gap-1.5 bg-surface text-text text-xs px-3 py-2 rounded-lg hover:bg-surface-2 transition shadow"
                 >
                   {uploading ? <Loader2 size={13} className="animate-spin" /> : <ImagePlus size={13} />}
                   Replace
@@ -198,7 +198,7 @@ export default function BannerFormModal({ mode, initialData, onClose, onSuccess 
                 <button
                   type="button"
                   onClick={() => setForm((p) => ({ ...p, imageUrl: "" }))}
-                  className="flex items-center gap-1.5 bg-white text-red-500 text-xs px-3 py-2 rounded-lg hover:bg-red-50 transition shadow"
+                  className="flex items-center gap-1.5 bg-surface text-red-500 dark:text-red-400 text-xs px-3 py-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/15 transition shadow"
                 >
                   <X size={13} /> Remove
                 </button>
@@ -209,7 +209,7 @@ export default function BannerFormModal({ mode, initialData, onClose, onSuccess 
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
-              className="w-full h-32 border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center gap-2 hover:border-primary/40 hover:bg-primary/5 transition text-gray-400 hover:text-primary disabled:opacity-60"
+              className="w-full h-32 border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center gap-2 hover:border-primary/40 hover:bg-primary/5 transition text-faint hover:text-primary disabled:opacity-60"
             >
               {uploading ? (
                 <>
@@ -220,7 +220,7 @@ export default function BannerFormModal({ mode, initialData, onClose, onSuccess 
                 <>
                   <ImagePlus size={22} />
                   <span className="text-xs font-medium">Click to upload banner image</span>
-                  <span className="text-[10px] text-gray-300">PNG, JPG, WEBP · recommended 1200×400px</span>
+                  <span className="text-[10px] text-faint">PNG, JPG, WEBP · recommended 1200×400px</span>
                 </>
               )}
             </button>
@@ -249,7 +249,7 @@ export default function BannerFormModal({ mode, initialData, onClose, onSuccess 
             <select
               value={form.position}
               onChange={(e) => setForm((p) => ({ ...p, position: e.target.value as BannerPosition }))}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white"
+              className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-surface"
             >
               {POSITIONS.map((pos) => (
                 <option key={pos} value={pos}>{pos.replace(/_/g, " ")}</option>
@@ -290,12 +290,12 @@ export default function BannerFormModal({ mode, initialData, onClose, onSuccess 
             onChange={(e) => setForm((p) => ({ ...p, isActive: e.target.checked }))}
             className="w-4 h-4 rounded accent-primary"
           />
-          <span className="text-sm font-medium text-gray-700">Active (visible on storefront)</span>
+          <span className="text-sm font-medium text-muted">Active (visible on storefront)</span>
         </label>
 
         <div className="flex gap-3 pt-1">
           <button onClick={onClose}
-            className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition">
+            className="flex-1 py-2.5 border border-border rounded-xl text-sm text-muted hover:bg-surface-2 transition">
             Cancel
           </button>
           <button onClick={submit} disabled={loading || uploading}

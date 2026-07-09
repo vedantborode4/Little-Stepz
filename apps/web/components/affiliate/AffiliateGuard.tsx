@@ -68,7 +68,7 @@ export default function AffiliateGuard({
   if (profile.status === "REJECTED") {
     return (
       <div className="py-24 text-center space-y-4">
-        <h2 className="text-xl font-semibold text-red-500">
+        <h2 className="text-xl font-semibold text-red-500 dark:text-red-400">
           Application rejected
         </h2>
 

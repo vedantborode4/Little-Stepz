@@ -40,7 +40,7 @@ export default function PreOrderProductsPage() {
   }, [page, sort])
 
   return (
-    <div className="max-w-7xl bg-white mx-auto px-3 sm:px-4 py-5 sm:py-8">
+    <div className="max-w-7xl bg-surface mx-auto px-3 sm:px-4 py-5 sm:py-8">
       {/* Breadcrumb */}
       <div className="text-xs sm:text-sm text-muted flex items-center gap-1.5 sm:gap-2 flex-wrap mb-3 sm:mb-4">
         <Link href="/" className="hover:text-primary">Home</Link>
@@ -53,7 +53,7 @@ export default function PreOrderProductsPage() {
           <Clock size={14} /> Pre-Order
         </div>
         <h1 className="text-xl sm:text-3xl font-bold text-primary mt-2">Pre-Order Products</h1>
-        <p className="text-sm text-gray-500 mt-1">Reserve upcoming & out-of-stock items — pay a small booking now, balance when it ships.</p>
+        <p className="text-sm text-muted mt-1">Reserve upcoming & out-of-stock items — pay a small booking now, balance when it ships.</p>
       </div>
 
       {/* Sort */}
@@ -61,7 +61,7 @@ export default function PreOrderProductsPage() {
         <select
           value={sort}
           onChange={(e) => { setSort(e.target.value); setPage(1) }}
-          className="border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white"
+          className="border border-border rounded-xl px-3 py-2 text-sm bg-surface"
         >
           {SORTS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
         </select>
@@ -70,12 +70,12 @@ export default function PreOrderProductsPage() {
       {loading ? (
         <ProductGridSkeleton />
       ) : error ? (
-        <p className="text-center text-red-500 py-10">Failed to load pre-order products</p>
+        <p className="text-center text-red-500 dark:text-red-400 py-10">Failed to load pre-order products</p>
       ) : !products.length ? (
         <div className="text-center py-16 space-y-2 px-4">
-          <Clock size={32} className="text-gray-300 mx-auto" />
-          <p className="text-base sm:text-lg font-medium text-gray-700">No pre-order products right now</p>
-          <p className="text-sm text-gray-400">Check back soon for upcoming arrivals.</p>
+          <Clock size={32} className="text-faint mx-auto" />
+          <p className="text-base sm:text-lg font-medium text-muted">No pre-order products right now</p>
+          <p className="text-sm text-faint">Check back soon for upcoming arrivals.</p>
         </div>
       ) : (
         <>
@@ -88,10 +88,10 @@ export default function PreOrderProductsPage() {
           {totalPages > 1 && (
             <div className="flex items-center justify-center gap-2 mt-8">
               <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
-                className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40">‹</button>
-              <span className="text-sm text-gray-600 px-2">Page {page} of {totalPages}</span>
+                className="w-9 h-9 flex items-center justify-center rounded-lg border border-border text-muted hover:bg-surface-2 disabled:opacity-40">‹</button>
+              <span className="text-sm text-muted px-2">Page {page} of {totalPages}</span>
               <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40">›</button>
+                className="w-9 h-9 flex items-center justify-center rounded-lg border border-border text-muted hover:bg-surface-2 disabled:opacity-40">›</button>
             </div>
           )}
         </>

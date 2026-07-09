@@ -30,7 +30,7 @@ export default function AffiliateMobileNav() {
   }
 
   return (
-    <nav className="lg:hidden sticky bottom-0 z-40 bg-white border-t border-gray-100 safe-area-pb">
+    <nav className="lg:hidden sticky bottom-0 z-40 bg-surface border-t border-border safe-area-pb">
       <div className="flex overflow-x-auto scrollbar-none">
         {items.map((item) => {
           const Icon = item.icon
@@ -43,7 +43,7 @@ export default function AffiliateMobileNav() {
                 "flex flex-col items-center justify-center gap-0.5 px-3 py-2.5 min-w-[60px] flex-1 text-[10px] font-medium transition-colors",
                 active
                   ? "text-primary"
-                  : "text-gray-400 hover:text-gray-600"
+                  : "text-faint hover:text-muted"
               )}
             >
               <Icon size={18} strokeWidth={active ? 2.5 : 2} />

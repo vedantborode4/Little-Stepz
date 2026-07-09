@@ -19,25 +19,25 @@ export default function AddressCard({ address, refresh }: any) {
   }
 
   return (
-    <div className={`border rounded-xl p-4 transition-all ${address.isDefault ? "border-primary bg-primary/5" : "border-gray-200 bg-white hover:border-gray-300"}`}>
+    <div className={`border rounded-xl p-4 transition-all ${address.isDefault ? "border-primary bg-primary/5" : "border-border bg-surface hover:border-border"}`}>
       <div className="flex justify-between gap-3">
         <div className="flex gap-3">
-          <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 ${address.isDefault ? "bg-primary/10" : "bg-gray-100"}`}>
-            <MapPin size={14} className={address.isDefault ? "text-primary" : "text-gray-400"} />
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 ${address.isDefault ? "bg-primary/10" : "bg-surface-2"}`}>
+            <MapPin size={14} className={address.isDefault ? "text-primary" : "text-faint"} />
           </div>
 
           <div className="text-sm space-y-0.5">
             <div className="flex items-center gap-2">
-              <p className="font-semibold text-gray-900">{address.name}</p>
+              <p className="font-semibold text-text">{address.name}</p>
               {address.isDefault && (
                 <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
                   <Star size={10} className="fill-primary" /> Default
                 </span>
               )}
             </div>
-            <p className="text-gray-600">{address.address}</p>
-            <p className="text-gray-500">{address.city}, {address.state} — {address.pincode}</p>
-            <p className="text-gray-500">{address.phone}</p>
+            <p className="text-muted">{address.address}</p>
+            <p className="text-muted">{address.city}, {address.state} — {address.pincode}</p>
+            <p className="text-muted">{address.phone}</p>
           </div>
         </div>
 
@@ -55,7 +55,7 @@ export default function AddressCard({ address, refresh }: any) {
 
           <button
             onClick={handleDelete}
-            className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-500 transition"
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-faint hover:bg-red-50 dark:hover:bg-red-500/15 hover:text-red-500 transition"
           >
             <Trash2 size={14} />
           </button>

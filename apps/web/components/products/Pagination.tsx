@@ -54,7 +54,7 @@ export function Pagination({
               ${
                 activePage === page
                   ? "bg-primary text-white border-primary"
-                  : "bg-white hover:bg-gray-50"
+                  : "bg-surface hover:bg-surface-2"
               }
             `}
           >

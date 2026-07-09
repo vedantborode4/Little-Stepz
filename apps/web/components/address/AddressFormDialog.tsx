@@ -61,7 +61,7 @@ export default function AddressFormDialog({ onCreated }: any) {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+        className="flex items-center gap-2 px-3 py-2 border border-border rounded-xl text-sm font-medium text-muted hover:bg-surface-2 transition"
       >
         <Plus size={14} />
         Add Address
@@ -74,29 +74,29 @@ export default function AddressFormDialog({ onCreated }: any) {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl p-6 w-full max-w-lg space-y-4 relative shadow-xl max-h-[90vh] overflow-y-auto"
+            className="bg-surface rounded-2xl p-6 w-full max-w-lg space-y-4 relative shadow-xl max-h-[90vh] overflow-y-auto"
           >
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-gray-900">Add New Address</h3>
+              <h3 className="text-lg font-bold text-text">Add New Address</h3>
               <button
                 onClick={() => setOpen(false)}
-                className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition"
+                className="w-8 h-8 rounded-lg bg-surface-2 flex items-center justify-center hover:bg-surface-3 transition"
               >
-                <X size={15} className="text-gray-600" />
+                <X size={15} className="text-muted" />
               </button>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               {FIELDS.map(({ key, label, placeholder }) => (
                 <div key={key} className={key === "address" ? "col-span-2" : ""}>
-                  <label className="text-xs font-semibold text-gray-500 mb-1.5 block">{label}</label>
+                  <label className="text-xs font-semibold text-muted mb-1.5 block">{label}</label>
                   <input
                     placeholder={placeholder}
-                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition"
+                    className="w-full border border-border rounded-xl px-3 py-2.5 text-sm text-text placeholder:text-faint focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition"
                     value={(form as any)[key]}
                     onChange={(e) => handleChange(key as any, e.target.value)}
                   />
-                  {errors[key] && <p className="text-red-500 text-xs mt-1">{errors[key]}</p>}
+                  {errors[key] && <p className="text-red-500 dark:text-red-400 text-xs mt-1">{errors[key]}</p>}
                 </div>
               ))}
             </div>
@@ -108,7 +108,7 @@ export default function AddressFormDialog({ onCreated }: any) {
                 onChange={(e) => handleChange("isDefault", e.target.checked)}
                 className="accent-primary w-4 h-4"
               />
-              <span className="text-gray-700 font-medium">Set as default address</span>
+              <span className="text-muted font-medium">Set as default address</span>
             </label>
 
             <button

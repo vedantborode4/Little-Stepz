@@ -79,7 +79,7 @@ export default function ProductSlider({
         type="button"
         aria-label="Previous"
         onClick={() => scrollByView(-1)}
-        className="hidden lg:flex absolute -left-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 items-center justify-center rounded-full bg-white shadow-lg border border-gray-100 text-gray-600 hover:text-primary hover:border-primary/30 opacity-0 group-hover/slider:opacity-100 transition"
+        className="hidden lg:flex absolute -left-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 items-center justify-center rounded-full bg-surface shadow-lg border border-border text-muted hover:text-primary hover:border-primary/30 opacity-0 group-hover/slider:opacity-100 transition"
       >
         <ChevronLeft size={18} />
       </button>
@@ -87,7 +87,7 @@ export default function ProductSlider({
         type="button"
         aria-label="Next"
         onClick={() => scrollByView(1)}
-        className="hidden lg:flex absolute -right-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 items-center justify-center rounded-full bg-white shadow-lg border border-gray-100 text-gray-600 hover:text-primary hover:border-primary/30 opacity-0 group-hover/slider:opacity-100 transition"
+        className="hidden lg:flex absolute -right-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 items-center justify-center rounded-full bg-surface shadow-lg border border-border text-muted hover:text-primary hover:border-primary/30 opacity-0 group-hover/slider:opacity-100 transition"
       >
         <ChevronRight size={18} />
       </button>

@@ -115,13 +115,13 @@ export default function ProductsPage() {
   }, [page, category, sort, priceMin, priceMax, search, router, searchParams])
 
   if (loading) return <ProductGridSkeleton />
-  if (error) return <p className="text-center text-red-500 py-10">Failed to load products</p>
+  if (error) return <p className="text-center text-red-500 dark:text-red-400 py-10">Failed to load products</p>
 
   const categoryName = getCategoryName(category)
   const hasNoResults = !products.length
 
   return (
-    <div className="max-w-7xl bg-white mx-auto px-3 sm:px-4 py-5 sm:py-8">
+    <div className="max-w-7xl bg-surface mx-auto px-3 sm:px-4 py-5 sm:py-8">
 
       {/* BREADCRUMB */}
       <div className="text-xs sm:text-sm text-muted flex items-center gap-1.5 sm:gap-2 flex-wrap mb-3 sm:mb-4">
@@ -165,10 +165,10 @@ export default function ProductsPage() {
 
           {hasNoResults ? (
             <div className="text-center py-16 space-y-3 px-4">
-              <p className="text-base sm:text-lg font-medium text-gray-700">
+              <p className="text-base sm:text-lg font-medium text-muted">
                 {isSearchMode ? `No results found for "${search}"` : "No products match these filters"}
               </p>
-              <p className="text-sm text-gray-400">Try widening your price range or clearing the filters.</p>
+              <p className="text-sm text-faint">Try widening your price range or clearing the filters.</p>
               <button
                 onClick={() => setFilters({ search: "", priceMin: undefined, priceMax: undefined, page: 1 })}
                 className="text-primary font-medium"

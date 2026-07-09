@@ -55,16 +55,16 @@ export default function BalancePayPage() {
     }
   }
 
-  if (loading) return <div className="max-w-md mx-auto px-4 py-20 text-center text-gray-400">Loading…</div>
-  if (error) return <div className="max-w-md mx-auto px-4 py-20 text-center text-red-500">{error}</div>
+  if (loading) return <div className="max-w-md mx-auto px-4 py-20 text-center text-faint">Loading…</div>
+  if (error) return <div className="max-w-md mx-auto px-4 py-20 text-center text-red-500 dark:text-red-400">{error}</div>
   if (!po) return null
 
   if (done) {
     return (
       <div className="max-w-md mx-auto px-4 py-20 text-center space-y-3">
-        <CheckCircle2 size={40} className="text-green-500 mx-auto" />
-        <h1 className="text-xl font-bold text-gray-900">Order confirmed</h1>
-        <p className="text-gray-500 text-sm">Thanks! We've received your balance payment for <strong>{po.product.name}</strong>. Your order is now being processed.</p>
+        <CheckCircle2 size={40} className="text-green-500 dark:text-green-400 mx-auto" />
+        <h1 className="text-xl font-bold text-text">Order confirmed</h1>
+        <p className="text-muted text-sm">Thanks! We've received your balance payment for <strong>{po.product.name}</strong>. Your order is now being processed.</p>
         <a href="/account/orders" className="inline-block mt-2 text-primary font-medium">View my orders</a>
       </div>
     )
@@ -80,27 +80,27 @@ export default function BalancePayPage() {
         <h1 className="text-xl font-bold">Complete your pre-order</h1>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-2xl p-4 flex gap-4">
+      <div className="bg-surface border border-border rounded-2xl p-4 flex gap-4">
         <img
           src={po.product.images?.[0]?.url || "/placeholder.png"}
           alt={po.product.name}
-          className="w-20 h-20 object-contain rounded-xl border border-gray-100"
+          className="w-20 h-20 object-contain rounded-xl border border-border"
         />
         <div className="flex-1 text-sm">
-          <p className="font-semibold text-gray-900">{po.product.name}</p>
-          {po.variant && <p className="text-xs text-gray-400 mt-0.5">{po.variant.name}</p>}
-          <p className="text-gray-500 mt-1">Qty {po.quantity}</p>
+          <p className="font-semibold text-text">{po.product.name}</p>
+          {po.variant && <p className="text-xs text-faint mt-0.5">{po.variant.name}</p>}
+          <p className="text-muted mt-1">Qty {po.quantity}</p>
         </div>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-2xl p-4 space-y-2 text-sm">
-        <div className="flex justify-between text-gray-600"><span>Order total</span><span>{inr(po.totalAmount)}</span></div>
-        <div className="flex justify-between text-gray-500"><span>Booking paid</span><span>− {inr(po.bookingAmount)}</span></div>
-        <div className="flex justify-between text-gray-900 font-bold border-t border-gray-100 pt-2 text-base"><span>Balance due</span><span>{inr(po.balanceAmount)}</span></div>
+      <div className="bg-surface border border-border rounded-2xl p-4 space-y-2 text-sm">
+        <div className="flex justify-between text-muted"><span>Order total</span><span>{inr(po.totalAmount)}</span></div>
+        <div className="flex justify-between text-muted"><span>Booking paid</span><span>− {inr(po.bookingAmount)}</span></div>
+        <div className="flex justify-between text-text font-bold border-t border-border pt-2 text-base"><span>Balance due</span><span>{inr(po.balanceAmount)}</span></div>
       </div>
 
       {expired ? (
-        <p className="text-center text-red-500 text-sm">This payment link has expired. Please contact support.</p>
+        <p className="text-center text-red-500 dark:text-red-400 text-sm">This payment link has expired. Please contact support.</p>
       ) : (
         <button
           onClick={pay}

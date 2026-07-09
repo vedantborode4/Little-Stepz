@@ -22,7 +22,7 @@ export default function HeroFallback() {
         {/* COPY */}
         <div className="flex flex-col items-center">
           {/* Badge */}
-          <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-white/70 px-4 py-1.5 text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-primary">
+          <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-surface/70 px-4 py-1.5 text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-primary">
             <span className="h-1.5 w-1.5 rounded-full bg-primary" />
             Now Shipping Pan-India · 500+ Cities
           </span>
@@ -56,7 +56,7 @@ export default function HeroFallback() {
             </Link>
             <Link
               href="/pre-orders"
-              className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-7 py-3 text-sm font-sora font-semibold text-text hover:border-primary/40 hover:text-primary transition"
+              className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-7 py-3 text-sm font-sora font-semibold text-text hover:border-primary/40 hover:text-primary transition"
             >
               Pre-Order
             </Link>
@@ -65,7 +65,7 @@ export default function HeroFallback() {
           {/* Stats / counters */}
           <div className="mt-8 sm:mt-10 grid grid-cols-2 sm:flex sm:flex-wrap justify-center gap-x-6 gap-y-5 sm:gap-x-10 w-full max-w-sm sm:max-w-none">
             {STATS.map((s, i) => (
-              <div key={s.label} className={i > 0 ? "sm:pl-10 sm:border-l sm:border-gray-200" : ""}>
+              <div key={s.label} className={i > 0 ? "sm:pl-10 sm:border-l sm:border-border" : ""}>
                 <p className="font-anton text-2xl sm:text-3xl text-text leading-none tracking-wide">
                   <CountUp value={s.value} delay={i * 120} />
                 </p>

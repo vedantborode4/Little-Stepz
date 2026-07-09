@@ -10,7 +10,7 @@ export default function SortFilter() {
     <select
       value={draftSort || ""}
       onChange={(e) => setDraft({ draftSort: e.target.value || undefined })}
-      className="w-full border border-gray-200 rounded-lg h-11 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white"
+      className="w-full border border-border rounded-lg h-11 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-surface"
     >
       <option value="">Default (Newest)</option>
       <option value="price_asc">Price: Low → High</option>

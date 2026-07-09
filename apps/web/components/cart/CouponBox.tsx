@@ -30,19 +30,19 @@ export default function CouponBox() {
 
   if (couponCode) {
     return (
-      <div className="border border-green-200 bg-green-50 rounded-xl px-4 py-3 flex items-center justify-between">
+      <div className="border border-green-200 dark:border-green-500/30 bg-green-50 dark:bg-green-500/15 rounded-xl px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 bg-green-100 rounded-lg flex items-center justify-center">
-            <TicketPercent size={14} className="text-green-600" />
+          <div className="w-7 h-7 bg-green-100 dark:bg-green-500/20 rounded-lg flex items-center justify-center">
+            <TicketPercent size={14} className="text-green-600 dark:text-green-400" />
           </div>
           <div>
-            <p className="text-xs font-bold text-green-700 uppercase tracking-wide">{couponCode}</p>
-            <p className="text-[11px] text-green-600">You saved ₹{discount?.toLocaleString("en-IN")}</p>
+            <p className="text-xs font-bold text-green-700 dark:text-green-300 uppercase tracking-wide">{couponCode}</p>
+            <p className="text-[11px] text-green-600 dark:text-green-400">You saved ₹{discount?.toLocaleString("en-IN")}</p>
           </div>
         </div>
         <button
           onClick={removeCoupon}
-          className="p-1.5 rounded-lg hover:bg-green-100 transition text-green-600"
+          className="p-1.5 rounded-lg hover:bg-green-100 dark:hover:bg-green-500/20 transition text-green-600 dark:text-green-400"
         >
           <X size={14} />
         </button>
@@ -53,13 +53,13 @@ export default function CouponBox() {
   return (
     <div className="flex gap-2">
       <div className="relative flex-1">
-        <Tag size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+        <Tag size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
         <input
           value={code}
           onChange={(e) => setCode(e.target.value.toUpperCase())}
           onKeyDown={(e) => e.key === "Enter" && handleApply()}
           placeholder="Enter coupon code"
-          className="w-full border border-gray-200 rounded-xl pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:border-primary transition"
+          className="w-full border border-border rounded-xl pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:border-primary transition"
         />
       </div>
       <button

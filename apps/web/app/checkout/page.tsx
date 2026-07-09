@@ -45,8 +45,8 @@ export default function CheckoutPage() {
           <ShoppingBag size={28} className="text-primary" />
         </div>
         <div className="text-center">
-          <h2 className="text-lg sm:text-xl font-bold text-gray-900">Your cart is empty</h2>
-          <p className="text-sm text-gray-400 mt-1.5">Add some products before checking out.</p>
+          <h2 className="text-lg sm:text-xl font-bold text-text">Your cart is empty</h2>
+          <p className="text-sm text-faint mt-1.5">Add some products before checking out.</p>
         </div>
         <Link href="/products" className="bg-primary text-white px-6 py-3 rounded-xl font-semibold hover:opacity-90 transition shadow-sm">
           Continue Shopping
@@ -62,8 +62,8 @@ export default function CheckoutPage() {
           <LogIn size={28} className="text-primary" />
         </div>
         <div className="text-center">
-          <h2 className="text-lg sm:text-xl font-bold text-gray-900">Sign in to continue</h2>
-          <p className="text-sm text-gray-400 mt-1.5">Please log in to proceed with checkout.</p>
+          <h2 className="text-lg sm:text-xl font-bold text-text">Sign in to continue</h2>
+          <p className="text-sm text-faint mt-1.5">Please log in to proceed with checkout.</p>
         </div>
         <Link href="/signin" className="bg-primary text-white px-6 py-3 rounded-xl font-semibold hover:opacity-90 transition shadow-sm">
           Go to Sign In
@@ -76,7 +76,7 @@ export default function CheckoutPage() {
     return (
       <div className="max-w-7xl mx-auto px-4 py-24 flex flex-col items-center gap-4">
         <Loader2 className="w-8 h-8 text-primary animate-spin" />
-        <p className="text-sm text-gray-400">Locking latest pricing…</p>
+        <p className="text-sm text-faint">Locking latest pricing…</p>
       </div>
     )
   }
@@ -90,8 +90,8 @@ export default function CheckoutPage() {
 
       {/* Page header */}
       <div className="mb-5 sm:mb-8">
-        <h1 className="text-xl sm:text-2xl font-medium text-gray-900">Checkout</h1>
-        <p className="text-xs sm:text-sm text-gray-400 mt-0.5">Complete your purchase securely</p>
+        <h1 className="text-xl sm:text-2xl font-medium text-text">Checkout</h1>
+        <p className="text-xs sm:text-sm text-faint mt-0.5">Complete your purchase securely</p>
       </div>
 
       {/* Mobile: stack vertically — summary below stepper */}

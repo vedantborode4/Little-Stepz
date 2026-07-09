@@ -135,7 +135,7 @@ export default function ProductInfo({
                 {product.category.name}
               </span>
             )}
-            <h1 className="text-2xl font-bold text-gray-900 mt-2 leading-tight">{product.name}</h1>
+            <h1 className="text-2xl font-bold text-text mt-2 leading-tight">{product.name}</h1>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <button
@@ -143,7 +143,7 @@ export default function ProductInfo({
               className={`w-11 h-11 flex items-center justify-center rounded-xl border transition-all ${
                 isInWishlist
                   ? "border-primary bg-primary/10 text-primary"
-                  : "border-gray-200 text-gray-400 hover:border-primary hover:text-primary hover:bg-primary/5"
+                  : "border-border text-faint hover:border-primary hover:text-primary hover:bg-primary/5"
               }`}
             >
               <Heart className={`w-5 h-5 ${isInWishlist ? "fill-primary" : ""}`} />
@@ -152,7 +152,7 @@ export default function ProductInfo({
               slug={product.slug}
               name={product.name}
               className="flex items-center gap-2"
-              buttonClassName="w-11 h-11 flex items-center justify-center rounded-xl border border-gray-200 text-gray-400 hover:border-primary hover:text-primary hover:bg-primary/5 transition-all"
+              buttonClassName="w-11 h-11 flex items-center justify-center rounded-xl border border-border text-faint hover:border-primary hover:text-primary hover:bg-primary/5 transition-all"
               iconSize={18}
             />
           </div>
@@ -162,7 +162,7 @@ export default function ProductInfo({
         <div className="flex items-center gap-4">
           <PriceTag prices={displayPrices} size="lg" />
           <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-            inStock ? "bg-green-50 text-green-600" : canPreOrder ? "bg-primary/10 text-primary" : "bg-red-50 text-red-500"
+            inStock ? "bg-green-50 dark:bg-green-500/15 text-green-600 dark:text-green-400" : canPreOrder ? "bg-primary/10 text-primary" : "bg-red-50 dark:bg-red-500/15 text-red-500 dark:text-red-400"
           }`}>
             {inStock ? "● In Stock" : canPreOrder ? "● Pre-Order" : "● Out of Stock"}
           </span>
@@ -188,9 +188,9 @@ export default function ProductInfo({
         {reviewStats && reviewStats.total > 0 && (
           <div className="flex items-center gap-1.5">
             {[1,2,3,4,5].map((i) => (
-              <Star key={i} size={14} className={i <= Math.round(reviewStats.average) ? "fill-amber-400 text-amber-400" : "text-gray-200 fill-gray-200"} />
+              <Star key={i} size={14} className={i <= Math.round(reviewStats.average) ? "fill-amber-400 text-amber-400" : "text-faint fill-surface-3"} />
             ))}
-            <span className="text-xs text-gray-400 ml-1">
+            <span className="text-xs text-faint ml-1">
               {reviewStats.average.toFixed(1)} · {reviewStats.total} review{reviewStats.total !== 1 ? "s" : ""}
             </span>
           </div>
@@ -222,7 +222,7 @@ export default function ProductInfo({
         {!hasOptions && product.variants?.length > 0 && (
           <div className="space-y-2.5">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold text-gray-700">Select Variant</p>
+              <p className="text-sm font-semibold text-muted">Select Variant</p>
               {selectedVariant && (
                 <button
                   onClick={() => setSelectedVariant(null)}
@@ -243,10 +243,10 @@ export default function ProductInfo({
                     onClick={() => toggleVariant(variant)}
                     className={`px-4 py-2 border rounded-xl text-sm font-medium transition-all ${
                       out
-                        ? "border-gray-200 text-gray-300 line-through cursor-not-allowed"
+                        ? "border-border text-faint line-through cursor-not-allowed"
                         : active
                         ? "border-primary bg-primary/10 text-primary shadow-sm"
-                        : "border-gray-200 text-gray-600 hover:border-primary hover:text-primary"
+                        : "border-border text-muted hover:border-primary hover:text-primary"
                     }`}
                   >
                     {variant.name}
@@ -259,22 +259,22 @@ export default function ProductInfo({
 
         {/* Quantity */}
         <div className="flex items-center gap-4">
-          <span className="text-sm font-semibold text-gray-700">Quantity</span>
-          <div className="flex items-center border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
+          <span className="text-sm font-semibold text-muted">Quantity</span>
+          <div className="flex items-center border border-border rounded-xl overflow-hidden bg-surface shadow-sm">
             <button
               disabled={isAdding || isBuyingNow || quantity <= 1}
               onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-              className="px-4 py-2.5 text-gray-500 hover:bg-gray-50 disabled:opacity-40 transition font-medium"
+              className="px-4 py-2.5 text-muted hover:bg-surface-2 disabled:opacity-40 transition font-medium"
             >
               −
             </button>
-            <span className="px-5 py-2.5 text-sm font-semibold text-gray-900 border-x border-gray-200 min-w-[50px] text-center">
+            <span className="px-5 py-2.5 text-sm font-semibold text-text border-x border-border min-w-[50px] text-center">
               {quantity}
             </span>
             <button
               disabled={isAdding || isBuyingNow || quantity >= maxStock}
               onClick={() => setQuantity((q) => Math.min(maxStock, q + 1))}
-              className="px-4 py-2.5 text-gray-500 hover:bg-gray-50 disabled:opacity-40 transition font-medium"
+              className="px-4 py-2.5 text-muted hover:bg-surface-2 disabled:opacity-40 transition font-medium"
             >
               +
             </button>
@@ -315,40 +315,40 @@ export default function ProductInfo({
 
         {/* Trust badges */}
         <div className="grid grid-cols-2 gap-3 pt-1">
-          <div className="flex items-center gap-2.5 bg-gray-50 border border-gray-100 rounded-xl px-3.5 py-3">
+          <div className="flex items-center gap-2.5 bg-surface-2 border border-border rounded-xl px-3.5 py-3">
             <Truck size={16} className="text-secondary flex-shrink-0" />
             <div>
-              <p className="text-xs font-semibold text-gray-800">Free Delivery</p>
-              <p className="text-[10px] text-gray-400">On all orders</p>
+              <p className="text-xs font-semibold text-text">Free Delivery</p>
+              <p className="text-[10px] text-faint">On all orders</p>
             </div>
           </div>
-          <div className="flex items-center gap-2.5 bg-gray-50 border border-gray-100 rounded-xl px-3.5 py-3">
+          <div className="flex items-center gap-2.5 bg-surface-2 border border-border rounded-xl px-3.5 py-3">
             <Shield size={16} className="text-secondary flex-shrink-0" />
             <div>
-              <p className="text-xs font-semibold text-gray-800">Easy Returns</p>
-              <p className="text-[10px] text-gray-400">7-day return policy</p>
+              <p className="text-xs font-semibold text-text">Easy Returns</p>
+              <p className="text-[10px] text-faint">7-day return policy</p>
             </div>
           </div>
         </div>
 
         {/* Description */}
         {product.description && (
-          <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-card">
-            <h3 className="text-sm font-semibold text-gray-900 mb-2.5">About this product</h3>
-            <p className="text-sm text-gray-500 leading-relaxed whitespace-pre-line">{product.description}</p>
+          <div className="bg-surface border border-border rounded-2xl p-5 shadow-card">
+            <h3 className="text-sm font-semibold text-text mb-2.5">About this product</h3>
+            <p className="text-sm text-muted leading-relaxed whitespace-pre-line">{product.description}</p>
           </div>
         )}
 
         {/* Specifications */}
         {Array.isArray(product.specifications) && product.specifications.length > 0 && (
-          <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-card">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">Specifications</h3>
+          <div className="bg-surface border border-border rounded-2xl p-5 shadow-card">
+            <h3 className="text-sm font-semibold text-text mb-3">Specifications</h3>
             <table className="w-full table-fixed text-sm">
               <tbody>
                 {product.specifications.map((spec, i) => (
-                  <tr key={i} className="border-b border-gray-50 last:border-0 align-top">
-                    <td className="py-2.5 pr-3 sm:pr-4 text-gray-500 font-medium wrap-break-word w-2/5 sm:w-1/3">{spec.label}</td>
-                    <td className="py-2.5 text-gray-800 wrap-break-word">{spec.value}</td>
+                  <tr key={i} className="border-b border-border last:border-0 align-top">
+                    <td className="py-2.5 pr-3 sm:pr-4 text-muted font-medium wrap-break-word w-2/5 sm:w-1/3">{spec.label}</td>
+                    <td className="py-2.5 text-text wrap-break-word">{spec.value}</td>
                   </tr>
                 ))}
               </tbody>
@@ -358,10 +358,10 @@ export default function ProductInfo({
 
         {/* Long description (rich text) */}
         {safeLongDesc && (
-          <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-card">
-            <h3 className="text-sm font-semibold text-gray-900 mb-2.5">Product Details</h3>
+          <div className="bg-surface border border-border rounded-2xl p-5 shadow-card">
+            <h3 className="text-sm font-semibold text-text mb-2.5">Product Details</h3>
             <div
-              className={`text-sm text-gray-600 ${RICH_TEXT_CLASS}`}
+              className={`text-sm text-muted ${RICH_TEXT_CLASS}`}
               dangerouslySetInnerHTML={{ __html: safeLongDesc }}
             />
           </div>
@@ -369,7 +369,7 @@ export default function ProductInfo({
       </div>
 
       {/* Mobile sticky CTA */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 p-3 flex gap-2.5 z-30 shadow-lg">
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-surface border-t border-border p-3 flex gap-2.5 z-30 shadow-lg">
         {canPreOrder ? (
           <Link
             href={`/pre-order/${product.slug}${selectedVariant ? `?variant=${selectedVariant.id}` : ""}`}

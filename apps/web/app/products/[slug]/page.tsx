@@ -63,18 +63,18 @@ export default function ProductDetailsPage() {
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-10">
-        <div className="h-6 w-48 bg-gray-200 rounded-lg animate-pulse mb-8" />
+        <div className="h-6 w-48 bg-surface-3 rounded-lg animate-pulse mb-8" />
         <div className="grid lg:grid-cols-2 gap-10">
           <div className="space-y-3">
-            <div className="h-[420px] bg-gray-100 rounded-2xl animate-pulse" />
+            <div className="h-[420px] bg-surface-2 rounded-2xl animate-pulse" />
             <div className="flex gap-2">
-              {[1,2,3].map(i => <div key={i} className="w-20 h-20 bg-gray-100 rounded-xl animate-pulse" />)}
+              {[1,2,3].map(i => <div key={i} className="w-20 h-20 bg-surface-2 rounded-xl animate-pulse" />)}
             </div>
           </div>
           <div className="space-y-4">
-            <div className="h-8 bg-gray-200 rounded-lg animate-pulse" />
-            <div className="h-8 w-32 bg-gray-100 rounded-lg animate-pulse" />
-            <div className="h-32 bg-gray-100 rounded-xl animate-pulse" />
+            <div className="h-8 bg-surface-3 rounded-lg animate-pulse" />
+            <div className="h-8 w-32 bg-surface-2 rounded-lg animate-pulse" />
+            <div className="h-32 bg-surface-2 rounded-xl animate-pulse" />
           </div>
         </div>
       </div>
@@ -84,10 +84,10 @@ export default function ProductDetailsPage() {
   if (error || !product) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-20">
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-8 flex flex-col items-center gap-3 text-center">
+        <div className="bg-red-50 dark:bg-red-500/15 border border-red-200 dark:border-red-500/30 rounded-2xl p-8 flex flex-col items-center gap-3 text-center">
           <AlertTriangle size={32} className="text-red-400" />
-          <h2 className="text-lg font-semibold text-red-700">Product Not Found</h2>
-          <p className="text-sm text-red-500">This product may have been removed or the link is incorrect.</p>
+          <h2 className="text-lg font-semibold text-red-700 dark:text-red-300">Product Not Found</h2>
+          <p className="text-sm text-red-500 dark:text-red-400">This product may have been removed or the link is incorrect.</p>
         </div>
       </div>
     )
@@ -112,7 +112,7 @@ export default function ProductDetailsPage() {
       </div>
 
       {/* Review section - full width below */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+      <div className="bg-surface border border-border rounded-2xl p-6 shadow-sm">
         <ProductReviewSection productId={product.id} />
       </div>
 

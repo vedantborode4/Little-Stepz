@@ -117,15 +117,15 @@ export default function CategoryFormModal({
 
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl">
+      <div className="bg-surface rounded-2xl w-full max-w-lg shadow-2xl">
 
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h2 className="text-base font-semibold text-gray-900">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+          <h2 className="text-base font-semibold text-text">
             {mode === "create" ? "Create Category" : "Edit Category"}
           </h2>
           <button onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-gray-100 transition text-gray-400">
+            className="p-1.5 rounded-lg hover:bg-surface-2 transition text-faint">
             <X size={16} />
           </button>
         </div>
@@ -133,42 +133,42 @@ export default function CategoryFormModal({
         <div className="p-6 space-y-4">
           {/* Name */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-gray-700">Name *</label>
+            <label className="text-sm font-medium text-muted">Name *</label>
             <input
               value={form.name}
               onChange={(e) => onChange("name", e.target.value)}
               placeholder="e.g. Toys & Games"
-              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+              className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
             />
-            {errors.name && <p className="text-xs text-red-500">{errors.name}</p>}
+            {errors.name && <p className="text-xs text-red-500 dark:text-red-400">{errors.name}</p>}
           </div>
 
           {/* Slug */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-gray-700">Slug *</label>
+            <label className="text-sm font-medium text-muted">Slug *</label>
             <input
               value={form.slug}
               onChange={(e) => onChange("slug", e.target.value)}
               placeholder="e.g. toys-and-games"
-              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 font-mono"
+              className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 font-mono"
             />
-            {errors.slug && <p className="text-xs text-red-500">{errors.slug}</p>}
+            {errors.slug && <p className="text-xs text-red-500 dark:text-red-400">{errors.slug}</p>}
           </div>
 
           {/* Description */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-gray-700">Description</label>
+            <label className="text-sm font-medium text-muted">Description</label>
             <input
               value={form.description}
               onChange={(e) => onChange("description", e.target.value)}
               placeholder="Optional description"
-              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+              className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
             />
           </div>
 
           {/* Image */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-gray-700">Category Image</label>
+            <label className="text-sm font-medium text-muted">Category Image</label>
             <input
               ref={fileInputRef}
               type="file"
@@ -181,7 +181,7 @@ export default function CategoryFormModal({
               }}
             />
             {form.image ? (
-              <div className="relative group rounded-xl overflow-hidden border border-gray-200">
+              <div className="relative group rounded-xl overflow-hidden border border-border">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={form.image}
@@ -194,7 +194,7 @@ export default function CategoryFormModal({
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={uploading}
-                    className="flex items-center gap-1.5 bg-white text-gray-800 text-xs px-3 py-2 rounded-lg hover:bg-gray-50 transition shadow"
+                    className="flex items-center gap-1.5 bg-surface text-text text-xs px-3 py-2 rounded-lg hover:bg-surface-2 transition shadow"
                   >
                     {uploading ? <Loader2 size={13} className="animate-spin" /> : <ImagePlus size={13} />}
                     Replace
@@ -202,7 +202,7 @@ export default function CategoryFormModal({
                   <button
                     type="button"
                     onClick={() => setForm((p) => ({ ...p, image: "" }))}
-                    className="flex items-center gap-1.5 bg-white text-red-500 text-xs px-3 py-2 rounded-lg hover:bg-red-50 transition shadow"
+                    className="flex items-center gap-1.5 bg-surface text-red-500 dark:text-red-400 text-xs px-3 py-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/15 transition shadow"
                   >
                     <X size={13} /> Remove
                   </button>
@@ -213,7 +213,7 @@ export default function CategoryFormModal({
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploading}
-                className="w-full h-28 border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center gap-2 hover:border-primary/40 hover:bg-primary/5 transition text-gray-400 hover:text-primary disabled:opacity-60"
+                className="w-full h-28 border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center gap-2 hover:border-primary/40 hover:bg-primary/5 transition text-faint hover:text-primary disabled:opacity-60"
               >
                 {uploading ? (
                   <>
@@ -224,7 +224,7 @@ export default function CategoryFormModal({
                   <>
                     <ImagePlus size={20} />
                     <span className="text-xs font-medium">Click to upload category image</span>
-                    <span className="text-[10px] text-gray-300">PNG, JPG, WEBP · recommended 600×600px</span>
+                    <span className="text-[10px] text-faint">PNG, JPG, WEBP · recommended 600×600px</span>
                   </>
                 )}
               </button>
@@ -233,11 +233,11 @@ export default function CategoryFormModal({
 
           {/* Parent Category */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-gray-700">Parent Category</label>
+            <label className="text-sm font-medium text-muted">Parent Category</label>
             <select
               value={form.parentId}
               onChange={(e) => onChange("parentId", e.target.value)}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white"
+              className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-surface"
             >
               <option value="">— No parent (top-level) —</option>
               {categories
@@ -247,7 +247,7 @@ export default function CategoryFormModal({
                 ))}
             </select>
             {mode === "edit" && initialData?.parentId && form.parentId === "" && (
-              <p className="text-xs text-amber-600">
+              <p className="text-xs text-amber-600 dark:text-amber-400">
                 Saving will remove this category from its parent.
               </p>
             )}
@@ -256,7 +256,7 @@ export default function CategoryFormModal({
           {/* Actions */}
           <div className="flex gap-3 pt-2">
             <button onClick={onClose}
-              className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition">
+              className="flex-1 py-2.5 border border-border rounded-xl text-sm text-muted hover:bg-surface-2 transition">
               Cancel
             </button>
             <button onClick={submit} disabled={loading || uploading}

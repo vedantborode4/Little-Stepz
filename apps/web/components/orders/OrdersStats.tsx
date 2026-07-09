@@ -39,7 +39,7 @@ export default function OrdersStats({ orders }: Props) {
         value={`₹${totalRevenue.toFixed(2)}`}
       />
 
-      <div className="bg-white border border-gray-300 rounded-xl p-4 flex flex-col justify-center gap-4">
+      <div className="bg-surface border border-border rounded-xl p-4 flex flex-col justify-center gap-4">
 
         <StatusRow
           label="Paid"
@@ -58,7 +58,7 @@ export default function OrdersStats({ orders }: Props) {
         <StatusRow
           label="Refunded"
           value={refunded}
-          color="bg-gray-300"
+          color="bg-surface-3"
           percent={getPercent(refunded, totalOrders)}
         />
 
@@ -81,9 +81,9 @@ function StatCard({
   value: string | number
 }) {
   return (
-    <div className="bg-white border border-gray-300 rounded-xl p-5">
-      <p className="text-sm text-gray-500">{title}</p>
-      <h2 className="text-2xl font-bold mt-1 text-gray-700">{value}</h2>
+    <div className="bg-surface border border-border rounded-xl p-5">
+      <p className="text-sm text-muted">{title}</p>
+      <h2 className="text-2xl font-bold mt-1 text-muted">{value}</h2>
     </div>
   )
 }
@@ -107,7 +107,7 @@ function StatusRow({
         <span>{percent.toFixed(0)}%</span>
       </div>
 
-      <div className="w-full h-2 bg-gray-100 rounded">
+      <div className="w-full h-2 bg-surface-2 rounded">
         <div
           className={`h-2 rounded ${color}`}
           style={{ width: `${percent}%` }}

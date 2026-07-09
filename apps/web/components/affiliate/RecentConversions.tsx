@@ -23,14 +23,14 @@ export default function RecentConversions() {
 
   if (!data.length) {
     return (
-      <div className="bg-white border rounded-xl p-6 text-center text-muted">
+      <div className="bg-surface border rounded-xl p-6 text-center text-muted">
         No conversions yet.
       </div>
     )
   }
 
   return (
-    <div className="bg-white border rounded-xl p-6">
+    <div className="bg-surface border rounded-xl p-6">
 
       <h2 className="font-semibold mb-4">
         Recent Conversions

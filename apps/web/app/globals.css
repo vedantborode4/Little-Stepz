@@ -1,25 +1,72 @@
 @import "tailwindcss";
 @source "../../../packages/ui/src/";
 
+/* Class-based dark mode — next-themes toggles `class="dark"` on <html>. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Semantic colour tokens. Values live on :root / .dark so they flip at runtime;
+ * `@theme inline` maps them to Tailwind utilities (bg-surface, text-muted, …)
+ * that resolve to the live CSS var. Change a theme by editing the block below,
+ * never by hardcoding hex in components.
+ */
+:root {
+  --color-primary: #FF383C;
+  --color-secondary: #4ECDC4;
+
+  --color-bg: #FFF7F7;        /* page background */
+  --color-surface: #FFFFFF;   /* cards, navbar, modals */
+  --color-surface-2: #F5F6F8; /* subtle raised panels / chips */
+  --color-surface-3: #E9EBEF; /* stronger fills, hover states */
+
+  --color-text: #1F2937;      /* primary text */
+  --color-muted: #6B7280;     /* secondary text */
+  --color-faint: #9CA3AF;     /* tertiary text, icons */
+  --color-border: #E5E7EB;    /* hairlines, dividers */
+
+  --shadow-card: 0 10px 30px rgba(0, 0, 0, 0.06);
+}
+
+.dark {
+  --color-primary: #FF4D50;   /* nudged brighter for contrast on dark */
+  --color-secondary: #4ECDC4;
+
+  --color-bg: #0B0B0F;
+  --color-surface: #16161C;
+  --color-surface-2: #1E1E26;
+  --color-surface-3: #2A2A34;
+
+  --color-text: #F3F4F6;
+  --color-muted: #A1A1AA;
+  --color-faint: #71717A;
+  --color-border: #2C2C36;
+
+  --shadow-card: 0 10px 30px rgba(0, 0, 0, 0.55);
+}
+
 @theme inline {
   --font-sans: var(--font-manrope);
   --font-heading: var(--font-manrope);
+
+  --color-primary: var(--color-primary);
+  --color-secondary: var(--color-secondary);
+  --color-bg: var(--color-bg);
+  --color-surface: var(--color-surface);
+  --color-surface-2: var(--color-surface-2);
+  --color-surface-3: var(--color-surface-3);
+  --color-text: var(--color-text);
+  --color-muted: var(--color-muted);
+  --color-faint: var(--color-faint);
+  --color-border: var(--color-border);
+
+  --shadow-card: var(--shadow-card);
 }
 
 @theme {
-  --color-primary: #FF383C;
-  --color-secondary: #4ECDC4;
-  --color-bg: #FFF7F7;
-  --color-text: #1F2937;
-  --color-muted: #6B7280;
-  --color-border: #F1F5F9;
-
   --radius-sm: 8px;
   --radius-md: 14px;
   --radius-lg: 20px;
   --radius-xl: 28px;
-
-  --shadow-card: 0 10px 30px rgba(0,0,0,0.06);
 }
 
 html { scroll-behavior: smooth; }
@@ -31,6 +78,9 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
+  /* Base surface so any area not covered by a bg utility flips with the theme. */
+  background-color: var(--color-bg);
+  color: var(--color-text);
 }
 
 @layer base {

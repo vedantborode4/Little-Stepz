@@ -34,12 +34,12 @@ export default function BestSellers({ sort = "newest", limit = 12, showViewAll =
       {loading ? (
         <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory scrollbar-none pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 sm:pb-0 sm:overflow-visible sm:grid sm:grid-cols-3 lg:grid-cols-5 sm:gap-4">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="basis-[46%] min-w-0 shrink-0 snap-start sm:basis-auto bg-white border border-gray-200 rounded-2xl overflow-hidden animate-pulse">
-              <div className="aspect-square bg-gray-100" />
+            <div key={i} className="basis-[46%] min-w-0 shrink-0 snap-start sm:basis-auto bg-surface border border-border rounded-2xl overflow-hidden animate-pulse">
+              <div className="aspect-square bg-surface-2" />
               <div className="p-3 sm:p-4 space-y-2">
-                <div className="h-4 bg-gray-200 rounded" />
-                <div className="h-4 w-2/3 bg-gray-100 rounded" />
-                <div className="h-9 bg-gray-100 rounded-xl mt-2" />
+                <div className="h-4 bg-surface-3 rounded" />
+                <div className="h-4 w-2/3 bg-surface-2 rounded" />
+                <div className="h-9 bg-surface-2 rounded-xl mt-2" />
               </div>
             </div>
           ))}

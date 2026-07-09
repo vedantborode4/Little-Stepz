@@ -79,10 +79,10 @@ export default function ProductCard({ product }: { product: Product }) {
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       style={{ transform }}
-      className="group relative h-full flex flex-col bg-white rounded-xl border border-gray-100 shadow-card hover:shadow-[0_18px_40px_-14px_rgba(0,0,0,0.22)] hover:border-primary/20 transition-[transform,box-shadow,border-color] duration-150 ease-out will-change-transform overflow-hidden"
+      className="group relative h-full flex flex-col bg-surface rounded-xl border border-border shadow-card hover:shadow-[0_18px_40px_-14px_rgba(0,0,0,0.22)] hover:border-primary/20 transition-[transform,box-shadow,border-color] duration-150 ease-out will-change-transform overflow-hidden"
     >
       {/* IMAGE */}
-      <div className="relative w-full aspect-square bg-white overflow-hidden rounded-t-xl">
+      <div className="relative w-full aspect-square bg-surface overflow-hidden rounded-t-xl">
         {isPreOrder && (
           <span className="absolute top-2 left-2 z-10 text-[10px] font-bold bg-primary text-white px-2 py-0.5 rounded-full uppercase tracking-wide">
             Pre-Order
@@ -102,7 +102,7 @@ export default function ProductCard({ product }: { product: Product }) {
             e.stopPropagation()
             toggleWishlist(product.id)
           }}
-          className="absolute top-2 right-2 sm:top-3 sm:right-3 bg-white/90 backdrop-blur-sm rounded-full p-1.5 sm:p-2 shadow transition-transform duration-200 hover:scale-110 hover:text-primary active:scale-90"
+          className="absolute top-2 right-2 sm:top-3 sm:right-3 bg-surface/90 backdrop-blur-sm rounded-full p-1.5 sm:p-2 shadow transition-transform duration-200 hover:scale-110 hover:text-primary active:scale-90"
         >
           <Heart
             className={`w-3.5 h-3.5 sm:w-4 sm:h-4 transition-colors ${isInWishlist ? "fill-primary text-primary" : ""}`}
@@ -114,7 +114,7 @@ export default function ProductCard({ product }: { product: Product }) {
           slug={product.slug}
           name={product.name}
           className="absolute right-2 sm:right-3 top-11 sm:top-14 z-10 flex flex-col gap-1.5 transition-opacity duration-200 opacity-100 lg:opacity-0 lg:group-hover:opacity-100"
-          buttonClassName="bg-white/90 backdrop-blur-sm rounded-full p-1.5 sm:p-2 shadow text-gray-600 hover:text-primary hover:scale-110 active:scale-90 transition"
+          buttonClassName="bg-surface/90 backdrop-blur-sm rounded-full p-1.5 sm:p-2 shadow text-muted hover:text-primary hover:scale-110 active:scale-90 transition"
           iconSize={14}
         />
       </div>
@@ -126,7 +126,7 @@ export default function ProductCard({ product }: { product: Product }) {
         </h3>
 
         {hasVariants && !priceRange.single ? (
-          <p className="mb-2 sm:mb-3 mt-0.5 text-sm sm:text-base font-bold text-gray-900">
+          <p className="mb-2 sm:mb-3 mt-0.5 text-sm sm:text-base font-bold text-text">
             From {formatINR(priceRange.min)}
           </p>
         ) : (
@@ -145,7 +145,7 @@ export default function ProductCard({ product }: { product: Product }) {
           <button
             onClick={handleAddToCart}
             disabled={!inStock || isAdding}
-            className="group/btn relative overflow-hidden mt-auto w-full bg-primary text-white py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium disabled:bg-gray-300"
+            className="group/btn relative overflow-hidden mt-auto w-full bg-primary text-white py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium disabled:bg-surface-3"
           >
             <span className="pointer-events-none absolute inset-0 -translate-x-full skew-x-12 bg-linear-to-r from-transparent via-white/40 to-transparent transition-transform duration-700 group-hover/btn:translate-x-full" />
             <span className="relative flex items-center justify-center gap-1.5 sm:gap-2">

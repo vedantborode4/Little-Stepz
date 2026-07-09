@@ -111,7 +111,7 @@ export default function PromoBannerRow() {
       <section className="container">
         <div className="flex gap-3 sm:gap-5 overflow-hidden">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className={`${TILE_SIZE} rounded-xl bg-gray-100 animate-pulse`} />
+            <div key={i} className={`${TILE_SIZE} rounded-xl bg-surface-2 animate-pulse`} />
           ))}
         </div>
       </section>
@@ -129,7 +129,7 @@ export default function PromoBannerRow() {
         type="button"
         aria-label="Previous categories"
         onClick={() => scrollByTile(-1)}
-        className="hidden md:flex absolute -left-3 top-1/2 -translate-y-1/2 z-10 w-9 h-9 items-center justify-center rounded-full bg-white shadow-md border border-gray-100 text-gray-600 hover:text-primary hover:shadow-lg transition"
+        className="hidden md:flex absolute -left-3 top-1/2 -translate-y-1/2 z-10 w-9 h-9 items-center justify-center rounded-full bg-surface shadow-md border border-border text-muted hover:text-primary hover:shadow-lg transition"
       >
         <ChevronLeft size={18} />
       </button>
@@ -137,7 +137,7 @@ export default function PromoBannerRow() {
         type="button"
         aria-label="Next categories"
         onClick={() => scrollByTile(1)}
-        className="hidden md:flex absolute -right-3 top-1/2 -translate-y-1/2 z-10 w-9 h-9 items-center justify-center rounded-full bg-white shadow-md border border-gray-100 text-gray-600 hover:text-primary hover:shadow-lg transition"
+        className="hidden md:flex absolute -right-3 top-1/2 -translate-y-1/2 z-10 w-9 h-9 items-center justify-center rounded-full bg-surface shadow-md border border-border text-muted hover:text-primary hover:shadow-lg transition"
       >
         <ChevronRight size={18} />
       </button>

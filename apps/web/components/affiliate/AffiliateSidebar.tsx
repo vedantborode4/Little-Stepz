@@ -36,23 +36,23 @@ export default function AffiliateSidebar({ onClose }: Props) {
   }
 
   return (
-    <aside className="w-60 bg-white border-r border-gray-100 min-h-screen flex flex-col">
+    <aside className="w-60 bg-surface border-r border-border min-h-screen flex flex-col">
       {/* Logo */}
-      <div className="px-5 py-5 border-b border-gray-100 flex items-center justify-between">
+      <div className="px-5 py-5 border-b border-border flex items-center justify-between">
         <div>
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
               <span className="text-white text-xs font-bold">LS</span>
             </div>
-            <span className="font-bold text-gray-900 text-sm">Little Stepz</span>
+            <span className="font-bold text-text text-sm">Little Stepz</span>
           </div>
-          <p className="text-[10px] text-gray-400 mt-0.5 ml-10">Affiliate Panel</p>
+          <p className="text-[10px] text-faint mt-0.5 ml-10">Affiliate Panel</p>
         </div>
         {/* Close button — only visible on mobile overlay */}
         {onClose && (
           <button
             onClick={onClose}
-            className="lg:hidden p-1.5 rounded-xl text-gray-400 hover:bg-gray-100 transition"
+            className="lg:hidden p-1.5 rounded-xl text-faint hover:bg-surface-2 transition"
             aria-label="Close menu"
           >
             <X size={16} />
@@ -73,10 +73,10 @@ export default function AffiliateSidebar({ onClose }: Props) {
                 "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all",
                 active
                   ? "bg-primary text-white shadow-sm"
-                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                  : "text-muted hover:bg-surface-2 hover:text-text"
               )}
             >
-              <Icon size={17} className={active ? "text-white" : "text-gray-400"} />
+              <Icon size={17} className={active ? "text-white" : "text-faint"} />
               {item.label}
             </Link>
           )
@@ -84,13 +84,13 @@ export default function AffiliateSidebar({ onClose }: Props) {
       </nav>
 
       {/* Back to store */}
-      <div className="p-3 border-t border-gray-100">
+      <div className="p-3 border-t border-border">
         <Link
           href="/"
           onClick={onClose}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-all"
+          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted hover:bg-surface-2 hover:text-text transition-all"
         >
-          <Home size={17} className="text-gray-400" />
+          <Home size={17} className="text-faint" />
           Back to Store
         </Link>
       </div>

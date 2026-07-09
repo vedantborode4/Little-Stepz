@@ -1,12 +1,13 @@
 import "./globals.css"
 import { Anton, Manrope, Sora, Orbitron } from "next/font/google"
-import { Toaster } from "sonner"
 import Script from "next/script"
 
 import { AuthProvider } from "./providers/auth-provider"
+import { ThemeProvider } from "./providers/theme-provider"
 import Navbar from "../components/layout/Navbar"
 import Footer from "../components/layout/Footer"
 import NumberInputWheelGuard from "../components/common/NumberInputWheelGuard"
+import ThemedToaster from "../components/common/ThemedToaster"
 
 // Display headings
 const anton = Anton({
@@ -48,15 +49,17 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={`${manrope.variable} ${anton.variable} ${sora.variable} ${orbitron.variable}`}>
+    <html lang="en" suppressHydrationWarning className={`${manrope.variable} ${anton.variable} ${sora.variable} ${orbitron.variable}`}>
       <body className="font-sans">
-        <AuthProvider>
-          <NumberInputWheelGuard />
-          <Navbar />
-          <main>{children}</main>
-          <Footer />
-          <Toaster richColors />
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <NumberInputWheelGuard />
+            <Navbar />
+            <main>{children}</main>
+            <Footer />
+            <ThemedToaster />
+          </AuthProvider>
+        </ThemeProvider>
 
         <Script
           src="https://checkout.razorpay.com/v1/checkout.js"

@@ -33,7 +33,7 @@ export default function CheckoutStepper({ onStepChange }: Props) {
   return (
     <div className="space-y-3 sm:space-y-4">
       {/* Step progress bar */}
-      <div className="bg-white border border-gray-100 rounded-2xl px-4 sm:px-5 py-4 sm:py-5 shadow-card flex items-center">
+      <div className="bg-surface border border-border rounded-2xl px-4 sm:px-5 py-4 sm:py-5 shadow-card flex items-center">
         {stepMeta.map(({ num, label, icon: Icon }, idx) => {
           const done   = step > num
           const active = step === num
@@ -46,14 +46,14 @@ export default function CheckoutStepper({ onStepChange }: Props) {
                       ? "bg-green-500 text-white shadow-sm"
                       : active
                       ? "bg-primary text-white ring-4 ring-primary/20 shadow-sm"
-                      : "bg-gray-100 text-gray-400"
+                      : "bg-surface-2 text-faint"
                   }`}
                 >
                   {done ? <CheckCircle size={15} className="sm:w-[17px] sm:h-[17px]" /> : <Icon size={13} className="sm:w-[15px] sm:h-[15px]" />}
                 </div>
                 <span
                   className={`text-[10px] sm:text-[11px] font-semibold whitespace-nowrap ${
-                    active ? "text-primary" : done ? "text-green-600" : "text-gray-400"
+                    active ? "text-primary" : done ? "text-green-600 dark:text-green-400" : "text-faint"
                   }`}
                 >
                   {label}
@@ -62,7 +62,7 @@ export default function CheckoutStepper({ onStepChange }: Props) {
               {idx < stepMeta.length - 1 && (
                 <div
                   className={`flex-1 h-0.5 mx-1 sm:mx-2 mb-4 sm:mb-5 rounded-full transition-all duration-300 ${
-                    step > num ? "bg-green-400" : "bg-gray-200"
+                    step > num ? "bg-green-400" : "bg-surface-3"
                   }`}
                 />
               )}
@@ -72,9 +72,9 @@ export default function CheckoutStepper({ onStepChange }: Props) {
       </div>
 
       {/* Step 1 — Address */}
-      <div className="bg-white border border-gray-100 rounded-2xl shadow-card overflow-hidden">
-        <div className="flex justify-between items-center px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-100">
-          <h2 className="font-semibold text-gray-900 flex items-center gap-2 text-sm sm:text-base">
+      <div className="bg-surface border border-border rounded-2xl shadow-card overflow-hidden">
+        <div className="flex justify-between items-center px-4 sm:px-6 py-3 sm:py-4 border-b border-border">
+          <h2 className="font-semibold text-text flex items-center gap-2 text-sm sm:text-base">
             <span
               className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full text-[10px] sm:text-[11px] flex items-center justify-center font-bold shrink-0 ${
                 step > 1 ? "bg-green-500 text-white" : "bg-primary text-white"
@@ -98,9 +98,9 @@ export default function CheckoutStepper({ onStepChange }: Props) {
 
       {/* Step 2 — Review */}
       {step >= 2 && (
-        <div className="bg-white border border-gray-100 rounded-2xl shadow-card overflow-hidden">
-          <div className="flex justify-between items-center px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-100">
-            <h2 className="font-semibold text-gray-900 flex items-center gap-2 text-sm sm:text-base">
+        <div className="bg-surface border border-border rounded-2xl shadow-card overflow-hidden">
+          <div className="flex justify-between items-center px-4 sm:px-6 py-3 sm:py-4 border-b border-border">
+            <h2 className="font-semibold text-text flex items-center gap-2 text-sm sm:text-base">
               <span
                 className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full text-[10px] sm:text-[11px] flex items-center justify-center font-bold shrink-0 ${
                   step > 2 ? "bg-green-500 text-white" : "bg-primary text-white"
@@ -132,9 +132,9 @@ export default function CheckoutStepper({ onStepChange }: Props) {
 
       {/* Step 3 — Payment */}
       {step >= 3 && (
-        <div className="bg-white border border-gray-100 rounded-2xl shadow-card overflow-hidden">
-          <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-100">
-            <h2 className="font-semibold text-gray-900 flex items-center gap-2 text-sm sm:text-base">
+        <div className="bg-surface border border-border rounded-2xl shadow-card overflow-hidden">
+          <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-border">
+            <h2 className="font-semibold text-text flex items-center gap-2 text-sm sm:text-base">
               <span className="w-5 h-5 sm:w-6 sm:h-6 rounded-full text-[10px] sm:text-[11px] flex items-center justify-center font-bold bg-primary text-white shrink-0">
                 3
               </span>
@@ -157,18 +157,18 @@ function AddressConfirmed() {
 
   if (!addr) {
     return (
-      <p className="text-sm text-gray-500 flex items-center gap-1.5">
-        <CheckCircle size={14} className="text-green-500" /> Address selected
+      <p className="text-sm text-muted flex items-center gap-1.5">
+        <CheckCircle size={14} className="text-green-500 dark:text-green-400" /> Address selected
       </p>
     )
   }
 
   return (
-    <div className="bg-gray-50 border border-gray-100 rounded-xl px-3 sm:px-4 py-3 flex items-start gap-3">
-      <CheckCircle size={14} className="text-green-500 mt-0.5 shrink-0" />
+    <div className="bg-surface-2 border border-border rounded-xl px-3 sm:px-4 py-3 flex items-start gap-3">
+      <CheckCircle size={14} className="text-green-500 dark:text-green-400 mt-0.5 shrink-0" />
       <div className="text-sm min-w-0">
-        <p className="font-semibold text-gray-900 truncate">{addr.name ?? addr.fullName}</p>
-        <p className="text-xs text-gray-400 mt-0.5 leading-relaxed">
+        <p className="font-semibold text-text truncate">{addr.name ?? addr.fullName}</p>
+        <p className="text-xs text-faint mt-0.5 leading-relaxed">
           {[addr.line1 ?? addr.address, addr.city, addr.state, addr.pincode].filter(Boolean).join(", ")}
         </p>
       </div>

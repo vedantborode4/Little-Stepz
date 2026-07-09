@@ -64,7 +64,7 @@ export default function SignUpPage() {
               })}
             />
             {errors.name && (
-              <p className="text-sm text-red-500">
+              <p className="text-sm text-red-500 dark:text-red-400">
                 {errors.name.message}
               </p>
             )}
@@ -78,7 +78,7 @@ export default function SignUpPage() {
               })}
             />
             {errors.email && (
-              <p className="text-sm text-red-500">
+              <p className="text-sm text-red-500 dark:text-red-400">
                 {errors.email.message}
               </p>
             )}
@@ -92,7 +92,7 @@ export default function SignUpPage() {
               })}
             />
             {errors.password && (
-              <p className="text-sm text-red-500">
+              <p className="text-sm text-red-500 dark:text-red-400">
                 {errors.password.message}
               </p>
             )}

@@ -17,7 +17,7 @@ export default function ProductGallery({ images }: { images: ProductImage[] }) {
       <div className="space-y-3">
         {/* Main image */}
         <div
-          className="relative border border-gray-100 rounded-[10px] bg-white overflow-hidden group cursor-zoom-in shadow-card"
+          className="relative border border-border rounded-[10px] bg-surface overflow-hidden group cursor-zoom-in shadow-card"
           onClick={() => setZoomed(true)}
         >
           <Image
@@ -27,11 +27,11 @@ export default function ProductGallery({ images }: { images: ProductImage[] }) {
             height={800}
             className="w-full object-cover h-[420px] transition-transform duration-300 group-hover:scale-105"
           />
-          <div className="absolute top-4 right-4 bg-white/90 border border-gray-100 rounded-xl p-2 opacity-0 group-hover:opacity-100 transition shadow-sm">
-            <ZoomIn size={16} className="text-gray-500" />
+          <div className="absolute top-4 right-4 bg-surface/90 border border-border rounded-xl p-2 opacity-0 group-hover:opacity-100 transition shadow-sm">
+            <ZoomIn size={16} className="text-muted" />
           </div>
           {images?.[active] && (
-            <div className="absolute bottom-4 left-4 bg-white/90 border border-gray-100 rounded-lg px-2.5 py-1 text-[11px] font-medium text-gray-500 shadow-sm">
+            <div className="absolute bottom-4 left-4 bg-surface/90 border border-border rounded-lg px-2.5 py-1 text-[11px] font-medium text-muted shadow-sm">
               {active + 1} / {images.length}
             </div>
           )}
@@ -43,10 +43,10 @@ export default function ProductGallery({ images }: { images: ProductImage[] }) {
             <button
               key={img.id}
               onClick={() => setActive(i)}
-              className={`flex-shrink-0 border-2 rounded-sm p-1.5 transition-all duration-150 bg-white ${
+              className={`flex-shrink-0 border-2 rounded-sm p-1.5 transition-all duration-150 bg-surface ${
                 i === active
                   ? "border-primary shadow-sm"
-                  : "border-gray-100 hover:border-gray-300"
+                  : "border-border hover:border-border"
               }`}
             >
               <Image
@@ -67,7 +67,7 @@ export default function ProductGallery({ images }: { images: ProductImage[] }) {
           className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-6"
           onClick={() => setZoomed(false)}
         >
-          <div className="bg-white rounded-2xl p-4 max-w-2xl w-full shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-surface rounded-2xl p-4 max-w-2xl w-full shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <Image
               src={activeUrl}
               alt=""

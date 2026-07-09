@@ -184,15 +184,15 @@ export default function VariantManager({ productId, initialVariants = [], onChan
         const dirty = dirtyIds.has(v.id)
         const out = Number(v.stock || 0) <= 0
         return (
-          <div key={v.id} className="rounded-xl border border-gray-100 p-3 space-y-3">
+          <div key={v.id} className="rounded-xl border border-border p-3 space-y-3">
             <div className="flex items-start gap-2">
               <div className="flex flex-col pt-1">
                 <button type="button" onClick={() => move(i, -1)} disabled={i === 0}
-                  className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-30" aria-label="Move up">
+                  className="p-1 text-faint hover:text-muted disabled:opacity-30" aria-label="Move up">
                   <ArrowUp size={15} />
                 </button>
                 <button type="button" onClick={() => move(i, 1)} disabled={i === variants.length - 1}
-                  className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-30" aria-label="Move down">
+                  className="p-1 text-faint hover:text-muted disabled:opacity-30" aria-label="Move down">
                   <ArrowDown size={15} />
                 </button>
               </div>
@@ -213,14 +213,14 @@ export default function VariantManager({ productId, initialVariants = [], onChan
 
               {!out && (
                 <button type="button" onClick={() => markOutOfStock(v)}
-                  className="text-sm font-medium text-amber-600 hover:underline">
+                  className="text-sm font-medium text-amber-600 dark:text-amber-400 hover:underline">
                   Mark out of stock
                 </button>
               )}
-              {out && <span className="text-xs font-medium text-red-500">Out of stock</span>}
+              {out && <span className="text-xs font-medium text-red-500 dark:text-red-400">Out of stock</span>}
 
               <div className="ml-auto flex items-center gap-3">
-                {dirty && <span className="text-xs font-medium text-amber-500">Unsaved</span>}
+                {dirty && <span className="text-xs font-medium text-amber-500 dark:text-amber-400">Unsaved</span>}
                 <button
                   type="button"
                   onClick={() => saveVariant(v)}
@@ -233,7 +233,7 @@ export default function VariantManager({ productId, initialVariants = [], onChan
                 <button
                   type="button"
                   onClick={() => setDeleteId(v.id)}
-                  className="px-4 py-2 rounded-lg text-sm font-medium text-red-500 border border-red-200 hover:bg-red-50 transition"
+                  className="px-4 py-2 rounded-lg text-sm font-medium text-red-500 dark:text-red-400 border border-red-200 dark:border-red-500/30 hover:bg-red-50 dark:hover:bg-red-500/15 transition"
                 >
                   Delete
                 </button>
@@ -255,20 +255,20 @@ export default function VariantManager({ productId, initialVariants = [], onChan
       })}
 
       {!variants.length && !drafts.length && (
-        <p className="text-sm text-gray-400">No variants yet. Add one or more below.</p>
+        <p className="text-sm text-faint">No variants yet. Add one or more below.</p>
       )}
 
       {/* Draft rows (batch add) */}
       {drafts.length > 0 && (
         <div className="space-y-4 rounded-xl border border-dashed border-primary/30 bg-primary/5 p-3">
-          <p className="text-sm font-medium text-gray-700">New variants</p>
+          <p className="text-sm font-medium text-muted">New variants</p>
           {drafts.map((d, i) => (
             <div key={i} className="flex items-start gap-2">
               <div className="flex-1">
                 <VariantRow value={d} onChange={(patch) => updateDraft(i, patch)} disabled={savingAll} />
               </div>
               <button type="button" onClick={() => removeDraft(i)} disabled={savingAll}
-                className="p-2 text-gray-400 hover:text-red-500" aria-label="Remove row">
+                className="p-2 text-faint hover:text-red-500" aria-label="Remove row">
                 <Trash2 size={15} />
               </button>
             </div>
@@ -295,11 +295,11 @@ export default function VariantManager({ productId, initialVariants = [], onChan
 
       {deleteId && (
         <AdminModal title="Delete Variant?" onClose={() => setDeleteId(null)} width="max-w-sm">
-          <p className="text-sm text-gray-600 mb-5">
+          <p className="text-sm text-muted mb-5">
             This permanently removes the variant and its images. This action cannot be undone.
           </p>
           <div className="flex gap-3">
-            <button onClick={() => setDeleteId(null)} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600">Cancel</button>
+            <button onClick={() => setDeleteId(null)} className="flex-1 py-2.5 border border-border rounded-xl text-sm text-muted">Cancel</button>
             <button onClick={doDelete} className="flex-1 py-2.5 bg-red-500 text-white rounded-xl text-sm font-medium hover:bg-red-600">Delete</button>
           </div>
         </AdminModal>

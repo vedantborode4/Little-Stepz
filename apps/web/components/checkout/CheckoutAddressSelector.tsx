@@ -45,7 +45,7 @@ export default function CheckoutAddressSection({
   /* ---------------- LOADING ---------------- */
 
   if (loading) {
-    return <div className="h-32 bg-gray-100 rounded-xl animate-pulse" />
+    return <div className="h-32 bg-surface-2 rounded-xl animate-pulse" />
   }
 
   /* ---------------- NO ADDRESS ---------------- */

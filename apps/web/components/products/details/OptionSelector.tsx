@@ -26,10 +26,10 @@ export default function OptionSelector({
         const color = isColorAxis(opt.name)
         return (
           <div key={opt.id} className="space-y-2">
-            <p className="text-sm font-semibold text-gray-700">
+            <p className="text-sm font-semibold text-muted">
               {opt.name}
               {selection[opt.id] && (
-                <span className="ml-1.5 font-normal text-gray-400">
+                <span className="ml-1.5 font-normal text-faint">
                   {opt.values.find((v) => v.id === selection[opt.id])?.value}
                 </span>
               )}
@@ -48,7 +48,7 @@ export default function OptionSelector({
                       disabled={disabled || !available}
                       onClick={() => onSelect(opt.id, val.id)}
                       className={`relative w-9 h-9 rounded-full border-2 transition ${
-                        active ? "border-primary" : "border-gray-200"
+                        active ? "border-primary" : "border-border"
                       } ${!available ? "opacity-30 cursor-not-allowed" : ""}`}
                       style={{ backgroundColor: val.swatchHex }}
                     >
@@ -68,7 +68,7 @@ export default function OptionSelector({
                     className={`px-4 py-2 border rounded-xl text-sm font-medium transition-all ${
                       active
                         ? "border-primary bg-primary/10 text-primary shadow-sm"
-                        : "border-gray-200 text-gray-600 hover:border-primary hover:text-primary"
+                        : "border-border text-muted hover:border-primary hover:text-primary"
                     } ${!available ? "opacity-30 line-through cursor-not-allowed" : ""}`}
                   >
                     {val.value}

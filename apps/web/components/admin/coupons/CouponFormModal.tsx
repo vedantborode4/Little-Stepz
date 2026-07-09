@@ -10,16 +10,16 @@ import { toast } from "sonner"
 function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <label className="text-sm font-medium text-gray-700">{label}</label>
+      <label className="text-sm font-medium text-muted">{label}</label>
       {children}
-      {error && <p className="text-xs text-red-500">{error}</p>}
+      {error && <p className="text-xs text-red-500 dark:text-red-400">{error}</p>}
     </div>
   )
 }
 
 function StyledInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
-    <input {...props} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white" />
+    <input {...props} className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-surface" />
   )
 }
 
@@ -102,7 +102,7 @@ export default function CouponFormModal({ mode, initialData, onClose, onSuccess 
 
           <Field label="Type">
             <select value={form.type} onChange={e => setForm(p => ({ ...p, type: e.target.value as any }))}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+              className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
               disabled={mode === "edit" && (initialData?.usedCount ?? 0) > 0}>
               <option value="PERCENTAGE">Percentage (%)</option>
               <option value="FLAT">Flat (₹)</option>
@@ -154,17 +154,17 @@ export default function CouponFormModal({ mode, initialData, onClose, onSuccess 
         <label className="flex items-center gap-3 cursor-pointer">
           <input type="checkbox" checked={form.isActive} onChange={e => setForm(p => ({ ...p, isActive: e.target.checked }))}
             className="w-4 h-4 rounded accent-primary" />
-          <span className="text-sm font-medium text-gray-700">Active (coupon can be used)</span>
+          <span className="text-sm font-medium text-muted">Active (coupon can be used)</span>
         </label>
 
         {mode === "edit" && (initialData?.usedCount ?? 0) > 0 && (
-          <p className="text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-lg p-2">
+          <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/15 border border-amber-100 dark:border-amber-500/20 rounded-lg p-2">
             ⚠ This coupon has been used {initialData?.usedCount} time(s). Type and value cannot be changed.
           </p>
         )}
 
         <div className="flex gap-3 pt-1">
-          <button onClick={onClose} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600">Cancel</button>
+          <button onClick={onClose} className="flex-1 py-2.5 border border-border rounded-xl text-sm text-muted">Cancel</button>
           <button onClick={submit} disabled={loading}
             className="flex-1 py-2.5 bg-primary text-white rounded-xl text-sm font-medium disabled:opacity-60 hover:bg-primary/90">
             {loading ? "Saving…" : mode === "create" ? "Create Coupon" : "Update Coupon"}

@@ -13,42 +13,42 @@ const ADVANTAGES: Advantage[] = [
     title: "Directly Imported",
     description:
       "Sourced from verified global suppliers in China, Japan, USA and Europe. Authentic products, not counterfeits.",
-    iconBg: "bg-blue-50",
+    iconBg: "bg-blue-50 dark:bg-blue-500/15",
   },
   {
     icon: "🛡️",
     title: "Premium Quality",
     description:
       "Every product passes our quality check before it reaches you. We never compromise on standards or authenticity.",
-    iconBg: "bg-indigo-50",
+    iconBg: "bg-indigo-50 dark:bg-indigo-500/15",
   },
   {
     icon: "🚚",
     title: "Pan-India Delivery",
     description:
       "Fast, reliable shipping to 500+ cities across all 28 states and 8 union territories of India.",
-    iconBg: "bg-green-50",
+    iconBg: "bg-green-50 dark:bg-green-500/15",
   },
   {
     icon: "🏪",
     title: "Wholesale & Retail",
     description:
       "We serve both B2B and B2C buyers across India — whether you're stocking a store or buying a gift.",
-    iconBg: "bg-purple-50",
+    iconBg: "bg-purple-50 dark:bg-purple-500/15",
   },
   {
     icon: "📦",
     title: "5 Toy Categories",
     description:
       "RC Cars, Die Cast, Building Blocks, Anime Figures and Educational Toys — curated all in one place.",
-    iconBg: "bg-teal-50",
+    iconBg: "bg-teal-50 dark:bg-teal-500/15",
   },
   {
     icon: "💬",
     title: "Dedicated Support",
     description:
       "Our team assists with product selection, bulk orders, custom sourcing and after-sales queries.",
-    iconBg: "bg-rose-50",
+    iconBg: "bg-rose-50 dark:bg-rose-500/15",
   },
 ]
 
@@ -74,7 +74,7 @@ export default function WhyChooseLittleStepz() {
         <div className="mt-10 sm:mt-12 grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {ADVANTAGES.map((a, i) => (
             <Reveal key={a.title} delay={i * 90} className="h-full">
-              <div className="h-full rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition hover:bg-primary/5 hover:border-primary/15 hover:shadow-md">
+              <div className="h-full rounded-2xl border border-border bg-surface p-6 shadow-sm transition hover:bg-primary/5 hover:border-primary/15 hover:shadow-md">
                 <div
                   className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl ${a.iconBg}`}
                 >

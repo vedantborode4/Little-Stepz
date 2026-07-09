@@ -46,7 +46,7 @@ export default function EditProfileDialog({ user, onUpdated }: any) {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="flex items-center bg-white gap-1.5 border border-gray-200 text-gray-700 px-3.5 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition"
+        className="flex items-center bg-surface gap-1.5 border border-border text-muted px-3.5 py-2 rounded-xl text-sm font-medium hover:bg-surface-2 transition"
       >
         <Pencil size={13} />
         Edit
@@ -59,14 +59,14 @@ export default function EditProfileDialog({ user, onUpdated }: any) {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl w-full max-w-md shadow-2xl"
+            className="bg-surface rounded-2xl w-full max-w-md shadow-2xl"
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-              <h3 className="font-semibold text-gray-900">Edit Profile</h3>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+              <h3 className="font-semibold text-text">Edit Profile</h3>
               <button
                 onClick={() => setOpen(false)}
-                className="p-1.5 rounded-xl hover:bg-gray-100 transition text-gray-400"
+                className="p-1.5 rounded-xl hover:bg-surface-2 transition text-faint"
               >
                 <X size={16} />
               </button>
@@ -75,25 +75,25 @@ export default function EditProfileDialog({ user, onUpdated }: any) {
             {/* Body */}
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Name</label>
+                <label className="block text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Name</label>
                 <input
                   value={form.name}
                   onChange={(e) => handleChange("name", e.target.value)}
                   placeholder="Your name"
-                  className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-primary transition"
+                  className="w-full border border-border rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-primary transition"
                 />
-                {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
+                {errors.name && <p className="text-red-500 dark:text-red-400 text-xs mt-1">{errors.name}</p>}
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Phone</label>
+                <label className="block text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Phone</label>
                 <input
                   value={form.phone}
                   onChange={(e) => handleChange("phone", e.target.value)}
                   placeholder="Phone number"
-                  className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-primary transition"
+                  className="w-full border border-border rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-primary transition"
                 />
-                {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
+                {errors.phone && <p className="text-red-500 dark:text-red-400 text-xs mt-1">{errors.phone}</p>}
               </div>
 
               <button

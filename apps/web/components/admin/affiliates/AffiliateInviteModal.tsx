@@ -50,20 +50,20 @@ export default function AffiliateInviteModal({ onClose }: { onClose: () => void 
   return (
     <AdminModal title="Invite Affiliate" onClose={onClose} width="max-w-md">
       <div className="space-y-4">
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-muted">
           Email someone an invite to apply for the affiliate program, or copy the link to share manually.
         </p>
 
         {/* Email invite */}
         <div className="space-y-1.5">
-          <label className="text-sm font-medium text-gray-700">Email address</label>
+          <label className="text-sm font-medium text-muted">Email address</label>
           <input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") sendInvite() }}
             placeholder="person@example.com"
-            className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+            className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
         </div>
         <button
@@ -75,32 +75,32 @@ export default function AffiliateInviteModal({ onClose }: { onClose: () => void 
         </button>
 
         {/* Divider */}
-        <div className="flex items-center gap-3 text-xs text-gray-400">
-          <span className="h-px flex-1 bg-gray-100" /> or share link <span className="h-px flex-1 bg-gray-100" />
+        <div className="flex items-center gap-3 text-xs text-faint">
+          <span className="h-px flex-1 bg-surface-2" /> or share link <span className="h-px flex-1 bg-surface-2" />
         </div>
 
         {/* Copy link */}
         <div className="space-y-1.5">
-          <label className="text-sm font-medium text-gray-700">Invite link</label>
+          <label className="text-sm font-medium text-muted">Invite link</label>
           <div className="flex gap-2">
             <input
               readOnly
               value={inviteUrl}
-              className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-gray-50 text-gray-600 truncate"
+              className="flex-1 border border-border rounded-xl px-3 py-2.5 text-sm bg-surface-2 text-muted truncate"
             />
             <button
               onClick={copyLink}
               title="Copy link"
-              className="px-3 rounded-xl border border-gray-200 hover:bg-gray-50 transition text-gray-600 shrink-0"
+              className="px-3 rounded-xl border border-border hover:bg-surface-2 transition text-muted shrink-0"
             >
-              {copied ? <Check size={16} className="text-green-600" /> : <Copy size={16} />}
+              {copied ? <Check size={16} className="text-green-600 dark:text-green-400" /> : <Copy size={16} />}
             </button>
           </div>
         </div>
 
         <button
           onClick={onClose}
-          className="w-full py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition"
+          className="w-full py-2.5 border border-border rounded-xl text-sm text-muted hover:bg-surface-2 transition"
         >
           Done
         </button>

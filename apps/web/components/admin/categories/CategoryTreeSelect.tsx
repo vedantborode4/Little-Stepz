@@ -34,9 +34,9 @@ export default function CategoryTreeSelect({ value, onChange }: Props) {
         tabIndex={0}
         onClick={() => setOpen(p => !p)}
         onKeyDown={(e) => e.key === "Enter" && setOpen(p => !p)}
-        className="w-full flex items-center justify-between border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer select-none"
+        className="w-full flex items-center justify-between border border-border rounded-xl px-3 py-2.5 text-sm bg-surface hover:border-border focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer select-none"
       >
-        <span className={selected ? "text-gray-900" : "text-gray-400"}>
+        <span className={selected ? "text-text" : "text-faint"}>
           {selected ? displayName(selected) : "Select category"}
         </span>
         <div className="flex items-center gap-1">
@@ -46,20 +46,20 @@ export default function CategoryTreeSelect({ value, onChange }: Props) {
               tabIndex={0}
               onClick={(e) => { e.stopPropagation(); onChange("") }}
               onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); onChange("") } }}
-              className="p-0.5 hover:text-red-500 text-gray-400 cursor-pointer"
+              className="p-0.5 hover:text-red-500 text-faint cursor-pointer"
             >
               <X size={12} />
             </span>
           )}
-          <ChevronDown size={14} className={`text-gray-400 transition-transform ${open ? "rotate-180" : ""}`} />
+          <ChevronDown size={14} className={`text-faint transition-transform ${open ? "rotate-180" : ""}`} />
         </div>
       </div>
 
       {open && (
-        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-20 max-h-52 overflow-y-auto">
+        <div className="absolute top-full left-0 right-0 mt-1 bg-surface border border-border rounded-xl shadow-lg z-20 max-h-52 overflow-y-auto">
           <div
             onClick={() => { onChange(""); setOpen(false) }}
-            className="px-3 py-2.5 text-sm text-gray-400 hover:bg-gray-50 cursor-pointer"
+            className="px-3 py-2.5 text-sm text-faint hover:bg-surface-2 cursor-pointer"
           >
             No category
           </div>
@@ -67,7 +67,7 @@ export default function CategoryTreeSelect({ value, onChange }: Props) {
             <div
               key={c.id}
               onClick={() => { onChange(c.id); setOpen(false) }}
-              className={`px-3 py-2.5 text-sm cursor-pointer hover:bg-gray-50 ${c.id === value ? "bg-primary/5 text-primary font-medium" : "text-gray-700"}`}
+              className={`px-3 py-2.5 text-sm cursor-pointer hover:bg-surface-2 ${c.id === value ? "bg-primary/5 text-primary font-medium" : "text-muted"}`}
             >
               {displayName(c)}
             </div>

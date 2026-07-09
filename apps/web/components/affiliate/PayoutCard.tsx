@@ -78,32 +78,32 @@ export default function PayoutCard() {
   return (
     <div className="space-y-4 sm:space-y-5">
       <div>
-        <h1 className="text-lg sm:text-xl font-semibold text-gray-900">Payout</h1>
-        <p className="text-xs sm:text-sm text-gray-500 mt-0.5">Manage your bank details and withdraw earnings</p>
+        <h1 className="text-lg sm:text-xl font-semibold text-text">Payout</h1>
+        <p className="text-xs sm:text-sm text-muted mt-0.5">Manage your bank details and withdraw earnings</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
         {/* Balance + withdraw */}
-        <div className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-6 space-y-4 sm:space-y-5">
+        <div className="bg-surface border border-border rounded-2xl p-4 sm:p-6 space-y-4 sm:space-y-5">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-orange-50 rounded-xl shrink-0">
-              <Wallet size={20} className="text-orange-500" />
+            <div className="p-2.5 bg-orange-50 dark:bg-orange-500/15 rounded-xl shrink-0">
+              <Wallet size={20} className="text-orange-500 dark:text-orange-400" />
             </div>
             <div className="min-w-0">
-              <p className="text-xs sm:text-sm text-gray-500">Available Balance</p>
-              <p className="text-xl sm:text-2xl font-bold text-gray-900">₹{balance.toLocaleString("en-IN")}</p>
+              <p className="text-xs sm:text-sm text-muted">Available Balance</p>
+              <p className="text-xl sm:text-2xl font-bold text-text">₹{balance.toLocaleString("en-IN")}</p>
             </div>
           </div>
 
-          <div className="pt-3 border-t border-gray-100 space-y-3">
-            <p className="text-sm font-medium text-gray-700">Request Withdrawal</p>
+          <div className="pt-3 border-t border-border space-y-3">
+            <p className="text-sm font-medium text-muted">Request Withdrawal</p>
             <div className="flex gap-2">
               <input
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="Enter amount"
                 type="number"
-                className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 min-w-0"
+                className="flex-1 border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 min-w-0"
               />
               <button
                 onClick={handleWithdraw}
@@ -115,21 +115,21 @@ export default function PayoutCard() {
                 <span className="sm:hidden">{withdrawing ? "…" : "Go"}</span>
               </button>
             </div>
-            <p className="text-xs text-gray-400">Minimum ₹100 · Paid to your bank account within 3–5 days</p>
+            <p className="text-xs text-faint">Minimum ₹100 · Paid to your bank account within 3–5 days</p>
           </div>
 
-          <div className="pt-3 border-t border-gray-100">
+          <div className="pt-3 border-t border-border">
             <div className="flex justify-between text-sm">
-              <span className="text-gray-500">Total paid out</span>
-              <span className="font-semibold text-gray-900">₹{(profile?.paidOutBalance ?? 0).toLocaleString("en-IN")}</span>
+              <span className="text-muted">Total paid out</span>
+              <span className="font-semibold text-text">₹{(profile?.paidOutBalance ?? 0).toLocaleString("en-IN")}</span>
             </div>
           </div>
         </div>
 
         {/* Bank details */}
-        <div className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-6 space-y-4">
+        <div className="bg-surface border border-border rounded-2xl p-4 sm:p-6 space-y-4">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-gray-900">Bank Details</p>
+            <p className="text-sm font-semibold text-text">Bank Details</p>
             {!editing && (
               <button
                 onClick={() => setEditing(true)}
@@ -150,15 +150,15 @@ export default function PayoutCard() {
                 { label: "IFSC",           value: profile.payoutDetails.ifsc },
                 ...(profile.payoutDetails.upiId ? [{ label: "UPI ID", value: profile.payoutDetails.upiId }] : []),
               ].map((row) => (
-                <div key={row.label} className="flex justify-between py-1.5 border-b border-gray-50 gap-2">
-                  <span className="text-gray-400 shrink-0">{row.label}</span>
-                  <span className="font-medium text-gray-700 text-right truncate">{row.value}</span>
+                <div key={row.label} className="flex justify-between py-1.5 border-b border-border gap-2">
+                  <span className="text-faint shrink-0">{row.label}</span>
+                  <span className="font-medium text-muted text-right truncate">{row.value}</span>
                 </div>
               ))}
             </div>
           ) : !editing ? (
             <div className="py-8 text-center">
-              <p className="text-sm text-gray-400">No bank details added yet</p>
+              <p className="text-sm text-faint">No bank details added yet</p>
               <button onClick={() => setEditing(true)} className="mt-2 text-sm text-primary font-medium hover:underline">
                 Add now
               </button>
@@ -167,15 +167,15 @@ export default function PayoutCard() {
             <div className="space-y-3">
               {(["accountHolder", "accountNumber", "ifsc", "bankName", "upiId"] as const).map((key) => (
                 <div key={key} className="space-y-1">
-                  <label className="text-xs text-gray-500 font-medium capitalize">
+                  <label className="text-xs text-muted font-medium capitalize">
                     {key === "upiId" ? "UPI ID (optional)" : key.replace(/([A-Z])/g, " $1").trim()}
                   </label>
                   <input
                     value={form[key] || ""}
                     onChange={(e) => handleChange(key, key === "ifsc" ? e.target.value.toUpperCase() : e.target.value)}
-                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    className="w-full border border-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                   />
-                  {errors[key]?.[0] && <p className="text-xs text-red-500">{errors[key][0]}</p>}
+                  {errors[key]?.[0] && <p className="text-xs text-red-500 dark:text-red-400">{errors[key][0]}</p>}
                 </div>
               ))}
               <div className="flex gap-2 pt-1">
@@ -188,7 +188,7 @@ export default function PayoutCard() {
                 </button>
                 <button
                   onClick={() => setEditing(false)}
-                  className="flex-1 border border-gray-200 py-2.5 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition"
+                  className="flex-1 border border-border py-2.5 rounded-xl text-sm text-muted hover:bg-surface-2 transition"
                 >
                   Cancel
                 </button>

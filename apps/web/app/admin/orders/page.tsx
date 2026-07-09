@@ -46,22 +46,22 @@ export default function AdminOrdersPage() {
 
           {totalPages > 1 && (
             <div className="flex items-center justify-between pt-2">
-              <p className="text-xs sm:text-sm text-gray-500">Page {page} of {totalPages}</p>
+              <p className="text-xs sm:text-sm text-muted">Page {page} of {totalPages}</p>
               <div className="flex items-center gap-1.5 sm:gap-2">
                 <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40 text-lg">‹</button>
+                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted hover:bg-surface-2 disabled:opacity-40 text-lg">‹</button>
                 {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                   const pg = Math.max(1, Math.min(page - 2, totalPages - 4)) + i
                   return (
                     <button key={pg} onClick={() => setPage(pg)}
-                      className={`w-8 h-8 hidden sm:flex items-center justify-center rounded-lg text-sm font-medium transition ${pg === page ? "bg-primary text-white" : "border border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
+                      className={`w-8 h-8 hidden sm:flex items-center justify-center rounded-lg text-sm font-medium transition ${pg === page ? "bg-primary text-white" : "border border-border text-muted hover:bg-surface-2"}`}>
                       {pg}
                     </button>
                   )
                 })}
-                <span className="sm:hidden text-sm text-gray-600 font-medium px-2">{page}/{totalPages}</span>
+                <span className="sm:hidden text-sm text-muted font-medium px-2">{page}/{totalPages}</span>
                 <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40 text-lg">›</button>
+                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted hover:bg-surface-2 disabled:opacity-40 text-lg">›</button>
               </div>
             </div>
           )}

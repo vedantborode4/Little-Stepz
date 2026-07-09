@@ -9,12 +9,12 @@ export default function CartSummary() {
   const { subtotal, total, discount, couponCode, items } = useCartStore()
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-card p-4 sm:p-6 h-fit space-y-4 sm:space-y-5 lg:sticky lg:top-6">
+    <div className="bg-surface rounded-2xl border border-border shadow-card p-4 sm:p-6 h-fit space-y-4 sm:space-y-5 lg:sticky lg:top-6">
       <div className="flex items-center gap-2.5">
         <div className="p-2 bg-primary/10 rounded-xl">
           <ShoppingBag size={15} className="text-primary" />
         </div>
-        <h2 className="text-sm sm:text-base font-semibold text-gray-900">Order Summary</h2>
+        <h2 className="text-sm sm:text-base font-semibold text-text">Order Summary</h2>
       </div>
 
       {/* Coupon */}
@@ -23,30 +23,30 @@ export default function CartSummary() {
       {/* Price breakdown */}
       <div className="space-y-2.5 sm:space-y-3 pt-1">
         <div className="flex justify-between text-sm">
-          <span className="text-gray-500">Subtotal ({items.length} {items.length === 1 ? "item" : "items"})</span>
-          <span className="font-medium text-gray-900">₹{subtotal?.toLocaleString("en-IN")}</span>
+          <span className="text-muted">Subtotal ({items.length} {items.length === 1 ? "item" : "items"})</span>
+          <span className="font-medium text-text">₹{subtotal?.toLocaleString("en-IN")}</span>
         </div>
 
         {discount > 0 && (
           <div className="flex justify-between text-sm">
-            <span className="flex items-center gap-1.5 text-green-600">
+            <span className="flex items-center gap-1.5 text-green-600 dark:text-green-400">
               <Tag size={13} />
               Coupon ({couponCode})
             </span>
-            <span className="font-medium text-green-600">−₹{discount?.toLocaleString("en-IN")}</span>
+            <span className="font-medium text-green-600 dark:text-green-400">−₹{discount?.toLocaleString("en-IN")}</span>
           </div>
         )}
 
         <div className="flex justify-between text-sm">
-          <span className="text-gray-500">Shipping</span>
-          <span className="font-medium text-green-600">Free</span>
+          <span className="text-muted">Shipping</span>
+          <span className="font-medium text-green-600 dark:text-green-400">Free</span>
         </div>
       </div>
 
       {/* Total */}
-      <div className="border-t border-gray-100 pt-3 sm:pt-4">
+      <div className="border-t border-border pt-3 sm:pt-4">
         <div className="flex justify-between items-center">
-          <span className="font-semibold text-gray-900">Total</span>
+          <span className="font-semibold text-text">Total</span>
           <span className="text-lg sm:text-xl font-bold text-primary">₹{total?.toLocaleString("en-IN")}</span>
         </div>
       </div>
@@ -59,7 +59,7 @@ export default function CartSummary() {
         <ArrowRight size={16} />
       </Link>
 
-      <p className="text-[11px] text-center text-gray-400">
+      <p className="text-[11px] text-center text-faint">
         Secure checkout powered by Razorpay
       </p>
     </div>

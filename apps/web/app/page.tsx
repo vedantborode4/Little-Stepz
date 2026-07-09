@@ -1,6 +1,7 @@
 "use client"
 
 import DynamicHeroBanner from "../components/home/DynamicHeroBanner"
+import MobileHeroBanner from "../components/home/MobileHeroBanner"
 import DynamicPromoBanner from "../components/home/DynamicPromoBanner"
 import PromoBannerRow from "../components/home/PromoBannerRow"
 import WhyChooseUs from "../components/home/WhyChooseUs"
@@ -14,8 +15,13 @@ import WhyChooseLittleStepz from "../components/home/WhyChooseLittleStepz"
 export default function Home() {
   return (
     <>
-      {/* 1. Hero — full width */}
-      <DynamicHeroBanner />
+      {/* 1. Hero — full width. Mobile widths get the tall MOBILE_HERO banner; desktop keeps HOME_HERO. */}
+      <div className="md:hidden">
+        <MobileHeroBanner />
+      </div>
+      <div className="hidden md:block">
+        <DynamicHeroBanner />
+      </div>
 
       {/* 2. Categories — white */}
       <div className="max-w-7xl mx-auto px-4 py-8 sm:py-12">

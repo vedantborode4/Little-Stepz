@@ -17,7 +17,7 @@ export default function StarRating({
           size={size}
           onClick={() => onChange?.(s)}
           className={`transition-colors ${onChange ? "cursor-pointer hover:text-yellow-400" : ""} ${
-            s <= value ? "fill-yellow-400 text-yellow-400" : "text-gray-200"
+            s <= value ? "fill-yellow-400 text-yellow-400" : "text-faint"
           }`}
         />
       ))}

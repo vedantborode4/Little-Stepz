@@ -8,6 +8,7 @@ import { useWishlistStore } from "../../store/useWishlistStore"
 import { useCategoryStore } from "../../store/useCategoryStore"
 import { useAffiliateStore } from "../../store/affiliate.store"
 import SearchBar from "../products/SearchBar"
+import ThemeToggle from "../common/ThemeToggle"
 import { useState, useEffect, useRef } from "react"
 import { useAuth } from "../../hooks/use-auth"
 import { usePathname } from "next/navigation"
@@ -86,7 +87,7 @@ export default function Navbar() {
 
   return (
     <>
-      <header className="bg-white border-b border-gray-100 sticky top-0 z-50 shadow-sm">
+      <header className="bg-surface border-b border-border sticky top-0 z-50 shadow-sm">
         <div className="max-w-7xl mx-auto px-4">
           <div className="h-16 flex items-center justify-between gap-3">
 
@@ -105,7 +106,7 @@ export default function Navbar() {
               >
                 <button className={clsx(
                   "flex items-center gap-1 px-3 py-2 rounded-lg transition-colors",
-                  openMega ? "text-primary bg-primary/5" : "text-gray-600 hover:text-primary hover:bg-primary/5"
+                  openMega ? "text-primary bg-primary/5" : "text-muted hover:text-primary hover:bg-primary/5"
                 )}>
                   Categories
                   <ChevronDown size={14} className={clsx("transition-transform", openMega && "rotate-180")} />
@@ -118,12 +119,12 @@ export default function Navbar() {
                   "absolute left-0 top-full pt-3 transition-all duration-200",
                   openMega ? "opacity-100 translate-y-0 pointer-events-auto" : "opacity-0 translate-y-2 pointer-events-none"
                 )}>
-                  <div className="bg-white border border-gray-100 rounded-2xl shadow-xl p-6 w-[640px] max-h-[70vh] overflow-y-auto grid grid-cols-3 gap-6">
+                  <div className="bg-surface border border-border rounded-2xl shadow-xl p-6 w-[640px] max-h-[70vh] overflow-y-auto grid grid-cols-3 gap-6">
                     {tree.map((parent) => (
                       <div key={parent.id}>
                         <Link
                           href={`/products/category/${parent.slug}`}
-                          className="font-semibold text-gray-900 text-sm block mb-2.5 hover:text-primary transition-colors"
+                          className="font-semibold text-text text-sm block mb-2.5 hover:text-primary transition-colors"
                           onClick={() => setOpenMega(false)}
                         >
                           {parent.name}
@@ -133,7 +134,7 @@ export default function Navbar() {
                             <Link
                               key={child.id}
                               href={`/products/category/${child.slug}`}
-                              className="block text-xs text-gray-500 hover:text-primary transition-colors"
+                              className="block text-xs text-muted hover:text-primary transition-colors"
                               onClick={() => setOpenMega(false)}
                             >
                               {child.name}
@@ -143,17 +144,17 @@ export default function Navbar() {
                       </div>
                     ))}
                     {tree.length === 0 && (
-                      <p className="col-span-3 text-sm text-gray-400 text-center py-4">Loading categories…</p>
+                      <p className="col-span-3 text-sm text-faint text-center py-4">Loading categories…</p>
                     )}
                   </div>
                 </div>
               </div>
 
-              <Link href="/products" className="px-3 py-2 rounded-lg text-gray-600 hover:text-primary hover:bg-primary/5 transition-colors">
+              <Link href="/products" className="px-3 py-2 rounded-lg text-muted hover:text-primary hover:bg-primary/5 transition-colors">
                 All Products
               </Link>
 
-              <Link href="/pre-orders" className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-gray-600 hover:text-primary hover:bg-primary/5 transition-colors">
+              <Link href="/pre-orders" className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-muted hover:text-primary hover:bg-primary/5 transition-colors">
                 Pre-Order
                 <span className="text-[9px] font-bold uppercase tracking-wide bg-primary text-white px-1.5 py-0.5 rounded-full leading-none">
                   New
@@ -171,15 +172,18 @@ export default function Navbar() {
 
               {/* Mobile: search toggle */}
               <button
-                className="md:hidden p-2 rounded-lg text-gray-600 hover:bg-primary/5 transition-colors"
+                className="md:hidden p-2 rounded-lg text-muted hover:bg-primary/5 transition-colors"
                 onClick={() => setMobileSearchOpen((p) => !p)}
                 aria-label="Search"
               >
                 <Search size={20} />
               </button>
 
+              {/* Theme toggle */}
+              <ThemeToggle />
+
               {/* Wishlist */}
-              <Link href="/wishlist" className="relative p-2 rounded-lg text-gray-600 hover:text-primary hover:bg-primary/5 transition-colors">
+              <Link href="/wishlist" className="relative p-2 rounded-lg text-muted hover:text-primary hover:bg-primary/5 transition-colors">
                 <Heart size={20} />
                 {wishlistItems.length > 0 && (
                   <span className="absolute top-1 right-1 w-4 h-4 bg-primary text-white text-[10px] font-bold rounded-full flex items-center justify-center">
@@ -189,7 +193,7 @@ export default function Navbar() {
               </Link>
 
               {/* Cart */}
-              <Link href="/cart" className="relative p-2 rounded-lg text-gray-600 hover:text-primary hover:bg-primary/5 transition-colors">
+              <Link href="/cart" className="relative p-2 rounded-lg text-muted hover:text-primary hover:bg-primary/5 transition-colors">
                 <ShoppingCart size={20} />
                 {cartItems.length > 0 && (
                   <span className="absolute top-1 right-1 w-4 h-4 bg-primary text-white text-[10px] font-bold rounded-full flex items-center justify-center">
@@ -205,21 +209,21 @@ export default function Navbar() {
                     onClick={() => setOpenUser((p) => !p)}
                     className={clsx(
                       "flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-lg transition-colors text-sm font-medium",
-                      openUser ? "bg-primary/5 text-primary" : "text-gray-700 hover:bg-primary/5"
+                      openUser ? "bg-primary/5 text-primary" : "text-muted hover:bg-primary/5"
                     )}
                   >
                     <div className="w-7 h-7 bg-primary/10 text-primary rounded-full flex items-center justify-center font-bold text-xs">
                       {user.name?.[0]?.toUpperCase() ?? <User size={14} />}
                     </div>
                     <span className="hidden lg:block max-w-[100px] truncate">{user.name?.split(" ")[0]}</span>
-                    <ChevronDown size={13} className={clsx("transition-transform text-gray-400", openUser && "rotate-180")} />
+                    <ChevronDown size={13} className={clsx("transition-transform text-faint", openUser && "rotate-180")} />
                   </button>
 
                   {openUser && (
-                    <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-100 rounded-2xl shadow-xl py-2 z-50 overflow-hidden font-bold">
-                      <div className="px-4 py-3 border-b border-gray-50">
-                        <p className="text-sm font-semibold text-gray-900 truncate">{user.name}</p>
-                        <p className="text-xs text-gray-400 truncate">{user.email}</p>
+                    <div className="absolute right-0 mt-2 w-56 bg-surface border border-border rounded-2xl shadow-xl py-2 z-50 overflow-hidden font-bold">
+                      <div className="px-4 py-3 border-b border-border">
+                        <p className="text-sm font-semibold text-text truncate">{user.name}</p>
+                        <p className="text-xs text-faint truncate">{user.email}</p>
                       </div>
                       <div className="py-1">
                         <MenuItem href="/profile" icon={User} label="My Profile" onClick={() => setOpenUser(false)} />
@@ -233,7 +237,7 @@ export default function Navbar() {
                         )}
                         {affiliateProfile?.status === "PENDING" && (
                           <div className="px-4 py-2 flex items-center gap-2.5">
-                            <span className="w-4 h-4 rounded bg-amber-100 flex items-center justify-center">
+                            <span className="w-4 h-4 rounded bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
                               <span className="w-1.5 h-1.5 bg-amber-500 rounded-full" />
                             </span>
                             <span className="text-xs text-amber-600 font-medium">Affiliate Pending</span>
@@ -243,10 +247,10 @@ export default function Navbar() {
                           <MenuItem href="/affiliate/apply" icon={Percent} label="Become Affiliate" onClick={() => setOpenUser(false)} />
                         )}
                       </div>
-                      <div className="border-t border-gray-50 pt-1">
+                      <div className="border-t border-border pt-1">
                         <button
                           onClick={() => { signOut(); setOpenUser(false) }}
-                          className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors"
+                          className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
                         >
                           <LogOut size={15} />
                           Sign Out
@@ -266,7 +270,7 @@ export default function Navbar() {
 
               {/* Mobile: hamburger */}
               <button
-                className="md:hidden p-2 rounded-lg text-gray-600 hover:bg-primary/5 transition-colors"
+                className="md:hidden p-2 rounded-lg text-muted hover:bg-primary/5 transition-colors"
                 onClick={() => setMobileOpen((p) => !p)}
                 aria-label={mobileOpen ? "Close menu" : "Open menu"}
               >
@@ -298,16 +302,16 @@ export default function Navbar() {
       {/* Drawer panel */}
       <div
         className={clsx(
-          "md:hidden fixed top-0 right-0 h-full w-[300px] bg-white z-50 flex flex-col shadow-2xl transition-transform duration-300 ease-in-out",
+          "md:hidden fixed top-0 right-0 h-full w-[300px] bg-surface z-50 flex flex-col shadow-2xl transition-transform duration-300 ease-in-out",
           mobileOpen ? "translate-x-0" : "translate-x-full"
         )}
       >
         {/* Drawer header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border flex-shrink-0">
           <img src="/logo.webp" alt="Little Stepz" className="h-9 w-auto" />
           <button
             onClick={() => setMobileOpen(false)}
-            className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-600 hover:bg-gray-200 transition-colors"
+            className="w-8 h-8 rounded-lg bg-surface-2 flex items-center justify-center text-muted hover:bg-surface-3 transition-colors"
           >
             <X size={17} />
           </button>
@@ -320,8 +324,8 @@ export default function Navbar() {
               {initials ?? <User size={16} />}
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-gray-900 truncate">{user.name}</p>
-              <p className="text-xs text-gray-500 truncate">{user.email}</p>
+              <p className="text-sm font-semibold text-text truncate">{user.name}</p>
+              <p className="text-xs text-muted truncate">{user.email}</p>
             </div>
           </div>
         )}
@@ -333,47 +337,47 @@ export default function Navbar() {
           <div className="grid grid-cols-2 gap-2.5 px-4 pt-4 pb-2">
             <Link
               href="/cart"
-              className="flex items-center gap-2.5 bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-3 hover:bg-primary/5 hover:border-primary/20 transition-colors"
+              className="flex items-center gap-2.5 bg-surface-2 border border-border rounded-xl px-3.5 py-3 hover:bg-primary/5 hover:border-primary/20 transition-colors"
             >
               <div className="relative flex-shrink-0">
-                <ShoppingCart size={18} className="text-gray-600" />
+                <ShoppingCart size={18} className="text-muted" />
                 {cartItems.length > 0 && (
                   <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-primary text-white text-[9px] font-bold rounded-full flex items-center justify-center">
                     {cartItems.length > 9 ? "9+" : cartItems.length}
                   </span>
                 )}
               </div>
-              <span className="text-sm font-medium text-gray-700">Cart</span>
+              <span className="text-sm font-medium text-muted">Cart</span>
             </Link>
             <Link
               href="/wishlist"
-              className="flex items-center gap-2.5 bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-3 hover:bg-primary/5 hover:border-primary/20 transition-colors"
+              className="flex items-center gap-2.5 bg-surface-2 border border-border rounded-xl px-3.5 py-3 hover:bg-primary/5 hover:border-primary/20 transition-colors"
             >
               <div className="relative flex-shrink-0">
-                <Heart size={18} className="text-gray-600" />
+                <Heart size={18} className="text-muted" />
                 {wishlistItems.length > 0 && (
                   <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-primary text-white text-[9px] font-bold rounded-full flex items-center justify-center">
                     {wishlistItems.length > 9 ? "9+" : wishlistItems.length}
                   </span>
                 )}
               </div>
-              <span className="text-sm font-medium text-gray-700">Wishlist</span>
+              <span className="text-sm font-medium text-muted">Wishlist</span>
             </Link>
           </div>
 
           {/* Divider */}
-          <div className="mx-4 my-2 border-t border-gray-100" />
+          <div className="mx-4 my-2 border-t border-border" />
 
           {/* All Products */}
           <div className="px-3 pb-1">
-            <MobileNavLink href="/products" icon={<ShoppingCart size={15} className="text-gray-400" />} label="All Products" />
-            <MobileNavLink href="/pre-orders" icon={<Clock size={15} className="text-gray-400" />} label="Pre-Order" badge="New" />
+            <MobileNavLink href="/products" icon={<ShoppingCart size={15} className="text-faint" />} label="All Products" />
+            <MobileNavLink href="/pre-orders" icon={<Clock size={15} className="text-faint" />} label="Pre-Order" badge="New" />
           </div>
 
           {/* Categories with accordion */}
           {tree.length > 0 && (
             <div className="px-3 pb-2">
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-3 py-2">
+              <p className="text-[10px] font-bold text-faint uppercase tracking-widest px-3 py-2">
                 Categories
               </p>
               <div className="space-y-0.5">
@@ -387,13 +391,13 @@ export default function Navbar() {
                             expandedCategory === parent.id ? null : parent.id
                           )
                         }
-                        className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold text-gray-800 hover:bg-primary/5 transition-colors text-left"
+                        className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold text-text hover:bg-primary/5 transition-colors text-left"
                       >
                         <span>{parent.name}</span>
                         <ChevronRight
                           size={15}
                           className={clsx(
-                            "text-gray-400 transition-transform duration-200 flex-shrink-0",
+                            "text-faint transition-transform duration-200 flex-shrink-0",
                             expandedCategory === parent.id && "rotate-90"
                           )}
                         />
@@ -401,7 +405,7 @@ export default function Navbar() {
                     ) : (
                       <Link
                         href={`/products/category/${parent.slug}`}
-                        className="flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold text-gray-800 hover:bg-primary/5 transition-colors"
+                        className="flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold text-text hover:bg-primary/5 transition-colors"
                       >
                         {parent.name}
                       </Link>
@@ -420,7 +424,7 @@ export default function Navbar() {
                           <Link
                             key={child.id}
                             href={`/products/category/${child.slug}`}
-                            className="flex items-center px-3 py-2 rounded-xl text-sm text-gray-600 hover:bg-primary/5 hover:text-primary transition-colors"
+                            className="flex items-center px-3 py-2 rounded-xl text-sm text-muted hover:bg-primary/5 hover:text-primary transition-colors"
                           >
                             {child.name}
                           </Link>
@@ -436,30 +440,30 @@ export default function Navbar() {
           {/* Account links — shown when logged in */}
           {user && (
             <div className="px-3 pb-2">
-              <div className="mx-0 my-2 border-t border-gray-100" />
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-3 py-2">
+              <div className="mx-0 my-2 border-t border-border" />
+              <p className="text-[10px] font-bold text-faint uppercase tracking-widest px-3 py-2">
                 Account
               </p>
               <div className="space-y-0.5">
-                <MobileNavLink href="/profile" icon={<User size={15} className="text-gray-400" />} label="My Profile" />
-                <MobileNavLink href="/account/orders" icon={<Package size={15} className="text-gray-400" />} label="My Orders" />
-                <MobileNavLink href="/account/pre-orders" icon={<Clock size={15} className="text-gray-400" />} label="My Pre-Orders" />
+                <MobileNavLink href="/profile" icon={<User size={15} className="text-faint" />} label="My Profile" />
+                <MobileNavLink href="/account/orders" icon={<Package size={15} className="text-faint" />} label="My Orders" />
+                <MobileNavLink href="/account/pre-orders" icon={<Clock size={15} className="text-faint" />} label="My Pre-Orders" />
                 {isAdmin && (
                   <MobileNavLink href="/admin" icon={<LayoutDashboard size={15} className="text-primary" />} label="Admin Panel" accent />
                 )}
                 {affiliateProfile?.status === "APPROVED" && (
-                  <MobileNavLink href="/affiliate" icon={<Percent size={15} className="text-gray-400" />} label="Affiliate Dashboard" />
+                  <MobileNavLink href="/affiliate" icon={<Percent size={15} className="text-faint" />} label="Affiliate Dashboard" />
                 )}
                 {affiliateProfile?.status === "PENDING" && (
                   <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-amber-50">
-                    <span className="w-4 h-4 rounded bg-amber-100 flex items-center justify-center flex-shrink-0">
+                    <span className="w-4 h-4 rounded bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center flex-shrink-0">
                       <span className="w-1.5 h-1.5 bg-amber-500 rounded-full" />
                     </span>
                     <span className="text-xs text-amber-600 font-medium">Affiliate approval pending</span>
                   </div>
                 )}
                 {!affiliateProfile && (
-                  <MobileNavLink href="/affiliate/apply" icon={<Percent size={15} className="text-gray-400" />} label="Become Affiliate" />
+                  <MobileNavLink href="/affiliate/apply" icon={<Percent size={15} className="text-faint" />} label="Become Affiliate" />
                 )}
               </div>
             </div>
@@ -467,11 +471,11 @@ export default function Navbar() {
         </nav>
 
         {/* Drawer footer */}
-        <div className="flex-shrink-0 border-t border-gray-100 px-4 py-4 pb-safe">
+        <div className="flex-shrink-0 border-t border-border px-4 py-4 pb-safe">
           {user ? (
             <button
               onClick={signOut}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-red-500 bg-red-50 hover:bg-red-100 transition-colors"
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-red-500 bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
             >
               <LogOut size={15} />
               Sign Out
@@ -486,7 +490,7 @@ export default function Navbar() {
               </Link>
               <Link
                 href="/signup"
-                className="w-full flex items-center justify-center py-3 rounded-xl text-sm font-semibold border border-gray-200 text-gray-700 hover:bg-primary/5 transition"
+                className="w-full flex items-center justify-center py-3 rounded-xl text-sm font-semibold border border-border text-muted hover:bg-primary/5 transition"
               >
                 Create Account
               </Link>
@@ -508,10 +512,10 @@ function MenuItem({ href, icon: Icon, label, onClick, accent }: {
       onClick={onClick}
       className={clsx(
         "flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors",
-        accent ? "text-primary hover:bg-primary/5" : "text-gray-700 hover:bg-primary/5"
+        accent ? "text-primary hover:bg-primary/5" : "text-muted hover:bg-primary/5"
       )}
     >
-      <Icon size={15} className={accent ? "text-primary" : "text-gray-400"} />
+      <Icon size={15} className={accent ? "text-primary" : "text-faint"} />
       {label}
     </Link>
   )
@@ -528,7 +532,7 @@ function MobileNavLink({ href, icon, label, accent, badge }: {
         "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors",
         accent
           ? "text-primary font-semibold hover:bg-primary/5"
-          : "text-gray-700 font-medium hover:bg-primary/5"
+          : "text-muted font-medium hover:bg-primary/5"
       )}
     >
       <span className="flex-shrink-0">{icon}</span>

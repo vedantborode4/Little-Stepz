@@ -24,12 +24,12 @@ export default function CheckoutAddressSection({ onContinue }: { onContinue?: ()
   if (!addresses.length) {
     return (
       <div className="text-center space-y-4 py-8">
-        <div className="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto">
-          <MapPin size={22} className="text-gray-300" />
+        <div className="w-14 h-14 bg-surface-2 rounded-2xl flex items-center justify-center mx-auto">
+          <MapPin size={22} className="text-faint" />
         </div>
         <div>
-          <p className="text-sm font-semibold text-gray-700">No saved addresses</p>
-          <p className="text-xs text-gray-400 mt-0.5">Add an address to continue</p>
+          <p className="text-sm font-semibold text-muted">No saved addresses</p>
+          <p className="text-xs text-faint mt-0.5">Add an address to continue</p>
         </div>
         <AddressFormDialog onCreated={fetchAddresses} />
       </div>
@@ -39,7 +39,7 @@ export default function CheckoutAddressSection({ onContinue }: { onContinue?: ()
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-muted">
           {addresses.length} saved address{addresses.length > 1 ? "es" : ""}
         </p>
         <AddressFormDialog onCreated={fetchAddresses} />

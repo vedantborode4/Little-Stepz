@@ -23,9 +23,9 @@ interface Props {
 function Field({ label, children, error }: { label: string; children: React.ReactNode; error?: string }) {
   return (
     <div className="space-y-1.5">
-      <label className="block text-sm font-medium text-gray-700">{label}</label>
+      <label className="block text-sm font-medium text-muted">{label}</label>
       {children}
-      {error && <p className="text-xs text-red-500">{error}</p>}
+      {error && <p className="text-xs text-red-500 dark:text-red-400">{error}</p>}
     </div>
   )
 }
@@ -34,7 +34,7 @@ function Input({ ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...props}
-      className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white"
+      className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-surface"
     />
   )
 }
@@ -161,8 +161,8 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
   return (
     <div className="max-w-4xl space-y-5 sm:space-y-6">
       {/* Basic info */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-6 space-y-4 sm:space-y-5">
-        <h2 className="font-semibold text-gray-900 text-sm sm:text-base">Product Information</h2>
+      <div className="bg-surface border border-border rounded-2xl p-4 sm:p-6 space-y-4 sm:space-y-5">
+        <h2 className="font-semibold text-text text-sm sm:text-base">Product Information</h2>
 
         <Field label="Product Name" error={errors.name?.[0]}>
           <Input placeholder="e.g. Rowan Exalt Soft Dart Blaster" value={form.name} onChange={e => onChange("name", e.target.value)} />
@@ -174,7 +174,7 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
 
         <Field label="Short Description" error={errors.description?.[0]}>
           <textarea
-            className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 min-h-[100px] resize-none"
+            className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 min-h-[100px] resize-none"
             value={form.description}
             onChange={e => onChange("description", e.target.value)}
             placeholder="Short summary shown near the title..."
@@ -190,7 +190,7 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
 
         <Field label="Specifications" error={errors.specifications?.[0]}>
           <SpecificationsEditor rows={specifications} onChange={setSpecifications} />
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-faint">
             Shown as a table on the product page. Leave empty to hide it.
           </p>
         </Field>
@@ -235,7 +235,7 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
             }}
             className="w-4 h-4 rounded accent-primary"
           />
-          <span className="text-sm font-medium text-gray-700">On sale — charge the sale price</span>
+          <span className="text-sm font-medium text-muted">On sale — charge the sale price</span>
         </label>
 
         {/* Display mode + Qty + Category — 1-col on mobile, 3-col on sm+ */}
@@ -244,7 +244,7 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
             <select
               value={form.priceDisplay}
               onChange={e => onChange("priceDisplay", e.target.value)}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white"
+              className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-surface"
             >
               <option value="BOTH">Both (sale + regular struck-through)</option>
               <option value="REGULAR" disabled={form.isOnSale}>Regular price only{form.isOnSale ? " (unavailable while on sale)" : ""}</option>
@@ -261,14 +261,14 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
 
         <label className="flex items-center gap-3 cursor-pointer">
           <input type="checkbox" checked={form.inStock} onChange={e => onChange("inStock", e.target.checked)} className="w-4 h-4 rounded accent-primary" />
-          <span className="text-sm font-medium text-gray-700">Product is in stock</span>
+          <span className="text-sm font-medium text-muted">Product is in stock</span>
         </label>
 
         {/* Pre-order */}
-        <div className="pt-4 border-t border-gray-100 space-y-4">
+        <div className="pt-4 border-t border-border space-y-4">
           <label className="flex items-center gap-3 cursor-pointer">
             <input type="checkbox" checked={form.preOrderEnabled} onChange={e => onChange("preOrderEnabled", e.target.checked)} className="w-4 h-4 rounded accent-primary" />
-            <span className="text-sm font-medium text-gray-700">Allow pre-orders when out of stock</span>
+            <span className="text-sm font-medium text-muted">Allow pre-orders when out of stock</span>
           </label>
           {form.preOrderEnabled && (
             <div className="space-y-4 pl-7">
@@ -298,7 +298,7 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
                   <Input placeholder="e.g. Ships by 15 Aug" value={form.preOrderNote} onChange={e => onChange("preOrderNote", e.target.value)} />
                 </Field>
               </div>
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-faint">
                 Customers pay the booking amount now; the balance is collected via a secure link when you raise stock above 0.
               </p>
             </div>
@@ -306,7 +306,7 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
         </div>
 
         {/* Save — scoped to product details only */}
-        <div className="pt-4 border-t border-gray-100 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+        <div className="pt-4 border-t border-border flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
           <button
             onClick={submit}
             disabled={loading}
@@ -314,7 +314,7 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
           >
             {loading ? "Saving…" : mode === "edit" ? "Update Product Details" : "Create Product"}
           </button>
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-faint">
             Saves product details only. Images and variants are saved in their own sections below.
           </p>
         </div>
@@ -323,22 +323,22 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
       {/* Images & Variants — shown after product is saved */}
       {saved && productId && (
         <>
-          <div className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-6">
-            <h2 className="font-semibold text-gray-900 text-sm sm:text-base mb-4">Product Images</h2>
+          <div className="bg-surface border border-border rounded-2xl p-4 sm:p-6">
+            <h2 className="font-semibold text-text text-sm sm:text-base mb-4">Product Images</h2>
             <ProductImageManager productId={productId} images={images} onChange={setImages} />
           </div>
 
-          <div className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-6 space-y-5">
+          <div className="bg-surface border border-border rounded-2xl p-4 sm:p-6 space-y-5">
             <div>
-              <h2 className="font-semibold text-gray-900 text-sm sm:text-base mb-1">Options & variant matrix</h2>
-              <p className="text-xs text-gray-400 mb-4">
+              <h2 className="font-semibold text-text text-sm sm:text-base mb-1">Options & variant matrix</h2>
+              <p className="text-xs text-faint mb-4">
                 Define axes like Size and Color, then generate every combination as a variant. You can fine-tune each variant&apos;s price and stock below.
               </p>
               <VariantMatrixGenerator productId={productId} options={productOptions} onGenerated={refreshVariants} />
             </div>
 
-            <div className="border-t border-gray-100 pt-5">
-              <h2 className="font-semibold text-gray-900 text-sm sm:text-base mb-4">Variants</h2>
+            <div className="border-t border-border pt-5">
+              <h2 className="font-semibold text-text text-sm sm:text-base mb-4">Variants</h2>
               <VariantManager key={variantsVersion} productId={productId} initialVariants={variants} />
             </div>
           </div>
@@ -346,7 +346,7 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
           <div className="flex flex-col sm:flex-row gap-3">
             <button
               onClick={() => router.push("/admin/products")}
-              className="flex-1 sm:flex-none px-6 sm:px-8 py-3 border border-gray-200 rounded-xl text-sm text-gray-700 hover:bg-gray-50 font-medium"
+              className="flex-1 sm:flex-none px-6 sm:px-8 py-3 border border-border rounded-xl text-sm text-muted hover:bg-surface-2 font-medium"
             >
               Back to Products
             </button>

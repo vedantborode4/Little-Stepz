@@ -9,7 +9,7 @@ interface DraftValue { value: string; swatchHex: string }
 interface DraftOption { name: string; values: DraftValue[] }
 
 const inputCls =
-  "border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white"
+  "border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-surface"
 
 export default function VariantMatrixGenerator({
   productId,
@@ -91,9 +91,9 @@ export default function VariantMatrixGenerator({
       {options.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {options.map((o) => (
-            <span key={o.id} className="inline-flex items-center gap-1.5 bg-gray-100 text-gray-700 text-xs font-medium px-2.5 py-1 rounded-full">
+            <span key={o.id} className="inline-flex items-center gap-1.5 bg-surface-2 text-muted text-xs font-medium px-2.5 py-1 rounded-full">
               {o.name}: {o.values.map((v) => v.value).join(", ")}
-              <button type="button" onClick={() => removeExistingOption(o.id)} className="text-gray-400 hover:text-red-500" aria-label="Remove option">
+              <button type="button" onClick={() => removeExistingOption(o.id)} className="text-faint hover:text-red-500" aria-label="Remove option">
                 <Trash2 size={12} />
               </button>
             </span>
@@ -103,7 +103,7 @@ export default function VariantMatrixGenerator({
 
       {/* Draft axes */}
       {draft.map((opt, i) => (
-        <div key={i} className="rounded-xl border border-gray-100 p-3 space-y-3">
+        <div key={i} className="rounded-xl border border-border p-3 space-y-3">
           <div className="flex items-center gap-2">
             <input
               className={`${inputCls} flex-1`}
@@ -111,7 +111,7 @@ export default function VariantMatrixGenerator({
               value={opt.name}
               onChange={(e) => setOptionName(i, e.target.value)}
             />
-            <button type="button" onClick={() => removeOption(i)} className="p-2 text-gray-400 hover:text-red-500" aria-label="Remove option">
+            <button type="button" onClick={() => removeOption(i)} className="p-2 text-faint hover:text-red-500" aria-label="Remove option">
               <Trash2 size={15} />
             </button>
           </div>
@@ -129,10 +129,10 @@ export default function VariantMatrixGenerator({
                   title="Optional swatch colour"
                   value={val.swatchHex || "#ffffff"}
                   onChange={(e) => setValue(i, j, { swatchHex: e.target.value })}
-                  className="w-10 h-10 rounded-lg border border-gray-200 bg-white p-1 cursor-pointer"
+                  className="w-10 h-10 rounded-lg border border-border bg-surface p-1 cursor-pointer"
                 />
                 <button type="button" onClick={() => removeValue(i, j)} disabled={opt.values.length <= 1}
-                  className="p-2 text-gray-400 hover:text-red-500 disabled:opacity-30" aria-label="Remove value">
+                  className="p-2 text-faint hover:text-red-500 disabled:opacity-30" aria-label="Remove value">
                   <Trash2 size={14} />
                 </button>
               </div>
@@ -150,7 +150,7 @@ export default function VariantMatrixGenerator({
 
       {draft.length > 0 && (
         <div className="space-y-3 rounded-xl border border-dashed border-primary/30 bg-primary/5 p-3">
-          <p className="text-sm font-medium text-gray-700">
+          <p className="text-sm font-medium text-muted">
             Defaults for every generated variant (editable afterwards)
           </p>
           <div className="grid grid-cols-2 gap-3">

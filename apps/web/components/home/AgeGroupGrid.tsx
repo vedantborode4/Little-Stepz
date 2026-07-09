@@ -17,7 +17,7 @@ export default function AgeGroupGrid() {
             href={`/products?age=${a.value}`}
             className="space-y-2"
           >
-            <div className="w-20 h-20 rounded-full bg-pink-100" />
+            <div className="w-20 h-20 rounded-full bg-pink-100 dark:bg-pink-500/20" />
             <p className="text-sm">{a.label}</p>
           </Link>
         ))}

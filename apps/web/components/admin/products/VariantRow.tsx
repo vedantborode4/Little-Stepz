@@ -13,7 +13,7 @@ const priceGuard = (v: string) => v === "" || /^\d*\.?\d{0,2}$/.test(v)
 const intGuard = (v: string) => v === "" || /^\d+$/.test(v)
 
 const inputCls =
-  "w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white"
+  "w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-surface"
 
 /**
  * Presentational field block for a single variant (name / sku / prices / stock).
@@ -73,7 +73,7 @@ export default function VariantRow({
           onChange={(e) => { if (intGuard(e.target.value)) onChange({ stock: e.target.value }) }}
         />
       </div>
-      <label className="flex items-center gap-2 text-sm text-gray-700">
+      <label className="flex items-center gap-2 text-sm text-muted">
         <input
           type="checkbox"
           checked={value.isOnSale}

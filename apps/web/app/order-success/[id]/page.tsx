@@ -82,38 +82,38 @@ export default function OrderSuccessPage() {
         <div className="w-full max-w-lg space-y-5">
 
           {/* Hero card */}
-          <div className="bg-white border border-gray-100 rounded-2xl p-8 shadow-card text-center space-y-4">
-            <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto">
-              <CheckCircle size={40} className="text-green-500" />
+          <div className="bg-surface border border-border rounded-2xl p-8 shadow-card text-center space-y-4">
+            <div className="w-20 h-20 bg-green-50 dark:bg-green-500/15 rounded-full flex items-center justify-center mx-auto">
+              <CheckCircle size={40} className="text-green-500 dark:text-green-400" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Order Placed! 🎉</h1>
+              <h1 className="text-2xl font-bold text-text">Order Placed! 🎉</h1>
               <p className="text-sm text-muted mt-1">
                 Thank you for shopping with Little Stepz. We'll get this packed right away!
               </p>
             </div>
-            <div className="bg-gray-50 rounded-xl px-4 py-3 inline-block">
+            <div className="bg-surface-2 rounded-xl px-4 py-3 inline-block">
               <p className="text-xs text-muted">Order ID</p>
-              <p className="font-mono font-semibold text-gray-800 text-sm mt-0.5">{id}</p>
+              <p className="font-mono font-semibold text-text text-sm mt-0.5">{id}</p>
             </div>
           </div>
 
           {/* Skeleton */}
           {loading && (
-            <div className="bg-white border border-gray-100 rounded-2xl p-6 animate-pulse space-y-3">
-              <div className="h-4 bg-gray-100 rounded w-1/3" />
-              <div className="h-3 bg-gray-100 rounded w-2/3" />
-              <div className="h-3 bg-gray-100 rounded w-1/2" />
+            <div className="bg-surface border border-border rounded-2xl p-6 animate-pulse space-y-3">
+              <div className="h-4 bg-surface-2 rounded w-1/3" />
+              <div className="h-3 bg-surface-2 rounded w-2/3" />
+              <div className="h-3 bg-surface-2 rounded w-1/2" />
             </div>
           )}
 
           {o && !loading && (
             <>
               {/* Items */}
-              <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-card">
+              <div className="bg-surface border border-border rounded-2xl p-5 shadow-card">
                 <div className="flex items-center gap-2 mb-4">
                   <Package size={15} className="text-primary" />
-                  <h2 className="font-semibold text-gray-900 text-sm">
+                  <h2 className="font-semibold text-text text-sm">
                     {o.items?.length ?? 0} {o.items?.length === 1 ? "Item" : "Items"} Ordered
                   </h2>
                 </div>
@@ -126,15 +126,15 @@ export default function OrderSuccessPage() {
                           <img
                             src={item.variant?.images?.[0]?.url || item.product.images[0].url}
                             alt={item.product.name}
-                            className="w-11 h-11 object-cover rounded-lg border border-gray-100"
+                            className="w-11 h-11 object-cover rounded-lg border border-border"
                           />
                         ) : (
-                          <div className="w-11 h-11 bg-gray-100 rounded-lg flex items-center justify-center">
-                            <Package size={14} className="text-gray-300" />
+                          <div className="w-11 h-11 bg-surface-2 rounded-lg flex items-center justify-center">
+                            <Package size={14} className="text-faint" />
                           </div>
                         )}
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">
+                          <p className="text-sm font-medium text-text truncate">
                             {item.product?.name ?? "Product"}
                           </p>
                           {item.variant?.name && (
@@ -142,7 +142,7 @@ export default function OrderSuccessPage() {
                           )}
                           <p className="text-xs text-muted">Qty: {item.quantity}</p>
                         </div>
-                        <p className="text-sm font-semibold text-gray-900">
+                        <p className="text-sm font-semibold text-text">
                           &#8377;{itemTotal.toLocaleString("en-IN")}
                         </p>
                       </div>
@@ -158,9 +158,9 @@ export default function OrderSuccessPage() {
 
               {/* Totals + Delivery */}
               <div className="grid grid-cols-2 gap-4">
-                <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-card">
+                <div className="bg-surface border border-border rounded-2xl p-4 shadow-card">
                   <p className="text-xs text-muted mb-1">Order Total</p>
-                  <p className="text-xl font-bold text-gray-900">
+                  <p className="text-xl font-bold text-text">
                     &#8377;{Number(o.total).toLocaleString("en-IN")}
                   </p>
                   <p className="text-xs text-muted mt-1 capitalize">
@@ -168,14 +168,14 @@ export default function OrderSuccessPage() {
                   </p>
                 </div>
 
-                <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-card">
+                <div className="bg-surface border border-border rounded-2xl p-4 shadow-card">
                   <div className="flex items-center gap-1.5 mb-1">
                     <MapPin size={12} className="text-primary" />
                     <p className="text-xs text-muted">Delivering to</p>
                   </div>
                   {addr ? (
                     <>
-                      <p className="text-sm font-semibold text-gray-900">
+                      <p className="text-sm font-semibold text-text">
                         {addr.name ?? addr.fullName ?? "—"}
                       </p>
                       <p className="text-xs text-muted mt-0.5 truncate">
@@ -200,7 +200,7 @@ export default function OrderSuccessPage() {
             </Link>
             <Link
               href="/products"
-              className="w-full flex items-center justify-center gap-2 border border-gray-200 text-gray-700 py-3.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition"
+              className="w-full flex items-center justify-center gap-2 border border-border text-muted py-3.5 rounded-xl text-sm font-medium hover:bg-surface-2 transition"
             >
               <ShoppingBag size={15} /> Continue Shopping
             </Link>

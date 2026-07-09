@@ -15,8 +15,8 @@ export default function ProfilePage() {
             <User size={16} className="text-primary sm:w-[18px] sm:h-[18px]" />
           </div>
           <div>
-            <h1 className="text-lg sm:text-xl font-bold text-gray-900">My Profile</h1>
-            <p className="text-xs text-gray-400 mt-0.5">Manage your account information and addresses</p>
+            <h1 className="text-lg sm:text-xl font-bold text-text">My Profile</h1>
+            <p className="text-xs text-faint mt-0.5">Manage your account information and addresses</p>
           </div>
         </div>
 

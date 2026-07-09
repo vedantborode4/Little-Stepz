@@ -19,13 +19,13 @@ const PasswordInput = forwardRef<HTMLInputElement, Props>(
           ref={ref}
           type={show ? "text" : "password"}
           placeholder={placeholder}
-          className={`w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm pr-10 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition bg-white ${className}`}
+          className={`w-full border border-border rounded-xl px-3.5 py-2.5 text-sm pr-10 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition bg-surface ${className}`}
         />
         <button
           type="button"
           tabIndex={-1}
           onClick={() => setShow((p) => !p)}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition"
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-faint hover:text-muted transition"
           aria-label={show ? "Hide password" : "Show password"}
         >
           {show ? <EyeOff size={15} /> : <Eye size={15} />}

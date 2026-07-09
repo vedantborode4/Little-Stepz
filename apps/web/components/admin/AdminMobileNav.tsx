@@ -25,7 +25,7 @@ export default function AdminMobileNav() {
   }
 
   return (
-    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-100 safe-area-pb">
+    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-surface border-t border-border safe-area-pb">
       <div className="flex">
         {primary.map((item) => {
           const Icon = item.icon
@@ -36,7 +36,7 @@ export default function AdminMobileNav() {
               href={item.href}
               className={clsx(
                 "flex flex-col items-center justify-center gap-0.5 flex-1 py-2.5 text-[10px] font-medium transition-colors",
-                active ? "text-primary" : "text-gray-400 hover:text-gray-600"
+                active ? "text-primary" : "text-faint hover:text-muted"
               )}
             >
               <Icon size={18} strokeWidth={active ? 2.5 : 2} />

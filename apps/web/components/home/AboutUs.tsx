@@ -76,7 +76,7 @@ export default function AboutUs() {
           {FEATURES.map((f) => (
             <div
               key={f.title}
-              className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition hover:shadow-md hover:border-primary/15"
+              className="rounded-2xl border border-border bg-surface p-5 shadow-sm transition hover:shadow-md hover:border-primary/15"
             >
               <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl ${f.iconBg}`}>
                 {f.emoji}

@@ -65,21 +65,21 @@ export default function AdminProductsTable() {
 
       {/* Search */}
       <div className="relative">
-        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
         <input placeholder="Search products by name..." value={search}
           onChange={e => { setPage(1); setSearch(e.target.value) }}
-          className="w-full border border-gray-200 rounded-xl pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white"
+          className="w-full border border-border rounded-xl pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-surface"
         />
       </div>
 
       {loading ? <TableSkeleton rows={10} cols={7} /> : (
-        <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+        <div className="bg-surface border border-border rounded-2xl overflow-hidden">
 
           {/* Desktop table */}
           <div className="hidden sm:block overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-gray-100">
-                <tr className="text-gray-500 text-left">
+              <thead className="bg-surface-2 border-b border-border">
+                <tr className="text-muted text-left">
                   <th className="p-4 w-10">
                     <input type="checkbox" checked={selected.length === data.length && data.length > 0} onChange={toggleAll} className="rounded accent-primary"/>
                   </th>
@@ -94,84 +94,84 @@ export default function AdminProductsTable() {
               </thead>
               <tbody>
                 {data.map(p => (
-                  <tr key={p.id} className="border-t border-gray-100 hover:bg-gray-50/50 transition">
+                  <tr key={p.id} className="border-t border-border hover:bg-surface-2/50 transition">
                     <td className="p-4"><input type="checkbox" checked={selected.includes(p.id)} onChange={() => toggleSelect(p.id)} className="rounded accent-primary"/></td>
                     <td className="p-4">
                       <div className="flex items-center gap-3">
-                        <img src={p.images?.[0]?.url || "/placeholder.png"} className="w-10 h-10 object-cover rounded-xl border border-gray-100 shrink-0" alt={p.name}/>
+                        <img src={p.images?.[0]?.url || "/placeholder.png"} className="w-10 h-10 object-cover rounded-xl border border-border shrink-0" alt={p.name}/>
                         <div>
-                          <p className="font-medium text-gray-900 max-w-[320px] truncate">{p.name}</p>
-                          <p className="text-xs text-gray-400 font-mono max-w-[320px] truncate">{p.slug}</p>
+                          <p className="font-medium text-text max-w-[320px] truncate">{p.name}</p>
+                          <p className="text-xs text-faint font-mono max-w-[320px] truncate">{p.slug}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="p-4 text-gray-600">{p.category?.name || "—"}</td>
-                    <td className="p-4 font-semibold text-gray-900">
+                    <td className="p-4 text-muted">{p.category?.name || "—"}</td>
+                    <td className="p-4 font-semibold text-text">
                       {p.isOnSale && p.salePrice != null ? (
                         <span className="flex flex-col leading-tight">
                           <span>₹{Number(p.salePrice).toLocaleString()}</span>
-                          <span className="text-xs text-gray-400 line-through font-normal">₹{p.price?.toLocaleString()}</span>
+                          <span className="text-xs text-faint line-through font-normal">₹{p.price?.toLocaleString()}</span>
                         </span>
                       ) : (
                         <>₹{p.price?.toLocaleString()}</>
                       )}
                     </td>
-                    <td className="p-4 text-gray-700">{p.quantity}</td>
-                    <td className="p-4 text-gray-600">{p.variants?.length || 0}</td>
+                    <td className="p-4 text-muted">{p.quantity}</td>
+                    <td className="p-4 text-muted">{p.variants?.length || 0}</td>
                     <td className="p-4">
-                      <span className={`inline-block whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-medium ${p.inStock ? "bg-green-50 text-green-600" : "bg-red-50 text-red-500"}`}>
+                      <span className={`inline-block whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-medium ${p.inStock ? "bg-green-50 dark:bg-green-500/15 text-green-600 dark:text-green-400" : "bg-red-50 dark:bg-red-500/15 text-red-500 dark:text-red-400"}`}>
                         {p.inStock ? "In Stock" : "Out of Stock"}
                       </span>
                     </td>
                     <td className="p-4">
                       <div className="flex items-center justify-end gap-2">
-                        <button onClick={() => router.push(`/admin/products/${p.id}`)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition"><Pencil size={14} /></button>
-                        <button onClick={() => setDeleteId(p.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition"><Trash2 size={14} /></button>
+                        <button onClick={() => router.push(`/admin/products/${p.id}`)} className="p-1.5 rounded-lg hover:bg-surface-2 text-faint hover:text-muted transition"><Pencil size={14} /></button>
+                        <button onClick={() => setDeleteId(p.id)} className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/15 text-faint hover:text-red-500 transition"><Trash2 size={14} /></button>
                       </div>
                     </td>
                   </tr>
                 ))}
-                {!data.length && (<tr><td colSpan={8} className="py-16 text-center text-gray-400">No products found</td></tr>)}
+                {!data.length && (<tr><td colSpan={8} className="py-16 text-center text-faint">No products found</td></tr>)}
               </tbody>
             </table>
           </div>
 
           {/* Mobile card list */}
-          <div className="sm:hidden divide-y divide-gray-100">
+          <div className="sm:hidden divide-y divide-border">
             {data.map(p => (
               <div key={p.id} className="p-4 flex items-center gap-3">
-                <img src={p.images?.[0]?.url || "/placeholder.png"} className="w-12 h-12 object-cover rounded-xl border border-gray-100 shrink-0" alt={p.name}/>
+                <img src={p.images?.[0]?.url || "/placeholder.png"} className="w-12 h-12 object-cover rounded-xl border border-border shrink-0" alt={p.name}/>
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-gray-900 truncate text-sm">{p.name}</p>
-                  <p className="text-xs text-gray-500">{p.category?.name || "—"} · ₹{(p.isOnSale && p.salePrice != null ? Number(p.salePrice) : p.price)?.toLocaleString()}{p.isOnSale && p.salePrice != null && <span className="line-through text-gray-300 ml-1">₹{p.price?.toLocaleString()}</span>}</p>
+                  <p className="font-medium text-text truncate text-sm">{p.name}</p>
+                  <p className="text-xs text-muted">{p.category?.name || "—"} · ₹{(p.isOnSale && p.salePrice != null ? Number(p.salePrice) : p.price)?.toLocaleString()}{p.isOnSale && p.salePrice != null && <span className="line-through text-faint ml-1">₹{p.price?.toLocaleString()}</span>}</p>
                   <div className="flex items-center gap-2 mt-1">
-                    <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${p.inStock ? "bg-green-50 text-green-600" : "bg-red-50 text-red-500"}`}>
+                    <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${p.inStock ? "bg-green-50 dark:bg-green-500/15 text-green-600 dark:text-green-400" : "bg-red-50 dark:bg-red-500/15 text-red-500 dark:text-red-400"}`}>
                       {p.inStock ? "In Stock" : "Out"}
                     </span>
-                    <span className="text-[11px] text-gray-400">Stock: {p.quantity}</span>
+                    <span className="text-[11px] text-faint">Stock: {p.quantity}</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
-                  <button onClick={() => router.push(`/admin/products/${p.id}`)} className="p-2 rounded-xl hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition"><Pencil size={14} /></button>
-                  <button onClick={() => setDeleteId(p.id)} className="p-2 rounded-xl hover:bg-red-50 text-gray-400 hover:text-red-500 transition"><Trash2 size={14} /></button>
+                  <button onClick={() => router.push(`/admin/products/${p.id}`)} className="p-2 rounded-xl hover:bg-surface-2 text-faint hover:text-muted transition"><Pencil size={14} /></button>
+                  <button onClick={() => setDeleteId(p.id)} className="p-2 rounded-xl hover:bg-red-50 dark:hover:bg-red-500/15 text-faint hover:text-red-500 transition"><Trash2 size={14} /></button>
                 </div>
               </div>
             ))}
-            {!data.length && (<div className="py-16 text-center text-gray-400 text-sm">No products found</div>)}
+            {!data.length && (<div className="py-16 text-center text-faint text-sm">No products found</div>)}
           </div>
 
           {/* Pagination */}
           {pages > 1 && (
-            <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
-              <p className="text-xs sm:text-sm text-gray-500">Page {page} of {pages}</p>
+            <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+              <p className="text-xs sm:text-sm text-muted">Page {page} of {pages}</p>
               <div className="flex items-center gap-2">
                 <button onClick={() => setPage(p => Math.max(1, p-1))} disabled={page===1}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 disabled:opacity-40 hover:bg-gray-50">‹</button>
+                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-border disabled:opacity-40 hover:bg-surface-2">‹</button>
                 <span className="w-8 h-8 flex items-center justify-center rounded-lg bg-primary text-white text-sm font-medium">
                   {String(page).padStart(2, "0")}
                 </span>
                 <button onClick={() => setPage(p => Math.min(pages, p+1))} disabled={page===pages}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 disabled:opacity-40 hover:bg-gray-50">›</button>
+                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-border disabled:opacity-40 hover:bg-surface-2">›</button>
               </div>
             </div>
           )}
@@ -180,9 +180,9 @@ export default function AdminProductsTable() {
 
       {deleteId && (
         <AdminModal title="Delete Product?" onClose={() => setDeleteId(null)} width="max-w-sm">
-          <p className="text-sm text-gray-600 mb-5">This action cannot be undone. All variants and images will also be deleted.</p>
+          <p className="text-sm text-muted mb-5">This action cannot be undone. All variants and images will also be deleted.</p>
           <div className="flex gap-3">
-            <button onClick={() => setDeleteId(null)} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600">Cancel</button>
+            <button onClick={() => setDeleteId(null)} className="flex-1 py-2.5 border border-border rounded-xl text-sm text-muted">Cancel</button>
             <button onClick={deleteProduct} disabled={deleting} className="flex-1 py-2.5 bg-red-500 text-white rounded-xl text-sm font-medium disabled:opacity-60 hover:bg-red-600">
               {deleting ? "Deleting…" : "Delete"}
             </button>

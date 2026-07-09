@@ -10,21 +10,21 @@ import CartSummary from "../../components/cart/CartSummary"
 function CartSkeleton() {
   return (
     <div className="max-w-7xl mx-auto px-4 py-8 sm:py-10 animate-pulse">
-      <div className="h-7 bg-gray-100 rounded-full w-24 mb-6 sm:mb-8" />
+      <div className="h-7 bg-surface-2 rounded-full w-24 mb-6 sm:mb-8" />
       <div className="grid lg:grid-cols-3 gap-6 sm:gap-8">
-        <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 overflow-hidden">
+        <div className="lg:col-span-2 bg-surface rounded-2xl border border-border overflow-hidden">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="flex gap-4 p-4 sm:p-5 border-b border-gray-100">
-              <div className="w-16 sm:w-20 h-16 sm:h-20 bg-gray-100 rounded-xl shrink-0" />
+            <div key={i} className="flex gap-4 p-4 sm:p-5 border-b border-border">
+              <div className="w-16 sm:w-20 h-16 sm:h-20 bg-surface-2 rounded-xl shrink-0" />
               <div className="flex-1 space-y-2">
-                <div className="h-4 bg-gray-100 rounded-full w-3/4" />
-                <div className="h-3 bg-gray-100 rounded-full w-1/4" />
-                <div className="h-8 bg-gray-100 rounded-xl w-32 mt-3" />
+                <div className="h-4 bg-surface-2 rounded-full w-3/4" />
+                <div className="h-3 bg-surface-2 rounded-full w-1/4" />
+                <div className="h-8 bg-surface-2 rounded-xl w-32 mt-3" />
               </div>
             </div>
           ))}
         </div>
-        <div className="hidden lg:block bg-white rounded-2xl border border-gray-100 h-64 animate-pulse" />
+        <div className="hidden lg:block bg-surface rounded-2xl border border-border h-64 animate-pulse" />
       </div>
     </div>
   )
@@ -49,8 +49,8 @@ export default function CartPage() {
           <ShoppingBag size={28} className="text-primary sm:w-8 sm:h-8" />
         </div>
         <div className="text-center">
-          <h2 className="text-lg sm:text-xl font-bold text-gray-900">Your cart is empty</h2>
-          <p className="text-sm text-gray-400 mt-1.5">Looks like you haven't added anything yet.</p>
+          <h2 className="text-lg sm:text-xl font-bold text-text">Your cart is empty</h2>
+          <p className="text-sm text-faint mt-1.5">Looks like you haven't added anything yet.</p>
         </div>
         <Link
           href="/products"
@@ -71,8 +71,8 @@ export default function CartPage() {
           <ShoppingBag size={16} className="text-primary sm:w-[18px] sm:h-[18px]" />
         </div>
         <div>
-          <h1 className="text-lg sm:text-xl font-bold text-gray-900">Shopping Cart</h1>
-          <p className="text-xs text-gray-400 mt-0.5">
+          <h1 className="text-lg sm:text-xl font-bold text-text">Shopping Cart</h1>
+          <p className="text-xs text-faint mt-0.5">
             {items.length} {items.length === 1 ? "item" : "items"} in your cart
           </p>
         </div>
@@ -80,7 +80,7 @@ export default function CartPage() {
 
       <div className="grid lg:grid-cols-3 gap-6 sm:gap-8">
         {/* Cart items */}
-        <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-card overflow-hidden">
+        <div className="lg:col-span-2 bg-surface rounded-2xl border border-border shadow-card overflow-hidden">
           {items.map((item) => (
             <CartItem
               key={`${item.productId}-${item.variantId ?? ""}`}
@@ -96,10 +96,10 @@ export default function CartPage() {
       </div>
 
       {/* Mobile sticky checkout bar */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-100 px-4 py-3 shadow-xl safe-area-pb">
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-surface border-t border-border px-4 py-3 shadow-xl safe-area-pb">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <p className="text-xs text-gray-400">Total</p>
+            <p className="text-xs text-faint">Total</p>
             <p className="text-lg font-bold text-primary">₹{total?.toLocaleString("en-IN")}</p>
           </div>
           <Link

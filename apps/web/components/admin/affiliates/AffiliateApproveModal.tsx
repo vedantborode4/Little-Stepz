@@ -71,9 +71,9 @@ export default function AffiliateApproveModal({ affiliate, action, onClose, onSu
     <AdminModal title={title} onClose={onClose} width="max-w-md">
       <div className="space-y-4">
         {/* Affiliate info */}
-        <div className="bg-gray-50 rounded-xl p-4">
-          <p className="font-semibold text-gray-900">{affiliate.user.name}</p>
-          <p className="text-sm text-gray-500">{affiliate.user.email}</p>
+        <div className="bg-surface-2 rounded-xl p-4">
+          <p className="font-semibold text-text">{affiliate.user.name}</p>
+          <p className="text-sm text-muted">{affiliate.user.email}</p>
           {isEdit && (
             <p className="text-xs text-primary mt-1 font-medium">
               Current: {commissionRate}% · {commissionType}
@@ -85,22 +85,22 @@ export default function AffiliateApproveModal({ affiliate, action, onClose, onSu
         {(isApprove || isEdit) && (
           <>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-gray-700">Commission Rate (%)</label>
+              <label className="text-sm font-medium text-muted">Commission Rate (%)</label>
               <input
                 type="number" min={1} max={20} step={0.5}
                 value={commissionRate}
                 onChange={e => setCommissionRate(Number(e.target.value))}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
               />
-              <p className="text-xs text-gray-400">Between 1% and 20%</p>
+              <p className="text-xs text-faint">Between 1% and 20%</p>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-gray-700">Commission Type</label>
+              <label className="text-sm font-medium text-muted">Commission Type</label>
               <select
                 value={commissionType}
                 onChange={e => setCommissionType(e.target.value as "PER_ORDER" | "LIFETIME")}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white"
+                className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-surface"
               >
                 <option value="LIFETIME">LIFETIME — earns on every order from referred user</option>
                 <option value="PER_ORDER">PER_ORDER — earns only on first order</option>
@@ -111,9 +111,9 @@ export default function AffiliateApproveModal({ affiliate, action, onClose, onSu
 
         {/* Admin note — shown to the applicant */}
         <div className="space-y-1.5">
-          <label className="text-sm font-medium text-gray-700">
+          <label className="text-sm font-medium text-muted">
             {isReject ? "Reason for rejection" : isApprove ? "Note to applicant" : "Admin Note"}
-            <span className="ml-1 text-xs text-gray-400 font-normal">(visible to applicant)</span>
+            <span className="ml-1 text-xs text-faint font-normal">(visible to applicant)</span>
           </label>
           <textarea
             value={adminNote}
@@ -124,14 +124,14 @@ export default function AffiliateApproveModal({ affiliate, action, onClose, onSu
               isReject  ? "Let the applicant know why their application was rejected..." :
               "Internal note about this change..."
             }
-            className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
+            className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
           />
         </div>
 
         <div className="flex gap-3 pt-1">
           <button
             onClick={onClose}
-            className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition"
+            className="flex-1 py-2.5 border border-border rounded-xl text-sm text-muted hover:bg-surface-2 transition"
           >
             Cancel
           </button>

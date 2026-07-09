@@ -136,7 +136,7 @@ export default function ProductImageManager({
           e.preventDefault()
           handleUpload(e.dataTransfer.files)
         }}
-        className="border-2 border-dashed border-gray-200 rounded-2xl h-32 flex flex-col items-center justify-center cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition group"
+        className="border-2 border-dashed border-border rounded-2xl h-32 flex flex-col items-center justify-center cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition group"
       >
         {uploading ? (
           <div className="flex flex-col items-center gap-2 text-primary">
@@ -144,10 +144,10 @@ export default function ProductImageManager({
             <p className="text-xs font-medium">Uploading…</p>
           </div>
         ) : (
-          <div className="flex flex-col items-center gap-2 text-gray-400 group-hover:text-primary transition">
+          <div className="flex flex-col items-center gap-2 text-faint group-hover:text-primary transition">
             <ImagePlus size={22} />
             <p className="text-xs font-medium">Click or drag images to upload</p>
-            <p className="text-[10px] text-gray-300">PNG, JPG, WEBP up to 10MB</p>
+            <p className="text-[10px] text-faint">PNG, JPG, WEBP up to 10MB</p>
           </div>
         )}
       </div>
@@ -173,7 +173,7 @@ export default function ProductImageManager({
               onDragLeave={() => setDragOverId(null)}
               onDrop={(e) => handleDrop(e, img.id)}
               className={`relative group rounded-[10px] border-2 overflow-hidden transition cursor-grab
-                ${dragOverId === img.id ? "border-primary scale-95" : "border-gray-100"}`}
+                ${dragOverId === img.id ? "border-primary scale-95" : "border-border"}`}
             >
               {/* Badge for primary */}
               {i === 0 && (
@@ -206,7 +206,7 @@ export default function ProductImageManager({
                     inp.click()
                   }}
                   disabled={replacingId === img.id || deletingId === img.id}
-                  className="p-2 bg-white rounded-lg text-blue-600 hover:bg-blue-50 transition shadow-md disabled:opacity-50"
+                  className="p-2 bg-surface rounded-lg text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/15 transition shadow-md disabled:opacity-50"
                   title="Replace image"
                 >
                   {replacingId === img.id
@@ -218,7 +218,7 @@ export default function ProductImageManager({
                 <button
                   onClick={(e) => { e.stopPropagation(); remove(img.id) }}
                   disabled={deletingId === img.id || replacingId === img.id}
-                  className="p-2 bg-white rounded-lg text-red-500 hover:bg-red-50 transition shadow-md disabled:opacity-50"
+                  className="p-2 bg-surface rounded-lg text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/15 transition shadow-md disabled:opacity-50"
                   title="Delete image"
                 >
                   {deletingId === img.id

@@ -38,7 +38,7 @@ export default function DynamicHeroBanner() {
 
   if (loading) {
     return (
-      <div className="w-full aspect-32/15 lg:aspect-auto lg:h-[calc(100vh-4rem)] bg-gray-100 animate-pulse" />
+      <div className="w-full aspect-32/15 lg:aspect-auto lg:h-[calc(100vh-4rem)] bg-surface-2 animate-pulse" />
     )
   }
 

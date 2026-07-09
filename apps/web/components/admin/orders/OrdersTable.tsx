@@ -16,26 +16,26 @@ export default function OrdersTable({ data, refresh }: Props) {
 
   if (!data?.length) {
     return (
-      <div className="bg-white border border-gray-200 rounded-2xl py-16 text-center text-gray-400 text-sm">
+      <div className="bg-surface border border-border rounded-2xl py-16 text-center text-faint text-sm">
         No orders found
       </div>
     )
   }
 
   const paymentColor = (status: string | undefined) => {
-    if (status === "PAID" || status === "SUCCESS") return "bg-green-50 text-green-600"
-    if (status === "FAILED") return "bg-red-50 text-red-500"
-    return "bg-yellow-50 text-yellow-600"
+    if (status === "PAID" || status === "SUCCESS") return "bg-green-50 dark:bg-green-500/15 text-green-600 dark:text-green-400"
+    if (status === "FAILED") return "bg-red-50 dark:bg-red-500/15 text-red-500 dark:text-red-400"
+    return "bg-yellow-50 dark:bg-yellow-500/15 text-yellow-600 dark:text-yellow-400"
   }
 
   return (
     <>
       {/* Desktop table */}
-      <div className="hidden sm:block bg-white border border-gray-200 rounded-2xl overflow-hidden">
+      <div className="hidden sm:block bg-surface border border-border rounded-2xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-100">
-              <tr className="text-gray-500 text-left">
+            <thead className="bg-surface-2 border-b border-border">
+              <tr className="text-muted text-left">
                 <th className="p-4 font-medium">Order ID</th>
                 <th className="p-4 font-medium">Customer</th>
                 <th className="p-4 font-medium">Total</th>
@@ -47,23 +47,23 @@ export default function OrdersTable({ data, refresh }: Props) {
             </thead>
             <tbody>
               {data.map((order) => (
-                <tr key={order.id} className="border-t border-gray-100 hover:bg-gray-50/50 cursor-pointer transition" onClick={() => setSelectedOrder(order)}>
-                  <td className="p-4 font-mono text-xs font-semibold text-gray-700">#{order.id.slice(-8).toUpperCase()}</td>
-                  <td className="p-4 font-medium text-gray-900">{order.user?.name || "—"}</td>
-                  <td className="p-4 font-semibold text-gray-900">₹{order.total?.toLocaleString()}</td>
+                <tr key={order.id} className="border-t border-border hover:bg-surface-2/50 cursor-pointer transition" onClick={() => setSelectedOrder(order)}>
+                  <td className="p-4 font-mono text-xs font-semibold text-muted">#{order.id.slice(-8).toUpperCase()}</td>
+                  <td className="p-4 font-medium text-text">{order.user?.name || "—"}</td>
+                  <td className="p-4 font-semibold text-text">₹{order.total?.toLocaleString()}</td>
                   <td className="p-4">
                     <span className={`text-xs px-2 py-1 rounded-full font-medium ${paymentColor(order.payment?.status)}`}>
                       {order.payment?.status || "—"}
                     </span>
                   </td>
                   <td className="p-4"><OrderStatusBadge status={order.status} /></td>
-                  <td className="p-4 text-gray-400 text-xs">
+                  <td className="p-4 text-faint text-xs">
                     {new Date(order.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
                   </td>
                   <td className="p-4" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-end gap-2">
                       <button onClick={() => router.push(`/admin/orders/${order.id}`)}
-                        className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition" title="View detail">
+                        className="p-1.5 rounded-lg hover:bg-surface-2 text-faint hover:text-muted transition" title="View detail">
                         <Eye size={14} />
                       </button>
                       <OrderRowActions order={order} refresh={refresh} />
@@ -79,25 +79,25 @@ export default function OrdersTable({ data, refresh }: Props) {
       {/* Mobile card list */}
       <div className="sm:hidden space-y-3">
         {data.map((order) => (
-          <div key={order.id} className="bg-white border border-gray-200 rounded-2xl p-4 space-y-3"
+          <div key={order.id} className="bg-surface border border-border rounded-2xl p-4 space-y-3"
             onClick={() => setSelectedOrder(order)}>
             <div className="flex items-start justify-between gap-2">
               <div>
-                <p className="font-mono text-xs font-bold text-gray-700">#{order.id.slice(-8).toUpperCase()}</p>
-                <p className="text-sm font-medium text-gray-900 mt-0.5">{order.user?.name || "—"}</p>
+                <p className="font-mono text-xs font-bold text-muted">#{order.id.slice(-8).toUpperCase()}</p>
+                <p className="text-sm font-medium text-text mt-0.5">{order.user?.name || "—"}</p>
               </div>
               <OrderStatusBadge status={order.status} />
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-bold text-gray-900">₹{order.total?.toLocaleString()}</span>
+              <span className="font-bold text-text">₹{order.total?.toLocaleString()}</span>
               <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${paymentColor(order.payment?.status)}`}>
                 {order.payment?.status || "—"}
               </span>
-              <span className="text-xs text-gray-400 ml-auto">
+              <span className="text-xs text-faint ml-auto">
                 {new Date(order.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
               </span>
             </div>
-            <div className="flex items-center gap-2 pt-1 border-t border-gray-50" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-2 pt-1 border-t border-border" onClick={(e) => e.stopPropagation()}>
               <button onClick={() => router.push(`/admin/orders/${order.id}`)}
                 className="flex items-center gap-1.5 text-xs text-primary font-medium hover:underline">
                 <Eye size={13} /> View Detail

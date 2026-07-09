@@ -65,7 +65,7 @@ export default function SignInPage() {
               })}
             />
             {errors.email && (
-              <p className="text-sm text-red-500">
+              <p className="text-sm text-red-500 dark:text-red-400">
                 {errors.email.message}
               </p>
             )}
@@ -79,7 +79,7 @@ export default function SignInPage() {
               })}
             />
             {errors.password && (
-              <p className="text-sm text-red-500">
+              <p className="text-sm text-red-500 dark:text-red-400">
                 {errors.password.message}
               </p>
             )}

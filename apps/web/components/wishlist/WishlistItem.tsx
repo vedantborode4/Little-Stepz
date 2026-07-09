@@ -28,10 +28,10 @@ export default function WishlistItem({ item, onRemoved }: any) {
   }
 
   return (
-    <div className="flex items-center gap-4 py-4 border-b border-gray-100 last:border-none group">
+    <div className="flex items-center gap-4 py-4 border-b border-border last:border-none group">
       {/* Image */}
       <Link href={`/products/${item.product.slug}`} className="flex-shrink-0">
-        <div className="relative w-18 h-18 w-[72px] h-[72px] bg-gray-50 rounded-xl overflow-hidden border border-gray-100 group-hover:border-primary/30 transition">
+        <div className="relative w-18 h-18 w-[72px] h-[72px] bg-surface-2 rounded-xl overflow-hidden border border-border group-hover:border-primary/30 transition">
           <Image
             src={image}
             alt={item.product.name}
@@ -44,13 +44,13 @@ export default function WishlistItem({ item, onRemoved }: any) {
       {/* Details */}
       <div className="flex-1 min-w-0">
         <Link href={`/products/${item.product.slug}`}>
-          <h3 className="font-semibold text-sm text-gray-900 hover:text-primary transition leading-snug line-clamp-2">
+          <h3 className="font-semibold text-sm text-text hover:text-primary transition leading-snug line-clamp-2">
             {item.product.name}
           </h3>
         </Link>
 
         {item.product.brand?.name && (
-          <p className="text-xs text-gray-400 mt-0.5">{item.product.brand.name}</p>
+          <p className="text-xs text-faint mt-0.5">{item.product.brand.name}</p>
         )}
 
         <div className="mt-1.5">
@@ -69,7 +69,7 @@ export default function WishlistItem({ item, onRemoved }: any) {
         </button>
         <button
           onClick={handleRemove}
-          className="p-2 rounded-xl text-gray-400 hover:text-red-500 hover:bg-red-50 transition border border-gray-200"
+          className="p-2 rounded-xl text-faint hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/15 transition border border-border"
         >
           <Trash2 size={15} />
         </button>

@@ -41,32 +41,32 @@ export default function AffiliateActionMenu({ affiliate, onApprove, onRefresh }:
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen((p) => !p)}
-        className="text-gray-400 hover:text-gray-700 transition p-1 rounded-lg hover:bg-gray-100"
+        className="text-faint hover:text-muted transition p-1 rounded-lg hover:bg-surface-2"
       >
         <MoreHorizontal size={16} />
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-1 w-44 bg-white rounded-xl shadow-lg border border-gray-100 z-20 overflow-hidden">
+        <div className="absolute right-0 top-full mt-1 w-44 bg-surface rounded-xl shadow-lg border border-border z-20 overflow-hidden">
           <button
             onClick={() => { router.push(`/admin/affiliates/${affiliate.id}`); setOpen(false) }}
-            className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
+            className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-muted hover:bg-surface-2 transition"
           >
-            <Eye size={14} className="text-gray-400" />
+            <Eye size={14} className="text-faint" />
             View Details
           </button>
           {affiliate.status === "PENDING" && (
             <>
               <button
                 onClick={() => { onApprove(); setOpen(false) }}
-                className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-green-600 hover:bg-green-50 transition"
+                className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-500/15 transition"
               >
                 <CheckCircle size={14} />
                 Approve
               </button>
               <button
                 onClick={reject}
-                className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition"
+                className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/15 transition"
               >
                 <XCircle size={14} />
                 Reject

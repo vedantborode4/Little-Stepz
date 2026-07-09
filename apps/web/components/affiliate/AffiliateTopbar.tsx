@@ -3,6 +3,7 @@
 import { useAuthStore } from "../../store/auth.store"
 import { useAffiliateStore } from "../../store/affiliate.store"
 import { usePathname } from "next/navigation"
+import ThemeToggle from "../common/ThemeToggle"
 
 const routeLabels: Record<string, string> = {
   "/affiliate":             "Overview",
@@ -23,13 +24,13 @@ export default function AffiliateTopbar() {
     .sort((a, b) => b[0].length - a[0].length)[0]?.[1] ?? "Affiliate"
 
   return (
-    <div className="h-14 sm:h-16 bg-white border-b border-gray-100 flex items-center justify-between px-4 sm:px-6">
+    <div className="h-14 sm:h-16 bg-surface border-b border-border flex items-center justify-between px-4 sm:px-6">
       <div className="min-w-0">
-        <h1 className="text-sm font-semibold text-gray-900 truncate">{pageLabel}</h1>
+        <h1 className="text-sm font-semibold text-text truncate">{pageLabel}</h1>
         {profile?.referralCode && (
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-faint">
             Code:{" "}
-            <span className="font-mono font-medium text-gray-600">
+            <span className="font-mono font-medium text-muted">
               {profile.referralCode}
             </span>
           </p>
@@ -39,17 +40,19 @@ export default function AffiliateTopbar() {
       <div className="flex items-center gap-2 sm:gap-3 shrink-0 ml-3">
         {/* Commission rate badge */}
         {profile?.commissionRate != null && (
-          <div className="hidden sm:flex items-center gap-1.5 bg-green-50 text-green-700 px-3 py-1.5 rounded-full text-xs font-semibold">
+          <div className="hidden sm:flex items-center gap-1.5 bg-green-50 dark:bg-green-500/15 text-green-700 dark:text-green-300 px-3 py-1.5 rounded-full text-xs font-semibold">
             <span>{(profile.commissionRate * 100).toFixed(0)}% commission</span>
           </div>
         )}
+
+        <ThemeToggle />
 
         {/* User avatar */}
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-white text-sm font-semibold shrink-0">
             {user?.name?.[0]?.toUpperCase() ?? "A"}
           </div>
-          <span className="text-sm font-medium text-gray-700 hidden sm:block truncate max-w-[120px]">
+          <span className="text-sm font-medium text-muted hidden sm:block truncate max-w-[120px]">
             {user?.name ?? "Affiliate"}
           </span>
         </div>

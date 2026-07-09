@@ -18,19 +18,19 @@ const STATUS_STEPS = [
 ]
 
 const STATUS_COLORS: Record<string, string> = {
-  PENDING: "bg-yellow-50 text-yellow-700",
-  CONFIRMED: "bg-blue-50 text-blue-700",
-  PROCESSING: "bg-blue-50 text-blue-700",
-  SHIPPED: "bg-purple-50 text-purple-700",
-  OUT_FOR_DELIVERY: "bg-purple-50 text-purple-700",
-  DELIVERED: "bg-green-50 text-green-700",
-  CANCELLED: "bg-red-50 text-red-600",
-  RETURN_REQUESTED: "bg-orange-50 text-orange-600",
-  RETURN_APPROVED: "bg-teal-50 text-teal-700",
-  RETURN_REJECTED: "bg-red-50 text-red-600",
-  RETURNED: "bg-gray-100 text-gray-600",
-  REFUND_INITIATED: "bg-indigo-50 text-indigo-700",
-  REFUNDED: "bg-green-50 text-green-700",
+  PENDING: "bg-yellow-50 dark:bg-yellow-500/15 text-yellow-700 dark:text-yellow-300",
+  CONFIRMED: "bg-blue-50 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300",
+  PROCESSING: "bg-blue-50 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300",
+  SHIPPED: "bg-purple-50 dark:bg-purple-500/15 text-purple-700 dark:text-purple-300",
+  OUT_FOR_DELIVERY: "bg-purple-50 dark:bg-purple-500/15 text-purple-700 dark:text-purple-300",
+  DELIVERED: "bg-green-50 dark:bg-green-500/15 text-green-700 dark:text-green-300",
+  CANCELLED: "bg-red-50 dark:bg-red-500/15 text-red-600 dark:text-red-400",
+  RETURN_REQUESTED: "bg-orange-50 dark:bg-orange-500/15 text-orange-600 dark:text-orange-400",
+  RETURN_APPROVED: "bg-teal-50 dark:bg-teal-500/15 text-teal-700 dark:text-teal-300",
+  RETURN_REJECTED: "bg-red-50 dark:bg-red-500/15 text-red-600 dark:text-red-400",
+  RETURNED: "bg-surface-2 text-muted",
+  REFUND_INITIATED: "bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-300",
+  REFUNDED: "bg-green-50 dark:bg-green-500/15 text-green-700 dark:text-green-300",
 }
 
 // Statuses where cancel is still possible
@@ -91,12 +91,12 @@ function ReturnCancelModal({
 
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h2 className="text-base font-semibold text-gray-900">
+      <div className="bg-surface rounded-2xl w-full max-w-md shadow-2xl">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+          <h2 className="text-base font-semibold text-text">
             {mode === "return" ? "Request Return" : "Cancel Order"}
           </h2>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400">
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-surface-2 text-faint">
             <XCircle size={16} />
           </button>
         </div>
@@ -110,7 +110,7 @@ function ReturnCancelModal({
 
           <div className="space-y-2">
             {reasons.map((r) => (
-              <label key={r} className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:border-primary/30 cursor-pointer transition">
+              <label key={r} className="flex items-center gap-3 p-3 rounded-xl border border-border hover:border-primary/30 cursor-pointer transition">
                 <input
                   type="radio"
                   name="reason"
@@ -119,7 +119,7 @@ function ReturnCancelModal({
                   onChange={() => setReason(r)}
                   className="accent-primary"
                 />
-                <span className="text-sm text-gray-700">{r}</span>
+                <span className="text-sm text-muted">{r}</span>
               </label>
             ))}
           </div>
@@ -127,7 +127,7 @@ function ReturnCancelModal({
           <div className="flex gap-3 pt-2">
             <button
               onClick={onClose}
-              className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition"
+              className="flex-1 py-2.5 border border-border rounded-xl text-sm text-muted hover:bg-surface-2 transition"
             >
               Never mind
             </button>
@@ -165,9 +165,9 @@ export default function OrderDetailsPage() {
     return (
       <div className="max-w-3xl mx-auto px-4 py-10 space-y-4">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="bg-white border rounded-2xl p-6 animate-pulse">
-            <div className="h-4 bg-gray-100 rounded w-1/3 mb-3" />
-            <div className="h-3 bg-gray-100 rounded w-1/2" />
+          <div key={i} className="bg-surface border rounded-2xl p-6 animate-pulse">
+            <div className="h-4 bg-surface-2 rounded w-1/3 mb-3" />
+            <div className="h-3 bg-surface-2 rounded w-1/2" />
           </div>
         ))}
       </div>
@@ -187,22 +187,22 @@ export default function OrderDetailsPage() {
       {/* Back */}
       <button
         onClick={() => router.push("/account/orders")}
-        className="flex items-center gap-2 text-sm text-muted hover:text-gray-800 transition"
+        className="flex items-center gap-2 text-sm text-muted hover:text-text transition"
       >
         <ArrowLeft size={15} /> Back to Orders
       </button>
 
       {/* Header */}
-      <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-card">
+      <div className="bg-surface border border-border rounded-2xl p-6 shadow-card">
         <div className="flex items-start justify-between flex-wrap gap-3">
           <div>
-            <h1 className="text-lg font-bold text-gray-900">Order Details</h1>
+            <h1 className="text-lg font-bold text-text">Order Details</h1>
             <p className="text-xs font-mono text-muted mt-0.5">{o.id}</p>
             <p className="text-xs text-muted mt-1">
               Placed on {new Date(o.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}
             </p>
           </div>
-          <span className={`text-xs px-3 py-1.5 rounded-full font-semibold ${STATUS_COLORS[status] ?? "bg-gray-100 text-gray-600"}`}>
+          <span className={`text-xs px-3 py-1.5 rounded-full font-semibold ${STATUS_COLORS[status] ?? "bg-surface-2 text-muted"}`}>
             {status.replace(/_/g, " ")}
           </span>
         </div>
@@ -217,10 +217,10 @@ export default function OrderDetailsPage() {
                 return (
                   <div key={s} className={`flex items-center ${!last ? "flex-1" : ""}`}>
                     <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold transition
-                      ${done ? "bg-primary text-white" : "bg-gray-100 text-gray-400"}`}>
+                      ${done ? "bg-primary text-white" : "bg-surface-2 text-faint"}`}>
                       {done ? <CheckCircle size={14} /> : i + 1}
                     </div>
-                    {!last && <div className={`flex-1 h-1 mx-1 rounded ${i < statusStep ? "bg-primary" : "bg-gray-100"}`} />}
+                    {!last && <div className={`flex-1 h-1 mx-1 rounded ${i < statusStep ? "bg-primary" : "bg-surface-2"}`} />}
                   </div>
                 )
               })}
@@ -237,53 +237,53 @@ export default function OrderDetailsPage() {
       </div>
 
       {/* Items */}
-      <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-card space-y-4">
+      <div className="bg-surface border border-border rounded-2xl p-6 shadow-card space-y-4">
         <div className="flex items-center gap-2 mb-1">
           <Package size={16} className="text-primary" />
-          <h2 className="font-semibold text-gray-900">Items ({o.items?.length ?? 0})</h2>
+          <h2 className="font-semibold text-text">Items ({o.items?.length ?? 0})</h2>
         </div>
 
         {o.items?.map((item: any) => (
-          <div key={item.id} className="flex items-center gap-4 py-3 border-t border-gray-50 first:border-0">
+          <div key={item.id} className="flex items-center gap-4 py-3 border-t border-border first:border-0">
             {(item.variant?.images?.[0]?.url || item.product?.images?.[0]?.url) ? (
               <img
                 src={cldFill(item.variant?.images?.[0]?.url || item.product.images[0].url, 200)}
                 alt={item.product.name}
-                className="w-14 h-14 object-cover rounded-xl border border-gray-100"
+                className="w-14 h-14 object-cover rounded-xl border border-border"
               />
             ) : (
-              <div className="w-14 h-14 bg-gray-100 rounded-xl flex items-center justify-center">
-                <Package size={18} className="text-gray-300" />
+              <div className="w-14 h-14 bg-surface-2 rounded-xl flex items-center justify-center">
+                <Package size={18} className="text-faint" />
               </div>
             )}
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">{item.product?.name}</p>
+              <p className="text-sm font-medium text-text truncate">{item.product?.name}</p>
               {item.variant && <p className="text-xs text-muted mt-0.5">{item.variant.name}</p>}
               <p className="text-xs text-muted mt-0.5">Qty: {item.quantity}</p>
             </div>
-            <p className="text-sm font-semibold text-gray-900">₹{(Number(item.price) * Number(item.quantity)).toLocaleString("en-IN")}</p>
+            <p className="text-sm font-semibold text-text">₹{(Number(item.price) * Number(item.quantity)).toLocaleString("en-IN")}</p>
           </div>
         ))}
       </div>
 
       {/* Price Summary */}
-      <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-card space-y-3">
-        <h2 className="font-semibold text-gray-900 mb-1">Price Summary</h2>
+      <div className="bg-surface border border-border rounded-2xl p-6 shadow-card space-y-3">
+        <h2 className="font-semibold text-text mb-1">Price Summary</h2>
         {[
           { label: "Subtotal", value: o.subtotal },
           { label: "Discount", value: o.discount, negative: true },
           { label: "Shipping", value: o.shippingCharges },
         ].map(({ label, value, negative }) =>
           value != null && Number(value) > 0 ? (
-            <div key={label} className="flex justify-between text-sm text-gray-600">
+            <div key={label} className="flex justify-between text-sm text-muted">
               <span>{label}</span>
-              <span className={negative ? "text-green-600" : ""}>
+              <span className={negative ? "text-green-600 dark:text-green-400" : ""}>
                 {negative ? "-" : ""}₹{Number(value).toLocaleString("en-IN")}
               </span>
             </div>
           ) : null
         )}
-        <div className="flex justify-between font-bold text-gray-900 pt-2 border-t border-gray-100">
+        <div className="flex justify-between font-bold text-text pt-2 border-t border-border">
           <span>Total</span>
           <span>₹{Number(o.total).toLocaleString("en-IN")}</span>
         </div>
@@ -291,14 +291,14 @@ export default function OrderDetailsPage() {
 
       {/* Delivery & Payment */}
       <div className="grid sm:grid-cols-2 gap-4">
-        <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-card">
+        <div className="bg-surface border border-border rounded-2xl p-5 shadow-card">
           <div className="flex items-center gap-2 mb-3">
             <MapPin size={15} className="text-primary" />
-            <h2 className="font-semibold text-gray-900 text-sm">Delivery Address</h2>
+            <h2 className="font-semibold text-text text-sm">Delivery Address</h2>
           </div>
           {addr ? (
-            <div className="text-sm text-gray-600 space-y-0.5 leading-relaxed">
-              <p className="font-medium text-gray-900">{addr?.name ?? addr?.fullName ?? "—"}</p>
+            <div className="text-sm text-muted space-y-0.5 leading-relaxed">
+              <p className="font-medium text-text">{addr?.name ?? addr?.fullName ?? "—"}</p>
               <p>{addr?.line1}</p>
               {addr?.line2 && <p>{addr?.line2}</p>}
               <p>{addr?.city}, {addr?.state} – {addr?.pincode}</p>
@@ -309,22 +309,22 @@ export default function OrderDetailsPage() {
           )}
         </div>
 
-        <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-card">
+        <div className="bg-surface border border-border rounded-2xl p-5 shadow-card">
           <div className="flex items-center gap-2 mb-3">
             <CreditCard size={15} className="text-primary" />
-            <h2 className="font-semibold text-gray-900 text-sm">Payment</h2>
+            <h2 className="font-semibold text-text text-sm">Payment</h2>
           </div>
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-muted">Method</span>
-              <span className="text-gray-700 font-medium capitalize">
+              <span className="text-muted font-medium capitalize">
                 {o.paymentMethod?.replace(/_/g, " ") ?? "—"}
               </span>
             </div>
             {o.payment && (
               <div className="flex justify-between">
                 <span className="text-muted">Status</span>
-                <span className={`font-medium ${o.payment.status === "SUCCESS" ? "text-green-600" : "text-red-500"}`}>
+                <span className={`font-medium ${o.payment.status === "SUCCESS" ? "text-green-600 dark:text-green-400" : "text-red-500 dark:text-red-400"}`}>
                   {o.payment.status}
                 </span>
               </div>
@@ -335,13 +335,13 @@ export default function OrderDetailsPage() {
 
       {/* Actions */}
       {(canCancel || canReturn) && (
-        <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-card">
-          <h2 className="font-semibold text-gray-900 text-sm mb-3">Order Actions</h2>
+        <div className="bg-surface border border-border rounded-2xl p-5 shadow-card">
+          <h2 className="font-semibold text-text text-sm mb-3">Order Actions</h2>
           <div className="flex flex-wrap gap-3">
             {canCancel && (
               <button
                 onClick={() => setModal("cancel")}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-red-200 text-red-600 text-sm font-medium hover:bg-red-50 transition"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-red-200 dark:border-red-500/30 text-red-600 dark:text-red-400 text-sm font-medium hover:bg-red-50 dark:hover:bg-red-500/15 transition"
               >
                 <XCircle size={15} /> Cancel Order
               </button>
@@ -349,7 +349,7 @@ export default function OrderDetailsPage() {
             {canReturn && (
               <button
                 onClick={() => setModal("return")}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-orange-200 text-orange-600 text-sm font-medium hover:bg-orange-50 transition"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-orange-200 dark:border-orange-500/30 text-orange-600 dark:text-orange-400 text-sm font-medium hover:bg-orange-50 dark:hover:bg-orange-500/15 transition"
               >
                 <RotateCcw size={15} /> Request Return
               </button>

@@ -87,10 +87,10 @@ export default function PreOrderCheckoutPage() {
   }
 
   if (loading) {
-    return <div className="max-w-2xl mx-auto px-4 py-16 text-center text-gray-400">Loading…</div>
+    return <div className="max-w-2xl mx-auto px-4 py-16 text-center text-faint">Loading…</div>
   }
   if (!product || !product.preOrderEnabled) {
-    return <div className="max-w-2xl mx-auto px-4 py-16 text-center text-gray-500">Pre-order not available for this product.</div>
+    return <div className="max-w-2xl mx-auto px-4 py-16 text-center text-muted">Pre-order not available for this product.</div>
   }
 
   return (
@@ -101,40 +101,40 @@ export default function PreOrderCheckoutPage() {
       </div>
 
       {/* Product */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-4 flex gap-4">
+      <div className="bg-surface border border-border rounded-2xl p-4 flex gap-4">
         <img
           src={cldFill(variant?.images?.[0]?.url || product.images?.[0]?.url || "/placeholder.png", 200)}
           alt={product.name}
-          className="w-20 h-20 object-cover rounded-xl border border-gray-100"
+          className="w-20 h-20 object-cover rounded-xl border border-border"
         />
         <div className="flex-1">
-          <p className="font-semibold text-gray-900">{product.name}</p>
-          {variant && <p className="text-xs text-gray-400 mt-0.5">{variant.name}</p>}
-          <p className="text-sm text-gray-600 mt-1">{inr(unit)} each</p>
+          <p className="font-semibold text-text">{product.name}</p>
+          {variant && <p className="text-xs text-faint mt-0.5">{variant.name}</p>}
+          <p className="text-sm text-muted mt-1">{inr(unit)} each</p>
           {product.preOrderNote && <p className="text-xs text-primary mt-1">{product.preOrderNote}</p>}
         </div>
-        <div className="flex items-center border border-gray-200 rounded-xl overflow-hidden h-9">
-          <button onClick={() => setQuantity((q) => Math.max(1, q - 1))} className="px-3 text-gray-500">−</button>
+        <div className="flex items-center border border-border rounded-xl overflow-hidden h-9">
+          <button onClick={() => setQuantity((q) => Math.max(1, q - 1))} className="px-3 text-muted">−</button>
           <span className="px-3 text-sm font-semibold">{quantity}</span>
-          <button onClick={() => setQuantity((q) => Math.min(maxQty, q + 1))} className="px-3 text-gray-500">+</button>
+          <button onClick={() => setQuantity((q) => Math.min(maxQty, q + 1))} className="px-3 text-muted">+</button>
         </div>
       </div>
 
       {/* Address */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-4 space-y-3">
-        <div className="flex items-center gap-2 text-gray-900 font-semibold text-sm">
+      <div className="bg-surface border border-border rounded-2xl p-4 space-y-3">
+        <div className="flex items-center gap-2 text-text font-semibold text-sm">
           <MapPin size={16} /> Delivery address
         </div>
         <CheckoutAddressSection />
       </div>
 
       {/* Summary */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-4 space-y-2 text-sm">
-        <div className="flex justify-between text-gray-600"><span>Subtotal ({quantity})</span><span>{inr(unit * quantity)}</span></div>
-        <div className="flex justify-between text-gray-600"><span>Shipping</span><span>{inr(SHIPPING)}</span></div>
-        <div className="flex justify-between text-gray-900 font-semibold border-t border-gray-100 pt-2"><span>Order total</span><span>{inr(total)}</span></div>
+      <div className="bg-surface border border-border rounded-2xl p-4 space-y-2 text-sm">
+        <div className="flex justify-between text-muted"><span>Subtotal ({quantity})</span><span>{inr(unit * quantity)}</span></div>
+        <div className="flex justify-between text-muted"><span>Shipping</span><span>{inr(SHIPPING)}</span></div>
+        <div className="flex justify-between text-text font-semibold border-t border-border pt-2"><span>Order total</span><span>{inr(total)}</span></div>
         <div className="flex justify-between text-primary font-semibold"><span>Pay now (booking)</span><span>{inr(booking)}</span></div>
-        <div className="flex justify-between text-gray-500"><span>Balance later</span><span>{inr(balance)}</span></div>
+        <div className="flex justify-between text-muted"><span>Balance later</span><span>{inr(balance)}</span></div>
       </div>
 
       <button
@@ -145,7 +145,7 @@ export default function PreOrderCheckoutPage() {
         {placing && <Loader2 size={16} className="animate-spin" />}
         {placing ? "Processing…" : `Pay ₹${booking.toLocaleString("en-IN")} & Pre-Order`}
       </button>
-      <p className="text-xs text-gray-400 text-center">
+      <p className="text-xs text-faint text-center">
         You'll receive a secure link to pay the remaining {inr(balance)} when the item is back in stock.
       </p>
     </div>

@@ -33,7 +33,7 @@ export default function MobileHeroBanner() {
   }, [banners.length, next])
 
   if (loading) {
-    return <div className="w-full h-[45vh] bg-gray-100 animate-pulse" />
+    return <div className="w-full h-[45vh] bg-surface-2 animate-pulse" />
   }
 
   if (!banners.length) return <HeroFallback />

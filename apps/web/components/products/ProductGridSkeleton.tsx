@@ -4,7 +4,7 @@ export default function ProductGridSkeleton() {
       {Array.from({ length: 8 }).map((_, i) => (
         <div
           key={i}
-          className="bg-gray-100 animate-pulse h-[300px] rounded-xl"
+          className="bg-surface-2 animate-pulse h-[300px] rounded-xl"
         />
       ))}
     </div>

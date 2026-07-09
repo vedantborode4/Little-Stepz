@@ -54,10 +54,10 @@ export default function AdminOrderTimeline({ status, createdAt }: Props) {
               <div
                 className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center mt-0.5 ${
                   isActive
-                    ? "border-primary bg-white"
+                    ? "border-primary bg-surface"
                     : isDone
                     ? "border-primary bg-primary"
-                    : "border-gray-300 bg-white"
+                    : "border-border bg-surface"
                 }`}
               >
                 {isDone && (
@@ -67,16 +67,16 @@ export default function AdminOrderTimeline({ status, createdAt }: Props) {
                 )}
               </div>
               {!isLast && (
-                <div className={`w-0.5 flex-1 my-1 ${isDone || isActive ? "bg-gray-200" : "bg-gray-200"}`} style={{ minHeight: 32 }} />
+                <div className={`w-0.5 flex-1 my-1 ${isDone || isActive ? "bg-surface-3" : "bg-surface-3"}`} style={{ minHeight: 32 }} />
               )}
             </div>
 
             {/* Content */}
             <div className={`pb-5 ${isLast ? "pb-0" : ""}`}>
-              <p className={`text-sm font-semibold ${isActive || isDone ? "text-gray-900" : "text-gray-400"}`}>
+              <p className={`text-sm font-semibold ${isActive || isDone ? "text-text" : "text-faint"}`}>
                 {step.label}
               </p>
-              <p className={`text-xs mt-0.5 ${isActive || isDone ? "text-gray-500" : "text-gray-300"}`}>
+              <p className={`text-xs mt-0.5 ${isActive || isDone ? "text-muted" : "text-faint"}`}>
                 {step.dateLabel(createdAt)}
               </p>
             </div>

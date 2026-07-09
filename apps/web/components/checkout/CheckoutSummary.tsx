@@ -31,13 +31,13 @@ export default function CheckoutSummary({
   const canPlace = isValid && !placingOrder
 
   return (
-    <div className="bg-white border border-gray-100 rounded-2xl shadow-card p-6 space-y-5 h-fit sticky top-6">
+    <div className="bg-surface border border-border rounded-2xl shadow-card p-6 space-y-5 h-fit sticky top-6">
       {/* Header */}
       <div className="flex items-center gap-2.5">
         <div className="p-2 bg-primary/10 rounded-xl">
           <ShoppingBag size={15} className="text-primary" />
         </div>
-        <h2 className="text-base font-semibold text-gray-900">Order Summary</h2>
+        <h2 className="text-base font-semibold text-text">Order Summary</h2>
       </div>
 
       {/* Coupon */}
@@ -46,42 +46,42 @@ export default function CheckoutSummary({
       {/* Breakdown */}
       <div className="space-y-3">
         <div className="flex justify-between text-sm">
-          <span className="text-gray-500">Subtotal</span>
-          <span className="font-medium text-gray-900">₹{subtotal?.toLocaleString("en-IN")}</span>
+          <span className="text-muted">Subtotal</span>
+          <span className="font-medium text-text">₹{subtotal?.toLocaleString("en-IN")}</span>
         </div>
 
         {couponCode && (
           <div className="flex justify-between text-sm">
-            <span className="flex items-center gap-1.5 text-green-600">
+            <span className="flex items-center gap-1.5 text-green-600 dark:text-green-400">
               <Tag size={12} />
               Coupon ({couponCode})
             </span>
-            <span className="font-medium text-green-600">−₹{discount?.toLocaleString("en-IN")}</span>
+            <span className="font-medium text-green-600 dark:text-green-400">−₹{discount?.toLocaleString("en-IN")}</span>
           </div>
         )}
 
         <div className="flex justify-between text-sm">
-          <span className="flex items-center gap-1.5 text-gray-500">
+          <span className="flex items-center gap-1.5 text-muted">
             <Truck size={13} />
             Shipping
           </span>
-          <span className="font-medium text-green-600">Free</span>
+          <span className="font-medium text-green-600 dark:text-green-400">Free</span>
         </div>
       </div>
 
       {/* Total */}
-      <div className="border-t border-gray-100 pt-4 flex justify-between items-center">
-        <span className="font-semibold text-gray-900">Total</span>
+      <div className="border-t border-border pt-4 flex justify-between items-center">
+        <span className="font-semibold text-text">Total</span>
         <span className="text-xl font-bold text-primary">₹{total?.toLocaleString("en-IN")}</span>
       </div>
 
       {/* Payment method badge */}
-      <div className="bg-gray-50 border border-gray-100 rounded-xl px-3.5 py-2.5 flex items-center justify-between">
-        <span className="flex items-center gap-1.5 text-xs text-gray-500">
+      <div className="bg-surface-2 border border-border rounded-xl px-3.5 py-2.5 flex items-center justify-between">
+        <span className="flex items-center gap-1.5 text-xs text-muted">
           <CreditCard size={13} />
           Payment
         </span>
-        <span className="text-xs font-semibold text-gray-700">
+        <span className="text-xs font-semibold text-muted">
           {paymentMethod === "COD" ? "Cash on Delivery" : "Online (Razorpay)"}
         </span>
       </div>
@@ -103,18 +103,18 @@ export default function CheckoutSummary({
       </button>
 
       {!resolvedAddressId && (
-        <p className="text-xs text-amber-600 text-center bg-amber-50 border border-amber-100 rounded-lg py-2 px-3">
+        <p className="text-xs text-amber-600 dark:text-amber-400 text-center bg-amber-50 dark:bg-amber-500/15 border border-amber-100 dark:border-amber-500/20 rounded-lg py-2 px-3">
           Please select a delivery address to continue.
         </p>
       )}
 
       {!isValid && (
-        <p className="text-xs text-red-500 text-center bg-red-50 border border-red-100 rounded-lg py-2 px-3">
+        <p className="text-xs text-red-500 dark:text-red-400 text-center bg-red-50 dark:bg-red-500/15 border border-red-100 dark:border-red-500/20 rounded-lg py-2 px-3">
           Cart updated. Please review before placing order.
         </p>
       )}
 
-      <p className="text-[11px] text-center text-gray-400">
+      <p className="text-[11px] text-center text-faint">
         🔒 Secure & encrypted checkout
       </p>
     </div>

@@ -16,11 +16,11 @@ export default function AdminEditProductPage() {
       .catch(() => router.push("/admin/products"))
   }, [])
 
-  if (!product) return <div className="p-10 text-center text-gray-400">Loading…</div>
+  if (!product) return <div className="p-10 text-center text-faint">Loading…</div>
 
   return (
     <div className="space-y-5 sm:space-y-8">
-      <h1 className="text-lg sm:text-2xl font-bold text-gray-900">Edit Product</h1>
+      <h1 className="text-lg sm:text-2xl font-bold text-text">Edit Product</h1>
       <ProductForm mode="edit" initialData={product} />
     </div>
   )

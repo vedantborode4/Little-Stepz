@@ -11,21 +11,21 @@ import {
 } from "lucide-react"
 
 const STATUS_META: Record<string, { label: string; color: string; icon: any }> = {
-  PENDING:          { label: "Pending",           color: "bg-amber-50 text-amber-700 border-amber-200",     icon: Clock },
-  CONFIRMED:        { label: "Confirmed",         color: "bg-blue-50 text-blue-700 border-blue-200",        icon: CheckCircle },
-  PROCESSING:       { label: "Processing",        color: "bg-blue-50 text-blue-700 border-blue-200",        icon: Package },
-  SHIPPED:          { label: "Shipped",           color: "bg-violet-50 text-violet-700 border-violet-200",  icon: Truck },
-  OUT_FOR_DELIVERY: { label: "Out for Delivery",  color: "bg-violet-50 text-violet-700 border-violet-200",  icon: Truck },
-  DELIVERED:        { label: "Delivered",         color: "bg-green-50 text-green-700 border-green-200",     icon: CheckCircle },
-  CANCELLED:        { label: "Cancelled",         color: "bg-red-50 text-red-600 border-red-200",           icon: XCircle },
-  RETURN_REQUESTED: { label: "Return Requested",  color: "bg-orange-50 text-orange-600 border-orange-200",  icon: RotateCcw },
-  RETURN_APPROVED:  { label: "Return Approved",   color: "bg-teal-50 text-teal-700 border-teal-200",        icon: RotateCcw },
-  RETURNED:         { label: "Returned",          color: "bg-gray-100 text-gray-600 border-gray-200",       icon: RotateCcw },
-  REFUNDED:         { label: "Refunded",          color: "bg-green-50 text-green-700 border-green-200",     icon: CheckCircle },
+  PENDING:          { label: "Pending",           color: "bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-500/30",     icon: Clock },
+  CONFIRMED:        { label: "Confirmed",         color: "bg-blue-50 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-500/30",        icon: CheckCircle },
+  PROCESSING:       { label: "Processing",        color: "bg-blue-50 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-500/30",        icon: Package },
+  SHIPPED:          { label: "Shipped",           color: "bg-violet-50 dark:bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-200 dark:border-violet-500/30",  icon: Truck },
+  OUT_FOR_DELIVERY: { label: "Out for Delivery",  color: "bg-violet-50 dark:bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-200 dark:border-violet-500/30",  icon: Truck },
+  DELIVERED:        { label: "Delivered",         color: "bg-green-50 dark:bg-green-500/15 text-green-700 dark:text-green-300 border-green-200 dark:border-green-500/30",     icon: CheckCircle },
+  CANCELLED:        { label: "Cancelled",         color: "bg-red-50 dark:bg-red-500/15 text-red-600 dark:text-red-400 border-red-200 dark:border-red-500/30",           icon: XCircle },
+  RETURN_REQUESTED: { label: "Return Requested",  color: "bg-orange-50 dark:bg-orange-500/15 text-orange-600 dark:text-orange-400 border-orange-200 dark:border-orange-500/30",  icon: RotateCcw },
+  RETURN_APPROVED:  { label: "Return Approved",   color: "bg-teal-50 dark:bg-teal-500/15 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-500/30",        icon: RotateCcw },
+  RETURNED:         { label: "Returned",          color: "bg-surface-2 text-muted border-border",       icon: RotateCcw },
+  REFUNDED:         { label: "Refunded",          color: "bg-green-50 dark:bg-green-500/15 text-green-700 dark:text-green-300 border-green-200 dark:border-green-500/30",     icon: CheckCircle },
 }
 
 function StatusBadge({ status }: { status: string }) {
-  const meta = STATUS_META[status] ?? { label: status, color: "bg-gray-100 text-gray-600 border-gray-200", icon: AlertCircle }
+  const meta = STATUS_META[status] ?? { label: status, color: "bg-surface-2 text-muted border-border", icon: AlertCircle }
   const Icon = meta.icon
   return (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${meta.color}`}>
@@ -37,21 +37,21 @@ function StatusBadge({ status }: { status: string }) {
 
 function OrderSkeleton() {
   return (
-    <div className="bg-white border border-gray-100 rounded-2xl p-5 animate-pulse">
+    <div className="bg-surface border border-border rounded-2xl p-5 animate-pulse">
       <div className="flex items-start justify-between mb-4">
         <div className="space-y-2">
-          <div className="h-3.5 bg-gray-100 rounded w-40" />
-          <div className="h-3 bg-gray-100 rounded w-24" />
+          <div className="h-3.5 bg-surface-2 rounded w-40" />
+          <div className="h-3 bg-surface-2 rounded w-24" />
         </div>
-        <div className="h-6 bg-gray-100 rounded-full w-20" />
+        <div className="h-6 bg-surface-2 rounded-full w-20" />
       </div>
       <div className="flex gap-3 mb-4">
-        <div className="w-14 h-14 bg-gray-100 rounded-xl" />
-        <div className="w-14 h-14 bg-gray-100 rounded-xl" />
+        <div className="w-14 h-14 bg-surface-2 rounded-xl" />
+        <div className="w-14 h-14 bg-surface-2 rounded-xl" />
       </div>
-      <div className="flex justify-between items-center pt-3 border-t border-gray-50">
-        <div className="h-3 bg-gray-100 rounded w-20" />
-        <div className="h-3 bg-gray-100 rounded w-16" />
+      <div className="flex justify-between items-center pt-3 border-t border-border">
+        <div className="h-3 bg-surface-2 rounded w-20" />
+        <div className="h-3 bg-surface-2 rounded w-16" />
       </div>
     </div>
   )
@@ -67,8 +67,8 @@ export default function OrdersPage() {
       <div className="max-w-2xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">My Orders</h1>
-          <p className="text-sm text-gray-500 mt-1">Track and manage your purchases</p>
+          <h1 className="text-2xl font-bold text-text">My Orders</h1>
+          <p className="text-sm text-muted mt-1">Track and manage your purchases</p>
         </div>
 
         {/* Loading */}
@@ -84,8 +84,8 @@ export default function OrdersPage() {
             <div className="w-20 h-20 bg-primary/5 rounded-full flex items-center justify-center mb-4">
               <ShoppingBag size={32} className="text-primary/60" />
             </div>
-            <h2 className="text-lg font-semibold text-gray-800 mb-1">No orders yet</h2>
-            <p className="text-sm text-gray-500 mb-6">When you place an order, it'll show up here.</p>
+            <h2 className="text-lg font-semibold text-text mb-1">No orders yet</h2>
+            <p className="text-sm text-muted mb-6">When you place an order, it'll show up here.</p>
             <Link
               href="/products"
               className="px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-medium hover:opacity-90 transition"
@@ -112,16 +112,16 @@ export default function OrdersPage() {
                 <Link
                   key={order.id}
                   href={`/account/orders/${order.id}`}
-                  className="group block bg-white border border-gray-100 rounded-2xl p-5 hover:border-primary/30 hover:shadow-sm transition-all duration-200"
+                  className="group block bg-surface border border-border rounded-2xl p-5 hover:border-primary/30 hover:shadow-sm transition-all duration-200"
                 >
                   {/* Top row */}
                   <div className="flex items-start justify-between gap-3 mb-4">
                     <div>
-                      <p className="text-xs text-gray-400 font-medium mb-0.5">ORDER</p>
-                      <p className="font-mono text-xs text-gray-600 truncate max-w-[180px]">
+                      <p className="text-xs text-faint font-medium mb-0.5">ORDER</p>
+                      <p className="font-mono text-xs text-muted truncate max-w-[180px]">
                         #{order.id.slice(0, 8).toUpperCase()}
                       </p>
-                      <p className="text-xs text-gray-400 mt-1">{date}</p>
+                      <p className="text-xs text-faint mt-1">{date}</p>
                     </div>
                     <StatusBadge status={order.status} />
                   </div>
@@ -134,33 +134,33 @@ export default function OrdersPage() {
                           key={idx}
                           src={cldFill(url, 160)}
                           alt=""
-                          className="w-14 h-14 object-cover rounded-xl border border-gray-100"
+                          className="w-14 h-14 object-cover rounded-xl border border-border"
                         />
                       ))}
                       {itemCount > 3 && (
-                        <div className="w-14 h-14 bg-gray-50 border border-gray-100 rounded-xl flex items-center justify-center">
-                          <span className="text-xs font-semibold text-gray-400">+{itemCount - 3}</span>
+                        <div className="w-14 h-14 bg-surface-2 border border-border rounded-xl flex items-center justify-center">
+                          <span className="text-xs font-semibold text-faint">+{itemCount - 3}</span>
                         </div>
                       )}
                     </div>
                   ) : (
                     <div className="flex gap-2 mb-4">
                       {Array.from({ length: Math.min(itemCount || 1, 2) }).map((_, i) => (
-                        <div key={i} className="w-14 h-14 bg-gray-50 border border-dashed border-gray-200 rounded-xl flex items-center justify-center">
-                          <Package size={16} className="text-gray-300" />
+                        <div key={i} className="w-14 h-14 bg-surface-2 border border-dashed border-border rounded-xl flex items-center justify-center">
+                          <Package size={16} className="text-faint" />
                         </div>
                       ))}
                     </div>
                   )}
 
                   {/* Bottom row */}
-                  <div className="flex items-center justify-between pt-3 border-t border-gray-50">
+                  <div className="flex items-center justify-between pt-3 border-t border-border">
                     <div className="flex items-center gap-3">
-                      <span className="text-sm text-gray-500">
+                      <span className="text-sm text-muted">
                         {itemCount} {itemCount === 1 ? "item" : "items"}
                       </span>
-                      <span className="text-gray-200">•</span>
-                      <span className="text-sm font-semibold text-gray-900">
+                      <span className="text-faint">•</span>
+                      <span className="text-sm font-semibold text-text">
                         ₹{Number(order.total).toLocaleString("en-IN")}
                       </span>
                     </div>

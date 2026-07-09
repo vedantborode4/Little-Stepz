@@ -14,7 +14,7 @@ export default function FilterSidebar() {
     setFilters({ sort: undefined, priceMin: undefined, priceMax: undefined, page: 1 })
 
   return (
-    <aside className="hidden lg:block bg-[#F6F6F6] rounded-xl p-5  h-fit">
+    <aside className="hidden lg:block bg-surface-2 rounded-xl p-5  h-fit">
 
       <FilterSection title="Category">
         <CategoryFilter />
@@ -38,7 +38,7 @@ export default function FilterSidebar() {
         </button>
         <button
           onClick={clear}
-          className="w-full bg-white border border-gray-200 text-gray-600 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition"
+          className="w-full bg-surface border border-border text-muted py-2.5 rounded-xl text-sm font-medium hover:bg-surface-2 transition"
         >
           Clear
         </button>
