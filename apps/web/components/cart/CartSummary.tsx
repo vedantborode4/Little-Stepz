@@ -4,6 +4,7 @@ import { useCartStore } from "../../store/useCartStore"
 import Link from "next/link"
 import { ArrowRight, ShoppingBag, Tag } from "lucide-react"
 import CouponBox from "./CouponBox"
+import PaymentBadges from "../common/PaymentBadges"
 
 export default function CartSummary() {
   const { subtotal, total, discount, couponCode, items } = useCartStore()
@@ -59,9 +60,12 @@ export default function CartSummary() {
         <ArrowRight size={16} />
       </Link>
 
-      <p className="text-[11px] text-center text-faint">
-        Secure checkout powered by Razorpay
-      </p>
+      <div className="space-y-2">
+        <p className="text-[11px] text-center text-faint">
+          Secure checkout powered by Razorpay
+        </p>
+        <PaymentBadges className="justify-center" />
+      </div>
     </div>
   )
 }

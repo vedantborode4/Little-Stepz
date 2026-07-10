@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useCartStore } from "../../store/useCartStore"
 import { toast } from "sonner"
 import { Loader2, Tag, X, TicketPercent } from "lucide-react"
+import { friendlyError } from "../../lib/errorMessages"
 
 export default function CouponBox() {
   const [code, setCode] = useState("")
@@ -23,8 +24,8 @@ export default function CouponBox() {
       await applyCoupon(code.trim())
       toast.success("Coupon applied 🎉")
       setCode("")
-    } catch (e: any) {
-      toast.error(e?.response?.data?.message || e?.message || "Invalid coupon")
+    } catch (e) {
+      toast.error(friendlyError(e, "This code is invalid or has expired."))
     }
   }
 

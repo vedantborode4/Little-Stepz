@@ -6,7 +6,7 @@ import { getDisplayPrices } from "../../../lib/pricing"
 import PriceTag from "../PriceTag"
 import ProductShare from "../ProductShare"
 import { RICH_TEXT_CLASS } from "../../../lib/richText"
-import { Heart, Loader2, Zap, ShoppingCart, Star, Shield, Truck, Clock } from "lucide-react"
+import { Heart, Loader2, Zap, ShoppingCart, Star, Shield, Truck, Clock, ShieldCheck } from "lucide-react"
 import { useCartStore } from "../../../store/useCartStore"
 import { useWishlistStore } from "../../../store/useWishlistStore"
 import { useReviewStore } from "../../../store/useReviewStore"
@@ -15,6 +15,7 @@ import { findVariant, type Selection } from "../../../lib/variants/matrix"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { toast } from "sonner"
+import { friendlyError } from "../../../lib/errorMessages"
 
 export default function ProductInfo({
   product,
@@ -101,7 +102,7 @@ export default function ProductInfo({
       await addItem({ productId: product.id, variantId: selectedVariant?.id, quantity })
       toast.success("Added to cart")
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to add to cart")
+      toast.error(friendlyError(err, "Failed to add to cart"))
     } finally {
       setIsAdding(false)
     }
@@ -114,7 +115,7 @@ export default function ProductInfo({
       await addItem({ productId: product.id, variantId: selectedVariant?.id, quantity })
       router.push("/checkout")
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to proceed to checkout")
+      toast.error(friendlyError(err, "Failed to proceed to checkout"))
       setIsBuyingNow(false)
     }
   }
@@ -329,6 +330,17 @@ export default function ProductInfo({
               <p className="text-[10px] text-faint">7-day return policy</p>
             </div>
           </div>
+        </div>
+
+        {/* Authenticity / unboxing note */}
+        <div className="flex items-center gap-2 text-xs text-muted">
+          <ShieldCheck size={14} className="text-secondary flex-shrink-0" />
+          <span>
+            Unboxing video required for damage claims —{" "}
+            <Link href="/unboxing-policy" className="text-primary font-medium hover:underline">
+              Read our policy
+            </Link>
+          </span>
         </div>
 
         {/* Description */}

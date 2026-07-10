@@ -5,6 +5,7 @@ import Link from "next/link"
 import { Heart, ArrowRight } from "lucide-react"
 import { WishlistService } from "../../lib/services/wishlist.service"
 import { useWishlistStore } from "../../store/useWishlistStore"
+import { getAccessToken } from "../../lib/utils/token"
 import WishlistItem from "../../components/wishlist/WishlistItem"
 
 function WishlistSkeleton() {
@@ -35,10 +36,25 @@ export default function WishlistPage() {
   useEffect(() => {
     const load = async () => {
       setLoading(true)
-      await useWishlistStore.getState().fetchWishlist()
-      const data = await WishlistService.getWishlist()
-      setItems(data.items)
-      setLoading(false)
+      try {
+        // Guests have no server-side wishlist — don't fire a guaranteed 401.
+        if (!getAccessToken()) {
+          setItems([])
+          return
+        }
+        await useWishlistStore.getState().fetchWishlist()
+        const data = await WishlistService.getWishlist()
+        setItems(data.items)
+      } catch (err: any) {
+        if (err?.response?.status !== 401) {
+          console.error(
+            `[wishlist] Failed to load wishlist: ${err?.response?.data?.message ?? err?.message ?? "unknown error"}`
+          )
+        }
+        setItems([])
+      } finally {
+        setLoading(false)
+      }
     }
     load()
   // eslint-disable-next-line react-hooks/exhaustive-deps

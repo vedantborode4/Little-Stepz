@@ -53,7 +53,7 @@ export default function Home() {
 
         {/* Category spotlights — 2-column, self-hide when empty */}
         <CategorySection slug="stunt-cars" title="Stunt Cars" subtitle="Flips, spins and off-road tricks" />
-        <CategorySection slug="rc-crawlers" title="RC Crawlers" subtitle="Conquer any terrain" />
+        <CategorySection slug="crawlers" title="RC Crawlers" subtitle="Conquer any terrain" />
       </div>
 
       {/* 7. About Us — red band */}

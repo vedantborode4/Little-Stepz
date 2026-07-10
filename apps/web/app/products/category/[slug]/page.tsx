@@ -118,8 +118,6 @@ export default function CategoryProductsPage() {
       </p>
     )
 
-  const fallbackCategory = tree?.[0]
-
   if (!products.length)
     return (
       <div className="max-w-2xl mx-auto text-center py-16 space-y-6">
@@ -137,14 +135,12 @@ export default function CategoryProductsPage() {
             View all products
           </Link>
 
-          {fallbackCategory && (
-            <Link
-              href={`/products/category/${fallbackCategory.slug}`}
-              className="px-5 py-2.5 rounded-lg border text-sm font-medium hover:bg-surface-2 transition"
-            >
-              Browse other categories
-            </Link>
-          )}
+          <Link
+            href="/"
+            className="px-5 py-2.5 rounded-lg border border-border text-sm font-medium hover:bg-surface-2 transition"
+          >
+            Browse other categories
+          </Link>
 
         </div>
       </div>

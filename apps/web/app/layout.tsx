@@ -8,6 +8,7 @@ import Navbar from "../components/layout/Navbar"
 import Footer from "../components/layout/Footer"
 import NumberInputWheelGuard from "../components/common/NumberInputWheelGuard"
 import ThemedToaster from "../components/common/ThemedToaster"
+import LoadingScreen from "../components/common/LoadingScreen"
 
 // Display headings
 const anton = Anton({
@@ -54,6 +55,7 @@ export default function RootLayout({
         <ThemeProvider>
           <AuthProvider>
             <NumberInputWheelGuard />
+            <LoadingScreen />
             <Navbar />
             <main>{children}</main>
             <Footer />

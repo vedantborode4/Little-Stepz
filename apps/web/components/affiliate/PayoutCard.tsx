@@ -6,6 +6,7 @@ import { AffiliateService } from "../../lib/services/affiliate.service"
 import { toast } from "sonner"
 import { affiliatePayoutDetailsSchema } from "@repo/zod-schema/index"
 import { Wallet, Pencil, ArrowDownToLine } from "lucide-react"
+import { friendlyError } from "../../lib/errorMessages"
 
 interface FormState {
   accountHolder: string
@@ -52,7 +53,7 @@ export default function PayoutCard() {
       await fetchAffiliate()
       setEditing(false)
     } catch (e: any) {
-      toast.error(e?.response?.data?.message || "Failed to update payout")
+      toast.error(friendlyError(e, "Failed to update payout"))
     } finally {
       setSaving(false)
     }
@@ -69,7 +70,7 @@ export default function PayoutCard() {
       setAmount("")
       await fetchAffiliate()
     } catch (e: any) {
-      toast.error(e?.response?.data?.message || "Withdrawal failed")
+      toast.error(friendlyError(e, "Withdrawal failed"))
     } finally {
       setWithdrawing(false)
     }

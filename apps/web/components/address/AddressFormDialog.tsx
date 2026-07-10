@@ -5,6 +5,7 @@ import { AddressService } from "../../lib/services/address.service"
 import { createAddressSchema } from "@repo/zod-schema/index"
 import { toast } from "sonner"
 import { X, Plus, Loader2 } from "lucide-react"
+import { friendlyError } from "../../lib/errorMessages"
 
 const FIELDS: { key: string; label: string; placeholder: string }[] = [
   { key: "name", label: "Full Name", placeholder: "Recipient's full name" },
@@ -51,7 +52,7 @@ export default function AddressFormDialog({ onCreated }: any) {
       setOpen(false)
       onCreated()
     } catch (e: any) {
-      toast.error(e?.response?.data?.message || "Failed")
+      toast.error(friendlyError(e, "Failed"))
     } finally {
       setLoading(false)
     }

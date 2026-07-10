@@ -3,13 +3,24 @@
 import GuestGuard from "../../../components/guard/GuestGuard"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { SignupData, SignupSchema } from "@repo/zod-schema/index"
+import { z } from "zod"
+import { SignupSchema } from "@repo/zod-schema/index"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { useAuth } from "../../../hooks/use-auth"
 import { AuthService } from "../../../lib/services/auth.service"
 import { AuthCard, Button, Input } from "@repo/ui/index"
 import PasswordInput from "../../../components/common/PasswordInput"
+import { friendlyError } from "../../../lib/errorMessages"
+
+const SignupFormSchema = SignupSchema.extend({
+  confirmPassword: z.string(),
+}).refine((d) => d.password === d.confirmPassword, {
+  message: "Passwords do not match",
+  path: ["confirmPassword"],
+})
+
+type SignupFormData = z.infer<typeof SignupFormSchema>
 
 export default function SignUpPage() {
   const router = useRouter()
@@ -21,19 +32,19 @@ export default function SignUpPage() {
     setError,
     clearErrors,
     formState: { errors, isSubmitting },
-  } = useForm<SignupData>({
-    resolver: zodResolver(SignupSchema),
+  } = useForm<SignupFormData>({
+    resolver: zodResolver(SignupFormSchema),
     mode: "onChange",
   })
 
-  const onSubmit = async (data: SignupData) => {
+  const onSubmit = async (data: SignupFormData) => {
     try {
-      const res = await AuthService.signUp(data)
+      const { confirmPassword: _confirmPassword, ...signupData } = data
+      const res = await AuthService.signUp(signupData)
       await login(res)
       router.push("/")
     } catch (error: any) {
-      const message =
-        error?.response?.data?.message || "Signup failed"
+      const message = friendlyError(error, "Signup failed")
 
       if (message.toLowerCase().includes("user already exists")) {
         setError("email", {
@@ -91,9 +102,28 @@ export default function SignUpPage() {
                 onChange: () => clearErrors("password"),
               })}
             />
-            {errors.password && (
+            {errors.password ? (
               <p className="text-sm text-red-500 dark:text-red-400">
                 {errors.password.message}
+              </p>
+            ) : (
+              <p className="text-xs text-muted">
+                At least 8 characters, with an uppercase letter, a lowercase
+                letter, and a number.
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-1">
+            <PasswordInput
+              placeholder="Confirm Password"
+              {...register("confirmPassword", {
+                onChange: () => clearErrors("confirmPassword"),
+              })}
+            />
+            {errors.confirmPassword && (
+              <p className="text-sm text-red-500 dark:text-red-400">
+                {errors.confirmPassword.message}
               </p>
             )}
           </div>

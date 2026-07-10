@@ -5,6 +5,7 @@ import { updateAddressSchema } from "@repo/zod-schema/index"
 import { AddressService } from "../../lib/services/address.service"
 import { toast } from "sonner"
 import { X, Pencil, Loader2 } from "lucide-react"
+import { friendlyError } from "../../lib/errorMessages"
 
 const FIELDS = ["name", "phone", "address", "city", "state", "pincode", "country"]
 const LABELS: Record<string, string> = {
@@ -44,7 +45,7 @@ export default function EditAddressDialog({ address, onUpdated }: any) {
       setOpen(false)
       onUpdated()
     } catch (e: any) {
-      toast.error(e?.response?.data?.message || "Update failed")
+      toast.error(friendlyError(e, "Update failed"))
     } finally {
       setLoading(false)
     }

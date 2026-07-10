@@ -82,7 +82,7 @@ export default function ProductCard({ product }: { product: Product }) {
       className="group relative h-full flex flex-col bg-surface rounded-xl border border-border shadow-card hover:shadow-[0_18px_40px_-14px_rgba(0,0,0,0.22)] hover:border-primary/20 transition-[transform,box-shadow,border-color] duration-150 ease-out will-change-transform overflow-hidden"
     >
       {/* IMAGE */}
-      <div className="relative w-full aspect-square bg-surface overflow-hidden rounded-t-xl">
+      <div className="relative w-full aspect-square bg-surface-2 overflow-hidden rounded-t-xl">
         {isPreOrder && (
           <span className="absolute top-2 left-2 z-10 text-[10px] font-bold bg-primary text-white px-2 py-0.5 rounded-full uppercase tracking-wide">
             Pre-Order

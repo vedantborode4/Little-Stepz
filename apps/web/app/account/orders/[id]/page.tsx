@@ -11,6 +11,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
+import { friendlyError } from "../../../../lib/errorMessages"
 
 const STATUS_STEPS = [
   "PENDING", "CONFIRMED", "PROCESSING", "SHIPPED",
@@ -83,7 +84,7 @@ function ReturnCancelModal({
       }
       onDone()
     } catch (e: any) {
-      toast.error(e?.response?.data?.message || `Failed to ${mode} order`)
+      toast.error(friendlyError(e, `Failed to ${mode} order`))
     } finally {
       setLoading(false)
     }

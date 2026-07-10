@@ -91,7 +91,14 @@ export default function SearchBar() {
 
   return (
     <div ref={wrapperRef} className="relative w-full">
-      <Search className="absolute right-1 top-1/2 -translate-y-1/2 w-8 h-8 p-2  bg-primary text-white rounded-lg" />
+      <button
+        type="button"
+        onClick={() => goToSearch(input)}
+        aria-label="Search"
+        className="absolute right-1 top-1/2 -translate-y-1/2 w-8 h-8 p-2 bg-primary text-white rounded-lg flex items-center justify-center"
+      >
+        <Search className="w-full h-full" />
+      </button>
 
       <input
         value={input}

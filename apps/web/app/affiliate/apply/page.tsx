@@ -7,6 +7,7 @@ import { useAffiliateStore } from "../../../store/affiliate.store"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { TrendingUp, MousePointerClick, Wallet, Clock, XCircle, ChevronRight, ArrowLeft } from "lucide-react"
+import { friendlyError } from "../../../lib/errorMessages"
 
 export default function ApplyAffiliatePage() {
   const router = useRouter()
@@ -43,7 +44,7 @@ export default function ApplyAffiliatePage() {
       if (errors?.message?.[0]) {
         setFieldError(errors.message[0])
       } else if (apiMsg) {
-        toast.error(apiMsg)
+        toast.error(friendlyError(e, "Something went wrong, please try again"))
       } else {
         toast.error("Something went wrong, please try again")
       }

@@ -12,6 +12,7 @@ import { getChargedPrice } from "../../../lib/pricing"
 import { cldFill } from "../../../lib/utils/cloudinaryUrl"
 import { openRazorpay } from "../../../lib/openRazorpay"
 import type { Product } from "../../../types/product"
+import { friendlyError } from "../../../lib/errorMessages"
 
 const inr = (n: number) => `₹${Number(n).toLocaleString("en-IN")}`
 const SHIPPING = 5
@@ -81,7 +82,7 @@ export default function PreOrderCheckoutPage() {
       toast.success("Pre-order confirmed 🎉")
       router.push("/account/pre-orders")
     } catch (e: any) {
-      toast.error(e?.response?.data?.message || "Pre-order failed")
+      toast.error(friendlyError(e, "Pre-order failed"))
       setPlacing(false)
     }
   }

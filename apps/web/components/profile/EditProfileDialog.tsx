@@ -5,6 +5,7 @@ import { UserService } from "../../lib/services/user.service"
 import { updateProfileSchema } from "@repo/zod-schema/index"
 import { toast } from "sonner"
 import { X, Pencil, Loader2 } from "lucide-react"
+import { friendlyError } from "../../lib/errorMessages"
 
 export default function EditProfileDialog({ user, onUpdated }: any) {
   const [open, setOpen] = useState(false)
@@ -36,7 +37,7 @@ export default function EditProfileDialog({ user, onUpdated }: any) {
       toast.success("Profile updated")
       setOpen(false)
     } catch (e: any) {
-      toast.error(e?.response?.data?.message || "Update failed")
+      toast.error(friendlyError(e, "Update failed"))
     } finally {
       setLoading(false)
     }

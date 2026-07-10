@@ -5,6 +5,7 @@ import { UserService } from "../../lib/services/user.service"
 import { updatePasswordSchema } from "@repo/zod-schema/index"
 import { toast } from "sonner"
 import { X, Lock, Loader2, Eye, EyeOff } from "lucide-react"
+import { friendlyError } from "../../lib/errorMessages"
 
 // Inline password field — keeps focus stable, no remount on re-render
 function PasswordField({
@@ -110,7 +111,7 @@ export default function ChangePasswordDialog() {
       toast.success("Password changed successfully")
       handleClose()
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to change password")
+      toast.error(friendlyError(err, "Failed to change password"))
     } finally {
       setLoading(false)
     }

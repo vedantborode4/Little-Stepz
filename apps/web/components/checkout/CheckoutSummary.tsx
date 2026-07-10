@@ -1,5 +1,6 @@
 "use client"
 
+import { useAuthStore } from "../../store/auth.store"
 import { useCartStore } from "../../store/useCartStore"
 import { useCheckoutStore } from "../../store/useCheckoutStore"
 import { useAddressStore } from "../../store/useAddressStore"
@@ -16,6 +17,9 @@ export default function CheckoutSummary({
 }) {
   const router = useRouter()
 
+  const user = useAuthStore((s) => s.user)
+  const isGuest = !user
+
   const { subtotal, total, discount, couponCode } = useCartStore()
   const { placeOrder, placingOrder, paymentMethod } = useCheckoutStore()
 
@@ -23,12 +27,18 @@ export default function CheckoutSummary({
   const resolvedAddressId = addressId || storeAddressId || ""
 
   const handleOrder = async () => {
+    // Guests browse checkout freely; we only require an account at the moment
+    // of placing the order, then send them straight back here.
+    if (isGuest) {
+      router.push(`/signin?redirect=${encodeURIComponent("/checkout")}`)
+      return
+    }
     if (!isValid || !resolvedAddressId || placingOrder) return
     const orderId = await placeOrder(resolvedAddressId)
     if (orderId) router.push(`/order-success/${orderId}`)
   }
 
-  const canPlace = isValid && !placingOrder
+  const canPlace = isGuest || (isValid && !placingOrder)
 
   return (
     <div className="bg-surface border border-border rounded-2xl shadow-card p-6 space-y-5 h-fit sticky top-6">
@@ -97,18 +107,26 @@ export default function CheckoutSummary({
             <Loader2 className="w-4 h-4 animate-spin" />
             {paymentMethod === "COD" ? "Placing order…" : "Preparing payment…"}
           </>
+        ) : isGuest ? (
+          "Place Order"
         ) : (
           paymentMethod === "COD" ? "Place Order" : "Proceed to Pay"
         )}
       </button>
 
-      {!resolvedAddressId && (
+      {isGuest && (
+        <p className="text-xs text-muted text-center">
+          You'll be asked to sign in before your order is placed.
+        </p>
+      )}
+
+      {!isGuest && !resolvedAddressId && (
         <p className="text-xs text-amber-600 dark:text-amber-400 text-center bg-amber-50 dark:bg-amber-500/15 border border-amber-100 dark:border-amber-500/20 rounded-lg py-2 px-3">
           Please select a delivery address to continue.
         </p>
       )}
 
-      {!isValid && (
+      {!isGuest && !isValid && (
         <p className="text-xs text-red-500 dark:text-red-400 text-center bg-red-50 dark:bg-red-500/15 border border-red-100 dark:border-red-500/20 rounded-lg py-2 px-3">
           Cart updated. Please review before placing order.
         </p>

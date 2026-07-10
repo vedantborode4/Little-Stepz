@@ -1,9 +1,9 @@
 "use client"
 
 import Image from "next/image"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import type { ProductImage } from "../../../types/product"
-import { ZoomIn } from "lucide-react"
+import { ZoomIn, X } from "lucide-react"
 import { cldFill } from "../../../lib/utils/cloudinaryUrl"
 
 export default function ProductGallery({ images }: { images: ProductImage[] }) {
@@ -11,6 +11,20 @@ export default function ProductGallery({ images }: { images: ProductImage[] }) {
   const [zoomed, setZoomed] = useState(false)
 
   const activeUrl = images?.[active]?.url || "/placeholder.png"
+
+  useEffect(() => {
+    if (!zoomed) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setZoomed(false)
+    }
+    window.addEventListener("keydown", onKeyDown)
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      window.removeEventListener("keydown", onKeyDown)
+      document.body.style.overflow = prevOverflow
+    }
+  }, [zoomed])
 
   return (
     <>
@@ -67,7 +81,15 @@ export default function ProductGallery({ images }: { images: ProductImage[] }) {
           className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-6"
           onClick={() => setZoomed(false)}
         >
-          <div className="bg-surface rounded-2xl p-4 max-w-2xl w-full shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="relative bg-surface rounded-2xl p-4 max-w-2xl w-full shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              aria-label="Close"
+              onClick={() => setZoomed(false)}
+              className="absolute top-3 right-3 z-10 bg-surface/90 border border-border rounded-xl p-2 text-muted hover:text-primary hover:border-primary/30 shadow-sm transition"
+            >
+              <X size={18} />
+            </button>
             <Image
               src={activeUrl}
               alt=""

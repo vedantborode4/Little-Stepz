@@ -1,6 +1,7 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import { WishlistService } from "../lib/services/wishlist.service"
+import { getAccessToken } from "../lib/utils/token"
 
 interface WishlistState {
   items: string[]
@@ -18,6 +19,13 @@ export const useWishlistStore = create<WishlistState>()(
       isLoading: false,
 
       fetchWishlist: async () => {
+        // The wishlist is a per-user resource — requesting it as a guest is a
+        // guaranteed 401. Skip the round-trip entirely.
+        if (!getAccessToken()) {
+          set({ items: [] })
+          return
+        }
+
         set({ isLoading: true })
 
         try {
@@ -27,6 +35,15 @@ export const useWishlistStore = create<WishlistState>()(
           set({
             items: data.items.map((i: any) => i.product.id),
           })
+        } catch (err: any) {
+          // An expired session just means "no wishlist" — not a real failure.
+          if (err?.response?.status === 401) {
+            set({ items: [] })
+            return
+          }
+          console.error(
+            `[wishlist] Failed to load wishlist: ${err?.response?.data?.message ?? err?.message ?? "unknown error"}`
+          )
         } finally {
           set({ isLoading: false })
         }

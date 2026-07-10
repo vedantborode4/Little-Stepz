@@ -38,7 +38,7 @@ const ADVANTAGES: Advantage[] = [
   },
   {
     icon: "📦",
-    title: "5 Toy Categories",
+    title: "12 Toys Categories",
     description:
       "RC Cars, Die Cast, Building Blocks, Anime Figures and Educational Toys — curated all in one place.",
     iconBg: "bg-teal-50 dark:bg-teal-500/15",

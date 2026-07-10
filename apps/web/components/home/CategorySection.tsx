@@ -21,7 +21,17 @@ export default function CategorySection({ slug, title, subtitle, limit = 12 }: P
   useEffect(() => {
     ProductService.getByCategorySlug(slug, 1, limit)
       .then((res) => setProducts(res.data.slice(0, limit)))
-      .catch(() => {})
+      .catch((err) => {
+        // Never swallow this: a mis-typed slug otherwise kills the whole
+        // merchandising section silently on every page load.
+        const status = err?.response?.status
+        const reason = err?.response?.data?.message ?? err?.message ?? "unknown error"
+        console.error(
+          status === 404
+            ? `[CategorySection] Category slug "${slug}" does not exist (404). The section will not render.`
+            : `[CategorySection] Failed to load category "${slug}"${status ? ` (HTTP ${status})` : ""}: ${reason}`
+        )
+      })
       .finally(() => setLoading(false))
   }, [slug, limit])
 

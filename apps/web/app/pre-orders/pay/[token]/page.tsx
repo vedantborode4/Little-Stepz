@@ -6,6 +6,7 @@ import { toast } from "sonner"
 import { CheckCircle2, Clock, Loader2 } from "lucide-react"
 import { PreOrderService, type PreOrderSummary } from "../../../../lib/services/preorder.service"
 import { openRazorpay } from "../../../../lib/openRazorpay"
+import { friendlyError } from "../../../../lib/errorMessages"
 
 const inr = (n: number) => `₹${Number(n).toLocaleString("en-IN")}`
 
@@ -25,7 +26,7 @@ export default function BalancePayPage() {
       setPo(data)
       if (data.status === "COMPLETED") setDone(true)
     } catch (e: any) {
-      setError(e?.response?.data?.message || "This pre-order link is invalid or expired.")
+      setError(friendlyError(e, "This pre-order link is invalid or expired."))
     } finally {
       setLoading(false)
     }
@@ -50,7 +51,7 @@ export default function BalancePayPage() {
       setDone(true)
       toast.success("Payment complete 🎉")
     } catch (e: any) {
-      toast.error(e?.response?.data?.message || "Payment failed")
+      toast.error(friendlyError(e, "Payment failed"))
       setPaying(false)
     }
   }

@@ -10,6 +10,7 @@ import { AuthService } from "../../../lib/services/auth.service"
 import { useAuth } from "../../../hooks/use-auth"
 import { Button, Input, AuthCard } from "@repo/ui/index"
 import PasswordInput from "../../../components/common/PasswordInput"
+import { friendlyError } from "../../../lib/errorMessages"
 
 export default function SignInPage() {
   const router = useRouter()
@@ -26,15 +27,20 @@ export default function SignInPage() {
     mode: "onChange",
   })
 
+  /** Only allow same-site paths back — never an absolute URL (open-redirect guard). */
+  const safeRedirect = () => {
+    if (typeof window === "undefined") return "/"
+    const target = new URLSearchParams(window.location.search).get("redirect")
+    return target && target.startsWith("/") && !target.startsWith("//") ? target : "/"
+  }
+
   const onSubmit = async (data: SigninData) => {
     try {
       const res = await AuthService.signIn(data)
       await login(res)
-      router.push("/")
+      router.push(safeRedirect())
     } catch (error: any) {
-      const message =
-        error?.response?.data?.message ||
-        "Invalid email or password"
+      const message = friendlyError(error, "Invalid email or password")
 
       if (message.toLowerCase().includes("invalid")) {
         setError("password", {

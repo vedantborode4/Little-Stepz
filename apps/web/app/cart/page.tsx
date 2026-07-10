@@ -24,7 +24,7 @@ function CartSkeleton() {
             </div>
           ))}
         </div>
-        <div className="hidden lg:block bg-surface rounded-2xl border border-border h-64 animate-pulse" />
+        <div className="bg-surface rounded-2xl border border-border h-64 animate-pulse" />
       </div>
     </div>
   )
@@ -33,7 +33,6 @@ function CartSkeleton() {
 export default function CartPage() {
   const items = useCartStore((s) => s.items)
   const isLoading = useCartStore((s) => s.isLoading)
-  const total = useCartStore((s) => s.total)
 
   useEffect(() => {
     useCartStore.getState().fetchCart()
@@ -64,7 +63,7 @@ export default function CartPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6 sm:py-10 pb-28 lg:pb-10">
+    <div className="max-w-7xl mx-auto px-4 py-6 sm:py-10">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6 sm:mb-8">
         <div className="p-2 sm:p-2.5 bg-primary/10 rounded-xl">
@@ -89,27 +88,9 @@ export default function CartPage() {
           ))}
         </div>
 
-        {/* Desktop summary */}
-        <div className="hidden lg:block">
-          <CartSummary />
-        </div>
-      </div>
-
-      {/* Mobile sticky checkout bar */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-surface border-t border-border px-4 py-3 shadow-xl safe-area-pb">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="text-xs text-faint">Total</p>
-            <p className="text-lg font-bold text-primary">₹{total?.toLocaleString("en-IN")}</p>
-          </div>
-          <Link
-            href="/checkout"
-            className="flex-1 flex items-center justify-center gap-2 bg-primary text-white py-3 rounded-xl font-semibold hover:opacity-90 transition shadow-sm text-sm"
-          >
-            Checkout
-            <ArrowRight size={15} />
-          </Link>
-        </div>
+        {/* Order summary — every breakpoint. Stacks under the items on mobile/tablet
+            and sticks alongside them on desktop. */}
+        <CartSummary />
       </div>
     </div>
   )

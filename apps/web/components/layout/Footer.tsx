@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { Mail, Phone, MapPin, Instagram, Facebook, Twitter, Youtube } from "lucide-react"
+import PaymentBadges from "../common/PaymentBadges"
 
 function ThreadsIcon({ size = 14 }: { size?: number }) {
   return (
@@ -53,6 +54,10 @@ export default function Footer() {
                 </a>
               ))}
             </div>
+            <div className="space-y-1.5 pt-1">
+              <p className="text-xs text-gray-500">We accept</p>
+              <PaymentBadges />
+            </div>
           </div>
 
           {/* Categories */}
@@ -65,7 +70,7 @@ export default function Footer() {
                 { label: "Hyper go Cars", slug: "hyper-go-cars" },
                 { label: "Licensed Cars", slug: "licensed-cars" },
                 { label: "RC Cars", slug: "rc-cars" },
-                { label: "Stanley Cars", slug: "stanley-cars" },
+                { label: "Stanley Bottles", slug: "stanley-bottles" },
               ].map((item) => (
                 <li key={item.slug}>
                   <Link href={`/products/category/${item.slug}`} className="text-gray-400 hover:text-white transition text-xs sm:text-sm">
@@ -82,6 +87,9 @@ export default function Footer() {
             <ul className="space-y-2 text-sm">
               {[
                 { label: "About Us", href: "/about" },
+                { label: "FAQ", href: "/faq" },
+                { label: "Track Order", href: "/account/orders" },
+                { label: "Unboxing Policy", href: "/unboxing-policy" },
                 { label: "Shipping Policy", href: "/shipping" },
                 { label: "Returns & Refund", href: "/returns" },
                 { label: "Cancellation Policy", href: "/cancellation" },

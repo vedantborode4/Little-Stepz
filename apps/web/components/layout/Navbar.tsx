@@ -17,6 +17,7 @@ import clsx from "clsx"
 export default function Navbar() {
   const { user, isHydrated } = useAuthStore()
   const cartItems = useCartStore((s) => s.items)
+  const cartCount = cartItems.reduce((sum, item) => sum + (item.quantity ?? 0), 0)
   const wishlistItems = useWishlistStore((s) => s.items)
   const { tree } = useCategoryStore()
   const { signOut } = useAuth()
@@ -195,9 +196,9 @@ export default function Navbar() {
               {/* Cart */}
               <Link href="/cart" className="relative p-2 rounded-lg text-muted hover:text-primary hover:bg-primary/5 transition-colors">
                 <ShoppingCart size={20} />
-                {cartItems.length > 0 && (
+                {cartCount > 0 && (
                   <span className="absolute top-1 right-1 w-4 h-4 bg-primary text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                    {cartItems.length > 9 ? "9+" : cartItems.length}
+                    {cartCount > 9 ? "9+" : cartCount}
                   </span>
                 )}
               </Link>
@@ -281,8 +282,8 @@ export default function Navbar() {
 
           {/* Mobile: expandable search bar */}
           <div className={clsx(
-            "md:hidden overflow-hidden transition-all duration-200",
-            mobileSearchOpen ? "max-h-16 pb-3 opacity-100" : "max-h-0 opacity-0"
+            "md:hidden transition-all duration-200",
+            mobileSearchOpen ? "max-h-16 pb-3 opacity-100 overflow-visible" : "max-h-0 opacity-0 overflow-hidden"
           )}>
             <SearchBar />
           </div>
@@ -341,9 +342,9 @@ export default function Navbar() {
             >
               <div className="relative flex-shrink-0">
                 <ShoppingCart size={18} className="text-muted" />
-                {cartItems.length > 0 && (
+                {cartCount > 0 && (
                   <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-primary text-white text-[9px] font-bold rounded-full flex items-center justify-center">
-                    {cartItems.length > 9 ? "9+" : cartItems.length}
+                    {cartCount > 9 ? "9+" : cartCount}
                   </span>
                 )}
               </div>

@@ -2,6 +2,7 @@ import { create } from "zustand"
 import { CheckoutService } from "../lib/services/checkout.service"
 import { useCartStore } from "./useCartStore"
 import { toast } from "sonner"
+import { friendlyError } from "../lib/errorMessages"
 
 interface CheckoutState {
   placingOrder: boolean
@@ -113,7 +114,7 @@ export const useCheckoutStore = create<CheckoutState>((set, get) => ({
               set({ placingOrder: false, _idempotencyKey: null })
               resolve(orderId)
             } catch (err: any) {
-              toast.error(err?.response?.data?.message || "Payment verification failed")
+              toast.error(friendlyError(err, "Payment verification failed"))
               set({ placingOrder: false })
               resolve(null)
             }
@@ -143,7 +144,7 @@ export const useCheckoutStore = create<CheckoutState>((set, get) => ({
         rzp.open()
       })
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Something went wrong. Please try again.")
+      toast.error(friendlyError(err, "Something went wrong. Please try again."))
       set({ placingOrder: false })
       return null
     }

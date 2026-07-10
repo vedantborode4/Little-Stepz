@@ -2,6 +2,7 @@ import { create } from "zustand"
 import { Review } from "../types/review"
 import { ReviewService } from "../lib/services/review.service"
 import { toast } from "sonner"
+import { friendlyError } from "../lib/errorMessages"
 
 /* ---------------- TYPES ---------------- */
 
@@ -139,7 +140,7 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
 
       toast.success("Review added 🎉")
     } catch (e: any) {
-      toast.error(e?.response?.data?.message || "Failed to add review")
+      toast.error(friendlyError(e, "Failed to add review"))
     } finally {
       set({ creating: false })
     }
