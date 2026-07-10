@@ -35,7 +35,7 @@ export default function PreOrderHome({ limit = 12 }: { limit?: number }) {
         {loading ? (
           <div className="flex gap-3 sm:gap-5">
             {Array.from({ length: 2 }).map((_, i) => (
-              <div key={i} className="basis-[80%] sm:basis-[47.5%] shrink-0 bg-surface border border-border rounded-2xl overflow-hidden animate-pulse">
+              <div key={i} className="basis-full sm:basis-[calc(50%-10px)] shrink-0 bg-surface border border-border rounded-2xl overflow-hidden animate-pulse">
                 <div className="aspect-square bg-surface-2" />
                 <div className="p-3 sm:p-4 space-y-2">
                   <div className="h-4 bg-surface-3 rounded" />
@@ -46,7 +46,7 @@ export default function PreOrderHome({ limit = 12 }: { limit?: number }) {
             ))}
           </div>
         ) : (
-          <ProductSlider products={products} itemClassName="basis-[80%] sm:basis-[47.5%]" />
+          <ProductSlider products={products} itemClassName="basis-full sm:basis-[calc(50%-10px)]" />
         )}
       </div>
 

@@ -20,7 +20,7 @@ interface Props {
  */
 export default function ProductSlider({
   products,
-  itemClassName = "basis-[46%] sm:basis-[31.5%] lg:basis-[23.5%]",
+  itemClassName = "basis-[calc(50%-6px)] sm:basis-[calc(33.333%-13.333px)] lg:basis-[calc(25%-15px)]",
   interval = 6000,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null)
@@ -65,7 +65,7 @@ export default function ProductSlider({
         ref={ref}
         onTouchStart={() => setPaused(true)}
         onTouchEnd={() => window.setTimeout(() => setPaused(false), 4000)}
-        className="flex gap-3 sm:gap-5 overflow-x-auto scrollbar-none snap-x snap-mandatory scroll-smooth -mx-4 px-4 py-6"
+        className="flex gap-3 sm:gap-5 overflow-x-auto scrollbar-none snap-x snap-mandatory scroll-smooth py-6"
       >
         {products.map((p) => (
           <div key={p.id} className={`shrink-0 snap-start ${itemClassName}`}>
