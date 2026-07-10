@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { ProductService } from "../../lib/services/product.service"
 import ProductSlider from "./ProductSlider"
+import SectionHeader from "./SectionHeader"
 import type { Product } from "../../types/product"
 
 interface Props {
@@ -40,22 +41,11 @@ export default function CategorySection({ slug, title, subtitle, limit = 12 }: P
 
   return (
     <section>
+      {/* Shared centered heading (Anton) — consistent with every other homepage section. */}
+      <SectionHeader title={title} subtitle={subtitle} />
+
       {/* Constrain width on tablet/desktop so the 2-up slider cards aren't oversized */}
       <div className="md:px-12 lg:px-28 xl:px-44">
-        {/* Header — title left, View All right */}
-        <div className="flex items-end justify-between gap-4 mb-5 sm:mb-6">
-          <div>
-            <h2 className="text-2xl font-bold text-primary">{title}</h2>
-            {subtitle && <p className="text-sm text-faint mt-0.5">{subtitle}</p>}
-          </div>
-          <Link
-            href={`/products/category/${slug}`}
-            className="text-sm font-medium text-primary hover:underline whitespace-nowrap"
-          >
-            View All {title} →
-          </Link>
-        </div>
-
         {loading ? (
           <div className="flex gap-3 sm:gap-5">
             {Array.from({ length: 2 }).map((_, i) => (
@@ -72,6 +62,16 @@ export default function CategorySection({ slug, title, subtitle, limit = 12 }: P
         ) : (
           <ProductSlider products={products} itemClassName="basis-full sm:basis-[calc(50%-10px)]" />
         )}
+      </div>
+
+      {/* View All — below the cards, centered */}
+      <div className="flex justify-center mt-6">
+        <Link
+          href={`/products/category/${slug}`}
+          className="text-md font-medium text-primary hover:underline"
+        >
+          View All {title} →
+        </Link>
       </div>
     </section>
   )

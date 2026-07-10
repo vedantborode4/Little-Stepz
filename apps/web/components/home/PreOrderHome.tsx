@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
 import { ProductService } from "../../lib/services/product.service"
 import ProductSlider from "./ProductSlider"
 import SectionHeader from "./SectionHeader"
@@ -50,10 +51,11 @@ export default function PreOrderHome({ limit = 12 }: { limit?: number }) {
         )}
       </div>
 
-      <div className="flex items-center justify-center gap-4 mb-6">
-        <a href="/pre-orders" className="text-md font-medium text-primary hover:underline mt-6">
+      {/* View All — below the cards, centered */}
+      <div className="flex justify-center mt-6">
+        <Link href="/pre-orders" className="text-md font-medium text-primary hover:underline">
           View All Pre-Orders →
-        </a>
+        </Link>
       </div>
     </section>
   )

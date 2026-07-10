@@ -91,11 +91,11 @@ body {
     font-weight: 700;
   }
 
-  /* ── Sub-headings → Manrope SemiBold ── */
+  /* ── Sub-headings → Anton ── */
   h3, h4 {
-    font-family: var(--font-manrope), sans-serif;
-    letter-spacing: -0.01em;
-    font-weight: 600;
+    font-family: var(--font-anton), sans-serif;
+    letter-spacing: 0;
+    font-weight: 400;
   }
 
   h1 {
