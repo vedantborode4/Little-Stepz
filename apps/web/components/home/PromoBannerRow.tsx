@@ -5,7 +5,12 @@ import Link from "next/link"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { CategoryService, type CategoryNode } from "../../lib/services/category.service"
 
-const TILE_SIZE = "shrink-0 w-30 h-30 sm:w-40 sm:h-40 md:w-45 md:h-45 lg:w-50 lg:h-50"
+// Responsive square tiles sized so an exact whole number fills the row at every
+// breakpoint (3 / 4 / 5 / 6 across mobile→desktop), accounting for the gap
+// (gap-3 = 12px on mobile, gap-5 = 20px from sm up). No partial tile ever peeks,
+// and scroll-snap keeps every rest position aligned to whole tiles.
+const TILE_SIZE =
+  "shrink-0 snap-start aspect-square basis-[calc((100%-24px)/3)] sm:basis-[calc((100%-60px)/4)] md:basis-[calc((100%-80px)/5)] lg:basis-[calc((100%-100px)/6)]"
 
 function CategoryTile({ cat }: { cat: CategoryNode }) {
   return (
@@ -53,10 +58,10 @@ export default function PromoBannerRow() {
   // Only real, top-level categories from the API — no static tiles.
   const topLevel = (categories ?? []).filter((c) => !c.parentId)
   const n = topLevel.length
-  // Always repeat the set enough times to overflow the viewport, so the loop is endless.
+  // Repeat the set enough to overflow the viewport, so the loop is endless.
   const displayCopies = n >= 2 ? copies : 1
 
-  // Compute how many copies are needed to always exceed the viewport (so the wrap has content).
+  // How many copies are needed to always exceed the viewport (so the wrap has content)?
   useEffect(() => {
     const measure = () => {
       const el = scrollRef.current
@@ -84,7 +89,7 @@ export default function PromoBannerRow() {
       const seam = (el.children[n] as HTMLElement).offsetLeft // start of the 2nd copy
       let base = el.scrollLeft
       if (base >= seam - 1) {
-        base -= seam          // instant, seamless wrap (identical content one set back)
+        base -= seam // instant, seamless wrap (identical content one set back)
         el.scrollLeft = base
       }
       el.scrollTo({ left: base + step, behavior: "smooth" })
@@ -108,9 +113,9 @@ export default function PromoBannerRow() {
   // Loading: lightweight skeleton tiles to avoid layout jump.
   if (categories === null) {
     return (
-      <section className="container">
-        <div className="flex gap-3 sm:gap-5 overflow-hidden">
-          {Array.from({ length: 4 }).map((_, i) => (
+      <section>
+        <div className="flex items-start justify-center gap-3 sm:gap-5 overflow-hidden">
+          {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className={`${TILE_SIZE} rounded-xl bg-surface-2 animate-pulse`} />
           ))}
         </div>
@@ -123,7 +128,7 @@ export default function PromoBannerRow() {
   const tiles = Array.from({ length: displayCopies }).flatMap(() => topLevel)
 
   return (
-    <section className="container relative">
+    <section className="relative">
       {/* Arrows (desktop) */}
       <button
         type="button"
@@ -148,7 +153,9 @@ export default function PromoBannerRow() {
         onMouseLeave={() => { pausedRef.current = false }}
         onTouchStart={() => { pausedRef.current = true }}
         onTouchEnd={() => { pausedRef.current = false }}
-        className="flex gap-3 sm:gap-5 overflow-x-auto pb-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+        // `safe center` centers the tiles when they fit, and falls back to a
+        // normal left-aligned scroll (never clipping the first tile) when they overflow.
+        className="flex items-start justify-center-safe gap-3 sm:gap-5 overflow-x-auto snap-x snap-mandatory pb-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
       >
         {tiles.map((cat, i) => (
           <CategoryTile key={`${cat.id}-${i}`} cat={cat} />

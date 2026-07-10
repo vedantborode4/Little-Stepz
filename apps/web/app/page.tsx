@@ -37,36 +37,42 @@ export default function Home() {
         </div>
       </section>
 
-      {/* 4–6. Deals · Banners · Best Sellers — white */}
+      {/* 4. Best Sellers — 4-column grid · 5. Banner */}
       <div className="max-w-7xl mx-auto px-4 py-8 sm:py-12 space-y-10 sm:space-y-14">
         <section>
           <SectionHeader title="Best Sellers" subtitle="Our most-loved products" />
-          <BestSellers sort="bestselling" />
+          <BestSellers sort="bestselling" layout="grid" limit={8} />
         </section>
 
         <DynamicPromoBanner position="HOME_MID" />
-
-        <section>
-          <SectionHeader title="New Arrivals" subtitle="Fresh drops, just in" />
-          <BestSellers sort="newest" />
-        </section>
-
-        {/* Category spotlights — 2-column, self-hide when empty */}
-        <CategorySection slug="stunt-cars" title="Stunt Cars" subtitle="Flips, spins and off-road tricks" />
-        <CategorySection slug="crawlers" title="RC Crawlers" subtitle="Conquer any terrain" />
       </div>
 
-      {/* 7. About Us — red band */}
+      {/* 6. Pre-Order — 2-column slider (self-contained; self-hides when empty) */}
+      <PreOrderHome />
+
+      {/* 7. New Arrivals — 4×2 grid · 8. Stunt Cars — 3-column slider */}
+      <div className="max-w-7xl mx-auto px-4 py-8 sm:py-12 space-y-10 sm:space-y-14">
+        <section>
+          <SectionHeader title="New Arrivals" subtitle="Fresh drops, just in" />
+          <BestSellers sort="newest" layout="grid" limit={8} />
+        </section>
+
+        <CategorySection slug="stunt-cars" title="Stunt Cars" subtitle="Flips, spins and off-road tricks" layout="slider" columns={3} />
+      </div>
+
+      {/* 9. About Us — red band */}
       <section className="bg-bg">
         <div className="max-w-7xl mx-auto px-4 py-10 sm:py-14">
           <AboutUs />
         </div>
       </section>
 
-      {/* 8. Pre-Order — white (self-hides when empty) */}
-      <PreOrderHome />
+      {/* 10. Licensed Cars — 4×2 grid (self-hides when empty) */}
+      <div className="max-w-7xl mx-auto px-4 py-8 sm:py-12">
+        <CategorySection slug="licensed-cars" title="Licensed Cars" subtitle="Officially licensed replicas" layout="grid" limit={8} />
+      </div>
 
-      {/* 9. Why Choose Little Stepz — red band */}
+      {/* 11. Our Advantage — red band */}
       <WhyChooseLittleStepz />
 
       {/* Footer is rendered globally in the root layout */}

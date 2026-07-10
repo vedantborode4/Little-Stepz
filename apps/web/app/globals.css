@@ -91,11 +91,11 @@ body {
     font-weight: 700;
   }
 
-  /* ── Sub-headings → Anton ── */
+  /* ── Sub-headings → Manrope SemiBold (matches the mobile app) ── */
   h3, h4 {
-    font-family: var(--font-anton), sans-serif;
-    letter-spacing: 0;
-    font-weight: 400;
+    font-family: var(--font-manrope), sans-serif;
+    letter-spacing: -0.01em;
+    font-weight: 600;
   }
 
   h1 {
@@ -110,16 +110,17 @@ body {
     @apply text-[14px] leading-[20px];
   }
 
-  /* ── Buttons → Sora Bold ── */
+  /* ── Buttons → Sora SemiBold (matches the mobile app) ── */
   button {
     font-family: var(--font-sora), sans-serif;
-    font-weight: 700;
+    font-weight: 600;
   }
 }
 
+/* Display / section headings → Anton (matches the mobile app's `font-anton`). */
 .font-anton {
-  font-family: var(--font-manrope), sans-serif;
-  font-weight: 700;
+  font-family: var(--font-anton), sans-serif;
+  font-weight: 400;
 }
 .font-manrope {
   font-family: var(--font-manrope), sans-serif;

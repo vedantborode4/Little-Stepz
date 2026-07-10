@@ -32,7 +32,7 @@ export default function SimilarProducts({ categoryId }: { categoryId: string }) 
           <Sparkles size={16} className="text-primary" />
         </div>
         <div>
-          <h2 className="text-xl font-bold text-text">You May Also Like</h2>
+          <h2 className="font-anton text-xl uppercase tracking-wide text-text">You May Also Like</h2>
           <p className="text-xs text-faint mt-0.5">From the same category</p>
         </div>
       </div>

@@ -36,7 +36,7 @@ export default function AboutUs() {
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary">
             About Little Stepz
           </p>
-          <h2 className="font-anton mt-3 text-3xl sm:text-4xl leading-tight text-text">
+          <h2 className="font-anton mt-3 text-3xl sm:text-4xl uppercase leading-tight text-text">
             India&apos;s Premier RC &amp;{" "}
             <span className="text-primary">Diecast Destination</span>
           </h2>

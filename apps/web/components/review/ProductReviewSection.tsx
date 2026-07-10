@@ -12,7 +12,7 @@ export default function ProductReviewSection({ productId }: { productId: string 
         <div className="w-7 h-7 bg-yellow-50 dark:bg-yellow-500/15 rounded-lg flex items-center justify-center">
           <Star size={14} className="text-yellow-500 dark:text-yellow-400 fill-yellow-400" />
         </div>
-        <h2 className="text-xl font-bold text-text">Customer Reviews</h2>
+        <h2 className="font-anton text-xl uppercase tracking-wide text-text">Customer Reviews</h2>
       </div>
 
       <ReviewSummary />
