@@ -34,7 +34,7 @@ export default function PreOrderHome({ limit = 12 }: { limit?: number }) {
 
       <div className="md:px-12 lg:px-28 xl:px-44">
         {loading ? (
-          <div className="flex gap-3 sm:gap-5">
+          <div className="flex gap-3 sm:gap-5 overflow-hidden">
             {Array.from({ length: 2 }).map((_, i) => (
               <div key={i} className="basis-full sm:basis-[calc(50%-10px)] shrink-0 bg-surface border border-border rounded-2xl overflow-hidden animate-pulse">
                 <div className="aspect-square bg-surface-2" />

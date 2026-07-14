@@ -38,7 +38,7 @@ export default function BestSellers({ sort = "newest", limit = 12, showViewAll =
         layout === "grid" ? (
           <ProductGridSkeleton count={Math.min(limit, 8)} />
         ) : (
-          <div className="flex gap-3 sm:gap-5">
+          <div className="flex gap-3 sm:gap-5 overflow-hidden">
             {Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="basis-[calc(50%-6px)] sm:basis-[calc(33.333%-13.333px)] lg:basis-[calc(25%-15px)] shrink-0 bg-surface border border-border rounded-2xl overflow-hidden animate-pulse">
                 <div className="aspect-square bg-surface-2" />

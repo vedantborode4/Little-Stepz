@@ -69,7 +69,13 @@
   --radius-xl: 28px;
 }
 
-html { scroll-behavior: smooth; }
+html {
+  scroll-behavior: smooth;
+  /* Guard: never let a stray wide element expand the layout viewport (which would
+     mis-centre fixed overlays like the loading screen on mobile). `clip` — not
+     `hidden` — so it doesn't become a scroll container and break `position: sticky`. */
+  overflow-x: clip;
+}
 
 body {
   /* Body / sub-headings → Manrope */

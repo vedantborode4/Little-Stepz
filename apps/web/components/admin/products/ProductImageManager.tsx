@@ -185,7 +185,7 @@ export default function ProductImageManager({
               <img
                 src={img.url}
                 alt={img.alt ?? `Image ${i + 1}`}
-                className="w-full h-28 object-cover"
+                className="w-full h-28 object-contain bg-surface-2"
               />
 
               {/* Overlay actions */}

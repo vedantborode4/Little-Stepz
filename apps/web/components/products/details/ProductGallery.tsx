@@ -4,7 +4,7 @@ import Image from "next/image"
 import { useEffect, useState } from "react"
 import type { ProductImage } from "../../../types/product"
 import { ZoomIn, X } from "lucide-react"
-import { cldFill } from "../../../lib/utils/cloudinaryUrl"
+import { cldFit } from "../../../lib/utils/cloudinaryUrl"
 
 export default function ProductGallery({ images }: { images: ProductImage[] }) {
   const [active, setActive] = useState(0)
@@ -35,11 +35,11 @@ export default function ProductGallery({ images }: { images: ProductImage[] }) {
           onClick={() => setZoomed(true)}
         >
           <Image
-            src={cldFill(activeUrl, 800)}
+            src={cldFit(activeUrl, 1200)}
             alt=""
             width={800}
             height={800}
-            className="w-full object-cover h-[420px] transition-transform duration-300 group-hover:scale-105"
+            className="w-full object-contain h-[420px] transition-transform duration-300 group-hover:scale-105"
           />
           <div className="absolute top-4 right-4 bg-surface/90 border border-border rounded-xl p-2 opacity-0 group-hover:opacity-100 transition shadow-sm">
             <ZoomIn size={16} className="text-muted" />
@@ -64,11 +64,11 @@ export default function ProductGallery({ images }: { images: ProductImage[] }) {
               }`}
             >
               <Image
-                src={cldFill(img.url, 160)}
+                src={cldFit(img.url, 200)}
                 alt=""
                 width={64}
                 height={64}
-                className="object-cover w-14 h-14 rounded-[6px]"
+                className="object-contain w-14 h-14 rounded-[6px]"
               />
             </button>
           ))}

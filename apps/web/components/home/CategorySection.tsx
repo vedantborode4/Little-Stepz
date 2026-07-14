@@ -66,7 +66,7 @@ export default function CategorySection({ slug, title, subtitle, limit = 12, lay
           isGrid ? (
             <ProductGridSkeleton count={Math.min(limit, 8)} />
           ) : (
-            <div className="flex gap-3 sm:gap-5">
+            <div className="flex gap-3 sm:gap-5 overflow-hidden">
               {Array.from({ length: columns }).map((_, i) => (
                 <div key={i} className={`${SLIDER_BASIS[columns]} shrink-0 bg-surface border border-border rounded-2xl overflow-hidden animate-pulse`}>
                   <div className="aspect-square bg-surface-2" />
