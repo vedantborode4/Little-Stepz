@@ -175,14 +175,12 @@ export default function VariantManager({ productId, initialVariants = [], onChan
     await Promise.allSettled(changed.map((v) => AdminProductService.updateVariant(v.id, { sortOrder: v.sortOrder })))
   }
 
-  const markOutOfStock = (v: EditableVariant) => editVariant(v.id, { stock: "0" })
 
   return (
     <div className="space-y-6">
       {/* Existing variants */}
       {variants.map((v, i) => {
         const dirty = dirtyIds.has(v.id)
-        const out = Number(v.stock || 0) <= 0
         return (
           <div key={v.id} className="rounded-xl border border-border p-3 space-y-3">
             <div className="flex items-start gap-2">
@@ -210,14 +208,6 @@ export default function VariantManager({ productId, initialVariants = [], onChan
                 <ImageIcon size={15} />
                 {v.images?.length ? `Images (${v.images.length})` : "Add images"}
               </button>
-
-              {!out && (
-                <button type="button" onClick={() => markOutOfStock(v)}
-                  className="text-sm font-medium text-amber-600 dark:text-amber-400 hover:underline">
-                  Mark out of stock
-                </button>
-              )}
-              {out && <span className="text-xs font-medium text-red-500 dark:text-red-400">Out of stock</span>}
 
               <div className="ml-auto flex items-center gap-3">
                 {dirty && <span className="text-xs font-medium text-amber-500 dark:text-amber-400">Unsaved</span>}

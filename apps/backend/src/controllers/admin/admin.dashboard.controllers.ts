@@ -45,7 +45,7 @@ async function adminListBanners(req: Request, res: Response) {
 
   const position =
     typeof positionRaw === "string" &&
-    ["HOME_HERO", "HOME_MID", "CATEGORY_TOP", "PRODUCT_SIDEBAR", "CHECKOUT_TOP"].includes(positionRaw)
+    ["HOME_HERO", "MOBILE_HERO", "HOME_MID", "CATEGORY_TOP", "PRODUCT_SIDEBAR", "CHECKOUT_TOP"].includes(positionRaw)
       ? positionRaw
       : undefined;
 

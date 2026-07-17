@@ -1,5 +1,8 @@
 "use client"
 
+import { useRef } from "react"
+import Toggle from "../../common/Toggle"
+
 export interface VariantFormValue {
   name: string
   sku: string
@@ -28,6 +31,18 @@ export default function VariantRow({
   onChange: (patch: Partial<VariantFormValue>) => void
   disabled?: boolean
 }) {
+  // Remembers the last positive stock so flipping "in stock" back on restores it.
+  const lastStockRef = useRef("1")
+  const stockNum = Number(value.stock || 0)
+  const toggleStock = (inStock: boolean) => {
+    if (inStock) {
+      onChange({ stock: stockNum > 0 ? value.stock : (Number(lastStockRef.current) > 0 ? lastStockRef.current : "1") })
+    } else {
+      if (stockNum > 0) lastStockRef.current = value.stock
+      onChange({ stock: "0" })
+    }
+  }
+
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
@@ -73,16 +88,19 @@ export default function VariantRow({
           onChange={(e) => { if (intGuard(e.target.value)) onChange({ stock: e.target.value }) }}
         />
       </div>
-      <label className="flex items-center gap-2 text-sm text-muted">
-        <input
-          type="checkbox"
-          checked={value.isOnSale}
-          disabled={disabled}
-          onChange={(e) => onChange({ isOnSale: e.target.checked })}
-          className="w-4 h-4 rounded accent-primary"
-        />
-        On sale — charge this variant&apos;s sale price
-      </label>
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+        <Toggle checked={stockNum > 0} onChange={toggleStock} disabled={disabled} />
+        <label className="flex items-center gap-2 text-sm text-muted">
+          <input
+            type="checkbox"
+            checked={value.isOnSale}
+            disabled={disabled}
+            onChange={(e) => onChange({ isOnSale: e.target.checked })}
+            className="w-4 h-4 rounded accent-primary"
+          />
+          On sale — charge this variant&apos;s sale price
+        </label>
+      </div>
     </div>
   )
 }

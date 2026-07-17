@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import slugify from "slugify"
 import { useRouter } from "next/navigation"
 import { createProductSchema } from "@repo/zod-schema/index"
@@ -12,6 +12,7 @@ import VariantManager from "./VariantManager"
 import VariantMatrixGenerator from "./VariantMatrixGenerator"
 import RichTextEditor from "../RichTextEditor"
 import SpecificationsEditor, { type SpecRow } from "./SpecificationsEditor"
+import Toggle from "../../common/Toggle"
 import type { ProductOption, ProductVariant } from "../../../lib/services/admin-product.service"
 import { toast } from "sonner"
 
@@ -109,6 +110,19 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
     }))
     // Editing the name regenerates the slug, so clear any stale slug error too.
     setErrors(p => ({ ...p, [key]: [], ...(key === "name" ? { slug: [] } : {}) }))
+  }
+
+  // Remembers the last positive quantity so flipping "in stock" back on restores it.
+  const lastQtyRef = useRef(1)
+  const toggleStock = (inStock: boolean) => {
+    if (inStock) {
+      const restored = form.quantity > 0 ? form.quantity : (lastQtyRef.current > 0 ? lastQtyRef.current : 1)
+      setForm(p => ({ ...p, inStock: true, quantity: restored }))
+    } else {
+      if (form.quantity > 0) lastQtyRef.current = form.quantity
+      setForm(p => ({ ...p, inStock: false, quantity: 0 }))
+    }
+    setErrors(p => ({ ...p, quantity: [] }))
   }
 
   const submit = async () => {
@@ -252,17 +266,26 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
             </select>
           </Field>
           <Field label="Quantity" error={errors.quantity?.[0]}>
-            <Input type="number" min={0} value={form.quantity} onChange={e => onChange("quantity", Number(e.target.value))} />
+            <Input
+              type="number"
+              min={0}
+              value={form.quantity}
+              onChange={e => {
+                const n = Number(e.target.value)
+                setForm(p => ({ ...p, quantity: n, inStock: n > 0 }))
+                setErrors(p => ({ ...p, quantity: [] }))
+              }}
+            />
           </Field>
           <Field label="Category">
             <CategoryTreeSelect value={form.categoryId} onChange={id => onChange("categoryId", id)} />
           </Field>
         </div>
 
-        <label className="flex items-center gap-3 cursor-pointer">
-          <input type="checkbox" checked={form.inStock} onChange={e => onChange("inStock", e.target.checked)} className="w-4 h-4 rounded accent-primary" />
-          <span className="text-sm font-medium text-muted">Product is in stock</span>
-        </label>
+        <div className="flex items-center gap-3">
+          <Toggle checked={form.quantity > 0} onChange={toggleStock} />
+          <span className="text-xs text-faint">Off sets quantity to 0; on restores it.</span>
+        </div>
 
         {/* Pre-order */}
         <div className="pt-4 border-t border-border space-y-4">
