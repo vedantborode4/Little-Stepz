@@ -16,6 +16,7 @@ export async function createReviewService(userId: string, data: CreateReviewData
 
   const product = await prisma.product.findFirst({
     where: { id: productId, deletedAt: null },
+    select: { id: true },
   });
 
   if (!product) throw new ApiError(404, "Product not found");

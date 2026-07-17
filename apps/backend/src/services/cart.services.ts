@@ -285,8 +285,9 @@ export async function syncCartService(userId: string, sessionId: string) {
     const guestItems = await tx.cartItem.findMany({
       where: { sessionId, deletedAt: null },
       include: {
-        product: true,
-        variant: true,
+        // Only what the merge needs — never load costPrice (admin-only data).
+        product: { select: { deletedAt: true } },
+        variant: { select: { deletedAt: true } },
       },
     });
 

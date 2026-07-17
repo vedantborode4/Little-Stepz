@@ -124,6 +124,7 @@ model Product {
   longDescription String?
   price        Decimal      @db.Decimal(12,2)
   salePrice    Decimal?     @db.Decimal(12,2)
+  costPrice    Decimal?     @db.Decimal(12,2) // purchase cost per unit — used for exact P&L; falls back to an estimate when null
   isOnSale     Boolean      @default(false)
   priceDisplay PriceDisplay @default(BOTH)
   quantity    Int      @default(0)

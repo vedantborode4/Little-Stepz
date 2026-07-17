@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   getAdminStatsController,
+  getPnlController,
   adminCreateBannerController,
   adminListBannersController,
   adminGetBannerController,
@@ -14,6 +15,7 @@ export const adminBannerRouter: Router    = Router();
 
 
 adminDashboardRouter.get("/stats", getAdminStatsController);
+adminDashboardRouter.get("/pnl", getPnlController);
 
 adminBannerRouter.post("/",          adminCreateBannerController);
 

@@ -44,7 +44,7 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
   const router = useRouter()
   const [productId, setProductId] = useState<string | null>(null)
   const [form, setForm] = useState({
-    name: "", slug: "", description: "", longDescription: "", price: "", salePrice: "", isOnSale: false, priceDisplay: "BOTH", quantity: 0, inStock: true, categoryId: "",
+    name: "", slug: "", description: "", longDescription: "", price: "", salePrice: "", costPrice: "", isOnSale: false, priceDisplay: "BOTH", quantity: 0, inStock: true, categoryId: "",
     preOrderEnabled: false, bookingAmount: "", preOrderLimit: "", preOrderNote: "",
   })
   const [images, setImages] = useState<any[]>([])
@@ -65,6 +65,7 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
         longDescription: initialData.longDescription ?? "",
         price: initialData.price != null ? String(initialData.price) : "",
         salePrice: initialData.salePrice != null ? String(initialData.salePrice) : "",
+        costPrice: initialData.costPrice != null ? String(initialData.costPrice) : "",
         isOnSale: initialData.isOnSale ?? false,
         priceDisplay: initialData.priceDisplay ?? "BOTH",
         quantity: initialData.quantity ?? 0,
@@ -136,6 +137,7 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
       ...form,
       longDescription: form.longDescription === "<p></p>" ? "" : form.longDescription,
       salePrice: form.salePrice === "" ? undefined : form.salePrice,
+      costPrice: form.costPrice === "" ? undefined : form.costPrice,
       bookingAmount: form.bookingAmount === "" ? undefined : form.bookingAmount,
       preOrderLimit: form.preOrderLimit === "" ? undefined : form.preOrderLimit,
       preOrderNote: form.preOrderNote === "" ? undefined : form.preOrderNote,
@@ -232,6 +234,18 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
               onChange={e => {
                 const v = e.target.value
                 if (v === "" || /^\d*\.?\d{0,2}$/.test(v)) onChange("salePrice", v)
+              }}
+            />
+          </Field>
+          <Field label="Cost Price (₹)" error={errors.costPrice?.[0]}>
+            <Input
+              type="text"
+              inputMode="decimal"
+              placeholder="Purchase cost (for exact P&L)"
+              value={form.costPrice}
+              onChange={e => {
+                const v = e.target.value
+                if (v === "" || /^\d*\.?\d{0,2}$/.test(v)) onChange("costPrice", v)
               }}
             />
           </Field>

@@ -6,11 +6,12 @@ import clsx from "clsx"
 import ThemeToggle from "../common/ThemeToggle"
 import {
   LayoutDashboard, ShoppingCart, Package, Users, Ticket,
-  Star, Image, FolderTree, DollarSign, Wallet, Home, X, CalendarClock,
+  Star, Image, FolderTree, DollarSign, Wallet, Home, X, CalendarClock, TrendingUp,
 } from "lucide-react"
 
 const items = [
-  { label: "Dashboard",   href: "/admin",              icon: LayoutDashboard },
+  { label: "Dashboard",     href: "/admin",              icon: LayoutDashboard },
+  { label: "Profit & Loss", href: "/admin/profit-loss",  icon: TrendingUp },
   { label: "Orders",      href: "/admin/orders",        icon: ShoppingCart },
   { label: "Pre-Orders",  href: "/admin/pre-orders",    icon: CalendarClock },
   { label: "Products",    href: "/admin/products",      icon: Package },

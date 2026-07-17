@@ -8,6 +8,7 @@ import {
   publicBannersQuerySchema,
 } from "@repo/zod-schema/index";
 import { adminGetStatsService }  from "../../services/admin/admin.stats.services";
+import { getPnlService, type PnlRange } from "../../services/admin/admin.pnl.services";
 import {
   adminCreateBannerService,
   adminListBannersService,
@@ -24,6 +25,14 @@ async function getAdminStats(req: Request, res: Response) {
   const query  = adminStatsQuerySchema.parse(req.query);
   const result = await adminGetStatsService(query);
   return new ApiResponse(200, result, "Dashboard stats fetched").send(res);
+}
+
+const PNL_RANGES: PnlRange[] = ["today", "7d", "30d", "6m", "year", "all"];
+async function getPnl(req: Request, res: Response) {
+  const raw = String(req.query.range ?? "30d");
+  const range = (PNL_RANGES.includes(raw as PnlRange) ? raw : "30d") as PnlRange;
+  const result = await getPnlService(range);
+  return new ApiResponse(200, result, "P&L computed").send(res);
 }
 
 
@@ -111,6 +120,7 @@ async function trackBannerClick(req: Request, res: Response) {
 }
 
 export const getAdminStatsController    = asyncHandler(getAdminStats);
+export const getPnlController            = asyncHandler(getPnl);
 export const adminCreateBannerController = asyncHandler(adminCreateBanner);
 export const adminListBannersController  = asyncHandler(adminListBanners);
 export const adminGetBannerController    = asyncHandler(adminGetBanner);

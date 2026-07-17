@@ -11,6 +11,7 @@ const baseProductSelect = {
   longDescription: true,
   price: true,
   salePrice: true,
+  costPrice: true,
   isOnSale: true,
   priceDisplay: true,
   quantity: true,
@@ -66,6 +67,7 @@ export async function createProductService(data: {
   longDescription?: string;
   price: number;
   salePrice?: number;
+  costPrice?: number;
   isOnSale?: boolean;
   priceDisplay?: "BOTH" | "REGULAR" | "SALE";
   quantity?: number;
@@ -113,6 +115,7 @@ export async function updateProductService(
     longDescription: string | null;
     price: number;
     salePrice: number | null;
+    costPrice: number | null;
     isOnSale: boolean;
     priceDisplay: "BOTH" | "REGULAR" | "SALE";
     quantity: number;

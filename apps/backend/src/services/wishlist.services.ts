@@ -36,6 +36,7 @@ export async function getWishlistService(userId: string) {
 export async function addToWishlistService(userId: string, productId: string) {
   const product = await prisma.product.findFirst({
     where: { id: productId, deletedAt: null },
+    select: { id: true },
   });
 
   if (!product) throw new ApiError(404, "Product not found");

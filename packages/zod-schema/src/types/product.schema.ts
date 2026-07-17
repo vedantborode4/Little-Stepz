@@ -20,6 +20,9 @@ const productBaseSchema = z.object({
 
     salePrice: optionalPriceSchema,
 
+    // Purchase cost per unit — optional; used for exact P&L, falls back to an estimate when null.
+    costPrice: optionalPriceSchema,
+
     isOnSale: z.boolean()
         .optional()
         .default(false),

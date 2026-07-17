@@ -867,7 +867,7 @@ export async function createShipmentService(
     where:   { id: orderId, deletedAt: null },
     include: {
       address:    true,
-      items:      { include: { product: true } },
+      items:      { include: { product: { select: { name: true } } } },
       payment:    true,
       shipments:  true,
     },
