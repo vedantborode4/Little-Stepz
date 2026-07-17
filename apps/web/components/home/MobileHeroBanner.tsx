@@ -40,8 +40,9 @@ export default function MobileHeroBanner() {
 
   const b = banners[current]!
 
-  return (
-    <div className="relative w-full h-[45vh] overflow-hidden">
+  // The whole banner is clickable when it has a link — no separate "Shop Now" button.
+  const slide = (
+    <>
       <img
         key={b.id}
         src={b.imageUrl}
@@ -57,15 +58,19 @@ export default function MobileHeroBanner() {
         {b.subtitle && (
           <p className="text-xs text-white/80 mt-1 max-w-[200px] drop-shadow line-clamp-2">{b.subtitle}</p>
         )}
-        {b.linkUrl && (
-          <Link
-            href={b.linkUrl}
-            className="mt-3 inline-flex items-center gap-1.5 bg-primary text-white px-4 py-2 rounded-xl text-xs font-medium w-fit shadow-lg"
-          >
-            Shop Now <ChevronRight size={13} />
-          </Link>
-        )}
       </div>
+    </>
+  )
+
+  return (
+    <div className="relative w-full h-[45vh] overflow-hidden">
+      {b.linkUrl ? (
+        <Link href={b.linkUrl} className="absolute inset-0" aria-label={b.title || "View banner"}>
+          {slide}
+        </Link>
+      ) : (
+        slide
+      )}
 
       {banners.length > 1 && (
         <>

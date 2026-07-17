@@ -71,10 +71,6 @@
 
 html {
   scroll-behavior: smooth;
-  /* Guard: never let a stray wide element expand the layout viewport (which would
-     mis-centre fixed overlays like the loading screen on mobile). `clip` — not
-     `hidden` — so it doesn't become a scroll container and break `position: sticky`. */
-  overflow-x: clip;
 }
 
 body {
@@ -83,7 +79,7 @@ body {
   font-weight: 500;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  overflow-x: hidden;
+  overflow-x: clip;
   /* Base surface so any area not covered by a bg utility flips with the theme. */
   background-color: var(--color-bg);
   color: var(--color-text);

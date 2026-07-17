@@ -46,41 +46,42 @@ export default function DynamicHeroBanner() {
 
   const b = banners[current]!
 
+  // The whole slide is clickable when the banner has a link — no separate "Shop Now" button.
+  const slide = (
+    <div className="relative w-full aspect-32/15 lg:aspect-auto lg:h-[calc(100vh-4rem)]">
+      <img
+        key={b.id}
+        src={b.imageUrl}
+        alt={b.altText ?? b.title}
+        className="w-full h-full object-cover transition-opacity duration-500"
+        onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }}
+      />
+
+      {/* Text */}
+      <div className="absolute inset-0 flex flex-col justify-center px-4 sm:px-8 md:px-12">
+        {b.title && (
+          <h2 className="text-base sm:text-2xl md:text-4xl font-bold text-white leading-tight max-w-[220px] sm:max-w-md drop-shadow">
+            {b.title}
+          </h2>
+        )}
+        {b.subtitle && (
+          <p className="text-xs sm:text-sm md:text-base text-white/80 mt-1 sm:mt-2 max-w-[200px] sm:max-w-sm drop-shadow line-clamp-2 sm:line-clamp-none">
+            {b.subtitle}
+          </p>
+        )}
+      </div>
+    </div>
+  )
+
   return (
     <div className="relative w-full overflow-hidden group">
-      {/* Image */}
-      <div className="relative w-full aspect-32/15 lg:aspect-auto lg:h-[calc(100vh-4rem)]">
-        <img
-          key={b.id}
-          src={b.imageUrl}
-          alt={b.altText ?? b.title}
-          className="w-full h-full object-cover transition-opacity duration-500"
-          onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }}
-        />
-
-        {/* Text */}
-        <div className="absolute inset-0 flex flex-col justify-center px-4 sm:px-8 md:px-12">
-          {b.title && (
-            <h2 className="text-base sm:text-2xl md:text-4xl font-bold text-white leading-tight max-w-[220px] sm:max-w-md drop-shadow">
-              {b.title}
-            </h2>
-          )}
-          {b.subtitle && (
-            <p className="text-xs sm:text-sm md:text-base text-white/80 mt-1 sm:mt-2 max-w-[200px] sm:max-w-sm drop-shadow line-clamp-2 sm:line-clamp-none">
-              {b.subtitle}
-            </p>
-          )}
-          {b.linkUrl && (
-            <Link
-              href={b.linkUrl}
-              onClick={() => trackClick(b)}
-              className="mt-3 sm:mt-5 inline-flex items-center gap-1.5 sm:gap-2 bg-primary text-white px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-medium hover:opacity-90 transition w-fit shadow-lg"
-            >
-              Shop Now <ChevronRight size={12} className="sm:w-3.5 sm:h-3.5" />
-            </Link>
-          )}
-        </div>
-      </div>
+      {b.linkUrl ? (
+        <Link href={b.linkUrl} onClick={() => trackClick(b)} className="block" aria-label={b.title || "View banner"}>
+          {slide}
+        </Link>
+      ) : (
+        slide
+      )}
 
       {/* Navigation arrows — always visible on mobile, hover on desktop */}
       {banners.length > 1 && (
