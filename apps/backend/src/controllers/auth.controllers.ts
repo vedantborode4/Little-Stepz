@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
-import { SigninSchema, SignupSchema } from "@repo/zod-schema/index";
-import {  logoutService, refreshService, signinService, signupService } from "../services/auth.services";
+import { GoogleAuthSchema, SigninSchema, SignupSchema } from "@repo/zod-schema/index";
+import {  googleAuthService, logoutService, refreshService, signinService, signupService } from "../services/auth.services";
 import {
   accessTokenCookieOptions,
   refreshTokenCookieOptions,
@@ -47,6 +47,32 @@ export async function signinController(req: Request, res: Response) {
 
     const { user, accessToken, refreshToken } =
       await signinService(parsed.data);
+
+    res.cookie("accessToken", accessToken, accessTokenCookieOptions);
+    res.cookie("refreshToken", refreshToken, refreshTokenCookieOptions);
+
+    return res.status(200).json({ user, accessToken });
+  } catch (err) {
+    if (err instanceof Error) {
+      return res.status(401).json({ message: err.message });
+    }
+    return res.status(500).json({ message: "Internal server error" });
+  }
+}
+
+export async function googleController(req: Request, res: Response) {
+  try {
+    const parsed = GoogleAuthSchema.safeParse(req.body);
+
+    if (!parsed.success) {
+      return res.status(400).json({
+        message: "Invalid request data",
+        errors: parsed.error.flatten().fieldErrors,
+      });
+    }
+
+    const { user, accessToken, refreshToken } =
+      await googleAuthService(parsed.data.idToken, parsed.data.referralCode);
 
     res.cookie("accessToken", accessToken, accessTokenCookieOptions);
     res.cookie("refreshToken", refreshToken, refreshTokenCookieOptions);

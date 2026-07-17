@@ -11,6 +11,7 @@ import { useAuth } from "../../../hooks/use-auth"
 import { AuthService } from "../../../lib/services/auth.service"
 import { AuthCard, Button, Input } from "@repo/ui/index"
 import PasswordInput from "../../../components/common/PasswordInput"
+import GoogleAuthButton from "../../../components/auth/GoogleAuthButton"
 import { friendlyError } from "../../../lib/errorMessages"
 
 const SignupFormSchema = SignupSchema.extend({
@@ -130,6 +131,8 @@ export default function SignUpPage() {
 
           <Button loading={isSubmitting}>Sign Up</Button>
         </form>
+
+        <GoogleAuthButton redirectTo="/" />
 
         <p className="text-center text-sm text-muted">
           Already have an account?{" "}

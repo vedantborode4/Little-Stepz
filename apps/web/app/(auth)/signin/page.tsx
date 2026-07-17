@@ -10,6 +10,7 @@ import { AuthService } from "../../../lib/services/auth.service"
 import { useAuth } from "../../../hooks/use-auth"
 import { Button, Input, AuthCard } from "@repo/ui/index"
 import PasswordInput from "../../../components/common/PasswordInput"
+import GoogleAuthButton from "../../../components/auth/GoogleAuthButton"
 import { friendlyError } from "../../../lib/errorMessages"
 
 export default function SignInPage() {
@@ -93,6 +94,8 @@ export default function SignInPage() {
 
           <Button loading={isSubmitting}>Sign In</Button>
         </form>
+
+        <GoogleAuthButton redirectTo={safeRedirect()} />
 
         <p className="text-center text-sm text-muted">
           Don't have an account?{" "}

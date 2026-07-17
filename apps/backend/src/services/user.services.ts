@@ -47,6 +47,10 @@ export async function updatePasswordService(userId: string, data: UpdatePassword
     throw new ApiError(404, "User not found");
   }
 
+  if (!user.password) {
+    throw new ApiError(400, "This account uses Google sign-in and has no password to change.");
+  }
+
   const isValid = await comparePassword(data.oldPassword, user.password);
   if (!isValid) {
     throw new ApiError(400, "Old password is incorrect");

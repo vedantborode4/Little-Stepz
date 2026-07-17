@@ -21,6 +21,14 @@ export const logoutSchema = z.object({
   headers: authHeaderSchema,
 });
 
+export const GoogleAuthSchema = z.object({
+  idToken: z.string().min(1, "Google ID token is required"),
+  referralCode: z.string()
+    .max(20, "Referral code must be at most 20 characters")
+    .optional(),
+});
+
 export type SignupData = z.infer<typeof SignupSchema>;
 export type SigninData = z.infer<typeof SigninSchema>;
 export type LogoutData = z.infer<typeof logoutSchema>;
+export type GoogleAuthData = z.infer<typeof GoogleAuthSchema>;

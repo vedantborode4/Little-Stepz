@@ -12,4 +12,9 @@ export const AuthService = {
     const res = await api.post<AuthResponse>("/auth/signup", data)
     return res.data
   },
+
+  googleAuth: async (idToken: string, referralCode?: string) => {
+    const res = await api.post<AuthResponse>("/auth/google", { idToken, referralCode })
+    return res.data
+  },
 }

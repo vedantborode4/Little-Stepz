@@ -7,6 +7,7 @@ import {
 } from "../utils/auth/refresh-token";
 import { hashToken } from "../utils/auth/tokenHash";
 import { TokenReuseDetectedError } from "../utils/auth/errors";
+import { verifyGoogleIdToken } from "../utils/auth/google";
 
 const userSelect = {
   id: true,
@@ -90,6 +91,10 @@ export async function signinService(data: SigninData) {
       throw new Error("Invalid email");
     }
 
+    if (!user.password) {
+      throw new Error("This account uses Google sign-in. Continue with Google.");
+    }
+
     const isValidPassword = await comparePassword(password, user.password);
     if (!isValidPassword) {
       throw new Error("Invalid password");
@@ -128,6 +133,88 @@ export async function signinService(data: SigninData) {
       accessToken,
       refreshToken: refresh.token,
     };
+}
+
+export async function googleAuthService(idToken: string, referralCode?: string) {
+  const profile = await verifyGoogleIdToken(idToken);
+
+  if (!profile.emailVerified) {
+    throw new Error("Google account email is not verified");
+  }
+
+  // 1. Existing Google user (fast path).
+  let user = await prisma.user.findUnique({
+    where: { googleId: profile.sub },
+    select: userSelect,
+  });
+
+  // 2. Auto-link: a password account already owns this (verified) email.
+  if (!user) {
+    const existing = await prisma.user.findUnique({
+      where: { email: profile.email },
+      select: { id: true, googleId: true, avatarUrl: true },
+    });
+
+    if (existing) {
+      user = await prisma.user.update({
+        where: { id: existing.id },
+        data: {
+          googleId: existing.googleId ?? profile.sub,
+          avatarUrl: existing.avatarUrl ?? profile.picture,
+          emailVerified: true,
+        },
+        select: userSelect,
+      });
+    }
+  }
+
+  // 3. Brand-new account (no password — Google-only).
+  if (!user) {
+    let referredById: string | undefined;
+    if (referralCode) {
+      const referrer = await prisma.user.findUnique({
+        where: { referralCode },
+        select: { id: true },
+      });
+      if (referrer) referredById = referrer.id;
+    }
+
+    user = await prisma.user.create({
+      data: {
+        email: profile.email,
+        name: profile.name,
+        googleId: profile.sub,
+        avatarUrl: profile.picture,
+        emailVerified: true,
+        referredById,
+      },
+      select: userSelect,
+    });
+  }
+
+  const accessToken = generateAccessToken({
+    userId: user.id,
+    role: user.role,
+  });
+
+  const refresh = await generateRefreshToken();
+
+  await prisma.$transaction(async (tx) => {
+    await tx.refreshToken.deleteMany({ where: { userId: user!.id } });
+    await tx.refreshToken.create({
+      data: {
+        tokenHash: refresh.tokenHash,
+        userId: user!.id,
+        expiresAt: refresh.expiresAt,
+      },
+    });
+  });
+
+  return {
+    user,
+    accessToken,
+    refreshToken: refresh.token,
+  };
 }
 
 export async function logoutService(refreshToken: string) {

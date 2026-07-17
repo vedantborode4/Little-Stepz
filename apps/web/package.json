@@ -13,6 +13,7 @@
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-dialog": "^1.1.15",
+    "@react-oauth/google": "^0.13.5",
     "@repo/ui": "workspace:*",
     "@tiptap/pm": "^3.27.1",
     "@tiptap/react": "^3.27.1",
