@@ -9,6 +9,7 @@ import Footer from "../components/layout/Footer"
 import NumberInputWheelGuard from "../components/common/NumberInputWheelGuard"
 import ThemedToaster from "../components/common/ThemedToaster"
 import LoadingScreen from "../components/common/LoadingScreen"
+import TawkWidget from "../components/common/TawkWidget"
 
 // Display headings
 const anton = Anton({
@@ -67,6 +68,8 @@ export default function RootLayout({
           src="https://checkout.razorpay.com/v1/checkout.js"
           strategy="afterInteractive"
         />
+
+        <TawkWidget />
       </body>
     </html>
   )
