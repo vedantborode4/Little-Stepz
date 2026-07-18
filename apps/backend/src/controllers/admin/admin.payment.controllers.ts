@@ -5,7 +5,7 @@ import {
 } from "@repo/zod-schema/index";
 
 import { orderParamsSchema } from "@repo/zod-schema/index";
-import { createShipmentService, resolveReturnService } from "../../services/payment.services";
+import { createShipmentService, cancelShipmentService, resolveReturnService } from "../../services/payment.services";
 
 
 
@@ -31,5 +31,16 @@ async function createShipment(req: Request, res: Response) {
   return new ApiResponse(201, result, "Shipment created").send(res);
 }
 
+async function cancelShipment(req: Request, res: Response) {
+  const adminUserId = req.user?.userId;
+  if (!adminUserId) throw new ApiError(401, "Unauthorized");
+
+  const { id: orderId } = orderParamsSchema.parse(req.params);
+  const result          = await cancelShipmentService(adminUserId, orderId, req);
+
+  return new ApiResponse(200, result, "Shipment cancelled").send(res);
+}
+
 export const resolveReturnController    = asyncHandler(resolveReturn);
 export const createShipmentController   = asyncHandler(createShipment);
+export const cancelShipmentController   = asyncHandler(cancelShipment);

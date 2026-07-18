@@ -46,6 +46,12 @@ export const trackOrderParamsSchema = z
   })
   .strict();
 
+export const serviceabilityQuerySchema = z
+  .object({
+    pincode: z.string().regex(/^\d{6}$/, "Pincode must be 6 digits"),
+  })
+  .strict();
+
 export const razorpayWebhookBodySchema = z.object({
   entity:   z.string(),
   event:    z.string(),
@@ -85,4 +91,5 @@ export type CreateCodPaymentBody   = z.infer<typeof createCodPaymentBodySchema>;
 export type CreateReturnBody       = z.infer<typeof createReturnBodySchema>;
 export type ResolveReturnBody      = z.infer<typeof resolveReturnBodySchema>;
 export type TrackOrderParams       = z.infer<typeof trackOrderParamsSchema>;
+export type ServiceabilityQuery    = z.infer<typeof serviceabilityQuerySchema>;
 export type RazorpayWebhookBody    = z.infer<typeof razorpayWebhookBodySchema>;

@@ -6,6 +6,7 @@ import { ArrowLeft, Package, MapPin, CreditCard, Truck } from "lucide-react"
 import { AdminOrderService } from "../../../../lib/services/admin-order.service"
 import OrderStatusBadge from "../../../../components/admin/orders/OrderStatusBadge"
 import ShipOrderButton from "../../../../components/admin/orders/ShipOrderButton"
+import CancelShipmentButton from "../../../../components/admin/orders/CancelShipmentButton"
 import OrderTimeline from "../../../../components/admin/orders/AdminOrderTimeline"
 
 export default function AdminOrderDetailPage() {
@@ -65,6 +66,7 @@ export default function AdminOrderDetailPage() {
         <div className="flex items-center gap-2 sm:ml-auto flex-wrap">
           <OrderStatusBadge status={order.status} />
           <ShipOrderButton orderId={order.id} currentStatus={order.status} onSuccess={load} />
+          <CancelShipmentButton orderId={order.id} currentStatus={order.status} onSuccess={load} />
         </div>
       </div>
 

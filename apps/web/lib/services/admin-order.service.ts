@@ -54,6 +54,12 @@ export const AdminOrderService = {
     return res.data.data
   },
 
+  /** POST /admin/orders/:id/cancel-shipment */
+  cancelShipment: async (id: string) => {
+    const res = await api.post(`/admin/orders/${id}/cancel-shipment`)
+    return res.data.data
+  },
+
   /** PUT /admin/returns/:id/resolve */
   resolveReturn: async (id: string, body: { action: "APPROVE" | "REJECT"; reason?: string }) => {
     const res = await api.put(`/admin/returns/${id}/resolve`, body)

@@ -5,6 +5,7 @@ import { resolveChargedPrice } from '../utils/pricing';
 import { Decimal } from 'decimal.js';
 import type { CreateOrderBody } from '@repo/zod-schema/index';
 import { validateCouponService } from './coupons.services';
+import { assertServiceable, resolveShippingCharge } from '../utils/shipping';
 
 const MAX_TX_RETRIES = 3;
 
@@ -26,14 +27,25 @@ async function runWithRetry<T>(fn: () => Promise<T>): Promise<T> {
   throw new ApiError(500, OrderErrorCode.CONCURRENCY_CONFLICT, {value:['Transaction failed after retries']});
 }
 
-async function calculateShipping(addressId: string): Promise<Decimal> {
-  return new Decimal(5.00);
-}
-
-
 const MAX_CART_ITEMS = 100;
 
 export async function createOrderService(userId: string, data: CreateOrderBody, idempotencyKey: string, affiliateId?: string) {
+  // Idempotent replay — return the existing order without a serviceability/shipping lookup.
+  const replay = await prisma.order.findUnique({ where: { idempotencyKey } });
+  if (replay) {
+    if (replay.userId !== userId) throw new ApiError(403, OrderErrorCode.UNAUTHORIZED_ACCESS);
+    return { orderId: replay.id, subtotal: replay.subtotal.toNumber(), discount: replay.discount.toNumber(), shippingCharges: replay.shippingCharges.toNumber(), total: replay.total.toNumber() };
+  }
+
+  // Serviceability check + live shipping rate run OUTSIDE the transaction (external HTTP must
+  // not hold a DB transaction open). Hard-blocks non-serviceable pincodes.
+  const shippingAddress = await prisma.address.findFirst({
+    where: { id: data.addressId, userId, deletedAt: null },
+  });
+  if (!shippingAddress) throw new ApiError(400, OrderErrorCode.INVALID_ADDRESS);
+  await assertServiceable(shippingAddress.pincode);
+  const precomputedShipping = await resolveShippingCharge(shippingAddress.pincode);
+
   return await runWithRetry(async () => {
     return await prisma.$transaction(async (tx) => {
       
@@ -140,7 +152,7 @@ export async function createOrderService(userId: string, data: CreateOrderBody, 
         couponId = coupon.id;
       }
 
-      let shippingCharges = await calculateShipping(data.addressId);
+      let shippingCharges = precomputedShipping;
 
       let total = subtotal.sub(discount).add(shippingCharges);
       if (total.lt(0)) total = new Decimal(0);

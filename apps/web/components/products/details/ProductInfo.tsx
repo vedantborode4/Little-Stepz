@@ -11,6 +11,7 @@ import { useCartStore } from "../../../store/useCartStore"
 import { useWishlistStore } from "../../../store/useWishlistStore"
 import { useReviewStore } from "../../../store/useReviewStore"
 import OptionSelector from "./OptionSelector"
+import DeliveryCheck from "./DeliveryCheck"
 import { findVariant, type Selection } from "../../../lib/variants/matrix"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
@@ -331,6 +332,9 @@ export default function ProductInfo({
             </div>
           </div>
         </div>
+
+        {/* Delivery availability check */}
+        <DeliveryCheck />
 
         {/* Authenticity / unboxing note */}
         <div className="flex items-center gap-2 text-xs text-muted">

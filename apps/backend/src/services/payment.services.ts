@@ -9,11 +9,11 @@ import {
   fetchRazorpayPayment,
 } from "../utils/razorpay.client";
 import {
-  createShiprocketOrder,
-  trackShiprocketByAwb,
-  cancelShiprocketOrder,
-  buildShiprocketPayload,
-} from "../utils/shiprocket.client";
+  createDelhiveryShipment,
+  trackByWaybill,
+  cancelDelhiveryShipment,
+  mapDelhiveryStatus,
+} from "../utils/delhivery.client";
 import { processAffiliateCommissionService, reverseAffiliateCommissionsService } from "./affiliate.services";
 import { reconcilePreOrderByRazorpayOrderId } from "./preorder.services";
 import { Decimal } from "decimal.js";
@@ -830,18 +830,26 @@ export async function trackOrderService(userId: string, orderId: string) {
     };
   }
 
-  let trackingData = shipment.trackingData;
+  let trackingData   = shipment.trackingData;
+  let shipmentStatus = shipment.status;
+  let deliveredAt    = shipment.deliveredAt;
+
   if (shipment.awbCode) {
     try {
-      const freshTracking = await trackShiprocketByAwb(shipment.awbCode);
-      trackingData = freshTracking as any;
+      const tracking = await trackByWaybill(shipment.awbCode);
+      trackingData   = tracking.raw as any;
+      shipmentStatus = mapDelhiveryStatus(tracking.status, tracking.statusType);
+      deliveredAt    =
+        shipmentStatus === "DELIVERED"
+          ? (tracking.deliveredDate ? new Date(tracking.deliveredDate) : shipment.deliveredAt ?? new Date())
+          : shipment.deliveredAt;
 
       await prisma.shipment.update({
         where: { id: shipment.id },
-        data:  { trackingData: freshTracking as any },
+        data:  { trackingData: tracking.raw as any, status: shipmentStatus, deliveredAt },
       });
     } catch {
-     // Use cached data if Shiprocket call fails
+      // Use cached data if the Delhivery call fails
     }
   }
 
@@ -852,9 +860,9 @@ export async function trackOrderService(userId: string, orderId: string) {
     trackingUrl:  shipment.trackingUrl,
     courierName:  shipment.courierName,
     trackingData,
-    shipmentStatus: shipment.status,
+    shipmentStatus,
     estimatedAt:  shipment.estimatedAt,
-    deliveredAt:  shipment.deliveredAt,
+    deliveredAt,
   };
 }
 
@@ -879,56 +887,64 @@ export async function createShipmentService(
     throw new ApiError(400, "Order is not in a shippable state");
   }
 
-  if (order.shipments.length > 0 && order.shipments[0]!.shiprocketOrderId) {
+  // Ignore prior FAILED (e.g. cancelled) shipments so a re-ship is possible.
+  const activeShipment = order.shipments.find(
+    (s) => s.providerRefId && s.status !== "FAILED"
+  );
+  if (activeShipment) {
     throw new ApiError(409, "Shipment already created for this order");
   }
 
-  const payload = buildShiprocketPayload({
-    orderId:       order.id,
-    orderDate:     order.createdAt,
-    address:       order.address,
-    items:         order.items.map((item) => ({
-      productId:  item.productId,
-      name:       item.product.name,
-      quantity:   item.quantity,
-      price:      Number(item.price),
-      variantId:  item.variantId ?? undefined,
-    })),
-    total:         Number(order.total),
-    paymentMethod: order.paymentMethod,
-  });
+  const totalQuantity = order.items.reduce((sum, item) => sum + item.quantity, 0);
+  const productsDesc =
+    order.items.map((item) => item.product.name).join(", ").substring(0, 200) || "Order items";
 
-  let shiprocketResponse;
+  let delhiveryResponse;
   try {
-    shiprocketResponse = await createShiprocketOrder(payload);
+    delhiveryResponse = await createDelhiveryShipment({
+      order:       order.id,
+      name:        order.address.name,
+      add:         order.address.address,
+      city:        order.address.city,
+      state:       order.address.state,
+      country:     order.address.country,
+      pin:         order.address.pincode,
+      phone:       order.address.phone,
+      paymentMode: order.paymentMethod === "COD" ? "COD" : "Prepaid",
+      codAmount:   Number(order.total),
+      totalAmount: Number(order.total),
+      productsDesc,
+      quantity:    totalQuantity,
+    });
   } catch (err: any) {
-    throw new ApiError(502, PaymentErrorCode.SHIPROCKET_ORDER_FAILED);
+    if (err instanceof ApiError) throw err;
+    throw new ApiError(502, PaymentErrorCode.DELHIVERY_ORDER_FAILED);
   }
+
+  const trackingUrl = `https://www.delhivery.com/track/package/${delhiveryResponse.waybill}`;
 
   return prisma.$transaction(async (tx) => {
     const shipment = await tx.shipment.create({
       data: {
         orderId,
-        shiprocketOrderId:    String(shiprocketResponse.order_id),
-        shiprocketShipmentId: String(shiprocketResponse.shipment_id),
-        awbCode:              shiprocketResponse.awb_code,
-        courierName:          shiprocketResponse.courier_name,
-        trackingUrl:          shiprocketResponse.awb_code
-          ? `https://shiprocket.co/tracking/${shiprocketResponse.awb_code}`
-          : null,
-        status:      "PROCESSING",
-        trackingData: shiprocketResponse as any,
+        providerRefId:      delhiveryResponse.refnum,
+        providerShipmentId: delhiveryResponse.waybill,
+        awbCode:            delhiveryResponse.waybill,
+        courierName:        "Delhivery",
+        trackingUrl,
+        status:             "PROCESSING",
+        trackingData:       delhiveryResponse.raw as any,
       },
     });
 
     await tx.order.update({
       where: { id: orderId },
       data: {
-        status:               "PROCESSING",
-        shiprocketOrderId:    String(shiprocketResponse.order_id),
-        shiprocketShipmentId: String(shiprocketResponse.shipment_id),
-        awbCode:              shiprocketResponse.awb_code,
-        trackingUrl:          shipment.trackingUrl,
+        status:             "PROCESSING",
+        providerRefId:      delhiveryResponse.refnum,
+        providerShipmentId: delhiveryResponse.waybill,
+        awbCode:            delhiveryResponse.waybill,
+        trackingUrl,
       },
     });
 
@@ -938,19 +954,145 @@ export async function createShipmentService(
       entity:   "Shipment",
       entityId: shipment.id,
       newValue: {
-        shiprocketOrderId: shiprocketResponse.order_id,
-        awbCode:           shiprocketResponse.awb_code,
+        waybill: delhiveryResponse.waybill,
+        refnum:  delhiveryResponse.refnum,
       },
       req,
     });
 
     return {
-      shipmentId:           shipment.id,
-      shiprocketOrderId:    shiprocketResponse.order_id,
-      shiprocketShipmentId: shiprocketResponse.shipment_id,
-      awbCode:              shiprocketResponse.awb_code,
-      courierName:          shiprocketResponse.courier_name,
-      trackingUrl:          shipment.trackingUrl,
+      shipmentId:  shipment.id,
+      waybill:     delhiveryResponse.waybill,
+      awbCode:     delhiveryResponse.waybill,
+      courierName: "Delhivery",
+      trackingUrl,
     };
   });
+}
+
+export async function cancelShipmentService(
+  adminUserId: string,
+  orderId:     string,
+  req?:        Request
+) {
+  const order = await prisma.order.findUnique({
+    where:   { id: orderId, deletedAt: null },
+    include: { shipments: { orderBy: { createdAt: "desc" }, take: 1 } },
+  });
+
+  if (!order) throw new ApiError(404, PaymentErrorCode.ORDER_NOT_FOUND);
+
+  const shipment = order.shipments[0];
+  if (!shipment || !shipment.awbCode) {
+    throw new ApiError(404, PaymentErrorCode.SHIPMENT_NOT_FOUND);
+  }
+
+  if (["DELIVERED", "RETURNED"].includes(shipment.status)) {
+    throw new ApiError(409, "Shipment cannot be cancelled in its current state");
+  }
+
+  await cancelDelhiveryShipment(shipment.awbCode);
+
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.shipment.update({
+      where: { id: shipment.id },
+      data:  { status: "FAILED" },
+    });
+
+    // Revert to a shippable state so the admin can re-ship.
+    await tx.order.update({
+      where: { id: orderId },
+      data:  { status: "CONFIRMED" },
+    });
+
+    await createAuditLogInTx(tx, {
+      userId: adminUserId,
+      action:   "SHIPMENT_CANCELLED",
+      entity:   "Shipment",
+      entityId: shipment.id,
+      newValue: { waybill: shipment.awbCode },
+      req,
+    });
+
+    return { shipmentId: updated.id, status: updated.status, awbCode: shipment.awbCode };
+  });
+}
+
+export async function handleDelhiveryWebhookService(
+  payload: any
+): Promise<{ processed: boolean; message: string }> {
+  const shipmentNode = payload?.Shipment ?? payload?.shipment;
+  const waybill      = String(shipmentNode?.AWB ?? shipmentNode?.Waybill ?? shipmentNode?.awb ?? "");
+  const statusNode   = shipmentNode?.Status ?? {};
+  const statusText   = String(statusNode.Status ?? "");
+  const statusType   = String(statusNode.StatusType ?? "");
+  const statusDateTime = statusNode.StatusDateTime ?? "";
+
+  if (!waybill) return { processed: false, message: "Webhook missing waybill" };
+
+  const provider  = "delhivery";
+  const eventId   = `${waybill}:${statusDateTime || statusText || statusType}`;
+  const eventType = statusType || statusText || "status_update";
+
+  let webhookEvent;
+  try {
+    webhookEvent = await prisma.webhookEvent.create({
+      data: { provider, eventId, eventType, payload: payload as any, status: "PROCESSING" },
+    });
+  } catch (err: any) {
+    if (err?.code === "P2002" || err?.message?.includes("Unique constraint")) {
+      return { processed: false, message: "Duplicate webhook — already seen" };
+    }
+    throw err;
+  }
+
+  try {
+    const shipment = await prisma.shipment.findFirst({
+      where:   { awbCode: waybill },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (!shipment) {
+      await prisma.webhookEvent.update({
+        where: { id: webhookEvent.id },
+        data:  { status: "SKIPPED", processedAt: new Date() },
+      });
+      return { processed: false, message: "No shipment matches waybill" };
+    }
+
+    const mapped    = mapDelhiveryStatus(statusText, statusType);
+    const delivered = mapped === "DELIVERED";
+
+    await prisma.$transaction(async (tx) => {
+      await tx.shipment.update({
+        where: { id: shipment.id },
+        data: {
+          status:       mapped,
+          trackingData: payload as any,
+          deliveredAt:  delivered
+            ? (statusDateTime ? new Date(statusDateTime) : new Date())
+            : shipment.deliveredAt,
+        },
+      });
+
+      if (delivered) {
+        await tx.order.update({ where: { id: shipment.orderId }, data: { status: "DELIVERED" } });
+      }
+    });
+
+    await prisma.webhookEvent.update({
+      where: { id: webhookEvent.id },
+      data:  { status: "PROCESSED", processedAt: new Date() },
+    });
+
+    return { processed: true, message: "Webhook processed" };
+  } catch (err: any) {
+    await prisma.webhookEvent
+      .update({
+        where: { id: webhookEvent.id },
+        data:  { status: "FAILED", error: err?.message?.substring(0, 500) ?? "Unknown error" },
+      })
+      .catch(() => {});
+    throw err;
+  }
 }

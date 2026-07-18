@@ -28,6 +28,7 @@ const ERROR_COPY: Record<string, string> = {
 
   // ── Orders / checkout ────────────────────────────────────────────────────
   INVALID_ADDRESS: "Please select a valid delivery address.",
+  PINCODE_NOT_SERVICEABLE: "Sorry, we don't deliver to this address's pincode yet. Please try a different address.",
   ORDER_AMOUNT_MISMATCH: "The order total changed. Please refresh and try again.",
   ORDER_NOT_FOUND: "We couldn't find that order.",
   ORDER_NOT_PENDING: "This order can no longer be changed.",

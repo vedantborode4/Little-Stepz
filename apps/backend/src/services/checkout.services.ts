@@ -4,11 +4,12 @@ import { OrderErrorCode } from "../utils/orderErrors";
 import { resolveChargedPrice } from "../utils/pricing";
 import { Decimal } from "decimal.js";
 import type { CheckoutCalculateBody} from "@repo/zod-schema/index";
-import { validateCouponService } from "./coupons.services"; 
+import { validateCouponService } from "./coupons.services";
+import { assertServiceable, resolveShippingCharge } from "../utils/shipping";
+import { checkServiceability } from "../utils/delhivery.client";
 
-//decide later 
-async function calculateShipping(addressId: string): Promise<Decimal> {
-  return new Decimal(5.00);
+export async function checkServiceabilityService(pincode: string) {
+  return checkServiceability(pincode);
 }
 
 interface CheckoutResult {
@@ -96,7 +97,8 @@ export async function calculateCheckoutService(userId: string, data: CheckoutCal
     discount = calcDiscount;
   }
 
-  let shippingCharges = await calculateShipping(addressId);
+  await assertServiceable(address.pincode);
+  let shippingCharges = await resolveShippingCharge(address.pincode);
 
   let total = subtotal.sub(discount).add(shippingCharges);
   if (total.lt(0)) total = new Decimal(0); // Safety

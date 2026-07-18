@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import crypto from "crypto";
 import { asyncHandler, ApiError, ApiResponse } from "../utils/api";
 import {
   createPaymentBodySchema,
@@ -14,6 +15,7 @@ import {
   handleRazorpayWebhookService,
   createReturnRequestService,
   trackOrderService,
+  handleDelhiveryWebhookService,
 } from "../services/payment.services";
 import { verifyRazorpayWebhookSignature } from "../utils/razorpay.client";
 import { PaymentErrorCode } from "../utils/paymentErrors";
@@ -88,6 +90,34 @@ async function razorpayWebhook(req: Request, res: Response) {
   });
 }
 
+// Constant-time comparison so a wrong-but-same-length token can't be probed by timing.
+function safeEqual(a?: string, b?: string): boolean {
+  if (!a || !b) return false;
+  const ab = Buffer.from(a);
+  const bb = Buffer.from(b);
+  if (ab.length !== bb.length) return false;
+  return crypto.timingSafeEqual(ab, bb);
+}
+
+// Delhivery pushes status updates but does not sign webhooks — guard with a shared secret
+// passed as ?token= or the x-delhivery-token header, matched against DELHIVERY_WEBHOOK_TOKEN.
+function delhiveryWebhook(req: Request, res: Response) {
+  const expected = process.env.DELHIVERY_WEBHOOK_TOKEN;
+  const provided =
+    (req.query.token as string | undefined) ?? (req.headers["x-delhivery-token"] as string | undefined);
+
+  if (!safeEqual(provided, expected)) {
+    return res.status(401).json({ success: false, message: "Unauthorized webhook" });
+  }
+
+  const payload = req.body;
+  res.status(200).json({ success: true, message: "Webhook received" });
+
+  handleDelhiveryWebhookService(payload).catch((err) => {
+    console.error("[Webhook] Delhivery webhook processing failed:", err?.message);
+  });
+}
+
 async function requestReturn(req: Request, res: Response) {
   const userId = req.user?.userId;
   if (!userId) throw new ApiError(401, "Unauthorized");
@@ -115,5 +145,6 @@ export const createPaymentController    = asyncHandler(createPayment);
 export const verifyPaymentController    = asyncHandler(verifyPayment);
 export const createCodPaymentController = asyncHandler(createCodPayment);
 export const razorpayWebhookController  = razorpayWebhook; // NOT wrapped in asyncHandler — responds 200 immediately
+export const delhiveryWebhookController  = delhiveryWebhook; // responds 200 immediately, processes async
 export const requestReturnController    = asyncHandler(requestReturn);
 export const trackOrderController       = asyncHandler(trackOrder);

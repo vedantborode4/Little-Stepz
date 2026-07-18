@@ -17,7 +17,23 @@ export interface CartItemPayload {
   quantity: number
 }
 
+export interface ServiceabilityResult {
+  serviceable: boolean
+  prepaid: boolean
+  cod: boolean
+  pickup: boolean
+}
+
 export const CheckoutService = {
+  /**
+   * Check whether Delhivery delivers to a pincode (+ COD/prepaid availability).
+   * GET /checkout/serviceability?pincode=
+   */
+  checkServiceability: async (pincode: string): Promise<ServiceabilityResult> => {
+    const res = await api.get("/checkout/serviceability", { params: { pincode } })
+    return res.data.data as ServiceabilityResult
+  },
+
   /**
    * Step 1 — Create the order record.
    * idempotencyKey is generated ONCE per checkout session by the store

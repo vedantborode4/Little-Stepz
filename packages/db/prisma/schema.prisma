@@ -426,8 +426,8 @@ model Order {
   status        OrderStatus   @default(PENDING)
   paymentMethod PaymentMethod @default(ONLINE)
 
-  shiprocketOrderId    String?
-  shiprocketShipmentId String?
+  providerRefId        String?
+  providerShipmentId   String?
   trackingUrl          String?
   awbCode              String?
 
@@ -617,8 +617,8 @@ model Shipment {
   orderId String
   order   Order  @relation(fields: [orderId], references: [id])
 
-  shiprocketOrderId    String?
-  shiprocketShipmentId String?
+  providerRefId        String?
+  providerShipmentId   String?
   awbCode              String?
   courierName          String?
   trackingUrl          String?
