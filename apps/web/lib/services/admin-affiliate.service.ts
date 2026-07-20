@@ -54,9 +54,22 @@ export interface AdminWithdrawal {
   }
 }
 
+export interface AffiliateStats {
+  affiliates: { total: number; approved: number; pending: number; rejected: number }
+  commissions: { earned: number; pending: number; approved: number; paid: number }
+  withdrawals: { pendingCount: number; pendingAmount: number; paid: number }
+  referrals: { signups: number; orders: number; revenue: number }
+}
+
 // ── Affiliates ──────────────────────────────────────────────────────────────
 
 export const AdminAffiliateService = {
+  /** GET /admin/affiliates/stats — combined program stats for the overview cards */
+  getStats: async () => {
+    const res = await api.get("/admin/affiliates/stats")
+    return res.data.data as AffiliateStats
+  },
+
   /** POST /admin/affiliates/invite  body: { email } — emails the apply link */
   invite: async (email: string) => {
     const res = await api.post("/admin/affiliates/invite", { email })

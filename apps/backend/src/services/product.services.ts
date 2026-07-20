@@ -110,7 +110,9 @@ export async function getProductsService({
       })();
 
   const where: any = {
-    deletedAt: null
+    deletedAt: null,
+    // Products of a deactivated category are hidden from the storefront.
+    category: { isActive: true },
   };
 
   if (preOrder !== undefined) {
@@ -170,7 +172,8 @@ export async function getProductBySlugService(slug: string) {
   const product = await prisma.product.findFirst({
     where: {
       slug,
-      deletedAt: null, 
+      deletedAt: null,
+      category: { isActive: true },
     },
     select: baseProductSelect,
   });
@@ -261,7 +264,7 @@ export async function searchProductsService(q: string, limit = 20) {
 
   // Strict: every token must appear somewhere.
   let candidates = await prisma.product.findMany({
-    where: { deletedAt: null, AND: tokens.map(tokenFieldOr) },
+    where: { deletedAt: null, category: { isActive: true }, AND: tokens.map(tokenFieldOr) },
     take: poolSize,
     select: searchCandidateSelect,
   });
@@ -269,7 +272,7 @@ export async function searchProductsService(q: string, limit = 20) {
   // Relaxed fallback: any token matches — rescues multi-word queries where one word is off.
   if (candidates.length === 0 && tokens.length > 1) {
     candidates = await prisma.product.findMany({
-      where: { deletedAt: null, OR: tokens.map(tokenFieldOr) },
+      where: { deletedAt: null, category: { isActive: true }, OR: tokens.map(tokenFieldOr) },
       take: poolSize,
       select: searchCandidateSelect,
     });
@@ -307,7 +310,7 @@ export async function getSearchSuggestionsService(q: string) {
   const qLower = query.toLowerCase();
 
   const candidates = await prisma.product.findMany({
-    where: { deletedAt: null, AND: tokens.map(tokenFieldOr) },
+    where: { deletedAt: null, category: { isActive: true }, AND: tokens.map(tokenFieldOr) },
     take: 30,
     select: {
       name: true,
@@ -337,8 +340,8 @@ export async function getProductsByCategorySlugService(
   minPrice?: number,
   maxPrice?: number
 ) {
-  const category = await prisma.category.findUnique({
-    where: { slug: categorySlug },
+  const category = await prisma.category.findFirst({
+    where: { slug: categorySlug, isActive: true, deletedAt: null },
     select: { id: true },
   });
 

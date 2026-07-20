@@ -9,20 +9,48 @@ import {
   Star, Image, FolderTree, DollarSign, Wallet, Home, X, CalendarClock, TrendingUp, Bell,
 } from "lucide-react"
 
-const items = [
-  { label: "Dashboard",     href: "/admin",              icon: LayoutDashboard },
-  { label: "Profit & Loss", href: "/admin/profit-loss",  icon: TrendingUp },
-  { label: "Orders",      href: "/admin/orders",        icon: ShoppingCart },
-  { label: "Pre-Orders",  href: "/admin/pre-orders",    icon: CalendarClock },
-  { label: "Products",    href: "/admin/products",      icon: Package },
-  { label: "Categories",  href: "/admin/categories",    icon: FolderTree },
-  { label: "Affiliates",  href: "/admin/affiliates",    icon: Users },
-  { label: "Commissions", href: "/admin/commissions",   icon: DollarSign },
-  { label: "Withdrawals", href: "/admin/withdrawals",   icon: Wallet },
-  { label: "Coupons",     href: "/admin/coupons",       icon: Ticket },
-  { label: "Reviews",     href: "/admin/reviews",       icon: Star },
-  { label: "Banners",     href: "/admin/banners",       icon: Image },
-  { label: "Notifications", href: "/admin/notifications", icon: Bell },
+// Standalone item shown above the grouped sections.
+const dashboard = { label: "Dashboard", href: "/admin", icon: LayoutDashboard }
+
+// Grouped nav — each section gets an uppercase header.
+const sections = [
+  {
+    title: "Catalogue",
+    items: [
+      { label: "Products",   href: "/admin/products",   icon: Package },
+      { label: "Categories", href: "/admin/categories", icon: FolderTree },
+      { label: "Banners",    href: "/admin/banners",    icon: Image },
+    ],
+  },
+  {
+    title: "Commerce",
+    items: [
+      { label: "Orders",     href: "/admin/orders",     icon: ShoppingCart },
+      { label: "Pre-Orders", href: "/admin/pre-orders", icon: CalendarClock },
+      { label: "Coupons",    href: "/admin/coupons",    icon: Ticket },
+      { label: "Reviews",    href: "/admin/reviews",    icon: Star },
+    ],
+  },
+  {
+    title: "Affiliate",
+    items: [
+      { label: "Affiliates",  href: "/admin/affiliates",  icon: Users },
+      { label: "Commissions", href: "/admin/commissions", icon: DollarSign },
+      { label: "Withdrawals", href: "/admin/withdrawals", icon: Wallet },
+    ],
+  },
+  {
+    title: "Finance",
+    items: [
+      { label: "Profit & Loss", href: "/admin/profit-loss", icon: TrendingUp },
+    ],
+  },
+  {
+    title: "Marketing",
+    items: [
+      { label: "Notifications", href: "/admin/notifications", icon: Bell },
+    ],
+  },
 ]
 
 interface Props { onClose?: () => void }
@@ -55,14 +83,13 @@ export default function AdminSidebar({ onClose }: Props) {
         )}
       </div>
 
-      <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
-        {items.map((item) => {
-          const Icon = item.icon
-          const active = isActive(item.href)
+      <nav className="flex-1 p-3 overflow-y-auto">
+        {(() => {
+          const Icon = dashboard.icon
+          const active = isActive(dashboard.href)
           return (
             <Link
-              key={item.href}
-              href={item.href}
+              href={dashboard.href}
               onClick={onClose}
               className={clsx(
                 "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all",
@@ -72,10 +99,40 @@ export default function AdminSidebar({ onClose }: Props) {
               )}
             >
               <Icon size={17} className={active ? "text-white" : "text-faint"} />
-              {item.label}
+              {dashboard.label}
             </Link>
           )
-        })}
+        })()}
+
+        {sections.map((section) => (
+          <div key={section.title} className="mt-4 first:mt-3">
+            <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-wider text-faint">
+              {section.title}
+            </p>
+            <div className="space-y-0.5">
+              {section.items.map((item) => {
+                const Icon = item.icon
+                const active = isActive(item.href)
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={onClose}
+                    className={clsx(
+                      "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all",
+                      active
+                        ? "bg-primary text-white shadow-sm"
+                        : "text-muted hover:bg-primary/5 hover:text-primary"
+                    )}
+                  >
+                    <Icon size={17} className={active ? "text-white" : "text-faint"} />
+                    {item.label}
+                  </Link>
+                )
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
 
       <div className="p-3 border-t border-border flex items-center gap-1">

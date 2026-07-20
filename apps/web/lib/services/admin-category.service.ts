@@ -6,6 +6,7 @@ export interface AdminCategory {
   slug: string
   parentId?: string | null
   image?: string | null
+  isActive?: boolean
   createdAt?: string
 }
 
@@ -15,19 +16,19 @@ function buildTree(flat: AdminCategory[]): AdminCategory[] {
 }
 
 export const AdminCategoryService = {
-  /** GET /categories — returns flat list */
+  /** GET /admin/categories — flat list including inactive (admin-only). */
   getAll: async (): Promise<AdminCategory[]> => {
-    const res = await api.get("/categories")
+    const res = await api.get("/admin/categories")
     const d = res.data.data
     return Array.isArray(d) ? d : d.categories ?? []
   },
 
   /**
-   * GET /categories (flat) — /categories/tree returns 500 on this backend.
-   * We fetch the flat list instead; callers that needed a tree can build it client-side.
+   * GET /admin/categories (flat) — includes inactive categories so admin forms
+   * can build the tree / parent picker client-side.
    */
   getTree: async (): Promise<AdminCategory[]> => {
-    const res = await api.get("/categories")
+    const res = await api.get("/admin/categories")
     const d = res.data.data
     return Array.isArray(d) ? d : d.categories ?? []
   },
@@ -42,7 +43,7 @@ export const AdminCategoryService = {
    * PUT /admin/categories/:id
    * To clear a parent (set to no parent), pass parentId: null explicitly.
    */
-  update: async (id: string, body: { name?: string; slug?: string; parentId?: string | null; image?: string }): Promise<AdminCategory> => {
+  update: async (id: string, body: { name?: string; slug?: string; parentId?: string | null; image?: string; isActive?: boolean }): Promise<AdminCategory> => {
     const res = await api.put(`/admin/categories/${id}`, body)
     return res.data.data
   },

@@ -107,6 +107,7 @@ model Category {
   description String?
   image       String?
   parentId    String?
+  isActive    Boolean  @default(true)
 
   parent    Category?  @relation("CategoryTree", fields: [parentId], references: [id])
   children  Category[] @relation("CategoryTree")

@@ -3,11 +3,17 @@ import {
   createCategoryService,
   updateCategoryService,
   deleteCategoryService,
+  listCategoriesAdminService,
 } from "../../services/admin/admin.category.services";
 
 import { createCategorySchema } from "@repo/zod-schema/index";
 import { ApiError, ApiResponse, asyncHandler } from "../../utils/api";
 
+
+async function getCategories(_req: Request, res: Response) {
+  const categories = await listCategoriesAdminService();
+  return new ApiResponse(200, categories, "Categories fetched successfully").send(res);
+}
 
 async function createCategory(req: Request, res: Response) {
   const parsed = createCategorySchema.safeParse(req.body);
@@ -23,7 +29,7 @@ async function updateCategory(req: Request, res: Response) {
   if (!id) throw new ApiError(400, "Category ID is required");
 
 
-  const { name, slug, description, image, parentId } = req.body;
+  const { name, slug, description, image, parentId, isActive } = req.body;
 
   // name and slug are required on update (we always send them from the form)
   if (name !== undefined && typeof name === "string" && !name.trim()) {
@@ -34,6 +40,8 @@ async function updateCategory(req: Request, res: Response) {
   }
 
   const updateData: Record<string, any> = {};
+
+  if (isActive !== undefined) updateData.isActive = Boolean(isActive);
 
   if (name !== undefined)        updateData.name        = String(name).trim();
   if (slug !== undefined)        updateData.slug        = String(slug).trim();
@@ -66,6 +74,7 @@ async function deleteCategory(req: Request, res: Response) {
   return new ApiResponse(200, null, "Category deleted successfully").send(res);
 }
 
+export const getCategoriesController = asyncHandler(getCategories);
 export const createCategoryController = asyncHandler(createCategory);
 export const updateCategoryController = asyncHandler(updateCategory);
 export const deleteCategoryController = asyncHandler(deleteCategory);

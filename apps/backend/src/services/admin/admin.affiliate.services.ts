@@ -543,3 +543,68 @@ export async function adminInviteAffiliateService(email: string) {
 
   return { email, inviteUrl, emailSent };
 }
+
+/**
+ * Combined affiliate program stats for the admin Affiliates overview — counts,
+ * commission totals by status, withdrawal totals, and referral performance.
+ */
+export async function adminAffiliateStatsService() {
+  const [affByStatus, commByStatus, wdByStatus, referredSignups, referredOrders] =
+    await Promise.all([
+      prisma.affiliate.groupBy({
+        by: ["status"],
+        where: { deletedAt: null },
+        _count: { id: true },
+      }),
+      prisma.commission.groupBy({
+        by: ["status"],
+        where: { deletedAt: null },
+        _sum: { amount: true },
+      }),
+      prisma.affiliateWithdrawal.groupBy({
+        by: ["status"],
+        _count: { id: true },
+        _sum: { amount: true },
+      }),
+      prisma.user.count({ where: { referredById: { not: null } } }),
+      prisma.order.aggregate({
+        where: { affiliateId: { not: null } },
+        _count: { id: true },
+        _sum: { total: true },
+      }),
+    ]);
+
+  const affCount = (s: string) => affByStatus.find((r) => r.status === s)?._count.id ?? 0;
+  const commSum = (s: string) =>
+    commByStatus.find((r) => r.status === s)?._sum.amount?.toNumber() ?? 0;
+  const wd = (s: string) => {
+    const r = wdByStatus.find((x) => x.status === s);
+    return { count: r?._count.id ?? 0, amount: r?._sum.amount?.toNumber() ?? 0 };
+  };
+
+  return {
+    affiliates: {
+      total: affByStatus.reduce((a, r) => a + r._count.id, 0),
+      approved: affCount("APPROVED"),
+      pending: affCount("PENDING"),
+      rejected: affCount("REJECTED"),
+    },
+    commissions: {
+      // Earned excludes CANCELLED commissions.
+      earned: commSum("PENDING") + commSum("APPROVED") + commSum("PAID"),
+      pending: commSum("PENDING"),
+      approved: commSum("APPROVED"),
+      paid: commSum("PAID"),
+    },
+    withdrawals: {
+      pendingCount: wd("PENDING").count + wd("PROCESSING").count,
+      pendingAmount: wd("PENDING").amount + wd("PROCESSING").amount,
+      paid: wd("PAID").amount,
+    },
+    referrals: {
+      signups: referredSignups,
+      orders: referredOrders._count.id,
+      revenue: referredOrders._sum.total?.toNumber() ?? 0,
+    },
+  };
+}

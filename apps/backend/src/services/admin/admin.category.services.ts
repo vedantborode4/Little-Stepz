@@ -9,8 +9,19 @@ const categorySelect = {
   description: true,
   image: true,
   parentId: true,
+  isActive: true,
   deletedAt: true,
 };
+
+// Admin list — every non-deleted category, including inactive ones (the
+// storefront-facing service filters those out; admins must still manage them).
+export async function listCategoriesAdminService() {
+  return prisma.category.findMany({
+    where: { deletedAt: null },
+    orderBy: { name: "asc" },
+    select: categorySelect,
+  });
+}
 
 async function checkSlugUnique(slug: string, ignoreId?: string) {
   const existing = await prisma.category.findFirst({

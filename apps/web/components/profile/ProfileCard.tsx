@@ -2,16 +2,25 @@
 
 import { useEffect, useState } from "react"
 import { UserService } from "../../lib/services/user.service"
+import { useAuthStore } from "../../store/auth.store"
 import EditProfileDialog from "./EditProfileDialog"
 import ChangePasswordDialog from "./ChangePasswordDialog"
 import { User, Mail, Phone, Shield } from "lucide-react"
 
 export default function ProfileCard() {
   const [user, setUser] = useState<any>(null)
+  const setStoreUser = useAuthStore((s) => s.setUser)
 
   useEffect(() => {
     UserService.getMe().then(setUser)
   }, [])
+
+  // Reflect profile edits in the global auth store so the navbar (which reads
+  // the store) updates immediately instead of waiting for a reload.
+  const handleUpdated = (updated: any) => {
+    setUser(updated)
+    setStoreUser({ name: updated.name })
+  }
 
   if (!user) {
     return (
@@ -48,7 +57,7 @@ export default function ProfileCard() {
           </div>
           <div className="flex gap-2 pt-2 mb-3">
             <ChangePasswordDialog />
-            <EditProfileDialog user={user} onUpdated={setUser} />
+            <EditProfileDialog user={user} onUpdated={handleUpdated} />
           </div>
         </div>
 

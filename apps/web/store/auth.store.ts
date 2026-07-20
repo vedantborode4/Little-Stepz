@@ -11,6 +11,7 @@ interface AuthState {
   isHydrated: boolean
 
   setAuth: (data: AuthResponse) => void
+  setUser: (user: Partial<NonNullable<AuthResponse["user"]>>) => void
   logout: () => void
   setHydrated: (value: boolean) => void
 }
@@ -30,6 +31,13 @@ export const useAuthStore = create<AuthState>()(
           accessToken: data.accessToken,
           isAuthenticated: true,
         }),
+
+      // Merge partial user fields (e.g. after a profile edit) so store-backed
+      // UI like the navbar reflects the change without a full reload.
+      setUser: (user) =>
+        set((state) =>
+          state.user ? { user: { ...state.user, ...user } } : {}
+        ),
 
       logout: () => {
         // Clear cart state locally — do NOT call clearCart() which fires an API request.

@@ -26,7 +26,7 @@ type CategoryTree = {
 
 export async function getCategoriesService() {
   return prisma.category.findMany({
-    where: { deletedAt: null }, 
+    where: { deletedAt: null, isActive: true },
     orderBy: { name: "asc" },
     select: baseCategorySelect,
   });
@@ -34,7 +34,7 @@ export async function getCategoriesService() {
 
 export async function getCategoryTreeService(): Promise<CategoryTree[]> {
   const categories = await prisma.category.findMany({
-    where: { deletedAt: null }, 
+    where: { deletedAt: null, isActive: true },
     orderBy: { name: "asc" },
     select: baseCategorySelect,
   });
@@ -70,7 +70,7 @@ export async function getCategoryTreeService(): Promise<CategoryTree[]> {
 
 export async function getCategoryBySlugService(slug: string) {
   const category = await prisma.category.findFirst({
-    where: { slug, deletedAt: null },
+    where: { slug, deletedAt: null, isActive: true },
     select: baseCategorySelect,
   });
 

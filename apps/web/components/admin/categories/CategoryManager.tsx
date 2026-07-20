@@ -6,6 +6,7 @@ import CategoryFormModal from "./CategoryFormModal"
 import { AdminCategoryService, AdminCategory } from "../../../lib/services/admin-category.service"
 import AdminPageHeader from "../AdminPageHeader"
 import AdminModal from "../AdminModal"
+import Toggle from "../../common/Toggle"
 import { toast } from "sonner"
 
 export default function CategoryManager() {
@@ -32,6 +33,17 @@ export default function CategoryManager() {
       setCategories(p => p.filter(c => c.id !== deleteId)); setDeleteId(null)
     } catch (e: any) { toast.error(e?.response?.data?.message || "Failed to delete category") }
     finally { setDeleting(false) }
+  }
+
+  const toggleActive = async (cat: AdminCategory, next: boolean) => {
+    // Optimistic — reflect immediately, revert if the request fails.
+    setCategories(p => p.map(c => c.id === cat.id ? { ...c, isActive: next } : c))
+    try {
+      await AdminCategoryService.update(cat.id, { isActive: next })
+    } catch (e: any) {
+      setCategories(p => p.map(c => c.id === cat.id ? { ...c, isActive: !next } : c))
+      toast.error(e?.response?.data?.message || "Failed to update status")
+    }
   }
 
   const topLevel = categories.filter(c => !c.parentId)
@@ -71,6 +83,7 @@ export default function CategoryManager() {
             <tr className="text-muted text-left">
               <th className="p-4 font-medium">Name</th><th className="p-4 font-medium">Slug</th>
               <th className="p-4 font-medium">Parent</th><th className="p-4 font-medium">Subcategories</th>
+              <th className="p-4 font-medium">Status</th>
               <th className="p-4 font-medium text-right">Actions</th>
             </tr>
           </thead>
@@ -87,6 +100,7 @@ export default function CategoryManager() {
                   <td className="p-4 text-muted font-mono text-xs">{c.slug}</td>
                   <td className="p-4 text-faint">—</td>
                   <td className="p-4"><span className="text-xs bg-surface-2 text-muted px-2 py-0.5 rounded-full">{children(c.id).length} sub</span></td>
+                  <td className="p-4"><Toggle checked={c.isActive !== false} onChange={(v) => toggleActive(c, v)} onLabel="Active" offLabel="Inactive"/></td>
                   <td className="p-4">
                     <div className="flex items-center justify-end gap-2">
                       <button onClick={() => { setSelected(c); setModalMode("edit") }} className="p-1.5 rounded-lg hover:bg-surface-2 text-faint hover:text-muted transition"><Pencil size={14}/></button>
@@ -100,6 +114,7 @@ export default function CategoryManager() {
                     <td className="p-4 text-muted font-mono text-xs">{child.slug}</td>
                     <td className="p-4 text-muted text-xs">{c.name}</td>
                     <td className="p-4 text-faint">—</td>
+                    <td className="p-4"><Toggle checked={child.isActive !== false} onChange={(v) => toggleActive(child, v)} onLabel="Active" offLabel="Inactive"/></td>
                     <td className="p-4">
                       <div className="flex items-center justify-end gap-2">
                         <button onClick={() => { setSelected(child); setModalMode("edit") }} className="p-1.5 rounded-lg hover:bg-surface-2 text-faint hover:text-muted transition"><Pencil size={14}/></button>
@@ -110,7 +125,7 @@ export default function CategoryManager() {
                 ))}
               </React.Fragment>
             ))}
-            {!categories.length && (<tr><td colSpan={5} className="py-16 text-center text-faint">No categories yet</td></tr>)}
+            {!categories.length && (<tr><td colSpan={6} className="py-16 text-center text-faint">No categories yet</td></tr>)}
           </tbody>
         </table>
       </div>
@@ -131,7 +146,7 @@ export default function CategoryManager() {
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                {children(c.id).length > 0 && <span className="text-xs bg-surface-2 text-muted px-2 py-0.5 rounded-full">{children(c.id).length} sub</span>}
+                <Toggle checked={c.isActive !== false} onChange={(v) => toggleActive(c, v)} onLabel="" offLabel=""/>
                 <button onClick={() => { setSelected(c); setModalMode("edit") }} className="p-1.5 rounded-xl hover:bg-surface-2 text-faint"><Pencil size={13}/></button>
                 <button onClick={() => setDeleteId(c.id)} className="p-1.5 rounded-xl hover:bg-red-50 dark:hover:bg-red-500/15 text-faint hover:text-red-500"><Trash2 size={13}/></button>
               </div>
@@ -148,6 +163,7 @@ export default function CategoryManager() {
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
+                      <Toggle checked={child.isActive !== false} onChange={(v) => toggleActive(child, v)} onLabel="" offLabel=""/>
                       <button onClick={() => { setSelected(child); setModalMode("edit") }} className="p-1.5 rounded-xl hover:bg-surface-2 text-faint"><Pencil size={13}/></button>
                       <button onClick={() => setDeleteId(child.id)} className="p-1.5 rounded-xl hover:bg-red-50 dark:hover:bg-red-500/15 text-faint hover:text-red-500"><Trash2 size={13}/></button>
                     </div>

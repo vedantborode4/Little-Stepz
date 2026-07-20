@@ -16,7 +16,9 @@ export const createCategorySchema = z.object({
     .max(2048, "Image URL is too long")
     .optional(),
 
-  parentId: optionalUuidSchema
+  parentId: optionalUuidSchema,
+
+  isActive: z.boolean().optional()
 });
 
 

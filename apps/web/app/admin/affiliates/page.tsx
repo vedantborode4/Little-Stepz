@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react"
 import { UserPlus, Eye } from "lucide-react"
-import { AdminAffiliateService, type AdminAffiliate } from "../../../lib/services/admin-affiliate.service"
+import { AdminAffiliateService, type AdminAffiliate, type AffiliateStats } from "../../../lib/services/admin-affiliate.service"
 import AdminPageHeader from "../../../components/admin/AdminPageHeader"
 import TableSkeleton from "../../../components/admin/TableSkeleton"
+import AffiliateStatsCards from "../../../components/admin/affiliates/AffiliateStatsCards"
 import AffiliateStatusBadge from "../../../components/admin/affiliates/AffiliateStatusBadge"
 import AffiliateApproveModal from "../../../components/admin/affiliates/AffiliateApproveModal"
 import AffiliateInviteModal from "../../../components/admin/affiliates/AffiliateInviteModal"
@@ -23,6 +24,11 @@ export default function AdminAffiliatesPage() {
   const [modalAffiliate, setModalAffiliate] = useState<AdminAffiliate | null>(null)
   const [modalAction, setModalAction] = useState<"approve" | "reject">("approve")
   const [inviteOpen, setInviteOpen] = useState(false)
+  const [stats, setStats] = useState<AffiliateStats | null>(null)
+
+  useEffect(() => {
+    AdminAffiliateService.getStats().then(setStats).catch(() => setStats(null))
+  }, [])
 
   const fetch = async () => {
     setLoading(true)
@@ -51,6 +57,8 @@ export default function AdminAffiliatesPage() {
           </button>
         }
       />
+
+      <AffiliateStatsCards stats={stats} />
 
       {/* Tabs — scrollable on mobile */}
       <div className="flex items-center gap-1 bg-surface-2 p-1 rounded-xl w-full sm:w-fit overflow-x-auto scrollbar-none">

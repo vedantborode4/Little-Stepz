@@ -15,6 +15,7 @@ import {
   adminRejectAffiliateService,
   adminUpdateAffiliateService,
   adminInviteAffiliateService,
+  adminAffiliateStatsService,
 } from "../../services/admin/admin.affiliate.services";
 import { adminListAffiliatesService } from "../../services/affiliate.services";
 import { z } from "zod";
@@ -145,7 +146,13 @@ async function inviteAffiliate(req: Request, res: Response) {
   return new ApiResponse(200, result, message).send(res);
 }
 
+async function affiliateStats(_req: Request, res: Response) {
+  const stats = await adminAffiliateStatsService();
+  return new ApiResponse(200, stats, "Affiliate stats fetched").send(res);
+}
+
 export const adminInviteAffiliateController    = asyncHandler(inviteAffiliate);
+export const adminAffiliateStatsController     = asyncHandler(affiliateStats);
 export const adminListAffiliatesController    = asyncHandler(listAffiliates);
 export const adminApproveAffiliateController  = asyncHandler(approveAffiliate);
 export const adminRejectAffiliateController   = asyncHandler(rejectAffiliate);
