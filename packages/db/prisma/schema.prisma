@@ -963,3 +963,20 @@ model NotificationPreference {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+model NotificationBroadcast {
+  id        String @id @default(uuid())
+  adminId   String
+  adminName String?
+
+  title          String
+  body           String
+  type           NotificationType
+  targetType     String
+  targetLabel    String?
+  recipientCount Int
+
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}

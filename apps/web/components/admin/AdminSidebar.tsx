@@ -6,7 +6,7 @@ import clsx from "clsx"
 import ThemeToggle from "../common/ThemeToggle"
 import {
   LayoutDashboard, ShoppingCart, Package, Users, Ticket,
-  Star, Image, FolderTree, DollarSign, Wallet, Home, X, CalendarClock, TrendingUp,
+  Star, Image, FolderTree, DollarSign, Wallet, Home, X, CalendarClock, TrendingUp, Bell,
 } from "lucide-react"
 
 const items = [
@@ -22,6 +22,7 @@ const items = [
   { label: "Coupons",     href: "/admin/coupons",       icon: Ticket },
   { label: "Reviews",     href: "/admin/reviews",       icon: Star },
   { label: "Banners",     href: "/admin/banners",       icon: Image },
+  { label: "Notifications", href: "/admin/notifications", icon: Bell },
 ]
 
 interface Props { onClose?: () => void }
