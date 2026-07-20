@@ -16,6 +16,8 @@ import {
 } from "../utils/delhivery.client";
 import { processAffiliateCommissionService, reverseAffiliateCommissionsService } from "./affiliate.services";
 import { reconcilePreOrderByRazorpayOrderId } from "./preorder.services";
+import { notify, notifyAdmins } from "./notification.services";
+import { orderShortRef, money, orderStatusNotification } from "../utils/notificationCopy";
 import { Decimal } from "decimal.js";
 import type {
   CreatePaymentBody,
@@ -29,6 +31,56 @@ import { Request } from "express";
 const MAX_PAYMENT_ATTEMPTS = 3;
 const TX_RETRIES           = 3;
 const RETURN_WINDOW_DAYS   = 7; // Orders eligible for return within 7 days of delivery
+
+/**
+ * Fire-and-forget notifications for a freshly confirmed order. Fail-soft (notify
+ * never throws). `paid` adds a payment-received notice for online payments; COD
+ * orders are confirmed but not yet paid.
+ */
+function emitOrderConfirmed(
+  userId: string,
+  orderId: string,
+  total: number | string,
+  opts: { paid: boolean }
+) {
+  if (opts.paid) {
+    void notify({
+      userId,
+      type: "PAYMENT_SUCCESS",
+      title: "Payment received 💳",
+      body: `We've received your payment of ${money(total)} for order #${orderShortRef(orderId)}.`,
+      data: { screen: "Order", orderId },
+    });
+  }
+  void notify({
+    userId,
+    type: "ORDER_CONFIRMED",
+    title: "Order confirmed ✅",
+    body: `Your order #${orderShortRef(orderId)} is confirmed and being prepared.`,
+    data: { screen: "Order", orderId },
+  });
+  void notifyAdmins({
+    type: "ADMIN_NEW_ORDER",
+    title: "New order received 🛒",
+    body: `Order #${orderShortRef(orderId)} — ${money(total)} — was just confirmed.`,
+    data: { screen: "AdminOrder", orderId },
+  });
+}
+
+/** Fire-and-forget commission-earned notification to the affiliate. Fail-soft. */
+function emitCommissionEarned(
+  commission: { affiliateUserId: string; amount: number } | null,
+  orderId: string
+) {
+  if (!commission) return;
+  void notify({
+    userId: commission.affiliateUserId,
+    type: "COMMISSION_EARNED",
+    title: "Commission earned 🎉",
+    body: `You earned ${money(commission.amount)} commission on a referred order.`,
+    data: { screen: "AffiliateEarnings", orderId },
+  });
+}
 
 async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
   let attempts = 0;
@@ -199,7 +251,7 @@ export async function verifyPaymentService(
     throw new ApiError(400, PaymentErrorCode.INVALID_SIGNATURE);
   }
 
-  return withRetry(async () => {
+  const result = await withRetry(async () => {
     return prisma.$transaction(async (tx) => {
       const payments = await tx.$queryRaw<Array<{
         id: string; orderId: string; status: string;
@@ -215,7 +267,7 @@ export async function verifyPaymentService(
       if (!payment) throw new ApiError(404, PaymentErrorCode.PAYMENT_NOT_FOUND);
 
       if (payment.status === "SUCCESS") {
-        return { success: true, orderId: data.orderId, alreadyProcessed: true };
+        return { success: true, orderId: data.orderId, alreadyProcessed: true, total: 0, commission: null };
       }
 
       if (payment.razorpayOrderId !== data.razorpayOrderId) {
@@ -267,8 +319,9 @@ export async function verifyPaymentService(
         data:  { status: "CONFIRMED" },
       });
 
+      let commission = null;
       if (order.affiliateId) {
-        await processAffiliateCommissionService({
+        commission = await processAffiliateCommissionService({
           tx,
           orderId:     data.orderId,
           affiliateId: order.affiliateId,
@@ -287,9 +340,16 @@ export async function verifyPaymentService(
         req,
       });
 
-      return { success: true, orderId: data.orderId, alreadyProcessed: false };
+      return { success: true, orderId: data.orderId, alreadyProcessed: false, total: Number(order.total), commission };
     });
   });
+
+  if (!result.alreadyProcessed) {
+    emitOrderConfirmed(userId, result.orderId, result.total, { paid: true });
+    emitCommissionEarned(result.commission, result.orderId);
+  }
+
+  return { success: result.success, orderId: result.orderId, alreadyProcessed: result.alreadyProcessed };
 }
 
 export async function createCodPaymentService(
@@ -297,7 +357,7 @@ export async function createCodPaymentService(
   data: CreateCodPaymentBody,
   req?: Request
 ) {
-  return withRetry(async () => {
+  const result = await withRetry(async () => {
     return prisma.$transaction(async (tx) => {
       const orders = await tx.$queryRaw<Array<{
         id: string; userId: string; total: unknown; status: string;
@@ -374,9 +434,15 @@ export async function createCodPaymentService(
         orderId:       data.orderId,
         paymentMethod: "COD",
         message:       "Cash on Delivery confirmed. Pay on delivery.",
+        total:         Number(order.total),
       };
     });
   });
+
+  emitOrderConfirmed(userId, result.orderId, result.total, { paid: false });
+
+  const { total, ...response } = result;
+  return response;
 }
 
 export async function handleRazorpayWebhookService(
@@ -460,8 +526,8 @@ async function handlePaymentCaptured(payload: any): Promise<void> {
   if (!razorpayOrderId || !razorpayPaymentId) return;
 
   let foundPayment = true;
-  await withRetry(async () => {
-    await prisma.$transaction(async (tx) => {
+  const confirmed = await withRetry(async () => {
+    return prisma.$transaction(async (tx) => {
       const payments = await tx.$queryRaw<Array<{
         id: string; orderId: string; status: string; amount: unknown;
       }>>`
@@ -472,9 +538,9 @@ async function handlePaymentCaptured(payload: any): Promise<void> {
       `;
 
       const payment = payments[0];
-      if (!payment) { foundPayment = false; return; } // not a normal order payment — maybe a pre-order leg
+      if (!payment) { foundPayment = false; return null; } // not a normal order payment — maybe a pre-order leg
 
-      if (payment.status === "SUCCESS") return;
+      if (payment.status === "SUCCESS") return null;
 
       const expectedPaise = Math.round(Number(payment.amount) * 100);
       if (amountPaise && amountPaise !== expectedPaise) {
@@ -499,8 +565,9 @@ async function handlePaymentCaptured(payload: any): Promise<void> {
         where:  { id: payment.orderId },
         select: { affiliateId: true, total: true, userId: true },
       });
+      let commission = null;
       if (order?.affiliateId) {
-        await processAffiliateCommissionService({
+        commission = await processAffiliateCommissionService({
           tx,
           orderId:     payment.orderId,
           affiliateId: order.affiliateId,
@@ -516,8 +583,17 @@ async function handlePaymentCaptured(payload: any): Promise<void> {
         oldValue: { status: payment.status },
         newValue: { status: "SUCCESS", source: "webhook", razorpayPaymentId },
       });
+
+      return order
+        ? { userId: order.userId, orderId: payment.orderId, total: Number(order.total), commission }
+        : null;
     });
   });
+
+  if (confirmed) {
+    emitOrderConfirmed(confirmed.userId, confirmed.orderId, confirmed.total, { paid: true });
+    emitCommissionEarned(confirmed.commission, confirmed.orderId);
+  }
 
   // Backup reconciliation for pre-order booking/balance legs (not in the Payment table).
   if (!foundPayment) {
@@ -533,11 +609,12 @@ async function handlePaymentFailed(payload: any): Promise<void> {
 
   if (!razorpayOrderId) return;
 
-  await prisma.$transaction(async (tx) => {
+  const failed = await prisma.$transaction(async (tx) => {
     const payment = await tx.payment.findUnique({
       where: { razorpayOrderId },
+      include: { order: { select: { userId: true } } },
     });
-    if (!payment || payment.status === "SUCCESS") return;
+    if (!payment || payment.status === "SUCCESS") return null;
 
     await tx.payment.update({
       where: { id: payment.id },
@@ -558,7 +635,19 @@ async function handlePaymentFailed(payload: any): Promise<void> {
         errorDesc:    entity?.error_description,
       },
     });
+
+    return { userId: payment.order.userId, orderId: payment.orderId };
   });
+
+  if (failed) {
+    void notify({
+      userId: failed.userId,
+      type: "PAYMENT_FAILED",
+      title: "Payment failed",
+      body: `We couldn't process the payment for order #${orderShortRef(failed.orderId)}. Please try again.`,
+      data: { screen: "Order", orderId: failed.orderId },
+    });
+  }
 }
 
 async function handleRefundProcessed(payload: any): Promise<void> {
@@ -569,7 +658,7 @@ async function handleRefundProcessed(payload: any): Promise<void> {
 
   if (!paymentId) return;
 
-  await prisma.$transaction(async (tx) => {
+  const refunded = await prisma.$transaction(async (tx) => {
     const payments = await tx.$queryRaw<Array<{
       id: string; orderId: string; status: string;
     }>>`
@@ -580,8 +669,8 @@ async function handleRefundProcessed(payload: any): Promise<void> {
     `;
 
     const payment = payments[0];
-    if (!payment) return;
-    if (payment.status === "REFUNDED") return; // Idempotent
+    if (!payment) return null;
+    if (payment.status === "REFUNDED") return null; // Idempotent
 
     const refundAmount = amountPaise ? amountPaise / 100 : undefined;
 
@@ -595,9 +684,10 @@ async function handleRefundProcessed(payload: any): Promise<void> {
       },
     });
 
-    await tx.order.update({
+    const order = await tx.order.update({
       where: { id: payment.orderId },
       data:  { status: "REFUNDED" },
+      select: { userId: true },
     });
 
     await createAuditLogInTx(tx, {
@@ -606,7 +696,21 @@ async function handleRefundProcessed(payload: any): Promise<void> {
       entityId: payment.orderId,
       newValue: { refundId: razorpayRefundId, refundAmount, source: "webhook" },
     });
+
+    return { userId: order.userId, orderId: payment.orderId, refundAmount };
   });
+
+  if (refunded) {
+    void notify({
+      userId: refunded.userId,
+      type: "REFUND_PROCESSED",
+      title: "Refund processed 💸",
+      body: refunded.refundAmount
+        ? `Your refund of ${money(refunded.refundAmount)} for order #${orderShortRef(refunded.orderId)} has been processed.`
+        : `Your refund for order #${orderShortRef(refunded.orderId)} has been processed.`,
+      data: { screen: "Order", orderId: refunded.orderId },
+    });
+  }
 }
 
 export async function createReturnRequestService(
@@ -923,7 +1027,7 @@ export async function createShipmentService(
 
   const trackingUrl = `https://www.delhivery.com/track/package/${delhiveryResponse.waybill}`;
 
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const shipment = await tx.shipment.create({
       data: {
         orderId,
@@ -968,6 +1072,16 @@ export async function createShipmentService(
       trackingUrl,
     };
   });
+
+  void notify({
+    userId: order.userId,
+    type: "ORDER_PROCESSING",
+    title: "Order is being packed 📦",
+    body: `Your order #${orderShortRef(orderId)} has been handed to Delhivery. You can track it now.`,
+    data: { screen: "Order", orderId, trackingUrl },
+  });
+
+  return result;
 }
 
 export async function cancelShipmentService(
@@ -1062,6 +1176,7 @@ export async function handleDelhiveryWebhookService(
 
     const mapped    = mapDelhiveryStatus(statusText, statusType);
     const delivered = mapped === "DELIVERED";
+    const prevStatus = shipment.status;
 
     await prisma.$transaction(async (tx) => {
       await tx.shipment.update({
@@ -1084,6 +1199,30 @@ export async function handleDelhiveryWebhookService(
       where: { id: webhookEvent.id },
       data:  { status: "PROCESSED", processedAt: new Date() },
     });
+
+    // Notify the customer on a real courier transition (shipped / out-for-delivery / delivered).
+    if (mapped !== prevStatus) {
+      const copy = orderStatusNotification(mapped as unknown as OrderStatus, shipment.orderId);
+      if (copy) {
+        const order = await prisma.order.findUnique({
+          where: { id: shipment.orderId },
+          select: { userId: true },
+        });
+        if (order) {
+          void notify({
+            userId: order.userId,
+            type: copy.type,
+            title: copy.title,
+            body: copy.body,
+            data: {
+              screen: "Order",
+              orderId: shipment.orderId,
+              trackingUrl: shipment.trackingUrl ?? undefined,
+            },
+          });
+        }
+      }
+    }
 
     return { processed: true, message: "Webhook processed" };
   } catch (err: any) {

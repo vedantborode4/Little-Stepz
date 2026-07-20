@@ -29,7 +29,8 @@ export type AuditAction =
   | "AFFILIATE_WITHDRAWAL_PAID"
   | "AFFILIATE_WITHDRAWAL_REJECTED"
   | "REFERRAL_CLICK_RECORDED"
-  | "REFERRAL_CONVERTED";
+  | "REFERRAL_CONVERTED"
+  | "NOTIFICATION_BROADCAST";
 
 export type AuditEntity =
   | "Payment"
@@ -38,8 +39,9 @@ export type AuditEntity =
   | "Return"
   | "Shipment"
   | "WebhookEvent"
-  | "Affiliate" 
-  | "AffiliateWithdrawal";
+  | "Affiliate"
+  | "AffiliateWithdrawal"
+  | "Notification";
 
 export interface CreateAuditLogParams {
   userId?: string;

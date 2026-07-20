@@ -3,6 +3,9 @@ import { ApiError } from "../../utils/api";
 import { AffiliateErrorCode } from "../../utils/affiliateErrors";
 import { createAuditLogInTx, createAuditLog } from "../../utils/auditLog";
 import { sendAffiliateInviteEmail } from "../../utils/email";
+import { notify } from "../notification.services";
+import { money } from "../../utils/notificationCopy";
+import type { NotificationType } from "@repo/db/client";
 import { Decimal } from "decimal.js";
 import type {
   AdminCommissionsQuery,
@@ -30,6 +33,19 @@ async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
   throw new ApiError(500, AffiliateErrorCode.CONCURRENCY_CONFLICT);
 }
 
+/** Resolve an affiliate's owning user and notify them. Fail-soft. */
+async function notifyAffiliateUser(
+  affiliateId: string,
+  payload: { type: NotificationType; title: string; body: string; data?: Record<string, unknown> }
+) {
+  const affiliate = await prisma.affiliate.findUnique({
+    where: { id: affiliateId },
+    select: { userId: true },
+  });
+  if (!affiliate) return;
+  void notify({ userId: affiliate.userId, ...payload });
+}
+
 // GET /admin/affiliates — already in affiliate.services.ts
 
 export async function adminApproveAffiliateOnlyService(
@@ -40,7 +56,7 @@ export async function adminApproveAffiliateOnlyService(
   adminNote?:   string,
   req?:         Request
 ) {
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const rows = await tx.$queryRaw<Array<{
       id: string; userId: string; status: string;
     }>>`SELECT id, "userId", status FROM "Affiliate" WHERE id = ${affiliateId} FOR UPDATE`;
@@ -74,8 +90,19 @@ export async function adminApproveAffiliateOnlyService(
       req,
     });
 
-    return { affiliateId, status: "APPROVED" };
+    return { affiliateId, status: "APPROVED", userId: aff.userId };
   });
+
+  void notify({
+    userId: result.userId,
+    type: "AFFILIATE_APPROVED",
+    title: "You're an affiliate now 🤝",
+    body: "Your affiliate application has been approved. Start sharing your referral link to earn commission.",
+    data: { screen: "AffiliateDashboard" },
+  });
+
+  const { userId, ...response } = result;
+  return response;
 }
 
 export async function adminRejectAffiliateService(
@@ -195,7 +222,7 @@ export async function adminApproveCommissionService(
   data:         AdminApproveCommissionBody,
   req?:         Request
 ) {
-  return withRetry(async () => {
+  const result = await withRetry(async () => {
     return prisma.$transaction(async (tx) => {
       // Row-level lock
       const rows = await tx.$queryRaw<Array<{
@@ -210,9 +237,11 @@ export async function adminApproveCommissionService(
       const commission = rows[0];
       if (!commission) throw new ApiError(404, AffiliateErrorCode.COMMISSION_NOT_FOUND);
 
+      const amount = Number(String(commission.amount));
+
       // Idempotency — already approved
       if (commission.status === "APPROVED") {
-        return { commissionId, status: "APPROVED", alreadyProcessed: true };
+        return { commissionId, status: "APPROVED", affiliateId: commission.affiliateId, amount, alreadyProcessed: true };
       }
 
       // Only PENDING commissions can be approved
@@ -239,9 +268,20 @@ export async function adminApproveCommissionService(
         req,
       });
 
-      return { commissionId, status: "APPROVED", alreadyProcessed: false };
+      return { commissionId, status: "APPROVED", affiliateId: commission.affiliateId, amount, alreadyProcessed: false };
     });
   });
+
+  if (!result.alreadyProcessed) {
+    await notifyAffiliateUser(result.affiliateId, {
+      type: "COMMISSION_APPROVED",
+      title: "Commission approved ✅",
+      body: `Your ${money(result.amount)} commission has been approved.`,
+      data: { screen: "AffiliateEarnings" },
+    });
+  }
+
+  return result;
 }
 
 export async function adminPayCommissionService(
@@ -250,7 +290,7 @@ export async function adminPayCommissionService(
   data:         AdminPayCommissionBody,
   req?:         Request
 ) {
-  return withRetry(async () => {
+  const result = await withRetry(async () => {
     return prisma.$transaction(async (tx) => {
       // Row-level lock
       const rows = await tx.$queryRaw<Array<{
@@ -267,7 +307,7 @@ export async function adminPayCommissionService(
 
       // Idempotency — already paid
       if (commission.status === "PAID") {
-        return { commissionId, status: "PAID", alreadyProcessed: true };
+        return { commissionId, status: "PAID", affiliateId: commission.affiliateId, amount: Number(String(commission.amount)), alreadyProcessed: true };
       }
 
       // Must be APPROVED first
@@ -323,9 +363,20 @@ export async function adminPayCommissionService(
         req,
       });
 
-      return { commissionId, status: "PAID", amount: amount.toNumber(), alreadyProcessed: false };
+      return { commissionId, status: "PAID", affiliateId: commission.affiliateId, amount: amount.toNumber(), alreadyProcessed: false };
     });
   });
+
+  if (!result.alreadyProcessed) {
+    await notifyAffiliateUser(result.affiliateId, {
+      type: "COMMISSION_PAID",
+      title: "Commission paid 💰",
+      body: `Your ${money(result.amount)} commission has been paid out.`,
+      data: { screen: "AffiliateEarnings" },
+    });
+  }
+
+  return result;
 }
 
 export async function adminGetAffiliateDetailService(affiliateId: string) {

@@ -15,6 +15,9 @@ import {
   ShipmentStatus,
   BannerPosition,
   PreOrderStatus,
+  DevicePlatform,
+  NotificationCategory,
+  NotificationType,
 } from "@prisma/client";
 
 export const prisma = new PrismaClient();
@@ -35,4 +38,7 @@ export {
   ShipmentStatus,
   BannerPosition,
   PreOrderStatus,
+  DevicePlatform,
+  NotificationCategory,
+  NotificationType,
 };

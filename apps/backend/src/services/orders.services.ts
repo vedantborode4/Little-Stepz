@@ -6,6 +6,8 @@ import { Decimal } from 'decimal.js';
 import type { CreateOrderBody } from '@repo/zod-schema/index';
 import { validateCouponService } from './coupons.services';
 import { assertServiceable, resolveShippingCharge } from '../utils/shipping';
+import { notify } from './notification.services';
+import { orderShortRef } from '../utils/notificationCopy';
 
 const MAX_TX_RETRIES = 3;
 
@@ -46,15 +48,15 @@ export async function createOrderService(userId: string, data: CreateOrderBody, 
   await assertServiceable(shippingAddress.pincode);
   const precomputedShipping = await resolveShippingCharge(shippingAddress.pincode);
 
-  return await runWithRetry(async () => {
+  const result = await runWithRetry(async () => {
     return await prisma.$transaction(async (tx) => {
-      
+
       const existingOrder = await tx.order.findUnique({
         where: { idempotencyKey },
       });
       if (existingOrder) {
         if (existingOrder.userId !== userId) throw new ApiError(403, OrderErrorCode.UNAUTHORIZED_ACCESS);
-        return { orderId: existingOrder.id, subtotal: existingOrder.subtotal.toNumber(), discount: existingOrder.discount.toNumber(), shippingCharges: existingOrder.shippingCharges.toNumber(), total: existingOrder.total.toNumber() }; // Idempotent return
+        return { orderId: existingOrder.id, subtotal: existingOrder.subtotal.toNumber(), discount: existingOrder.discount.toNumber(), shippingCharges: existingOrder.shippingCharges.toNumber(), total: existingOrder.total.toNumber(), isNew: false }; // Idempotent return
       }
 
       const address = await tx.address.findFirst({
@@ -189,7 +191,7 @@ export async function createOrderService(userId: string, data: CreateOrderBody, 
         });
 
 
-        return { orderId: order.id, subtotal: order.subtotal.toNumber(), discount: order.discount.toNumber(), shippingCharges: order.shippingCharges.toNumber(), total: order.total.toNumber() };
+        return { orderId: order.id, subtotal: order.subtotal.toNumber(), discount: order.discount.toNumber(), shippingCharges: order.shippingCharges.toNumber(), total: order.total.toNumber(), isNew: true };
       } catch (err: any) {
         if (err.message.includes('Unique constraint failed')) { // General check for P2002 without Prisma code
           // Idempotency key conflict; retry query for existing
@@ -197,7 +199,7 @@ export async function createOrderService(userId: string, data: CreateOrderBody, 
             where: { idempotencyKey },
           });
           if (conflictingOrder && conflictingOrder.userId === userId) {
-            return { orderId: conflictingOrder.id, subtotal: conflictingOrder.subtotal.toNumber(), discount: conflictingOrder.discount.toNumber(), shippingCharges: conflictingOrder.shippingCharges.toNumber(), total: conflictingOrder.total.toNumber() };
+            return { orderId: conflictingOrder.id, subtotal: conflictingOrder.subtotal.toNumber(), discount: conflictingOrder.discount.toNumber(), shippingCharges: conflictingOrder.shippingCharges.toNumber(), total: conflictingOrder.total.toNumber(), isNew: false };
           }
           throw new ApiError(409, OrderErrorCode.IDEMPOTENCY_KEY_CONFLICT);
         }
@@ -205,6 +207,19 @@ export async function createOrderService(userId: string, data: CreateOrderBody, 
       }
     }); // Removed isolationLevel; use default RepeatableRead for alternative, or configure DB level
   });
+
+  const { isNew, ...order } = result;
+  if (isNew) {
+    void notify({
+      userId,
+      type: 'ORDER_PLACED',
+      title: 'Order placed 🛍️',
+      body: `We've received your order #${orderShortRef(order.orderId)}. We'll let you know as it progresses.`,
+      data: { screen: 'Order', orderId: order.orderId },
+    });
+  }
+
+  return order;
 }
 
 export async function getOrdersService(userId: string, page: number, limit: number, status?: string) {
@@ -323,7 +338,7 @@ export async function getOrderInvoiceService(userId: string, id: string) {
 }
 
 export async function cancelOrderService(userId: string, orderId: string, reason?: string) {
-  return await runWithRetry(async () => {
+  await runWithRetry(async () => {
     return await prisma.$transaction(async (tx) => {
       const order = await tx.order.findFirst({
         where: { id: orderId, userId, deletedAt: null },
@@ -366,4 +381,14 @@ export async function cancelOrderService(userId: string, orderId: string, reason
       return { orderId, status: 'CANCELLED' };
     });
   });
+
+  void notify({
+    userId,
+    type: 'ORDER_CANCELLED',
+    title: 'Order cancelled',
+    body: `Your order #${orderShortRef(orderId)} has been cancelled.`,
+    data: { screen: 'Order', orderId },
+  });
+
+  return { orderId, status: 'CANCELLED' };
 }

@@ -2,6 +2,8 @@ import { prisma } from "@repo/db/client";
 import { ApiError } from "../utils/api";
 import { AffiliateErrorCode } from "../utils/affiliateErrors";
 import { createAuditLog, createAuditLogInTx } from "../utils/auditLog";
+import { notify, notifyAdmins } from "./notification.services";
+import { money } from "../utils/notificationCopy";
 import { Decimal } from "decimal.js";
 import crypto from "crypto";
 import type {
@@ -600,7 +602,7 @@ export async function requestWithdrawalService(
   data:   AffiliateWithdrawBody,
   req?:   Request
 ) {
-  return withRetry(async () => {
+  const result = await withRetry(async () => {
     return prisma.$transaction(async (tx) => {
       const affiliates = await tx.$queryRaw<Array<{
         id: string; pendingBalance: unknown; payoutDetails: unknown; status: string;
@@ -699,6 +701,15 @@ export async function requestWithdrawalService(
       };
     });
   });
+
+  void notifyAdmins({
+    type: "ADMIN_WITHDRAWAL_REQUEST",
+    title: "Withdrawal requested 💵",
+    body: `An affiliate requested a payout of ${money(result.amount)}.`,
+    data: { screen: "AdminWithdrawals", withdrawalId: result.withdrawalId },
+  });
+
+  return result;
 }
 
 // ADMIN SERVICES
@@ -826,7 +837,7 @@ export async function adminProcessWithdrawalService(
   data:         AdminProcessWithdrawalBody,
   req?:         Request
 ) {
-  return withRetry(async () => {
+  const result = await withRetry(async () => {
     return prisma.$transaction(async (tx) => {
       const withdrawals = await tx.$queryRaw<Array<{
         id: string; affiliateId: string; amount: unknown; status: string;
@@ -900,9 +911,29 @@ export async function adminProcessWithdrawalService(
         withdrawalId,
         status:    data.status,
         amount:    amount.toNumber(),
+        affiliateId: withdrawal.affiliateId,
       };
     });
   });
+
+  if (result.status === "PAID") {
+    const affiliate = await prisma.affiliate.findUnique({
+      where: { id: result.affiliateId },
+      select: { userId: true },
+    });
+    if (affiliate) {
+      void notify({
+        userId: affiliate.userId,
+        type: "WITHDRAWAL_PAID",
+        title: "Payout sent 💰",
+        body: `Your withdrawal of ${money(result.amount)} has been paid out.`,
+        data: { screen: "AffiliateEarnings", withdrawalId: result.withdrawalId },
+      });
+    }
+  }
+
+  const { affiliateId, ...response } = result;
+  return response;
 }
 
 export async function adminListWithdrawalsService(
@@ -972,7 +1003,7 @@ export async function processAffiliateCommissionService(params: {
   affiliateId: string;
   orderTotal:  number;
   userId:      string;
-}): Promise<void> {
+}): Promise<{ affiliateUserId: string; amount: number } | null> {
   const { tx, orderId, affiliateId, orderTotal, userId } = params;
 
   const affiliate = await tx.affiliate.findUnique({
@@ -980,9 +1011,9 @@ export async function processAffiliateCommissionService(params: {
     select: { status: true, commissionRate: true, commissionType: true, userId: true },
   });
 
-  if (!affiliate || affiliate.status !== "APPROVED") return;
+  if (!affiliate || affiliate.status !== "APPROVED") return null;
 
-  if (affiliate.userId === userId) return;
+  if (affiliate.userId === userId) return null;
 
   if (affiliate.commissionType === "PER_ORDER") {
     const previousCommission = await tx.commission.findFirst({
@@ -993,14 +1024,14 @@ export async function processAffiliateCommissionService(params: {
       },
       select: { id: true },
     });
-    if (previousCommission) return; // Already earned commission from this user
+    if (previousCommission) return null; // Already earned commission from this user
   }
 
   const existingCommission = await tx.commission.findUnique({
     where: { affiliateId_orderId: { affiliateId, orderId } },
     select: { id: true },
   });
-  if (existingCommission) return;
+  if (existingCommission) return null;
 
   const commissionAmount = new Decimal(orderTotal).mul(affiliate.commissionRate);
 
@@ -1035,6 +1066,8 @@ export async function processAffiliateCommissionService(params: {
     entityId: orderId,
     newValue: { affiliateId, amount: commissionAmount.toNumber() },
   });
+
+  return { affiliateUserId: affiliate.userId, amount: commissionAmount.toNumber() };
 }
 
 export async function reverseAffiliateCommissionsService(params: {

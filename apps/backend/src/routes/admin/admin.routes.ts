@@ -9,10 +9,11 @@ import { adminOrdersRouter } from "./admin.orders.routes";
 import { adminPreOrderRouter } from "./admin.preorder.routes";
 import { adminPaymentRouter } from "./admin.payment.routes";
 import { adminAffiliateRouter } from "./admin.affiliate.routes";
-import { 
-    adminDashboardRouter, 
-    adminBannerRouter 
+import {
+    adminDashboardRouter,
+    adminBannerRouter
 } from "./admin.dashboard.routes";
+import { adminNotificationRouter } from "./admin.notification.routes";
 
 export const adminRouter: Router = Router();
 
@@ -37,3 +38,5 @@ adminRouter.use("/affiliates", adminAffiliateRouter);
 adminRouter.use("/", adminDashboardRouter);
 
 adminRouter.use("/banners", adminBannerRouter);
+
+adminRouter.use("/notifications", adminNotificationRouter);

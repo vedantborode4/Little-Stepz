@@ -20,6 +20,7 @@
     "crypto": "^1.0.1",
     "decimal.js": "^10.6.0",
     "dotenv": "^17.2.3",
+    "expo-server-sdk": "^6.1.0",
     "express": "^5.2.1",
     "express-rate-limit": "^8.2.1",
     "google-auth-library": "^10.9.0",

@@ -1,6 +1,8 @@
 import { OrderStatus, prisma } from "@repo/db/client";
 import { ApiError } from "../../utils/api";
 import { OrderErrorCode } from "../../utils/orderErrors";
+import { notify } from "../notification.services";
+import { orderStatusNotification } from "../../utils/notificationCopy";
 
 
 const statusTransitions: Record<OrderStatus, OrderStatus[]> = {
@@ -90,7 +92,7 @@ export async function updateOrderStatusService(
   newStatus: OrderStatus,
   adminId: string
 ) {
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const order = await tx.order.findUnique({
       where: { id },
       include: {
@@ -154,4 +156,17 @@ export async function updateOrderStatusService(
       total: updated.total.toNumber(),
     };
   });
+
+  const copy = orderStatusNotification(newStatus, result.id);
+  if (copy) {
+    void notify({
+      userId: result.userId,
+      type: copy.type,
+      title: copy.title,
+      body: copy.body,
+      data: { screen: "Order", orderId: result.id },
+    });
+  }
+
+  return result;
 }

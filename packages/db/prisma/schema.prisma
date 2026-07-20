@@ -40,6 +40,10 @@ model User {
   auditLogs     AuditLog[]
   preOrders     PreOrder[]
 
+  deviceTokens           DeviceToken[]
+  notifications          Notification[]
+  notificationPreference NotificationPreference?
+
   deletedAt DateTime?
 
   createdAt DateTime @default(now())
@@ -872,4 +876,90 @@ model Banner {
   @@index([position, isActive])
   @@index([isActive, startsAt, endsAt])
   @@index([deletedAt])
+}
+
+enum DevicePlatform {
+  IOS
+  ANDROID
+}
+
+enum NotificationCategory {
+  ORDER
+  PAYMENT
+  AFFILIATE
+  MARKETING
+  SYSTEM
+}
+
+enum NotificationType {
+  ORDER_PLACED
+  ORDER_CONFIRMED
+  ORDER_PROCESSING
+  ORDER_SHIPPED
+  ORDER_OUT_FOR_DELIVERY
+  ORDER_DELIVERED
+  ORDER_CANCELLED
+  PAYMENT_SUCCESS
+  PAYMENT_FAILED
+  REFUND_PROCESSED
+  COMMISSION_EARNED
+  COMMISSION_APPROVED
+  COMMISSION_PAID
+  WITHDRAWAL_PAID
+  AFFILIATE_APPROVED
+  REFERRAL_SIGNUP
+  MARKETING
+  ADMIN_NEW_ORDER
+  ADMIN_WITHDRAWAL_REQUEST
+  ADMIN_CUSTOM
+}
+
+model DeviceToken {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  token      String         @unique
+  platform   DevicePlatform
+  deviceName String?
+  lastUsedAt DateTime       @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model Notification {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type     NotificationType
+  category NotificationCategory
+  title    String
+  body     String
+  data     Json?
+
+  readAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([userId, readAt])
+}
+
+model NotificationPreference {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  pushEnabled      Boolean @default(true)
+  orderUpdates     Boolean @default(true)
+  paymentUpdates   Boolean @default(true)
+  affiliateUpdates Boolean @default(true)
+  marketing        Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

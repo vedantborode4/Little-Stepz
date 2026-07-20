@@ -8,6 +8,7 @@ import {
 import { hashToken } from "../utils/auth/tokenHash";
 import { TokenReuseDetectedError } from "../utils/auth/errors";
 import { verifyGoogleIdToken } from "../utils/auth/google";
+import { notify } from "./notification.services";
 
 const userSelect = {
   id: true,
@@ -54,6 +55,16 @@ export async function signupService(data: SignupData) {
     },
     select: userSelect,
   });
+
+  if (referredById) {
+    void notify({
+      userId: referredById,
+      type: "REFERRAL_SIGNUP",
+      title: "New referral joined 🎉",
+      body: `${name} signed up using your referral link.`,
+      data: { screen: "AffiliateDashboard" },
+    });
+  }
 
   // Tokens
   const accessToken = generateAccessToken({
@@ -190,6 +201,16 @@ export async function googleAuthService(idToken: string, referralCode?: string) 
       },
       select: userSelect,
     });
+
+    if (referredById) {
+      void notify({
+        userId: referredById,
+        type: "REFERRAL_SIGNUP",
+        title: "New referral joined 🎉",
+        body: `${profile.name} signed up using your referral link.`,
+        data: { screen: "AffiliateDashboard" },
+      });
+    }
   }
 
   const accessToken = generateAccessToken({
