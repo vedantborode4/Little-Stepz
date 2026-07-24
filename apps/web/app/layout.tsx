@@ -10,6 +10,10 @@ import NumberInputWheelGuard from "../components/common/NumberInputWheelGuard"
 import ThemedToaster from "../components/common/ThemedToaster"
 import LoadingScreen from "../components/common/LoadingScreen"
 import TawkWidget from "../components/common/TawkWidget"
+import GoogleAnalytics from "../components/analytics/GoogleAnalytics"
+import JsonLd from "../components/seo/JsonLd"
+import { ROOT_METADATA } from "../lib/seo/metadata"
+import { organizationSchema, websiteSchema } from "../lib/seo/schema"
 
 // Display headings
 const anton = Anton({
@@ -40,10 +44,7 @@ const orbitron = Orbitron({
   display: "swap",
 })
 
-export const metadata = {
-  title: "Little Stepz",
-  description: "Toys store",
-}
+export const metadata = ROOT_METADATA
 
 export default function RootLayout({
   children,
@@ -52,7 +53,15 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning className={`${manrope.variable} ${anton.variable} ${sora.variable} ${orbitron.variable}`}>
+      <head>
+        {/* Google tag (gtag.js) — every page, all routes. Replaces the previous
+            inline snippet with a single component so the same measurement ID is
+            never loaded twice. */}
+        <GoogleAnalytics />
+      </head>
       <body className="font-sans">
+        {/* Site-wide entity graph. Server-rendered so it is in the initial HTML. */}
+        <JsonLd schema={[organizationSchema(), websiteSchema()]} />
         <ThemeProvider>
           <AuthProvider>
             <NumberInputWheelGuard />
@@ -68,20 +77,6 @@ export default function RootLayout({
           src="https://checkout.razorpay.com/v1/checkout.js"
           strategy="afterInteractive"
         />
-
-        {/* Google Analytics (gtag.js) */}
-        <Script
-          src="https://www.googletagmanager.com/gtag/js?id=G-EWT0G2CD9X"
-          strategy="afterInteractive"
-        />
-        <Script id="google-analytics" strategy="afterInteractive">
-          {`
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', 'G-EWT0G2CD9X');
-          `}
-        </Script>
 
         <TawkWidget />
       </body>
