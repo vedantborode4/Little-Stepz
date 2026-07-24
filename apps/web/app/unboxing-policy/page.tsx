@@ -1,10 +1,12 @@
 import { PackageOpen } from "lucide-react"
+import { pageMetadata } from "../../lib/seo/metadata"
 
-export const metadata = {
-  title: "Unboxing Policy | Little Stepz",
+export const metadata = pageMetadata({
+  title: "Unboxing Policy — Video Proof Rules",
   description:
-    "A complete unboxing video is mandatory for any claim related to damage, missing items, incorrect products, or tampered packages.",
-}
+    "A complete unboxing video is mandatory for any Little Stepz claim related to damage, missing items, incorrect products, or tampered packages.",
+  path: "/unboxing-policy",
+})
 
 export default function UnboxingPolicyPage() {
   return (
