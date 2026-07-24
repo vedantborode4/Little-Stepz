@@ -38,5 +38,11 @@ yarn-error.log*
 *.pem
 .vscode
 
+# Claude Code local settings — not for the shared repo
+.claude/
+
+# Office lock files (e.g. ~$Workbook.xlsx)
+~$*
+
 *.tsbuildinfo
 *.tsbuildinfo.*

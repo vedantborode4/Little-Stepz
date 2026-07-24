@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 import { useAuthStore } from "../../store/auth.store"
 import { useCartStore } from "../../store/useCartStore"
 import { useWishlistStore } from "../../store/useWishlistStore"
@@ -11,8 +11,6 @@ import {
 import { UserService } from "../../lib/services/user.service"
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [loading, setLoading] = useState(true)
-
   useEffect(() => {
     // ✅ FIX: Empty dependency array — this effect must only run ONCE on mount.
     //
@@ -48,7 +46,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         logout()
       } finally {
         setHydrated(true)
-        setLoading(false)
       }
     }
 
@@ -56,7 +53,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []) // ← intentionally empty: hydrate must only run once on mount
 
-  if (loading) return null
-
+  // Children render immediately, including during server rendering.
+  //
+  // This previously held a `loading` state that started `true` and was only
+  // cleared inside the effect above. Effects never run on the server, so the
+  // provider returned `null` for every server render — the entire site body,
+  // on every route, was absent from the HTML response. Navbar, footer, page
+  // content and all nested JSON-LD existed only in the RSC flight payload,
+  // which requires JavaScript to materialise. That is why the live site serves
+  // zero <h1> elements and no structured data below the root layout.
+  //
+  // Gating render on auth state is not this component's job: AuthGuard,
+  // GuestGuard, AdminGuard, AffiliateGuard and Navbar each already wait on
+  // `isHydrated` from the auth store, so protected routes stay protected.
   return children
 }
