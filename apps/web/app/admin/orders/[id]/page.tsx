@@ -144,7 +144,7 @@ export default function AdminOrderDetailPage() {
                 <tr key={item.id} className="border-t border-border hover:bg-surface-2/50">
                   <td className="p-4">
                     <div className="flex items-center gap-3">
-                      <img src={item.product?.images?.[0]?.url || "/placeholder.png"}
+                      <img src={item.product?.images?.[0]?.url || "/placeholder.webp"}
                         className="w-10 h-10 rounded-lg object-cover border border-border shrink-0" alt={item.product?.name}/>
                       <span className="font-medium text-text">{item.product?.name || "—"}</span>
                     </div>
@@ -169,7 +169,7 @@ export default function AdminOrderDetailPage() {
         <div className="sm:hidden divide-y divide-border">
           {(order.items || []).map((item: any) => (
             <div key={item.id} className="p-4 flex items-center gap-3">
-              <img src={item.product?.images?.[0]?.url || "/placeholder.png"}
+              <img src={item.product?.images?.[0]?.url || "/placeholder.webp"}
                 className="w-12 h-12 rounded-xl object-cover border border-border shrink-0" alt={item.product?.name}/>
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-text truncate text-sm">{item.product?.name || "—"}</p>

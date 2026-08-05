@@ -104,7 +104,7 @@ export default function PreOrderCheckoutPage() {
       {/* Product */}
       <div className="bg-surface border border-border rounded-2xl p-4 flex gap-4">
         <img
-          src={cldFill(variant?.images?.[0]?.url || product.images?.[0]?.url || "/placeholder.png", 200)}
+          src={cldFill(variant?.images?.[0]?.url || product.images?.[0]?.url || "/placeholder.webp", 200)}
           alt={product.name}
           className="w-20 h-20 object-cover rounded-xl border border-border"
         />

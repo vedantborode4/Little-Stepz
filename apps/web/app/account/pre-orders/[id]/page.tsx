@@ -135,7 +135,7 @@ export default function PreOrderDetailsPage() {
           </div>
           <div className="flex items-center gap-4">
             <img
-              src={cldFill(po.product.images?.[0]?.url || "/placeholder.png", 200)}
+              src={cldFill(po.product.images?.[0]?.url || "/placeholder.webp", 200)}
               alt={po.product.name}
               className="w-16 h-16 object-cover rounded-xl border border-border shrink-0"
             />

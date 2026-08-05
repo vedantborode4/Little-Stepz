@@ -83,7 +83,7 @@ export default function BalancePayPage() {
 
       <div className="bg-surface border border-border rounded-2xl p-4 flex gap-4">
         <img
-          src={po.product.images?.[0]?.url || "/placeholder.png"}
+          src={po.product.images?.[0]?.url || "/placeholder.webp"}
           alt={po.product.name}
           className="w-20 h-20 object-contain rounded-xl border border-border"
         />

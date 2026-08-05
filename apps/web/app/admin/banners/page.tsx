@@ -80,7 +80,7 @@ export default function AdminBannersPage() {
             <div key={b.id} className="bg-surface border border-border rounded-2xl overflow-hidden hover:shadow-md transition group">
               <div className="relative">
                 <img src={b.imageUrl} alt={b.altText ?? b.title} className="w-full h-36 sm:h-44 object-cover"
-                  onError={e => { (e.target as HTMLImageElement).src="/placeholder.png" }}/>
+                  onError={e => { (e.target as HTMLImageElement).src="/placeholder.webp" }}/>
                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-3">
                   <button onClick={() => setFormModal(b)} className="p-2.5 bg-surface rounded-xl text-muted hover:bg-surface-2 transition shadow-lg"><Pencil size={15}/></button>
                   <button onClick={() => setDeleteId(b.id)} className="p-2.5 bg-surface rounded-xl text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/15 transition shadow-lg"><Trash2 size={15}/></button>

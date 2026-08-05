@@ -2,7 +2,7 @@
  * Insert a square "fill" transform into a Cloudinary delivery URL so the image
  * fills its box with no letterboxing. Content-aware (`g_auto`) keeps the product
  * centered; `f_auto,q_auto` ships a smaller, faster image. No-op for any URL that
- * isn't a Cloudinary delivery URL (e.g. /placeholder.png).
+ * isn't a Cloudinary delivery URL (e.g. /placeholder.webp).
  */
 export function cldFill(url: string, size = 600): string {
   if (!url || !url.includes("res.cloudinary.com")) return url

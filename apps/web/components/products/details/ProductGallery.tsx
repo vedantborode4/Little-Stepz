@@ -10,7 +10,7 @@ export default function ProductGallery({ images }: { images: ProductImage[] }) {
   const [active, setActive] = useState(0)
   const [zoomed, setZoomed] = useState(false)
 
-  const activeUrl = images?.[active]?.url || "/placeholder.png"
+  const activeUrl = images?.[active]?.url || "/placeholder.webp"
 
   useEffect(() => {
     if (!zoomed) return

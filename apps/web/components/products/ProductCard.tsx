@@ -44,7 +44,7 @@ export default function ProductCard({ product }: { product: Product }) {
   const handleMouseLeave = () =>
     setTransform("perspective(1000px) rotateX(0deg) rotateY(0deg) scale(1)")
 
-  const image = cldFill(product.images?.[0]?.url || "/placeholder.png")
+  const image = cldFill(product.images?.[0]?.url || "/placeholder.webp")
   const variants = product.variants ?? []
   const hasVariants = variants.length > 0
   const priceRange = getPriceRange(product, variants)

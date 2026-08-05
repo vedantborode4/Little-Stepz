@@ -98,7 +98,7 @@ export default function AdminProductsTable() {
                     <td className="p-4"><input type="checkbox" checked={selected.includes(p.id)} onChange={() => toggleSelect(p.id)} className="rounded accent-primary"/></td>
                     <td className="p-4">
                       <div className="flex items-center gap-3">
-                        <img src={p.images?.[0]?.url || "/placeholder.png"} className="w-10 h-10 object-cover rounded-xl border border-border shrink-0" alt={p.name}/>
+                        <img src={p.images?.[0]?.url || "/placeholder.webp"} className="w-10 h-10 object-cover rounded-xl border border-border shrink-0" alt={p.name}/>
                         <div>
                           <p className="font-medium text-text max-w-[320px] truncate">{p.name}</p>
                           <p className="text-xs text-faint font-mono max-w-[320px] truncate">{p.slug}</p>
@@ -140,7 +140,7 @@ export default function AdminProductsTable() {
           <div className="sm:hidden divide-y divide-border">
             {data.map(p => (
               <div key={p.id} className="p-4 flex items-center gap-3">
-                <img src={p.images?.[0]?.url || "/placeholder.png"} className="w-12 h-12 object-cover rounded-xl border border-border shrink-0" alt={p.name}/>
+                <img src={p.images?.[0]?.url || "/placeholder.webp"} className="w-12 h-12 object-cover rounded-xl border border-border shrink-0" alt={p.name}/>
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-text truncate text-sm">{p.name}</p>
                   <p className="text-xs text-muted">{p.category?.name || "—"} · ₹{(p.isOnSale && p.salePrice != null ? Number(p.salePrice) : p.price)?.toLocaleString()}{p.isOnSale && p.salePrice != null && <span className="line-through text-faint ml-1">₹{p.price?.toLocaleString()}</span>}</p>

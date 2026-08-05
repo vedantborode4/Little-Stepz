@@ -18,7 +18,7 @@ export default function CartItem({ item }: { item: CartItemType }) {
   const key = `${item.productId}-${variantId ?? "no-variant"}`
   const isUpdating = updatingKey === key
 
-  const image = cldFill(item.variant?.images?.[0]?.url || item.product.images?.[0]?.url || "/placeholder.png", 200)
+  const image = cldFill(item.variant?.images?.[0]?.url || item.product.images?.[0]?.url || "/placeholder.webp", 200)
   const unitPrice = getChargedPrice(item.product, item.variant)
   const lineTotal = unitPrice * item.quantity
   const unitPrices = getDisplayPrices(item.product, item.variant)
