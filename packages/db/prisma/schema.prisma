@@ -158,6 +158,11 @@ model Product {
   costPrice    Decimal?     @db.Decimal(12,2) // purchase cost per unit — used for exact P&L; falls back to an estimate when null
   isOnSale     Boolean      @default(false)
   priceDisplay PriceDisplay @default(BOTH)
+  /// The price a customer actually pays: salePrice when on sale, else price.
+  /// Kept in sync by a Postgres trigger (see the effective_price_via_trigger
+  /// migration) — READ ONLY, never write to it. Exists so "sort by price" and the
+  /// min/max price filter can be indexed SQL instead of an in-memory sort.
+  effectivePrice Decimal?   @db.Decimal(12,2)
   quantity    Int      @default(0)
   inStock     Boolean  @default(true)
   categoryId  String
@@ -188,6 +193,7 @@ model Product {
   @@index([slug])
   @@index([categoryId])
   @@index([deletedAt])
+  @@index([effectivePrice])
 }
 
 model ProductImage {
