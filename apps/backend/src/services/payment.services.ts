@@ -319,6 +319,12 @@ export async function verifyPaymentService(
         data:  { status: "CONFIRMED" },
       });
 
+      // Clear the cart only now that payment is confirmed — see orders.services.ts.
+      await tx.cartItem.updateMany({
+        where: { userId, deletedAt: null },
+        data:  { deletedAt: new Date() },
+      });
+
       let commission = null;
       if (order.affiliateId) {
         commission = await processAffiliateCommissionService({
@@ -418,6 +424,12 @@ export async function createCodPaymentService(
           paymentMethod: "COD",
           status:        "CONFIRMED",
         },
+      });
+
+      // Clear the cart only now that the order is confirmed — see orders.services.ts.
+      await tx.cartItem.updateMany({
+        where: { userId, deletedAt: null },
+        data:  { deletedAt: new Date() },
       });
 
       await createAuditLogInTx(tx, {
@@ -563,8 +575,21 @@ async function handlePaymentCaptured(payload: any): Promise<void> {
 
       const order = await tx.order.findUnique({
         where:  { id: payment.orderId },
-        select: { affiliateId: true, total: true, userId: true },
+        select: { affiliateId: true, total: true, userId: true, createdAt: true },
       });
+
+      if (order) {
+        // Clear the cart only now that payment is confirmed — see orders.services.ts.
+        // This path can fire minutes later, so only clear what was in the cart when
+        // the order was placed; anything added since must survive. `updatedAt` is the
+        // right column because the @@unique([userId, productId, variantId]) constraint
+        // means re-adding a soft-deleted item revives the same row.
+        await tx.cartItem.updateMany({
+          where: { userId: order.userId, deletedAt: null, updatedAt: { lte: order.createdAt } },
+          data:  { deletedAt: new Date() },
+        });
+      }
+
       let commission = null;
       if (order?.affiliateId) {
         commission = await processAffiliateCommissionService({
@@ -1135,12 +1160,23 @@ export async function cancelShipmentService(
 export async function handleDelhiveryWebhookService(
   payload: any
 ): Promise<{ processed: boolean; message: string }> {
-  const shipmentNode = payload?.Shipment ?? payload?.shipment;
-  const waybill      = String(shipmentNode?.AWB ?? shipmentNode?.Waybill ?? shipmentNode?.awb ?? "");
+  // Delhivery sends two webhook shapes depending on the account/config:
+  //   nested — { Shipment: { AWB, Status: { Status, StatusType, StatusDateTime } } }
+  //   flat   — { wbn|mwn, status, status_type, timestamp, ... }
+  // Read from whichever is present so either works.
+  const shipmentNode = payload?.Shipment ?? payload?.shipment ?? {};
   const statusNode   = shipmentNode?.Status ?? {};
-  const statusText   = String(statusNode.Status ?? "");
-  const statusType   = String(statusNode.StatusType ?? "");
-  const statusDateTime = statusNode.StatusDateTime ?? "";
+
+  const firstNonEmpty = (...vals: unknown[]): string =>
+    String(vals.find((v) => v !== undefined && v !== null && v !== "") ?? "");
+
+  const waybill = firstNonEmpty(
+    shipmentNode.AWB, shipmentNode.Waybill, shipmentNode.awb,
+    payload?.wbn, payload?.mwn, payload?.waybill, payload?.awb, payload?.AWB,
+  );
+  const statusText     = firstNonEmpty(statusNode.Status, payload?.status);
+  const statusType     = firstNonEmpty(statusNode.StatusType, payload?.status_type);
+  const statusDateTime = firstNonEmpty(statusNode.StatusDateTime, payload?.status_datetime, payload?.timestamp);
 
   if (!waybill) return { processed: false, message: "Webhook missing waybill" };
 

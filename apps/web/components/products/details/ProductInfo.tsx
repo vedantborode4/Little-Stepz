@@ -318,14 +318,14 @@ export default function ProductInfo({
         {/* Trust badges */}
         <div className="grid grid-cols-2 gap-3 pt-1">
           <div className="flex items-center gap-2.5 bg-surface-2 border border-border rounded-xl px-3.5 py-3">
-            <Truck size={16} className="text-secondary flex-shrink-0" />
+            <Truck size={16} className="text-primary flex-shrink-0" />
             <div>
               <p className="text-xs font-semibold text-text">Free Delivery</p>
               <p className="text-[10px] text-faint">On all orders</p>
             </div>
           </div>
           <div className="flex items-center gap-2.5 bg-surface-2 border border-border rounded-xl px-3.5 py-3">
-            <Shield size={16} className="text-secondary flex-shrink-0" />
+            <Shield size={16} className="text-primary flex-shrink-0" />
             <div>
               <p className="text-xs font-semibold text-text">Easy Returns</p>
               <p className="text-[10px] text-faint">7-day return policy</p>
@@ -338,7 +338,7 @@ export default function ProductInfo({
 
         {/* Authenticity / unboxing note */}
         <div className="flex items-center gap-2 text-xs text-muted">
-          <ShieldCheck size={14} className="text-secondary flex-shrink-0" />
+          <ShieldCheck size={14} className="text-primary flex-shrink-0" />
           <span>
             Unboxing video required for damage claims —{" "}
             <Link href="/unboxing-policy" className="text-primary font-medium hover:underline">

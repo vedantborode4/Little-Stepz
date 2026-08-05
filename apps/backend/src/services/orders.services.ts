@@ -31,6 +31,73 @@ async function runWithRetry<T>(fn: () => Promise<T>): Promise<T> {
 
 const MAX_CART_ITEMS = 100;
 
+const STALE_PENDING_ORDER_MS = Number(process.env.PENDING_ORDER_TTL_MIN ?? 30) * 60 * 1000;
+
+type OrderTx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
+
+/**
+ * Reclaim never-paid PENDING orders that still hold stock for any of `productIds`.
+ * Mirrors the pre-order reclaim in preorder.services.ts — lazy and in-transaction,
+ * so no scheduler is required. Restores stock and coupon usage.
+ */
+async function reclaimStalePendingOrders(tx: OrderTx, productIds: string[]) {
+  const staleBefore = new Date(Date.now() - STALE_PENDING_ORDER_MS);
+
+  const stale = await tx.order.findMany({
+    where: {
+      status: 'PENDING',
+      deletedAt: null,
+      createdAt: { lt: staleBefore },
+      items: { some: { productId: { in: productIds } } },
+      // Never touch an order whose money already moved. A COD order is flipped to
+      // CONFIRMED in the same request, so it is never PENDING this long anyway.
+      OR: [{ payment: { is: null } }, { payment: { status: { in: ['INITIATED', 'FAILED'] } } }],
+    },
+    select: {
+      id: true,
+      couponId: true,
+      items: { select: { productId: true, variantId: true, quantity: true } },
+    },
+    take: 50,
+  });
+
+  for (const order of stale) {
+    // Re-assert PENDING atomically: a concurrent verify/webhook may have just
+    // confirmed this order. If we lose that race we must not restore its stock.
+    const claimed = await tx.order.updateMany({
+      where: { id: order.id, status: 'PENDING' },
+      data: { status: 'CANCELLED' },
+    });
+    if (claimed.count === 0) continue;
+
+    for (const item of order.items) {
+      if (item.variantId) {
+        await tx.variant.update({
+          where: { id: item.variantId },
+          data: { stock: { increment: item.quantity } },
+        });
+      } else {
+        await tx.product.update({
+          where: { id: item.productId },
+          data: { quantity: { increment: item.quantity } },
+        });
+      }
+    }
+
+    if (order.couponId) {
+      await tx.coupon.updateMany({
+        where: { id: order.couponId, usedCount: { gt: 0 } },
+        data: { usedCount: { decrement: 1 } },
+      });
+    }
+
+    await tx.payment.updateMany({
+      where: { orderId: order.id, status: { in: ['INITIATED', 'PENDING'] } },
+      data: { status: 'FAILED' },
+    });
+  }
+}
+
 export async function createOrderService(userId: string, data: CreateOrderBody, idempotencyKey: string, affiliateId?: string) {
   // Idempotent replay — return the existing order without a serviceability/shipping lookup.
   const replay = await prisma.order.findUnique({ where: { idempotencyKey } });
@@ -72,6 +139,10 @@ export async function createOrderService(userId: string, data: CreateOrderBody, 
       
       const productIds = data.cartItems.map(item => item.productId);
       const variantIds = data.cartItems.filter(item => item.variantId).map(item => item.variantId!);
+
+      // Free stock held by other shoppers' abandoned, never-paid checkouts before
+      // reading availability for this one.
+      await reclaimStalePendingOrders(tx, productIds);
 
       const products = await tx.product.findMany({
         where: { id: { in: productIds }, deletedAt: null },
@@ -184,12 +255,10 @@ export async function createOrderService(userId: string, data: CreateOrderBody, 
           data: orderItems.map(item => ({ ...item, orderId: order.id })),
         });
 
-        // Clear cart
-        await tx.cartItem.updateMany({
-          where: { userId, deletedAt: null },
-          data: { deletedAt: new Date() },
-        });
-
+        // The cart is deliberately NOT cleared here — nothing has been paid yet.
+        // Clearing it now strands a user whose payment fails with an empty cart and
+        // no way to retry. It is cleared on each confirmation path in
+        // payment.services.ts (verify, COD, and the payment.captured webhook).
 
         return { orderId: order.id, subtotal: order.subtotal.toNumber(), discount: order.discount.toNumber(), shippingCharges: order.shippingCharges.toNumber(), total: order.total.toNumber(), isNew: true };
       } catch (err: any) {
@@ -208,17 +277,11 @@ export async function createOrderService(userId: string, data: CreateOrderBody, 
     }); // Removed isolationLevel; use default RepeatableRead for alternative, or configure DB level
   });
 
-  const { isNew, ...order } = result;
-  if (isNew) {
-    void notify({
-      userId,
-      type: 'ORDER_PLACED',
-      title: 'Order placed 🛍️',
-      body: `We've received your order #${orderShortRef(order.orderId)}. We'll let you know as it progresses.`,
-      data: { screen: 'Order', orderId: order.orderId },
-    });
-  }
-
+  // No notification here: an Order row exists but nothing has been paid yet. The
+  // customer is told only once the order is genuinely confirmed —
+  // emitOrderConfirmed() in payment.services.ts covers all three confirmation
+  // paths (signature verify, payment.captured webhook, and COD).
+  const { isNew: _isNew, ...order } = result;
   return order;
 }
 
@@ -366,6 +429,15 @@ export async function cancelOrderService(userId: string, orderId: string, reason
             data: { quantity: { increment: item.quantity } },
           });
         }
+      }
+
+      // Give the coupon use back, otherwise a cancelled order permanently consumes
+      // a slot against the coupon's usage limit.
+      if (order.couponId) {
+        await tx.coupon.updateMany({
+          where: { id: order.couponId, usedCount: { gt: 0 } },
+          data: { usedCount: { decrement: 1 } },
+        });
       }
 
       await tx.order.update({
