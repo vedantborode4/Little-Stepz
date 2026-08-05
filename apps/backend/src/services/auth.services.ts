@@ -5,9 +5,17 @@ import { generateAccessToken } from "../utils/auth/access-token";
 import {
   generateRefreshToken,
 } from "../utils/auth/refresh-token";
-import { hashToken } from "../utils/auth/tokenHash";
+import { hashToken, timingSafeEqualHex } from "../utils/auth/tokenHash";
+import {
+  generateExchangeToken,
+  generateResetToken,
+  MAX_RESET_CODE_ATTEMPTS,
+  PASSWORD_RESET_TTL_MINUTES,
+} from "../utils/auth/reset-token";
 import { TokenReuseDetectedError } from "../utils/auth/errors";
 import { verifyGoogleIdToken } from "../utils/auth/google";
+import { ApiError } from "../utils/api/ApiError";
+import { sendPasswordChangedEmail, sendPasswordResetEmail } from "../utils/email";
 import { notify } from "./notification.services";
 
 const userSelect = {
@@ -362,4 +370,130 @@ export async function refreshService(oldRefreshToken: string) {
     maxWait: 5000,
     timeout: 10000,
   });
+}
+
+
+/**
+ * Always resolves, whether or not the email belongs to an account — the caller
+ * returns an identical response either way so the endpoint can't be used to
+ * discover which emails are registered.
+ */
+export async function requestPasswordResetService(
+  email: string,
+  meta?: { ipAddress?: string; userAgent?: string },
+) {
+  const user = await prisma.user.findFirst({
+    where: { email, deletedAt: null },
+    select: { id: true, email: true },
+  });
+
+  if (!user) return;
+
+  const reset = generateResetToken();
+
+  await prisma.$transaction(async (tx) => {
+    // a fresh request supersedes any outstanding one
+    await tx.passwordResetToken.deleteMany({ where: { userId: user.id } });
+
+    await tx.passwordResetToken.create({
+      data: {
+        tokenHash: reset.tokenHash,
+        codeHash: reset.codeHash,
+        userId: user.id,
+        expiresAt: reset.expiresAt,
+        ipAddress: meta?.ipAddress,
+        userAgent: meta?.userAgent,
+      },
+    });
+  });
+
+  const base = process.env.FRONTEND_URL ?? "";
+  void sendPasswordResetEmail(user.email, {
+    code: reset.code,
+    resetUrl: `${base}/reset-password?token=${reset.token}`,
+    expiresInMinutes: PASSWORD_RESET_TTL_MINUTES,
+  });
+}
+
+/**
+ * Trades the emailed 6-digit code for a single-use token, so mobile finishes
+ * through the same reset endpoint the web link uses. The stored token hash is
+ * rotated here, which invalidates the emailed link once the code is redeemed.
+ */
+export async function verifyResetCodeService(email: string, code: string) {
+  const invalid = () => new ApiError(400, "This code is invalid or has expired");
+
+  const user = await prisma.user.findFirst({
+    where: { email, deletedAt: null },
+    select: { id: true },
+  });
+
+  if (!user) throw invalid();
+
+  const record = await prisma.passwordResetToken.findFirst({
+    where: { userId: user.id, usedAt: null, expiresAt: { gte: new Date() } },
+    orderBy: { createdAt: "desc" },
+  });
+
+  if (!record) throw invalid();
+
+  if (record.attempts >= MAX_RESET_CODE_ATTEMPTS) {
+    throw new ApiError(400, "Too many incorrect attempts. Request a new code.");
+  }
+
+  if (!timingSafeEqualHex(record.codeHash, hashToken(code))) {
+    await prisma.passwordResetToken.update({
+      where: { id: record.id },
+      data: { attempts: { increment: 1 } },
+    });
+    throw invalid();
+  }
+
+  const exchange = generateExchangeToken();
+
+  await prisma.passwordResetToken.update({
+    where: { id: record.id },
+    data: { tokenHash: exchange.tokenHash, attempts: 0 },
+  });
+
+  return { token: exchange.token };
+}
+
+export async function resetPasswordService(token: string, newPassword: string) {
+  const tokenHash = hashToken(token);
+  const now = new Date();
+
+  // single-use claim: only one caller can flip usedAt
+  const claim = await prisma.passwordResetToken.updateMany({
+    where: { tokenHash, usedAt: null, expiresAt: { gte: now } },
+    data: { usedAt: now },
+  });
+
+  if (claim.count !== 1) {
+    throw new ApiError(400, "This reset link is invalid or has expired");
+  }
+
+  const record = await prisma.passwordResetToken.findUnique({
+    where: { tokenHash },
+    select: { userId: true, user: { select: { email: true } } },
+  });
+
+  if (!record) {
+    throw new ApiError(400, "This reset link is invalid or has expired");
+  }
+
+  const hashed = await hashPassword(newPassword);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      where: { id: record.userId },
+      data: { password: hashed },
+    });
+
+    // signing out every device kills any session an attacker may hold
+    await tx.refreshToken.deleteMany({ where: { userId: record.userId } });
+    await tx.passwordResetToken.deleteMany({ where: { userId: record.userId } });
+  });
+
+  void sendPasswordChangedEmail(record.user.email);
 }

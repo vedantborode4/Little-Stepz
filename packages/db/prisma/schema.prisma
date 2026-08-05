@@ -40,6 +40,8 @@ model User {
   auditLogs     AuditLog[]
   preOrders     PreOrder[]
 
+  passwordResetTokens PasswordResetToken[]
+
   deviceTokens           DeviceToken[]
   notifications          Notification[]
   notificationPreference NotificationPreference?
@@ -75,6 +77,26 @@ model RefreshToken {
   lastUsedAt DateTime?
 
   @@index([userId])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  tokenHash String   @unique
+  codeHash  String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  expiresAt DateTime
+  usedAt    DateTime?
+  attempts  Int      @default(0)
+
+  ipAddress String?
+  userAgent String?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model Address {

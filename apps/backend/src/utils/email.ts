@@ -101,6 +101,41 @@ export function sendAffiliateInviteEmail(to: string, p: { inviteUrl: string }) {
   });
 }
 
+export function sendPasswordResetEmail(to: string, p: {
+  code: string;
+  resetUrl: string;
+  expiresInMinutes: number;
+}) {
+  return sendEmail({
+    to,
+    subject: "Reset your Little Stepz password",
+    html: shell("Reset your password 🔐", `
+      <p>We received a request to reset the password for this account.</p>
+      <p style="margin:20px 0 8px;font-size:13px;color:#666">Using the app? Enter this code:</p>
+      <p style="margin:0 0 24px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:32px;font-weight:700;letter-spacing:8px;color:#111">${p.code}</p>
+      <p style="margin:0 0 8px;font-size:13px;color:#666">On the web? Use this link instead:</p>
+      <p style="margin:0 0 24px">
+        <a href="${p.resetUrl}" style="background:#111;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600">Reset password</a>
+      </p>
+      <p style="font-size:13px;color:#666">Or copy this link into your browser: ${p.resetUrl}</p>
+      <p style="font-size:13px;color:#666">This code and link expire in <strong>${p.expiresInMinutes} minutes</strong> and can only be used once.</p>
+      <p style="font-size:13px;color:#666">If you didn't request this, you can safely ignore this email — your password won't change.</p>
+    `),
+  });
+}
+
+export function sendPasswordChangedEmail(to: string) {
+  return sendEmail({
+    to,
+    subject: "Your Little Stepz password was changed",
+    html: shell("Your password was changed ✅", `
+      <p>The password for your Little Stepz account was just changed, and you've been signed out on all devices.</p>
+      <p>If this was you, nothing else to do — just sign in with your new password.</p>
+      <p style="font-size:13px;color:#666">If this <strong>wasn't</strong> you, reset your password immediately and contact us.</p>
+    `),
+  });
+}
+
 export function sendBalancePaidEmail(to: string, p: {
   productName: string;
   orderId: string;

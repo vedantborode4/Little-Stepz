@@ -28,7 +28,24 @@ export const GoogleAuthSchema = z.object({
     .optional(),
 });
 
+export const forgotPasswordSchema = z.object({
+  email: emailSchema,
+});
+
+export const verifyResetCodeSchema = z.object({
+  email: emailSchema,
+  code: z.string().regex(/^\d{6}$/, "Enter the 6-digit code from your email"),
+});
+
+export const resetPasswordSchema = z.object({
+  token: z.string().min(1, "Reset token is required"),
+  newPassword: passwordSchema,
+});
+
 export type SignupData = z.infer<typeof SignupSchema>;
 export type SigninData = z.infer<typeof SigninSchema>;
 export type LogoutData = z.infer<typeof logoutSchema>;
 export type GoogleAuthData = z.infer<typeof GoogleAuthSchema>;
+export type ForgotPasswordData = z.infer<typeof forgotPasswordSchema>;
+export type VerifyResetCodeData = z.infer<typeof verifyResetCodeSchema>;
+export type ResetPasswordData = z.infer<typeof resetPasswordSchema>;

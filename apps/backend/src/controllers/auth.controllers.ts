@@ -1,6 +1,23 @@
 import { Request, Response } from "express";
-import { GoogleAuthSchema, SigninSchema, SignupSchema } from "@repo/zod-schema/index";
-import {  googleAuthService, logoutService, refreshService, signinService, signupService } from "../services/auth.services";
+import {
+  forgotPasswordSchema,
+  GoogleAuthSchema,
+  resetPasswordSchema,
+  SigninSchema,
+  SignupSchema,
+  verifyResetCodeSchema,
+} from "@repo/zod-schema/index";
+import {
+  googleAuthService,
+  logoutService,
+  refreshService,
+  requestPasswordResetService,
+  resetPasswordService,
+  signinService,
+  signupService,
+  verifyResetCodeService,
+} from "../services/auth.services";
+import { ApiError, ApiResponse, asyncHandler } from "../utils/api";
 import {
   accessTokenCookieOptions,
   refreshTokenCookieOptions,
@@ -106,6 +123,51 @@ export async function logoutController(req: Request, res: Response) {
     return res.status(500).json({ message: "Internal server error" });
   }
 }
+
+
+const GENERIC_RESET_MESSAGE =
+  "If an account exists for that email, we've sent a reset code and link.";
+
+async function forgotPassword(req: Request, res: Response) {
+  const parsed = forgotPasswordSchema.safeParse(req.body);
+  if (!parsed.success) {
+    throw new ApiError(400, "Invalid request data", parsed.error.flatten().fieldErrors);
+  }
+
+  await requestPasswordResetService(parsed.data.email, {
+    ipAddress: req.ip,
+    userAgent: req.get("user-agent") ?? undefined,
+  });
+
+  // identical response whether or not the account exists
+  return new ApiResponse(200, null, GENERIC_RESET_MESSAGE).send(res);
+}
+
+async function verifyResetCode(req: Request, res: Response) {
+  const parsed = verifyResetCodeSchema.safeParse(req.body);
+  if (!parsed.success) {
+    throw new ApiError(400, "Invalid request data", parsed.error.flatten().fieldErrors);
+  }
+
+  const data = await verifyResetCodeService(parsed.data.email, parsed.data.code);
+
+  return new ApiResponse(200, data, "Code verified").send(res);
+}
+
+async function resetPassword(req: Request, res: Response) {
+  const parsed = resetPasswordSchema.safeParse(req.body);
+  if (!parsed.success) {
+    throw new ApiError(400, "Invalid request data", parsed.error.flatten().fieldErrors);
+  }
+
+  await resetPasswordService(parsed.data.token, parsed.data.newPassword);
+
+  return new ApiResponse(200, null, "Password reset successfully").send(res);
+}
+
+export const forgotPasswordController = asyncHandler(forgotPassword);
+export const verifyResetCodeController = asyncHandler(verifyResetCode);
+export const resetPasswordController = asyncHandler(resetPassword);
 
 
 export async function refreshController(req: Request, res: Response) {
