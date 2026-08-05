@@ -1,7 +1,11 @@
 import { Resend } from "resend";
 
 const apiKey = process.env.RESEND_API_KEY;
-const FROM = process.env.EMAIL_FROM || "Little Stepz <onboarding@resend.dev>";
+// Resend only sends from a domain verified by DNS in your Resend account, so this
+// must stay an address on littlestepz.in — a gmail.com/outlook.com sender is rejected.
+const FROM = process.env.EMAIL_FROM || "Little Stepz <Support@littlestepz.in>";
+// Optional: where customer replies land, if that shouldn't be the From address.
+const REPLY_TO = process.env.EMAIL_REPLY_TO;
 
 const resend = apiKey ? new Resend(apiKey) : null;
 
@@ -24,6 +28,7 @@ export async function sendEmail(params: {
       to: params.to,
       subject: params.subject,
       html: params.html,
+      ...(REPLY_TO ? { replyTo: REPLY_TO } : {}),
     });
     if (error) {
       console.error("[email] send failed:", error);
