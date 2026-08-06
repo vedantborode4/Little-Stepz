@@ -7,6 +7,10 @@ export interface AdminCategory {
   parentId?: string | null
   image?: string | null
   isActive?: boolean
+  metaTitle?: string | null
+  metaDescription?: string | null
+  ogImage?: string | null
+  noindex?: boolean
   createdAt?: string
 }
 
@@ -34,7 +38,7 @@ export const AdminCategoryService = {
   },
 
   /** POST /admin/categories  body: { name, slug, parentId?, image? } */
-  create: async (body: { name: string; slug: string; parentId?: string; image?: string }): Promise<AdminCategory> => {
+  create: async (body: { name: string; slug: string; parentId?: string; image?: string; metaTitle?: string; metaDescription?: string; ogImage?: string; noindex?: boolean }): Promise<AdminCategory> => {
     const res = await api.post("/admin/categories", body)
     return res.data.data
   },
@@ -43,7 +47,7 @@ export const AdminCategoryService = {
    * PUT /admin/categories/:id
    * To clear a parent (set to no parent), pass parentId: null explicitly.
    */
-  update: async (id: string, body: { name?: string; slug?: string; parentId?: string | null; image?: string; isActive?: boolean }): Promise<AdminCategory> => {
+  update: async (id: string, body: { name?: string; slug?: string; parentId?: string | null; image?: string; isActive?: boolean; metaTitle?: string; metaDescription?: string; ogImage?: string; noindex?: boolean }): Promise<AdminCategory> => {
     const res = await api.put(`/admin/categories/${id}`, body)
     return res.data.data
   },
