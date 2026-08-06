@@ -50,6 +50,18 @@ const productBaseSchema = z.object({
     bookingAmount: optionalPriceSchema,
     preOrderLimit: z.coerce.number().int().positive().optional(),
     preOrderNote: z.string().max(200).optional(),
+
+    // ── SEO overrides (admin SEO panel; fall back to generated metadata) ──
+    metaTitle: z.string().max(70, "Keep the SEO title under ~70 characters").optional(),
+    metaDescription: z.string().max(160, "Keep the meta description under ~160 characters").optional(),
+    ogImage: z.union([z.string().url("Must be a valid URL").max(2048), z.literal("")]).optional(),
+    noindex: z.boolean().optional(),
+
+    // ── Merchant / product identity (Google Shopping + Product JSON-LD) ──
+    brand: z.string().max(100).optional(),
+    gtin: z.string().max(50).optional(),
+    mpn: z.string().max(70).optional(),
+    condition: z.enum(["new", "used", "refurbished"]).optional(),
 });
 
 const refineSalePrice = (
