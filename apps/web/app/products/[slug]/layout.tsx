@@ -11,14 +11,10 @@ import { breadcrumbSchema, productSchema } from "../../../lib/seo/schema"
 /**
  * Per-product metadata and Product/Breadcrumb JSON-LD.
  *
- * This lives in a layout rather than the page because `page.tsx` is still a
- * client component (see plan W1). A layout is a server component even when its
- * page is not, so it can export generateMetadata and emit structured data into
- * the initial HTML — which delivers proposal §4.2 and §4.4 for product pages
- * ahead of the full server-rendering refactor.
- *
- * What this does NOT fix: the page BODY is still empty for non-rendering
- * crawlers. W1 is still required for the H1, description and specs.
+ * The page itself is now a server component (plan W1) that renders the H1,
+ * description and specs into the initial HTML. This layout keeps the metadata
+ * and structured data (proposal §4.2 and §4.4); its getProductBySlug shares the
+ * same cached fetch as the page, so there is only one network call per request.
  */
 
 type Props = { params: Promise<{ slug: string }> }
