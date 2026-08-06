@@ -60,6 +60,14 @@ export const GA_MEASUREMENT_ID =
   process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ?? "G-EWT0G2CD9X"
 
 /**
+ * Google Tag Manager container ID. Overridable per-environment (set it empty to
+ * disable, e.g. local dev). GA4 is loaded directly via <GoogleAnalytics />
+ * (gtag.js) — do NOT also add a GA4 tag inside this GTM container, or every hit
+ * double-counts.
+ */
+export const GTM_ID = process.env.NEXT_PUBLIC_GTM_ID ?? "GTM-WQ7N8723"
+
+/**
  * Two different tools for two different problems — do not merge these lists.
  *
  * BLOCKED: never crawled. Private or transactional areas that are not linked

@@ -11,6 +11,7 @@ import ThemedToaster from "../components/common/ThemedToaster"
 import LoadingScreen from "../components/common/LoadingScreen"
 import TawkWidget from "../components/common/TawkWidget"
 import GoogleAnalytics from "../components/analytics/GoogleAnalytics"
+import GoogleTagManager, { GoogleTagManagerNoScript } from "../components/analytics/GoogleTagManager"
 import JsonLd from "../components/seo/JsonLd"
 import { ROOT_METADATA } from "../lib/seo/metadata"
 import { organizationSchema, websiteSchema } from "../lib/seo/schema"
@@ -54,12 +55,16 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning className={`${manrope.variable} ${anton.variable} ${sora.variable} ${orbitron.variable}`}>
       <head>
+        {/* Google Tag Manager — loader placed as high in <head> as possible. */}
+        <GoogleTagManager />
         {/* Google tag (gtag.js) — every page, all routes. Replaces the previous
             inline snippet with a single component so the same measurement ID is
             never loaded twice. */}
         <GoogleAnalytics />
       </head>
       <body className="font-sans">
+        {/* Google Tag Manager (noscript) — must be the first element in <body>. */}
+        <GoogleTagManagerNoScript />
         {/* Site-wide entity graph. Server-rendered so it is in the initial HTML. */}
         <JsonLd schema={[organizationSchema(), websiteSchema()]} />
         <ThemeProvider>
