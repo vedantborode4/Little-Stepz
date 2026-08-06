@@ -19,6 +19,10 @@ export interface SeoCategory {
   slug: string
   name: string
   description: string | null
+  metaTitle?: string | null
+  metaDescription?: string | null
+  ogImage?: string | null
+  noindex?: boolean
   updatedAt?: string
 }
 
@@ -31,6 +35,14 @@ export interface SeoProduct {
   inStock: boolean
   category: { slug: string; name: string }
   images: { url: string; alt: string | null }[]
+  metaTitle?: string | null
+  metaDescription?: string | null
+  ogImage?: string | null
+  noindex?: boolean
+  brand?: string | null
+  gtin?: string | null
+  mpn?: string | null
+  condition?: string | null
   updatedAt?: string
 }
 

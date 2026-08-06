@@ -28,14 +28,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 
   return pageMetadata({
-    title: productMetaTitle(product.name, product.category?.name),
-    description: productMetaDescription(
-      product.description,
-      product.name,
-      String(product.salePrice || product.price),
-    ),
+    title: product.metaTitle || productMetaTitle(product.name, product.category?.name),
+    description:
+      product.metaDescription ||
+      productMetaDescription(
+        product.description,
+        product.name,
+        String(product.salePrice || product.price),
+      ),
     path: `/products/${slug}`,
-    image: product.images?.[0]?.url,
+    image: product.ogImage || product.images?.[0]?.url,
+    noindex: product.noindex ?? false,
     type: "article",
   })
 }
@@ -76,9 +79,10 @@ export default async function ProductLayout({
             salePrice: product.salePrice,
             inStock: product.inStock,
             categoryName: product.category?.name,
-            // TODO: swap to product.brand once the Product model gains the field
-            // (plan §3). Until then Merchant Center cannot consume this feed.
-            brand: null,
+            brand: product.brand,
+            gtin: product.gtin,
+            mpn: product.mpn,
+            condition: product.condition,
           }),
           breadcrumbSchema(crumbs),
         ]}
