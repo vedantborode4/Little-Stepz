@@ -1,0 +1,34 @@
+{
+  "cli": {
+    "version": ">= 16.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "preview": {
+      "android": {
+        "buildType": "apk"
+      },
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://littlestepz.in/api/v1",
+        "EXPO_PUBLIC_TAWK_PROPERTY_ID": "6a5f85dfbed7cd1d436e6dc1",
+        "EXPO_PUBLIC_TAWK_WIDGET_ID": "1ju2i5t20",
+        "EXPO_PUBLIC_GOOGLE_CLIENT_ID_ANDROID": "85551977494-d53c61eam0ra6bstrms6bup9t2pfhi9l.apps.googleusercontent.com"
+      }
+    },
+    "production": {
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://littlestepz.in/api/v1",
+        "EXPO_PUBLIC_TAWK_PROPERTY_ID": "6a5f85dfbed7cd1d436e6dc1",
+        "EXPO_PUBLIC_TAWK_WIDGET_ID": "1ju2i5t20",
+        "EXPO_PUBLIC_GOOGLE_CLIENT_ID_ANDROID": "85551977494-d53c61eam0ra6bstrms6bup9t2pfhi9l.apps.googleusercontent.com"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
