@@ -20,7 +20,7 @@ function WhatsAppIcon({ size = 14 }: { size?: number }) {
 
 const SOCIALS = [
   { label: "Instagram", href: "https://www.instagram.com/littlestepzofficial", icon: <Instagram size={14} /> },
-  { label: "Facebook", href: "https://www.facebook.com/share/1BYNjMRyJJ/", icon: <Facebook size={14} /> },
+  { label: "Facebook", href: "https://www.facebook.com/LittleStepzOfficial/", icon: <Facebook size={14} /> },
   { label: "X", href: "https://x.com/LittlestepzOff", icon: <Twitter size={14} /> },
   { label: "YouTube", href: "https://youtube.com/@littlestepzofficial", icon: <Youtube size={14} /> },
   { label: "Threads", href: "https://www.threads.com/@littlestepzofficial", icon: <ThreadsIcon size={13} /> },

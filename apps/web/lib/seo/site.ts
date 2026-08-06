@@ -39,10 +39,10 @@ export const CONTACT = {
   country: "IN",
 } as const
 
-/** Verified live 21 Jul 2026. TODO(client): replace the Facebook share link with the canonical page URL. */
+/** Verified live 21 Jul 2026. Facebook set to the canonical page URL (client-confirmed). */
 export const SOCIALS = [
   "https://www.instagram.com/littlestepzofficial",
-  "https://www.facebook.com/share/1BYNjMRyJJ/",
+  "https://www.facebook.com/LittleStepzOfficial/",
   "https://x.com/LittlestepzOff",
   "https://youtube.com/@littlestepzofficial",
   "https://www.threads.com/@littlestepzofficial",
