@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { BannerService } from "../../lib/services/banner.service"
 import type { AdminBanner } from "../../lib/services/admin-banner.service"
@@ -49,12 +50,15 @@ export default function DynamicHeroBanner() {
   // The whole slide is clickable when the banner has a link — no separate "Shop Now" button.
   const slide = (
     <div className="relative w-full aspect-32/15 lg:aspect-auto lg:h-[calc(100vh-4rem)]">
-      <img
+      <Image
         key={b.id}
         src={b.imageUrl}
-        alt={b.altText ?? b.title}
-        className="w-full h-full object-cover transition-opacity duration-500"
-        onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }}
+        alt={b.altText ?? b.title ?? ""}
+        fill
+        priority
+        sizes="100vw"
+        className="object-cover transition-opacity duration-500"
+        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none" }}
       />
 
       {/* Text */}
