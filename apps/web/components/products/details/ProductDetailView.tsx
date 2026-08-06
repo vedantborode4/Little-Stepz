@@ -10,6 +10,7 @@ import SimilarProducts from "./SimilarProducts"
 import ProductReviewSection from "../../review/ProductReviewSection"
 import Breadcrumbs from "../../common/Breadcrumbs"
 import { useCategoryStore } from "../../../store/useCategoryStore"
+import { trackViewItem } from "../../../lib/analytics/ecommerce"
 
 /**
  * Interactive product-detail island.
@@ -24,6 +25,12 @@ export default function ProductDetailView({ product }: { product: Product }) {
 
   const tree = useCategoryStore((s) => s.tree)
   const setCategoryPath = useCategoryStore((s) => s.setCategoryPath)
+
+  // GA4: product view (plan W7).
+  useEffect(() => {
+    trackViewItem(product)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product.id])
 
   useEffect(() => {
     if (!useCategoryStore.getState().tree.length) {

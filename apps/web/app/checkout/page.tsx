@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useAuthStore } from "../../store/auth.store"
 import { useCartStore } from "../../store/useCartStore"
 import { useAddressStore } from "../../store/useAddressStore"
@@ -10,6 +10,7 @@ import DynamicPromoBanner from "../../components/home/DynamicPromoBanner"
 import Link from "next/link"
 import { toast } from "sonner"
 import { ShoppingBag, LogIn, Loader2 } from "lucide-react"
+import { trackBeginCheckout } from "../../lib/analytics/ecommerce"
 
 export default function CheckoutPage() {
   const user = useAuthStore((s) => s.user)
@@ -37,6 +38,16 @@ export default function CheckoutPage() {
     lockPricing()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // GA4: begin_checkout, once per checkout view when the cart is loaded (plan W7).
+  const beganCheckout = useRef(false)
+  useEffect(() => {
+    if (!isLocking && items.length && !beganCheckout.current) {
+      beganCheckout.current = true
+      const st = useCartStore.getState()
+      trackBeginCheckout(items, st.total, st.couponCode)
+    }
+  }, [isLocking, items])
 
   if (!items.length && !isLocking) {
     return (
