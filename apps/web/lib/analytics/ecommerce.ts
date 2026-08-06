@@ -28,6 +28,18 @@ function gtagEvent(name: string, params: Record<string, unknown>) {
   gtag("event", name, params)
 }
 
+/**
+ * Meta Pixel standard events. The base pixel is loaded via GTM (Option A), so
+ * this is a safe no-op until fbq exists — conversion events fire after the user
+ * interacts / navigates, by which point GTM has initialised the pixel.
+ */
+function fbqTrack(event: string, params: Record<string, unknown>) {
+  if (typeof window === "undefined") return
+  const fbq = (window as unknown as { fbq?: (...a: unknown[]) => void }).fbq
+  if (typeof fbq !== "function") return
+  fbq("track", event, params)
+}
+
 // ── item builders ──────────────────────────────────────────────────────────
 
 function itemFromProduct(product: Product, variant?: Variant | null, quantity = 1) {
@@ -56,6 +68,14 @@ function itemFromCartItem(ci: CartItem) {
 export function trackViewItem(product: Product, variant?: Variant | null) {
   const item = itemFromProduct(product, variant, 1)
   gtagEvent("view_item", { currency: CURRENCY, value: item.price, items: [item] })
+  fbqTrack("ViewContent", {
+    content_type: "product",
+    content_ids: [product.id],
+    content_name: product.name,
+    content_category: product.category?.name,
+    value: item.price,
+    currency: CURRENCY,
+  })
 }
 
 /** Fired from the cart store after the server confirms the add. */
@@ -74,6 +94,14 @@ export function trackAddToCartItem(ci: CartItem, quantityAdded: number) {
       },
     ],
   })
+  fbqTrack("AddToCart", {
+    content_type: "product",
+    content_ids: [ci.productId],
+    content_name: ci.product?.name,
+    contents: [{ id: ci.productId, quantity: quantityAdded }],
+    value: round2(price * quantityAdded),
+    currency: CURRENCY,
+  })
 }
 
 export function trackBeginCheckout(items: CartItem[], value: number, coupon?: string | null) {
@@ -82,6 +110,14 @@ export function trackBeginCheckout(items: CartItem[], value: number, coupon?: st
     value: round2(value),
     coupon: coupon ?? undefined,
     items: items.map(itemFromCartItem),
+  })
+  fbqTrack("InitiateCheckout", {
+    content_type: "product",
+    content_ids: items.map((i) => i.productId),
+    contents: items.map((i) => ({ id: i.productId, quantity: i.quantity })),
+    num_items: items.reduce((n, i) => n + i.quantity, 0),
+    value: round2(value),
+    currency: CURRENCY,
   })
 }
 
@@ -100,18 +136,30 @@ export function trackPurchase(order: {
   }>
 }) {
   if (!order?.id) return
+  const items = order.items ?? []
   gtagEvent("purchase", {
     transaction_id: String(order.id),
     currency: CURRENCY,
     value: num(order.total),
     shipping: num(order.shippingCharges),
     coupon: order.coupon?.code ?? undefined,
-    items: (order.items ?? []).map((it) => ({
+    items: items.map((it) => ({
       item_id: it.productId ?? it.product?.id,
       item_name: it.product?.name,
       price: num(it.price),
       quantity: num(it.quantity),
       item_variant: it.variant?.name ?? undefined,
     })),
+  })
+  fbqTrack("Purchase", {
+    content_type: "product",
+    content_ids: items.map((it) => it.productId ?? it.product?.id),
+    contents: items.map((it) => ({
+      id: it.productId ?? it.product?.id,
+      quantity: num(it.quantity),
+    })),
+    num_items: items.reduce((n, it) => n + num(it.quantity), 0),
+    value: num(order.total),
+    currency: CURRENCY,
   })
 }
