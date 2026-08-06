@@ -7,6 +7,11 @@ const baseCategorySelect = {
   slug: true,
   description: true,
   image: true,
+  // SEO overrides — drive category metadata + sitemap inclusion.
+  metaTitle: true,
+  metaDescription: true,
+  ogImage: true,
+  noindex: true,
   parentId: true,
   createdAt: true,
   updatedAt: true,
