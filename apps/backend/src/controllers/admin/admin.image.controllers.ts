@@ -6,6 +6,7 @@ import {
   addVariantImageSchema,
   productImageParamsSchema,
   reorderImageBodySchema,
+  updateImageAltBodySchema,
 } from "@repo/zod-schema/index";
 import {
   addProductImageService,
@@ -13,6 +14,7 @@ import {
   reorderProductImageService,
   deleteProductImageService,
   replaceProductImageService,
+  updateProductImageAltService,
 } from "../../services/admin/admin.image.services";
 import { cloudinary } from "../../utils/cloudinary";
 
@@ -60,6 +62,17 @@ export const reorderProductImageController = asyncHandler(
     const image = await reorderProductImageService(imageId, sortOrder);
 
     return new ApiResponse(200, image, "Image reordered").send(res);
+  }
+);
+
+export const updateProductImageAltController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const { imageId } = productImageParamsSchema.parse(req.params);
+    const { alt } = updateImageAltBodySchema.parse(req.body);
+
+    const image = await updateProductImageAltService(imageId, alt);
+
+    return new ApiResponse(200, image, "Alt text updated").send(res);
   }
 );
 

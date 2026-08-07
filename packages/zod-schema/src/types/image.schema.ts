@@ -37,7 +37,13 @@ export const reorderImageBodySchema = z.object({
 });
 
 
+export const updateImageAltBodySchema = z.object({
+    alt: z.string().max(200, "Alt text must be at most 200 characters").optional().default(""),
+});
+
+
 export type AddProductImageData = z.infer<typeof addProductImageSchema>;
 export type AddVariantImageData = z.infer<typeof addVariantImageSchema>;
 export type ProductImageParams = z.infer<typeof productImageParamsSchema>;
 export type ReorderImageBody = z.infer<typeof reorderImageBodySchema>;
+export type UpdateImageAltBody = z.infer<typeof updateImageAltBodySchema>;

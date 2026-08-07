@@ -96,6 +96,19 @@ export default function ProductImageManager({
     }
   }
 
+  /* ─── Alt text (W3 — required for SEO + accessibility), saved on blur ─── */
+  const saveAlt = async (imageId: string, value: string) => {
+    const alt = value.trim()
+    const current = images.find((i) => i.id === imageId)
+    if ((current?.alt ?? "") === alt) return // unchanged
+    try {
+      await AdminProductImageService.updateAlt(imageId, alt)
+      onChange(images.map((i) => (i.id === imageId ? { ...i, alt } : i)))
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || "Failed to save alt text")
+    }
+  }
+
   /* ─── Drag reorder ─── */
   const handleDragStart = (e: React.DragEvent, id: string) => {
     e.dataTransfer.setData("imageId", id)
@@ -165,8 +178,8 @@ export default function ProductImageManager({
       {images.length > 0 && (
         <div className="grid grid-cols-3 gap-3">
           {images.map((img, i) => (
+            <div key={img.id} className="space-y-1">
             <div
-              key={img.id}
               draggable
               onDragStart={(e) => handleDragStart(e, img.id)}
               onDragOver={(e) => { e.preventDefault(); setDragOverId(img.id) }}
@@ -232,6 +245,20 @@ export default function ProductImageManager({
                 </div>
               </div>
             </div>
+
+            {/* Alt text — required for SEO + accessibility (plan W3) */}
+            <input
+              type="text"
+              defaultValue={img.alt ?? ""}
+              placeholder="Alt text (describe the image)"
+              onBlur={(e) => saveAlt(img.id, e.target.value)}
+              className={`w-full text-[11px] px-2 py-1 rounded-md border bg-surface focus:outline-none focus:ring-1 focus:ring-primary/30 ${
+                (img.alt ?? "").trim()
+                  ? "border-border"
+                  : "border-amber-400 dark:border-amber-500 bg-amber-50 dark:bg-amber-500/10"
+              }`}
+            />
+            </div>
           ))}
         </div>
       )}
@@ -239,6 +266,12 @@ export default function ProductImageManager({
       {images.length > 0 && (
         <p className="text-xs text-muted text-center">
           Drag images to reorder · First image is shown as the product thumbnail
+        </p>
+      )}
+
+      {images.some((i) => !(i.alt ?? "").trim()) && (
+        <p className="text-xs text-amber-600 dark:text-amber-400 text-center">
+          {images.filter((i) => !(i.alt ?? "").trim()).length} image(s) missing alt text — add it for SEO &amp; accessibility.
         </p>
       )}
     </div>

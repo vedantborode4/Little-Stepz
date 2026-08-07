@@ -156,6 +156,23 @@ export async function reorderProductImageService(
   });
 }
 
+export async function updateProductImageAltService(imageId: string, alt: string) {
+  const image = await prisma.productImage.findFirst({
+    where: { id: imageId, deletedAt: null },
+    select: { id: true },
+  });
+
+  if (!image) {
+    throw new ApiError(404, "Image not found");
+  }
+
+  return prisma.productImage.update({
+    where: { id: imageId },
+    data: { alt: alt.trim() || null },
+    select: imageSelect,
+  });
+}
+
 export async function deleteProductImageService(imageId: string) {
   let publicId: string | null = null;
 

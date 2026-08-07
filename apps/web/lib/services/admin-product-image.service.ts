@@ -46,4 +46,9 @@ export const AdminProductImageService = {
     )
     return res.data.data
   },
+
+  updateAlt: async (imageId: string, alt: string) => {
+    const res = await api.patch(`/admin/products/images/${imageId}/alt`, { alt })
+    return res.data.data
+  },
 }
