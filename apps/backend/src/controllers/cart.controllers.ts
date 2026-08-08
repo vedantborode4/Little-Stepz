@@ -16,6 +16,7 @@ import {
   syncCartBodySchema,
 } from "@repo/zod-schema/index";
 import { randomUUID } from "crypto";
+import { setCartSession } from "../middlewares/cart.middleware";
 
 async function getCart(req: Request, res: Response) {
   const identifier = req.cartIdentifier
@@ -27,15 +28,8 @@ async function getCart(req: Request, res: Response) {
   if (userId && identifier.type === "session") {
     await syncCartService(userId, identifier.id)
 
-    // rotate session cookie (prevent fixation)
-    const newSessionId = randomUUID()
-
-    res.cookie("cartSession", newSessionId, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: 30 * 24 * 60 * 60 * 1000,
-    })
+    // rotate session (prevent fixation)
+    setCartSession(req, res, randomUUID())
 
     const userIdentifier = { type: "user" as const, id: userId }
     const cart = await getCartService(userIdentifier)
@@ -90,16 +84,9 @@ async function syncCart(req: Request, res: Response) {
   const validated = syncCartBodySchema.parse(req.body);
   if (!validated.sessionId) throw new ApiError(400, "Session ID required");
   await syncCartService(userId, validated.sessionId);
-  // Clear session cookie after sync
+  // Rotate to a new session id after sync to prevent fixation
   res.clearCookie("cartSession");
-  // Rotate to new session ID to prevent fixation
-  const newSessionId = randomUUID();
-  res.cookie('cartSession', newSessionId, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
-    maxAge: 30 * 24 * 60 * 60 * 1000,
-  });
+  setCartSession(req, res, randomUUID());
   const userIdentifier = { type: "user" as const, id: userId };
   const updatedCart = await getCartService(userIdentifier);
   return new ApiResponse(200, updatedCart, "Cart synced").send(res);

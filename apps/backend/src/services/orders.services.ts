@@ -8,6 +8,7 @@ import { validateCouponService } from './coupons.services';
 import { assertServiceable, resolveShippingCharge } from '../utils/shipping';
 import { notify } from './notification.services';
 import { orderShortRef } from '../utils/notificationCopy';
+import { syncProductStockFlag, syncProductStockFlags } from '../utils/stock';
 
 const MAX_TX_RETRIES = 3;
 
@@ -83,6 +84,8 @@ async function reclaimStalePendingOrders(tx: OrderTx, productIds: string[]) {
         });
       }
     }
+    // Returning stock can bring a sold-out product back in stock.
+    await syncProductStockFlags(tx, order.items.map((i) => i.productId));
 
     if (order.couponId) {
       await tx.coupon.updateMany({
@@ -188,6 +191,9 @@ export async function createOrderService(userId: string, data: CreateOrderBody, 
             });
 
         if (updatedCount.count === 0) throw new ApiError(400, OrderErrorCode.STOCK_INSUFFICIENT);
+
+        // Flip the product to out-of-stock the moment this sale empties it.
+        await syncProductStockFlag(tx, item.productId);
 
         const itemSubtotal = price.mul(item.quantity);
         subtotal = subtotal.add(itemSubtotal);
@@ -430,6 +436,7 @@ export async function cancelOrderService(userId: string, orderId: string, reason
           });
         }
       }
+      await syncProductStockFlags(tx, order.items.map((i) => i.productId));
 
       // Give the coupon use back, otherwise a cancelled order permanently consumes
       // a slot against the coupon's usage limit.

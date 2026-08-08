@@ -22,7 +22,23 @@ import {
   accessTokenCookieOptions,
   refreshTokenCookieOptions,
 } from "../utils/constants";
+import { isNativeClient } from "../utils/client";
 
+/**
+ * Native clients get the refresh token in the response body as well, because they
+ * cannot depend on the cookie jar surviving a cold start (see utils/client.ts).
+ * Browsers are unaffected — they never receive it outside the httpOnly cookie.
+ */
+function authPayload(
+  req: Request,
+  user: unknown,
+  accessToken: string,
+  refreshToken: string
+) {
+  return isNativeClient(req)
+    ? { user, accessToken, refreshToken }
+    : { user, accessToken };
+}
 
 
 export async function signupController(req: Request, res: Response) {
@@ -42,7 +58,7 @@ export async function signupController(req: Request, res: Response) {
     res.cookie("accessToken", accessToken, accessTokenCookieOptions);
     res.cookie("refreshToken", refreshToken, refreshTokenCookieOptions);
 
-    return res.status(201).json({ user, accessToken });
+    return res.status(201).json(authPayload(req, user, accessToken, refreshToken));
   } catch (err) {
     if (err instanceof Error) {
       return res.status(500).json({ message: err.message });
@@ -68,7 +84,7 @@ export async function signinController(req: Request, res: Response) {
     res.cookie("accessToken", accessToken, accessTokenCookieOptions);
     res.cookie("refreshToken", refreshToken, refreshTokenCookieOptions);
 
-    return res.status(200).json({ user, accessToken });
+    return res.status(200).json(authPayload(req, user, accessToken, refreshToken));
   } catch (err) {
     if (err instanceof Error) {
       return res.status(401).json({ message: err.message });
@@ -94,7 +110,7 @@ export async function googleController(req: Request, res: Response) {
     res.cookie("accessToken", accessToken, accessTokenCookieOptions);
     res.cookie("refreshToken", refreshToken, refreshTokenCookieOptions);
 
-    return res.status(200).json({ user, accessToken });
+    return res.status(200).json(authPayload(req, user, accessToken, refreshToken));
   } catch (err) {
     if (err instanceof Error) {
       return res.status(401).json({ message: err.message });
@@ -105,7 +121,8 @@ export async function googleController(req: Request, res: Response) {
 
 export async function logoutController(req: Request, res: Response) {
   try {
-    const { refreshToken } = req.cookies;
+    const refreshToken: string | undefined =
+      req.cookies?.refreshToken || req.body?.refreshToken;
 
     // idempotent logout
     if (refreshToken) {
@@ -172,7 +189,10 @@ export const resetPasswordController = asyncHandler(resetPassword);
 
 export async function refreshController(req: Request, res: Response) {
   try {
-    const { refreshToken } = req.cookies;
+    // Cookie first (web); fall back to the body so a native client whose cookie jar
+    // was wiped can still refresh from its own SecureStore copy.
+    const refreshToken: string | undefined =
+      req.cookies?.refreshToken || req.body?.refreshToken;
 
     if (!refreshToken) {
       return res.status(401).json({ message: "Refresh token required" });
@@ -186,7 +206,13 @@ export async function refreshController(req: Request, res: Response) {
     res.cookie("accessToken", newAccessToken, accessTokenCookieOptions);
     res.cookie("refreshToken", newRefreshToken, refreshTokenCookieOptions);
 
-    return res.status(200).json({ accessToken: newAccessToken });
+    // Rotation means the old token is now dead — a native client MUST receive the
+    // replacement or it can never refresh again.
+    return res.status(200).json(
+      isNativeClient(req)
+        ? { accessToken: newAccessToken, refreshToken: newRefreshToken }
+        : { accessToken: newAccessToken }
+    );
   } catch (err) {
     // includes reuse detection → revoke all tokens inside service
     if (err instanceof Error) {

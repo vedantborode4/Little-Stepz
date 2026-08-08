@@ -13,7 +13,19 @@ const wishlistItemSelect = {
       salePrice: true,
       isOnSale: true,
       priceDisplay: true,
+      // Availability + variants: without these the wishlist rendered every saved
+      // product as in-stock with a working "Add to Cart", even when it was sold
+      // out or required choosing a variant first.
+      quantity: true,
+      inStock: true,
+      preOrderEnabled: true,
+      bookingAmount: true,
       images: { where: { variantId: null, deletedAt: null }, orderBy: { sortOrder: "asc" }, take: 1, select: { url: true } },
+      variants: {
+        where: { deletedAt: null },
+        orderBy: { sortOrder: "asc" },
+        select: { id: true, name: true, price: true, salePrice: true, isOnSale: true, stock: true },
+      },
     },
   },
   createdAt: true,

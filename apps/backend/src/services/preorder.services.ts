@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { prisma } from "@repo/db/client";
 import { ApiError } from "../utils/api";
+import { syncProductStockFlag } from "../utils/stock";
 import { PreOrderErrorCode } from "../utils/preorderErrors";
 import { resolveChargedPrice } from "../utils/pricing";
 import {
@@ -389,6 +390,9 @@ export async function completePreOrderBalance(
             data: { quantity: { decrement: po.quantity } },
           });
       if (claimed.count === 0) throw new ApiError(409, PreOrderErrorCode.OUT_OF_STOCK_AGAIN);
+
+      // Converting a pre-order consumes real stock, so the flag must follow it.
+      await syncProductStockFlag(tx, po.productId);
 
       const order = await tx.order.create({
         data: {
