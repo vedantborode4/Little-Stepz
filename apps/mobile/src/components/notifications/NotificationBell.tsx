@@ -25,7 +25,7 @@ export function NotificationBell({ color }: { color?: string }) {
       <Ionicons name="notifications-outline" size={24} color={color ?? colors.text} />
       {isAuthenticated && unread > 0 ? (
         <View className="absolute right-0 top-0 min-w-4 items-center justify-center rounded-full bg-primary px-1">
-          <Text className="text-[10px] font-jakarta-bold text-white">{unread > 9 ? "9+" : unread}</Text>
+          <Text className="text-[10px] font-jakarta-bold text-white">{unread > 99 ? "99+" : unread}</Text>
         </View>
       ) : null}
     </Pressable>

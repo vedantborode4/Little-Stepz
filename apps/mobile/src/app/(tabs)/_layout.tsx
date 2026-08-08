@@ -28,16 +28,19 @@ export default function TabsLayout() {
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.muted,
-        // Extra vertical padding so the icons/labels aren't cramped against the
-        // screen edge, plus the device's safe-area inset at the bottom. Devices
-        // with a 3-button nav bar report bottom inset 0 (the bar sits outside the
-        // app window), so floor it to keep the labels clear of the buttons.
+        // The bottom inset is floored (see useBottomInset) so the bar clears an
+        // Android 3-button nav bar, which can report an inset of 0 while still
+        // occupying the bottom of the screen. paddingTop is 6 rather than 8 to
+        // rebalance: the extra room below would otherwise make the row look like
+        // it had drifted upward inside the bar.
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.border,
-          height: 58 + bottomInset,
-          paddingTop: 8,
-          paddingBottom: bottomInset + 8,
+          height: 56 + bottomInset,
+          paddingTop: 2,
+          // +4 over the inset floor: a small breathing gap under the labels so the
+          // row never sits flush against the device's navigation area.
+          paddingBottom: bottomInset + 4,
         },
         tabBarItemStyle: { paddingTop: 2 },
         tabBarLabelStyle: { fontFamily: "Jakarta-SemiBold", fontSize: 11, marginTop: 2 },
@@ -61,6 +64,11 @@ export default function TabsLayout() {
       />
       {/* Wishlist stays reachable (from Account) but is no longer a bottom-bar tab. */}
       <Tabs.Screen name="wishlist" options={{ href: null }} />
+      {/* Category lives inside the tab navigator so it keeps the bottom menu while
+          browsing. href: null keeps it out of the bar itself — it's reached from
+          Home. The URL is unchanged (`(tabs)` is a group, so it isn't in the path),
+          so every existing /category/<slug> link still resolves. */}
+      <Tabs.Screen name="category/[slug]" options={{ href: null }} />
       <Tabs.Screen
         name="account"
         options={{ title: "Account", tabBarIcon: ({ color, size }) => <Ionicons name="person-outline" size={size} color={color} /> }}

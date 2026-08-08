@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { memo, useEffect, useRef } from "react";
 import { Dimensions, ScrollView, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 
 import { ProductCard } from "./ProductCard";
@@ -29,11 +29,22 @@ const RESUME_MS = 4000; // wait this long after a manual swipe before auto-scrol
  * from under them (client 4.1). Cards fit the screen an exact number of times
  * and snap to card boundaries — always fully visible or not at all.
  */
-export function ProductCarousel({ products }: { products: Product[] }) {
+function ProductCarouselBase({ products }: { products: Product[] }) {
   const ref = useRef<ScrollView>(null);
   const indexRef = useRef(0);
   const pausedRef = useRef(false);
   const resumeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rewindTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Both timers outlived the component: navigating away from home left them
+  // running, and the rewind one called scrollTo on an unmounted list.
+  useEffect(
+    () => () => {
+      if (resumeTimer.current) clearTimeout(resumeTimer.current);
+      if (rewindTimer.current) clearTimeout(rewindTimer.current);
+    },
+    []
+  );
 
   const realLen = products.length;
   const canLoop = realLen > COLS; // only auto-scroll when there's something to scroll
@@ -50,7 +61,7 @@ export function ProductCarousel({ products }: { products: Product[] }) {
       // Once we've advanced a full set into the duplicate, silently rewind by
       // one set — the card shown is identical, so the jump is invisible.
       if (next >= realLen) {
-        setTimeout(() => {
+        rewindTimer.current = setTimeout(() => {
           if (pausedRef.current) return;
           const back = next - realLen;
           ref.current?.scrollTo({ x: back * STEP, animated: false });
@@ -99,3 +110,7 @@ export function ProductCarousel({ products }: { products: Product[] }) {
     </ScrollView>
   );
 }
+
+// Home renders several of these. Without memo, any home-level state change (the
+// pull-to-refresh flag, for one) re-rendered every card in every carousel.
+export const ProductCarousel = memo(ProductCarouselBase);

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Dimensions, FlatList, Modal, Pressable, ScrollView, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { cldImage } from "../../lib/utils/image";
@@ -113,6 +113,16 @@ export function ProductGallery({ images }: { images: ProductImage[] }) {
   const [zoomed, setZoomed] = useState(false);
   const listRef = useRef<FlatList<ProductImage>>(null);
   const insets = useSafeAreaInsets();
+
+  // Selecting a variant swaps the image set. The PDP used to force a remount with
+  // a `key`, which threw away the whole gallery (and its decoded images) and made
+  // the picture flicker. Staying mounted and just resetting the pager is smoother —
+  // and necessary, since the old index may not exist in the new set.
+  const firstUrl = images?.[0]?.url;
+  useEffect(() => {
+    setIndex(0);
+    listRef.current?.scrollToOffset({ offset: 0, animated: false });
+  }, [firstUrl, images?.length]);
 
   if (!images?.length) {
     return (

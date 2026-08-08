@@ -24,18 +24,12 @@ export default function Wishlist() {
     enabled: isAuthenticated,
   });
 
+  // Pass the product through whole. The previous hand-built projection dropped
+  // stock, variants and pre-order fields, so every saved item rendered as
+  // in-stock with a working "Add to Cart" — including sold-out products and ones
+  // that require choosing a variant first.
   const products = useMemo<Product[]>(
-    () =>
-      (data?.items ?? []).map((i) => ({
-        id: i.product.id,
-        name: i.product.name,
-        slug: i.product.slug,
-        price: i.product.price,
-        salePrice: i.product.salePrice,
-        isOnSale: i.product.isOnSale,
-        priceDisplay: i.product.priceDisplay,
-        images: i.product.images ?? [],
-      })),
+    () => (data?.items ?? []).map((i) => ({ ...i.product, images: i.product.images ?? [] })),
     [data]
   );
 

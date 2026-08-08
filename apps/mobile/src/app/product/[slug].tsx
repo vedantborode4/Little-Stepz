@@ -23,6 +23,7 @@ import { ProductService } from "../../lib/services/product.service";
 import { getDisplayPrices } from "../../lib/pricing";
 import { qk } from "../../lib/api/query-client";
 import { useCartStore } from "../../store/cart.store";
+import { useBottomInset } from "../../hooks/useBottomInset";
 import { useWishlistStore } from "../../store/wishlist.store";
 import { colors } from "../../theme/tokens";
 import type { Variant } from "../../types/product";
@@ -42,6 +43,7 @@ function TrustBadge({ icon, title, subtitle }: { icon: keyof typeof Ionicons.gly
 export default function ProductDetail() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const insets = useSafeAreaInsets();
+  const bottomInset = useBottomInset();
 
   const { data: product, isLoading, isError } = useQuery({
     queryKey: qk.product(slug),
@@ -93,6 +95,18 @@ export default function ProductDetail() {
   // Variants are optional — with none selected the base product is shown and is purchasable.
   const variantOut = variant ? (variant.stock ?? 0) <= 0 : false;
   const outOfStock = product?.inStock === false || variantOut;
+
+  // Cap the quantity at what's actually available, so the server can't reject the
+  // add with a generic failure the user has no way to interpret.
+  // Product stock is `quantity`; variant stock is `stock` (see the Prisma schema).
+  const availableStock = variant ? variant.stock ?? 0 : product?.quantity ?? 0;
+  const maxQty = availableStock > 0 ? Math.min(availableStock, 99) : 99;
+
+  // Switching to a variant with less stock must pull the quantity down with it.
+  useEffect(() => {
+    setQty((q) => (q > maxQty ? maxQty : q));
+  }, [maxQty]);
+
   const ctaDisabled = outOfStock || adding || buying;
   const canPreOrder = outOfStock && !!product?.preOrderEnabled && product?.bookingAmount != null;
 
@@ -110,8 +124,11 @@ export default function ProductDetail() {
     if (!product) return;
     setBuying(true);
     try {
-      await addItem({ productId: product.id, variantId: variant?.id, quantity: qty });
-      router.push("/checkout");
+      // Only proceed if the item actually made it into the cart. Previously a
+      // failed add still navigated, landing the user in checkout against a cart
+      // that didn't contain what they were trying to buy.
+      const added = await addItem({ productId: product.id, variantId: variant?.id, quantity: qty });
+      if (added) router.push("/checkout");
     } finally {
       setBuying(false);
     }
@@ -160,17 +177,23 @@ export default function ProductDetail() {
           <Ionicons name="cart-outline" size={22} color={colors.text} />
           {cartCount > 0 ? (
             <View className="absolute right-0.5 top-0.5 min-w-4 items-center justify-center rounded-full bg-primary px-1">
-              <Text className="text-[9px] font-jakarta-bold text-white">{cartCount > 9 ? "9+" : cartCount}</Text>
+              <Text className="text-[9px] font-jakarta-bold text-white">{cartCount > 99 ? "99+" : cartCount}</Text>
             </View>
           ) : null}
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 160 }} showsVerticalScrollIndicator={false}>
-        <ProductGallery
-          key={variant?.id ?? "product"}
-          images={variant?.images?.length ? variant.images : product.images}
-        />
+      {/* keyboardShouldPersistTaps: the pincode "Check" and review "Submit" buttons
+          live in this scroll view — without it the first tap only dismisses the
+          keyboard and the button has to be pressed twice. */}
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: 160 }}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* No `key` — the gallery resets its own pager when the image set changes,
+            so switching variants swaps the picture instead of remounting. */}
+        <ProductGallery images={variant?.images?.length ? variant.images : product.images} />
 
         <View className="gap-5 p-4">
           {/* Header: category badge + name */}
@@ -243,7 +266,7 @@ export default function ProductDetail() {
           {/* Quantity */}
           <View className="flex-row items-center gap-4">
             <Text className="font-jakarta-semibold text-text">Quantity</Text>
-            <QuantityStepper value={qty} onChange={setQty} />
+            <QuantityStepper value={qty} onChange={setQty} max={maxQty} />
           </View>
 
           {/* Trust badges */}
@@ -310,7 +333,8 @@ export default function ProductDetail() {
 
       {/* Sticky CTA bar — extra bottom padding so it clears the system nav bar */}
       <View
-        style={{ paddingBottom: Math.max(insets.bottom, 12) + 12 }}
+        // Shared floor, so Add to Cart / Buy Now clears a 3-button nav bar too.
+        style={{ paddingBottom: bottomInset + 12 }}
         className="absolute bottom-0 left-0 right-0 flex-row gap-2.5 border-t border-border bg-surface px-4 pt-3"
       >
         {canPreOrder ? (

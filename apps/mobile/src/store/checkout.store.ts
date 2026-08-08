@@ -20,9 +20,13 @@ export type PlaceOrderResult =
 interface CheckoutState {
   placingOrder: boolean;
   paymentMethod: "COD" | "ONLINE";
+  /** Address → Review → Payment. Held here so returning from the Razorpay screen
+   *  doesn't drop the user back at step 1. */
+  step: number;
   _idempotencyKey: string | null;
   _keySignature: string | null;
 
+  setStep: (step: number) => void;
   setPaymentMethod: (m: "COD" | "ONLINE") => void;
   placeOrder: (addressId: string) => Promise<PlaceOrderResult>;
   resetSession: () => void;
@@ -33,11 +37,14 @@ const generateKey = () => `${Date.now()}-${Math.random().toString(36).slice(2, 1
 export const useCheckoutStore = create<CheckoutState>((set, get) => ({
   placingOrder: false,
   paymentMethod: "COD",
+  step: 0,
   _idempotencyKey: null,
   _keySignature: null,
 
+  setStep: (step) => set({ step }),
   setPaymentMethod: (m) => set({ paymentMethod: m }),
-  resetSession: () => set({ _idempotencyKey: null, _keySignature: null, placingOrder: false }),
+  resetSession: () =>
+    set({ _idempotencyKey: null, _keySignature: null, placingOrder: false, step: 0 }),
 
   placeOrder: async (addressId) => {
     if (get().placingOrder) return null;

@@ -53,7 +53,7 @@ const legalRows: Row[] = [
 /** Prominent "Chat with us" entry — shown to signed-in and signed-out users alike. */
 function ChatWithUsCard() {
   return (
-    <Card elevated className="p-0">
+    <Card elevated clip className="p-0">
       <Pressable
         onPress={() => router.push("/support")}
         className="flex-row items-center gap-3 px-4 py-4"
@@ -77,7 +77,7 @@ function LegalPoliciesSection() {
       <Text className="px-1 text-xs font-jakarta-semibold uppercase tracking-wide text-muted">
         Legal & Policies
       </Text>
-      <Card elevated className="p-0">
+      <Card elevated clip className="p-0">
         {legalRows.map((r, i) => (
           <Pressable
             key={r.label}
@@ -145,6 +145,20 @@ export default function Account() {
           <AppearanceCard />
 
           <LegalPoliciesSection />
+
+          {/* Affiliate signup is worth advertising to guests too. Kept in the same
+              position it occupies when signed in, so it doesn't move on login.
+              Sign-in is required to apply, so route through it and come back. */}
+          <Button
+            label="Become an Affiliate"
+            variant="outline"
+            onPress={() =>
+              router.push({
+                pathname: "/(auth)/signin",
+                params: { redirect: "/affiliate/apply" },
+              })
+            }
+          />
         </ScrollView>
       </ScreenContainer>
     );
@@ -167,7 +181,7 @@ export default function Account() {
 
         <ChatWithUsCard />
 
-        <Card elevated className="p-0">
+        <Card elevated clip className="p-0">
           {rows.map((r, i) => (
             <Pressable
               key={r.label}

@@ -1,17 +1,11 @@
 import { api } from "../api/client";
+import type { Product } from "../../types/product";
 
 export interface WishlistItem {
   id: string;
-  product: {
-    id: string;
-    name: string;
-    slug: string;
-    price: string;
-    salePrice?: string | null;
-    isOnSale?: boolean;
-    priceDisplay?: "BOTH" | "REGULAR" | "SALE";
-    images: { url: string }[];
-  };
+  /** The API returns a product-list-shaped payload, so the card can render it
+   *  with the same stock/variant/pre-order rules as anywhere else. */
+  product: Product;
 }
 
 export interface WishlistResponse {

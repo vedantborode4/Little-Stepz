@@ -1,4 +1,5 @@
 import { api } from "../api/client";
+import { getRefreshTokenSync } from "../api/token";
 import type { AuthResponse } from "../../types/auth";
 import type {
   ForgotPasswordData,
@@ -41,7 +42,9 @@ export const AuthService = {
 
   logout: async (): Promise<void> => {
     try {
-      await api.post("/auth/logout", {});
+      // Send our stored refresh token so the server can revoke this session even
+      // when the cookie jar has already dropped it.
+      await api.post("/auth/logout", { refreshToken: getRefreshTokenSync() ?? undefined });
     } catch {
       // best-effort; local state is cleared regardless
     }

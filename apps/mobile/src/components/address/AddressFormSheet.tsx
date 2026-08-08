@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Modal, Pressable, Text, View } from "react-native";
+import { KeyboardAvoidingView, Modal, Platform, Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -63,8 +63,15 @@ export function AddressFormSheet({
             <Ionicons name="close" size={18} color={colors.muted} />
           </Pressable>
         </View>
-        {/* key forces the form to re-init its defaults when switching add/edit target */}
-        <AddressForm key={editing?.id ?? "new"} initial={editing} submitting={submitting} onSubmit={onSubmit} />
+        {/* Without this the keyboard covers the lower fields and the Save button.
+            The bottom inset keeps Save clear of the gesture bar. */}
+        <KeyboardAvoidingView
+          style={{ flex: 1, paddingBottom: insets.bottom }}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+        >
+          {/* key forces the form to re-init its defaults when switching add/edit target */}
+          <AddressForm key={editing?.id ?? "new"} initial={editing} submitting={submitting} onSubmit={onSubmit} />
+        </KeyboardAvoidingView>
       </View>
     </Modal>
   );

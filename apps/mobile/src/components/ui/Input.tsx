@@ -34,6 +34,10 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
           placeholderTextColor={colors.muted}
           secureTextEntry={hidden}
           {...props}
+          // After the spread: a multiline field otherwise renders one line tall,
+          // and on Android its text sits vertically centred rather than at the top.
+          textAlignVertical={props.multiline ? "top" : props.textAlignVertical}
+          style={props.multiline ? [{ minHeight: 88 }, props.style] : props.style}
         />
         {secure ? (
           <Pressable onPress={() => setHidden((h) => !h)} hitSlop={8}>

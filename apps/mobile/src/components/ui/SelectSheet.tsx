@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Sheet } from "./Sheet";
 import { colors } from "../../theme/tokens";
@@ -33,6 +33,9 @@ export function SelectSheet({ label, placeholder = "Select", value, options, onC
       </Pressable>
 
       <Sheet visible={open} onClose={() => setOpen(false)} title={label ?? "Select"}>
+        {/* Long option lists (categories, order statuses) used to run off the bottom
+            of the screen with no way to reach the items below the fold. */}
+        <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
         {options.map((o) => {
           const on = o.value === value;
           return (
@@ -49,6 +52,7 @@ export function SelectSheet({ label, placeholder = "Select", value, options, onC
             </Pressable>
           );
         })}
+        </ScrollView>
       </Sheet>
     </View>
   );

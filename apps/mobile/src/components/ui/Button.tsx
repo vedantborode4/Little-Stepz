@@ -1,5 +1,6 @@
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { cn } from "../../lib/utils/cn";
+import { useThemeColors } from "../../theme/useThemeColors";
 
 type Variant = "primary" | "secondary" | "outline" | "ghost" | "danger";
 type Size = "sm" | "md" | "lg";
@@ -58,6 +59,7 @@ export function Button({
   left,
 }: ButtonProps) {
   const isDisabled = disabled || loading;
+  const themeColors = useThemeColors();
   return (
     <Pressable
       onPress={onPress}
@@ -72,16 +74,25 @@ export function Button({
       )}
       style={({ pressed }) => (pressed ? { opacity: 0.85 } : undefined)}
     >
+      {/* The label stays mounted while loading and the spinner is overlaid, so the
+          button keeps its width. Swapping the label out for a bare spinner made
+          content-sized (fullWidth={false}) buttons visibly collapse mid-request. */}
+      <View className="flex-row items-center gap-2" style={loading ? { opacity: 0 } : undefined}>
+        {left}
+        <Text
+          numberOfLines={1}
+          className={cn("text-center font-sora", variantText[variant], textSizes[size])}
+        >
+          {label}
+        </Text>
+      </View>
       {loading ? (
-        <ActivityIndicator color={variant === "outline" || variant === "ghost" ? "#FF383C" : "#fff"} />
-      ) : (
-        <View className="flex-row items-center gap-2">
-          {left}
-          <Text className={cn("font-sora", variantText[variant], textSizes[size])}>
-            {label}
-          </Text>
+        <View className="absolute inset-0 items-center justify-center">
+          <ActivityIndicator
+            color={variant === "outline" || variant === "ghost" ? themeColors.primary : "#fff"}
+          />
         </View>
-      )}
+      ) : null}
     </Pressable>
   );
 }

@@ -16,7 +16,9 @@ export function Skeleton({ className, style }: { className?: string; style?: Vie
     return () => loop.stop();
   }, [opacity]);
 
-  return <Animated.View style={[{ opacity }, style]} className={`rounded-md bg-border ${className ?? ""}`} />;
+  // surface-3, not border: the light-mode border token (#F1F5F9) against a white
+  // card is ~2% contrast, so skeletons read as blank space rather than loading.
+  return <Animated.View style={[{ opacity }, style]} className={`rounded-md bg-surface-3 ${className ?? ""}`} />;
 }
 
 /** A product-card-shaped skeleton tile. */

@@ -118,6 +118,15 @@ export default function SignIn() {
               Sign up
             </Link>
           </View>
+
+          {/* Escape hatch — a guest sent here from a gated action (affiliate, wishlist,
+              checkout) otherwise has no way back to browsing except the OS back button,
+              which does nothing when sign-in is the first screen in the stack. */}
+          <View className="mt-6 items-center">
+            <Link href="/(tabs)/home" replace className="text-sm font-jakarta-medium text-muted">
+              ← Continue shopping
+            </Link>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </ScreenContainer>

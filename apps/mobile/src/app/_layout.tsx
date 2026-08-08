@@ -6,7 +6,7 @@ import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { QueryClientProvider } from "@tanstack/react-query";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import {
   useFonts,
   Manrope_400Regular,
@@ -17,8 +17,10 @@ import {
 import { Anton_400Regular } from "@expo-google-fonts/anton";
 import { Sora_600SemiBold } from "@expo-google-fonts/sora";
 
-import { queryClient } from "../lib/api/query-client";
-import { loadToken, loadUser, setUser } from "../lib/api/token";
+import { queryClient, persistOptions } from "../lib/api/query-client";
+import { useCartStore } from "../store/cart.store";
+import { useWishlistStore } from "../store/wishlist.store";
+import { loadSession, setUser } from "../lib/api/token";
 import { useAuthStore } from "../store/auth.store";
 import { UserService } from "../lib/services/user.service";
 import { ToastHost } from "../components/ui/ToastHost";
@@ -67,8 +69,9 @@ export default function RootLayout() {
 
   useEffect(() => {
     (async () => {
-      const token = await loadToken();
-      const user = await loadUser();
+      // One pass hydrates the access token, refresh token, guest cart session
+      // and the persisted user — everything the API client needs synchronously.
+      const { token, user } = await loadSession();
       if (token && user) {
         useAuthStore.setState({ user, isAuthenticated: true });
         // Refresh the profile so role changes (e.g. promoted to ADMIN) are picked
@@ -84,6 +87,13 @@ export default function RootLayout() {
       }
       setHydrated(true);
       setAuthReady(true);
+
+      // Warm the cart (and the signed-in user's wishlist) in the background.
+      // Without this the tab-bar badge showed 0 on every launch until the user
+      // happened to open the Cart tab, and product cards rendered unfilled hearts.
+      // Guests have a cart too — it's keyed by the stored cart session.
+      void useCartStore.getState().fetchCart();
+      if (token && user) void useWishlistStore.getState().fetchWishlist();
     })();
   }, [setHydrated]);
 
@@ -98,7 +108,7 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <QueryClientProvider client={queryClient}>
+        <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
           <StatusBar style={isDark ? "light" : "dark"} />
           <PushBridge />
           <ErrorBoundary>
@@ -106,12 +116,12 @@ export default function RootLayout() {
               <Stack.Screen name="(tabs)" />
               <Stack.Screen name="(auth)" />
               <Stack.Screen name="product/[slug]" options={{ headerShown: false, presentation: "card" }} />
-              <Stack.Screen name="category/[slug]" />
+              {/* category/[slug] now lives inside (tabs) so it keeps the bottom menu. */}
               <Stack.Screen name="notifications" options={{ presentation: "card" }} />
             </Stack>
           </ErrorBoundary>
           <ToastHost />
-        </QueryClientProvider>
+        </PersistQueryClientProvider>
       </SafeAreaProvider>
       {!splashDone ? <AnimatedSplash onDone={() => setSplashDone(true)} /> : null}
     </GestureHandlerRootView>

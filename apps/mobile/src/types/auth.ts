@@ -11,4 +11,6 @@ export interface AuthUser {
 export interface AuthResponse {
   user: AuthUser;
   accessToken: string;
+  /** Returned to native clients only — persisted so refresh never depends on cookies. */
+  refreshToken?: string;
 }

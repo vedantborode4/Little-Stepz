@@ -3,6 +3,8 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { AuthResponse, AuthUser } from "../types/auth";
 import { useCartStore } from "./cart.store";
+import { useWishlistStore } from "./wishlist.store";
+import { useAddressStore } from "./address.store";
 
 interface AuthState {
   user: AuthUser | null;
@@ -37,6 +39,11 @@ export const useAuthStore = create<AuthState>()(
           discount: 0,
           couponCode: null,
         });
+        // The wishlist is persisted to AsyncStorage, so without this the next
+        // person to sign in on this device sees the previous user's hearts.
+        useWishlistStore.setState({ items: [] });
+        // Saved addresses are personal data — never carry them into the next session.
+        useAddressStore.getState().reset();
         set({ user: null, isAuthenticated: false });
       },
 

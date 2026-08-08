@@ -25,7 +25,7 @@ function IconButton({
       <Ionicons name={icon} size={24} color={color} />
       {count > 0 ? (
         <View className="absolute right-0 top-0 min-w-4 items-center justify-center rounded-full bg-primary px-1">
-          <Text className="text-[10px] font-jakarta-bold text-white">{count > 9 ? "9+" : count}</Text>
+          <Text className="text-[10px] font-jakarta-bold text-white">{count > 99 ? "99+" : count}</Text>
         </View>
       ) : null}
     </Pressable>

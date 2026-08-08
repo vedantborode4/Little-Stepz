@@ -108,7 +108,11 @@ function ProductCardBase({ product }: { product: Product }) {
         <Pressable
           onPress={onAdd}
           disabled={(!inStock && !canPreOrder) || adding}
-          className={`mt-auto flex-row items-center justify-center gap-1.5 rounded-lg py-2 ${
+          // Fixed height (== the previous py-2 + 16px line box), NOT padding. The
+          // spinner shown while adding is taller than the label, so a content-sized
+          // button grew the card — which changed the grid row's measured height and
+          // made FlatList re-window, unmounting and remounting every other row.
+          className={`mt-auto h-8 flex-row items-center justify-center gap-1.5 rounded-lg ${
             !inStock && !canPreOrder ? "bg-surface-3" : canPreOrder ? "bg-warning" : "bg-primary"
           }`}
         >

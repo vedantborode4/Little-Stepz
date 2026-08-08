@@ -20,8 +20,11 @@ export function EmptyState({ icon = "cube-outline", title, subtitle, actionLabel
         <Text className="mt-1 text-center text-sm text-muted">{subtitle}</Text>
       ) : null}
       {actionLabel && onAction ? (
-        <View className="mt-5 w-48">
-          <Button label={actionLabel} onPress={onAction} />
+        // Was a fixed w-48: "View all products" doesn't fit at 192px, so the label
+        // wrapped to two lines and sat off-centre. Sizing to the content keeps it
+        // on one line at any label length or OS font scale.
+        <View className="mt-5 max-w-full">
+          <Button label={actionLabel} fullWidth={false} onPress={onAction} className="px-6" />
         </View>
       ) : null}
     </View>

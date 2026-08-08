@@ -14,6 +14,7 @@ import { CategorySection } from "../../components/home/CategorySection";
 import { PreOrderHome } from "../../components/home/PreOrderHome";
 import { WhyChooseUs } from "../../components/home/WhyChooseUs";
 import { WhyChooseLittleStepz } from "../../components/home/WhyChooseLittleStepz";
+import { qk } from "../../lib/api/query-client";
 import { colors } from "../../theme/tokens";
 
 export default function Home() {
@@ -22,10 +23,13 @@ export default function Home() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
+    // `refetchType: "active"` limits the refetch to what's actually mounted. The
+    // bare invalidation also hit the Shop tab's infinite list, which would then
+    // refetch every page it had loaded the next time the user opened it.
     await Promise.all([
-      qc.invalidateQueries({ queryKey: ["banners"] }),
-      qc.invalidateQueries({ queryKey: ["categories"] }),
-      qc.invalidateQueries({ queryKey: ["products"] }),
+      qc.invalidateQueries({ queryKey: qk.banners, refetchType: "active" }),
+      qc.invalidateQueries({ queryKey: qk.categories, refetchType: "active" }),
+      qc.invalidateQueries({ queryKey: qk.productsAll, refetchType: "active" }),
     ]);
     setRefreshing(false);
   }, [qc]);

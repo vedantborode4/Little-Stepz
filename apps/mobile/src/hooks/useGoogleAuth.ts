@@ -21,10 +21,22 @@ const ANDROID_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_ANDROID;
  * runs `useIdTokenAuthRequest` — that hook throws at render if the platform's
  * client id is missing (e.g. "androidClientId must be defined").
  */
+/**
+ * A placeholder is not a configuration. Treating "REPLACE_ME-ios..." as real would
+ * render a Google button that always fails with an invalid-client error — worse
+ * than not showing it. Real Google client ids always end in
+ * `.apps.googleusercontent.com` and start with a numeric project number.
+ */
+function isRealClientId(id: string | undefined): boolean {
+  if (!id) return false;
+  if (!id.endsWith(".apps.googleusercontent.com")) return false;
+  return /^\d+-/.test(id);
+}
+
 export function isGoogleConfigured(): boolean {
-  if (Platform.OS === "android") return Boolean(ANDROID_CLIENT_ID);
-  if (Platform.OS === "ios") return Boolean(IOS_CLIENT_ID);
-  return Boolean(WEB_CLIENT_ID);
+  if (Platform.OS === "android") return isRealClientId(ANDROID_CLIENT_ID);
+  if (Platform.OS === "ios") return isRealClientId(IOS_CLIENT_ID);
+  return isRealClientId(WEB_CLIENT_ID);
 }
 
 /**

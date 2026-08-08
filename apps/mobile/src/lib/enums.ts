@@ -1,17 +1,24 @@
 // Enum value -> human label + badge color, mirroring the web status palettes.
-import { colors } from "../theme/tokens";
 
-export type BadgeColor = { bg: string; fg: string };
+/**
+ * A badge's colour is now a *name*, not a pair of hex values. The concrete hues
+ * are resolved per colour scheme inside `Badge` (components/ui/Badge.tsx).
+ *
+ * The old map baked in one light-mode palette and Badge applied it via an inline
+ * style, which no CSS variable could flip — so every status chip stayed a bright
+ * pastel block in dark mode. Light-mode values are unchanged.
+ */
+export type BadgeColor = "gray" | "blue" | "indigo" | "amber" | "green" | "red" | "purple" | "teal";
 
 const palette = {
-  gray: { bg: "#F3F4F6", fg: "#374151" },
-  blue: { bg: "#DBEAFE", fg: "#1D4ED8" },
-  indigo: { bg: "#E0E7FF", fg: "#4338CA" },
-  amber: { bg: "#FEF3C7", fg: "#B45309" },
-  green: { bg: "#DCFCE7", fg: "#15803D" },
-  red: { bg: "#FEE2E2", fg: "#B91C1C" },
-  purple: { bg: "#F3E8FF", fg: "#7E22CE" },
-  teal: { bg: "#CCFBF1", fg: "#0F766E" },
+  gray: "gray",
+  blue: "blue",
+  indigo: "indigo",
+  amber: "amber",
+  green: "green",
+  red: "red",
+  purple: "purple",
+  teal: "teal",
 } satisfies Record<string, BadgeColor>;
 
 export const ORDER_STATUS: Record<string, { label: string; color: BadgeColor }> = {
@@ -77,5 +84,5 @@ export function badgeFor(
   value: string | null | undefined
 ): { label: string; color: BadgeColor } {
   if (value && map[value]) return map[value];
-  return { label: value ?? "—", color: { bg: colors.border, fg: colors.muted } };
+  return { label: value ?? "—", color: "gray" };
 }

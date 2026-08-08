@@ -9,6 +9,7 @@ import { Button } from "../../components/ui/Button";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { useCartStore } from "../../store/cart.store";
+import { useKeyboardHeight } from "../../hooks/useKeyboardHeight";
 import { formatPrice } from "../../lib/utils/format";
 import { getErrorMessage } from "../../lib/utils/errors";
 import { toast } from "../../store/toast.store";
@@ -16,10 +17,11 @@ import { colors } from "../../theme/tokens";
 
 export default function Cart() {
   const {
-    items, subtotal, discount, total, couponCode, isValidatingCoupon, isLoading,
+    items, subtotal, discount, total, couponCode, isValidatingCoupon, isLoading, loadError,
     fetchCart, updateQuantity, removeItem, applyCoupon, removeCoupon, updatingKey,
   } = useCartStore();
   const [code, setCode] = useState("");
+  const keyboardHeight = useKeyboardHeight();
   // The summary bar floats over the list; measure it so the last item can always
   // scroll clear of it (its height changes with the coupon/discount rows).
   const [summaryHeight, setSummaryHeight] = useState(240);
@@ -63,6 +65,22 @@ export default function Cart() {
             </View>
           ))}
         </View>
+      </ScreenContainer>
+    );
+  }
+
+  // A failed request is not an empty cart — saying so sends the user off to shop
+  // for things they have already added.
+  if (loadError && items.length === 0) {
+    return (
+      <ScreenContainer>
+        <EmptyState
+          icon="cloud-offline-outline"
+          title="Couldn't load your cart"
+          subtitle="Check your connection and try again."
+          actionLabel="Retry"
+          onAction={() => fetchCart()}
+        />
       </ScreenContainer>
     );
   }
@@ -113,7 +131,10 @@ export default function Cart() {
         onLayout={(e) => setSummaryHeight(e.nativeEvent.layout.height)}
         // No safe-area inset here — this bar sits inside the tab screen, and the
         // tab bar below it already covers the device's bottom inset.
-        style={{ paddingBottom: 10 }}
+        // Lifted by the keyboard height on iOS — the coupon field lives in this bar,
+        // and an absolutely-positioned bar is not moved by the iOS keyboard, so the
+        // field and its Apply button sat underneath it while you typed.
+        style={{ paddingBottom: 10, bottom: keyboardHeight }}
         className="absolute bottom-0 left-0 right-0 gap-3 border-t border-border bg-surface px-4 pt-3"
       >
         {couponCode ? (

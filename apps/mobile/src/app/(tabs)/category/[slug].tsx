@@ -3,16 +3,16 @@ import { Pressable, Text, View } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
-import { ScreenContainer } from "../../components/layout/ScreenContainer";
-import { ProductGrid } from "../../components/product/ProductGrid";
-import { PromoSlot } from "../../components/home/PromoSlot";
-import { Sheet } from "../../components/ui/Sheet";
-import { useCartStore } from "../../store/cart.store";
-import { Button } from "../../components/ui/Button";
-import { Input } from "../../components/ui/Input";
-import { useProducts } from "../../hooks/useProducts";
-import type { SortOption } from "../../store/productFilter.store";
-import { colors } from "../../theme/tokens";
+import { ScreenContainer } from "../../../components/layout/ScreenContainer";
+import { ProductGrid } from "../../../components/product/ProductGrid";
+import { PromoSlot } from "../../../components/home/PromoSlot";
+import { Sheet } from "../../../components/ui/Sheet";
+import { useCartStore } from "../../../store/cart.store";
+import { Button } from "../../../components/ui/Button";
+import { Input } from "../../../components/ui/Input";
+import { useProducts } from "../../../hooks/useProducts";
+import type { SortOption } from "../../../store/productFilter.store";
+import { colors } from "../../../theme/tokens";
 
 const SORTS: { key: SortOption; label: string }[] = [
   { key: "newest", label: "Newest" },
@@ -69,7 +69,7 @@ export default function CategoryScreen() {
           <Ionicons name="cart-outline" size={22} color={colors.text} />
           {cartCount > 0 ? (
             <View className="absolute right-0 top-0 min-w-4 items-center justify-center rounded-full bg-primary px-1">
-              <Text className="text-[9px] font-jakarta-bold text-white">{cartCount > 9 ? "9+" : cartCount}</Text>
+              <Text className="text-[9px] font-jakarta-bold text-white">{cartCount > 99 ? "99+" : cartCount}</Text>
             </View>
           ) : null}
         </Pressable>

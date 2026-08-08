@@ -78,42 +78,57 @@ export default function Verifying() {
     }
   }, [params.orderId, params.razorpayOrderId, params.razorpayPaymentId, params.razorpaySignature, resetSession, fetchCart]);
 
-  useEffect(() => {
-    if (!params.orderId) return;
-    let poll = 0;
-    let interval: ReturnType<typeof setInterval>;
+  // One owner for the poll timer. The previous code declared `interval` and then
+  // called `run()` before assigning it, so a first-attempt success still scheduled
+  // an interval; and `retry()` started a *second* loop that was never cleared on
+  // unmount, leaving a timer running and calling setState on a dead component.
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stoppedRef = useRef(false);
 
-    const run = async () => {
+  const stopPolling = useCallback(() => {
+    stoppedRef.current = true;
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  const startPolling = useCallback(() => {
+    stopPolling();
+    stoppedRef.current = false;
+    let poll = 0;
+
+    // setTimeout chaining rather than setInterval: a slow request can't stack up
+    // overlapping polls the way a fixed interval can.
+    const tick = async () => {
+      if (stoppedRef.current) return;
       const done = await check();
+      if (stoppedRef.current) return;
+
       poll += 1;
       setAttempts(poll);
+
       if (done || poll >= MAX_POLLS) {
-        clearInterval(interval);
+        stopPolling();
         setState((s) => (s === "loading" ? "pending" : s));
+        return;
       }
+      timerRef.current = setTimeout(tick, POLL_INTERVAL);
     };
 
-    run();
-    interval = setInterval(run, POLL_INTERVAL);
-    return () => clearInterval(interval);
-  }, [params.orderId, check]);
+    void tick();
+  }, [check, stopPolling]);
+
+  useEffect(() => {
+    if (!params.orderId) return;
+    startPolling();
+    return stopPolling;
+  }, [params.orderId, startPolling, stopPolling]);
 
   const retry = () => {
     setAttempts(0);
     setState("loading");
-    let poll = 0;
-    let interval: ReturnType<typeof setInterval>;
-    const run = async () => {
-      const done = await check();
-      poll += 1;
-      setAttempts(poll);
-      if (done || poll >= MAX_POLLS) {
-        clearInterval(interval);
-        setState((s) => (s === "loading" ? "pending" : s));
-      }
-    };
-    run();
-    interval = setInterval(run, POLL_INTERVAL);
+    startPolling();
   };
 
   if (state === "loading") {

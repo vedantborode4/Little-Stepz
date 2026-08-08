@@ -29,7 +29,10 @@ export function ToastHost() {
   return (
     <View
       pointerEvents="none"
-      style={{ bottom: insets.bottom + 72 }}
+      // Clears the tallest bottom bar in the app (the product page's Add to Cart /
+      // Buy Now bar), not just the tab bar. At the old +72 a toast landed on top of
+      // it on devices that report no bottom inset.
+      style={{ bottom: insets.bottom + 92 }}
       className="absolute left-0 right-0 z-50 items-center px-4"
     >
       {toasts.map((t) => {

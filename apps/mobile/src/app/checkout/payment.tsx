@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { ActivityIndicator, BackHandler, View } from "react-native";
+import { ActivityIndicator, Alert, BackHandler, View } from "react-native";
 import { WebView, type WebViewMessageEvent } from "react-native-webview";
 import { useFocusEffect, useLocalSearchParams, router } from "expo-router";
 import { useCallback } from "react";
@@ -22,15 +22,32 @@ export default function Payment() {
   }>();
   const user = useAuthStore((s) => s.user);
   const handled = useRef(false);
+  const opened = useRef(false);
 
-  // Android hardware back = treat as cancel
+  // Android hardware back during a live payment. Backing out silently abandons a
+  // created order, so confirm first — and swallow the event (return true) so the
+  // navigation only happens if the user actually chooses to leave.
   useFocusEffect(
     useCallback(() => {
       const sub = BackHandler.addEventListener("hardwareBackPress", () => {
-        if (!handled.current) {
-          toast.info("Payment cancelled");
-        }
-        return false;
+        if (handled.current) return false;
+        Alert.alert(
+          "Cancel payment?",
+          "Your order is waiting for payment. You can pay for it later from My Orders.",
+          [
+            { text: "Keep paying", style: "cancel" },
+            {
+              text: "Cancel payment",
+              style: "destructive",
+              onPress: () => {
+                handled.current = true;
+                toast.info("Payment cancelled");
+                router.back();
+              },
+            },
+          ]
+        );
+        return true;
       });
       return () => sub.remove();
     }, [])
@@ -69,16 +86,34 @@ export default function Payment() {
         var rzp = new Razorpay(options);
         rzp.on("payment.failed", function (resp) { post({ type: "failed", error: resp.error }); });
         rzp.open();
+        // Tells the app the checkout is live, so a later subresource load error
+        // inside Razorpay's own frame is not mistaken for a total failure.
+        post({ type: "opened" });
       } catch (e) { post({ type: "error", message: String((e && e.message) || e) }); }
     </script>
   </body>
 </html>`;
+
+  // The checkout script couldn't be loaded at all (offline, DNS, Razorpay down).
+  // Only meaningful before the modal opens — afterwards the WebView may report
+  // errors for assets inside Razorpay's frame that don't stop the payment.
+  const onLoadFailure = () => {
+    if (handled.current || opened.current) return;
+    handled.current = true;
+    toast.error("Couldn't reach the payment page. Please check your connection.");
+    router.back();
+  };
 
   const onMessage = async (e: WebViewMessageEvent) => {
     let msg: any;
     try {
       msg = JSON.parse(e.nativeEvent.data);
     } catch {
+      return;
+    }
+
+    if (msg.type === "opened") {
+      opened.current = true;
       return;
     }
 
@@ -121,6 +156,10 @@ export default function Payment() {
           domStorageEnabled
           onMessage={onMessage}
           setSupportMultipleWindows={false}
+          // Without these, a failure to reach Razorpay left the user staring at a
+          // permanently blank white screen with no way to tell what happened.
+          onError={onLoadFailure}
+          onHttpError={onLoadFailure}
           startInLoadingState
           renderLoading={() => (
             <View className="absolute inset-0 items-center justify-center bg-bg">

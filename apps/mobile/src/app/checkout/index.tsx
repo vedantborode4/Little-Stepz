@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Image } from "expo-image";
 import { router, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -20,6 +20,9 @@ import { toast } from "../../store/toast.store";
 import { formatPrice } from "../../lib/utils/format";
 import { getErrorMessage } from "../../lib/utils/errors";
 import { getDisplayPrices } from "../../lib/pricing";
+import { cldImage } from "../../lib/utils/image";
+import { useKeyboardHeight } from "../../hooks/useKeyboardHeight";
+import { useExtraBottomInset } from "../../hooks/useBottomInset";
 import { Price } from "../../components/ui/Price";
 import { PaymentBadges } from "../../components/payments/PaymentBadges";
 import { colors } from "../../theme/tokens";
@@ -34,8 +37,6 @@ interface ServerTotals {
 const STEPS = ["Address", "Review", "Payment"];
 
 export default function Checkout() {
-  const [step, setStep] = useState(0);
-
   const {
     items,
     subtotal,
@@ -43,19 +44,27 @@ export default function Checkout() {
     total,
     couponCode,
     isValidatingCoupon,
+    hasLoaded,
+    loadError: cartLoadError,
     fetchCart,
     revalidateCoupon,
     applyCoupon,
     removeCoupon,
   } = useCartStore();
-  const { addresses, selectedAddressId, fetchAddresses, setSelectedAddress } = useAddressStore();
-  const { paymentMethod, setPaymentMethod, placeOrder, placingOrder } = useCheckoutStore();
+  const { addresses, selectedAddressId, fetchAddresses, setSelectedAddress, loadError: addressError } =
+    useAddressStore();
+  const { paymentMethod, setPaymentMethod, placeOrder, placingOrder, step, setStep } =
+    useCheckoutStore();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   const [serverTotals, setServerTotals] = useState<ServerTotals | null>(null);
   const [calculating, setCalculating] = useState(false);
+  const [pricingFailed, setPricingFailed] = useState(false);
+  const keyboardHeight = useKeyboardHeight();
+  const extraBottomInset = useExtraBottomInset();
   const [couponInput, setCouponInput] = useState("");
   const [addrSheet, setAddrSheet] = useState<{ open: boolean; editing?: Address }>({ open: false });
+  const orderPlacedRef = useRef(false);
 
   const onApplyCoupon = async () => {
     const code = couponInput.trim();
@@ -86,18 +95,45 @@ export default function Checkout() {
     })();
   }, [fetchCart, revalidateCoupon]);
 
-  // Pricing lock: pull authoritative totals (incl. shipping) from the server
-  // once an address is chosen. Falls back to client totals if it fails.
+  // An empty cart must never reach checkout — a deep link, a "Try Again" after the
+  // cart was cleared server-side, or a cart emptied elsewhere all land here, and the
+  // screen would otherwise walk the user to an enabled "Place Order" on a ₹0 order.
+  // Wait for a cart response first (nothing but the coupon is persisted, so items
+  // always start empty) and never bounce once an order exists — the server clears the
+  // cart at that point and the user is on their way to payment.
   useEffect(() => {
-    if (!selectedAddressId || items.length === 0) {
+    if (orderPlacedRef.current || placingOrder) return;
+    if (items.length > 0) return;
+    // A failed load is not an empty cart; send the user to the cart tab, which owns
+    // the retry state, rather than inventing a second copy of it here.
+    if (!hasLoaded && !cartLoadError) return;
+    router.replace("/(tabs)/cart");
+  }, [items.length, hasLoaded, cartLoadError, placingOrder]);
+
+  // The cart line-up as a value, not an object identity. `items` is a fresh array
+  // after every cart fetch and every coupon revalidation, so depending on it made
+  // this effect re-fire in a loop on a slow connection.
+  const cartSignature = useMemo(
+    () =>
+      items
+        .map((i) => `${i.productId}:${i.variantId ?? ""}:${i.quantity}`)
+        .join("|"),
+    [items]
+  );
+
+  // Pricing lock: pull authoritative totals (incl. shipping) from the server once
+  // an address is chosen.
+  useEffect(() => {
+    if (!selectedAddressId || !cartSignature) {
       setServerTotals(null);
+      setPricingFailed(false);
       return;
     }
     let cancelled = false;
     setCalculating(true);
     (async () => {
       try {
-        const cartItems = items.map((i) => ({
+        const cartItems = useCartStore.getState().items.map((i) => ({
           productId: i.productId,
           variantId: i.variantId ?? undefined,
           quantity: i.quantity,
@@ -111,11 +147,15 @@ export default function Checkout() {
           total: Number(res.total),
         };
         setServerTotals(next);
-        if (Math.abs(next.subtotal - subtotal) > 0.5) {
+        setPricingFailed(false);
+        if (Math.abs(next.subtotal - useCartStore.getState().subtotal) > 0.5) {
           toast.info("Cart updated — please review your order");
         }
       } catch {
-        if (!cancelled) setServerTotals(null);
+        // Do NOT fall back to client totals: those carry shipping: 0, so the user
+        // would be shown a total the server is not going to charge. Keep the last
+        // known-good figures and block the order instead.
+        if (!cancelled) setPricingFailed(true);
       } finally {
         if (!cancelled) setCalculating(false);
       }
@@ -123,7 +163,7 @@ export default function Checkout() {
     return () => {
       cancelled = true;
     };
-  }, [selectedAddressId, couponCode, items, subtotal]);
+  }, [selectedAddressId, couponCode, cartSignature]);
 
   const selectedAddress = addresses.find((a) => a.id === selectedAddressId);
 
@@ -139,8 +179,17 @@ export default function Checkout() {
       setStep(0);
       return;
     }
+    // Never place an order against totals we couldn't confirm with the server —
+    // the displayed amount would not be the amount charged.
+    if (pricingFailed && !serverTotals) {
+      toast.error("Couldn't confirm the final price. Please try again.");
+      return;
+    }
     const result = await placeOrder(selectedAddressId);
     if (!result) return;
+    // The order now exists and the server has cleared the cart — the empty-cart
+    // guard must not yank this screen out from under the payment flow.
+    orderPlacedRef.current = true;
     if (result.kind === "cod") {
       router.replace({ pathname: "/checkout/success", params: { orderId: result.orderId } });
     } else {
@@ -156,6 +205,19 @@ export default function Checkout() {
       });
     }
   };
+
+  // Nothing to check out yet: either the first cart fetch is still in flight or the
+  // guard above is about to redirect. Either way, never render the stepper.
+  if (items.length === 0 && !orderPlacedRef.current) {
+    return (
+      <ScreenContainer edges={["top", "left", "right", "bottom"]}>
+        <Header title="Checkout" />
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator color={colors.primary} />
+        </View>
+      </ScreenContainer>
+    );
+  }
 
   // Guest checkout: show the order summary but require sign-in to place the
   // order (client 4.3). Returns to checkout after a successful sign-in.
@@ -231,7 +293,16 @@ export default function Checkout() {
         {step === 0 ? <PromoSlot position="CHECKOUT_TOP" height={110} /> : null}
         {step === 0 ? (
           <>
-            {addresses.length === 0 ? (
+            {addresses.length === 0 && addressError ? (
+              // A failed load is not "no addresses" — don't invite the user to
+              // re-enter an address they already have saved.
+              <Card className="items-center gap-3 py-6">
+                <Ionicons name="cloud-offline-outline" size={32} color={colors.muted} />
+                <Text className="text-muted">Couldn&apos;t load your addresses</Text>
+                <Text className="text-xs text-faint">Check your connection and try again</Text>
+                <Button label="Retry" fullWidth={false} onPress={() => fetchAddresses()} className="px-6" />
+              </Card>
+            ) : addresses.length === 0 ? (
               <Card className="items-center gap-3 py-6">
                 <Ionicons name="location-outline" size={32} color={colors.muted} />
                 <Text className="text-muted">No saved addresses</Text>
@@ -279,7 +350,20 @@ export default function Checkout() {
               <Card key={`${it.productId}-${it.variantId ?? "x"}`} className="flex-row items-center gap-3">
                 <View className="h-14 w-14 overflow-hidden rounded-md border border-border bg-surface-2">
                   {(it.variant?.images?.[0]?.url || it.product.images?.[0]?.url) ? (
-                    <Image source={{ uri: it.variant?.images?.[0]?.url || it.product.images[0].url }} style={{ width: "100%", height: "100%", padding: 4 }} contentFit="contain" />
+                    // 56×56 box — request a thumbnail rather than the full-resolution
+                    // original, which was being decoded at full size into memory.
+                    <Image
+                      source={{
+                        uri: cldImage(it.variant?.images?.[0]?.url || it.product.images[0].url, {
+                          w: 160,
+                          h: 160,
+                          crop: "fill",
+                        }),
+                      }}
+                      style={{ width: "100%", height: "100%", padding: 4 }}
+                      contentFit="contain"
+                      cachePolicy="memory-disk"
+                    />
                   ) : (
                     <View className="h-full w-full items-center justify-center">
                       <Ionicons name="image-outline" size={20} color={colors.faint} />
@@ -425,7 +509,15 @@ export default function Checkout() {
       </ScrollView>
 
       {/* Sticky footer — sits above the system nav bar via the container's bottom safe-area edge */}
-      <View style={{ paddingBottom: 12 }} className="absolute bottom-0 left-0 right-0 gap-2 border-t border-border bg-surface px-4 pt-3">
+      {/* bottom: keyboardHeight — the coupon field sits above this bar, and on iOS an
+          absolutely-positioned footer is not moved by the keyboard. */}
+      {/* extraBottomInset, not the full floor: ScreenContainer's "bottom" edge already
+          applies the real safe-area inset here, so only the shortfall is topped up —
+          otherwise a 3-button nav bar would overlap the Place Order button. */}
+      <View
+        style={{ paddingBottom: 12 + extraBottomInset, bottom: keyboardHeight }}
+        className="absolute bottom-0 left-0 right-0 gap-2 border-t border-border bg-surface px-4 pt-3"
+      >
         {step === 0 && !selectedAddressId ? (
           <View className="flex-row items-center gap-1.5 rounded-lg bg-warning/10 px-3 py-2">
             <Ionicons name="alert-circle-outline" size={16} color={colors.warning} />
@@ -441,7 +533,7 @@ export default function Checkout() {
           <Button
             label="Continue"
             disabled={step === 0 && !selectedAddressId}
-            onPress={() => setStep((s) => Math.min(2, s + 1))}
+            onPress={() => setStep(Math.min(2, step + 1))}
           />
         ) : (
           <Button
@@ -450,7 +542,7 @@ export default function Checkout() {
             onPress={onPlaceOrder}
           />
         )}
-        {step > 0 ? <Button label="Back" variant="ghost" onPress={() => setStep((s) => Math.max(0, s - 1))} /> : null}
+        {step > 0 ? <Button label="Back" variant="ghost" onPress={() => setStep(Math.max(0, step - 1))} /> : null}
       </View>
 
       <AddressFormSheet

@@ -156,6 +156,13 @@ export default function SignUp() {
               Sign in
             </Link>
           </View>
+
+          {/* Escape hatch back to browsing — see the note in signin.tsx. */}
+          <View className="mt-6 items-center">
+            <Link href="/(tabs)/home" replace className="text-sm font-jakarta-medium text-muted">
+              ← Continue shopping
+            </Link>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </ScreenContainer>

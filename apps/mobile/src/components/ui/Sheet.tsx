@@ -14,7 +14,9 @@ interface SheetProps {
 export function Sheet({ visible, onClose, title, children }: SheetProps) {
   const insets = useSafeAreaInsets();
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    // statusBarTranslucent: without it the dim backdrop stops below the Android
+    // status bar, leaving an undimmed strip across the top.
+    <Modal visible={visible} transparent statusBarTranslucent animationType="slide" onRequestClose={onClose}>
       <Pressable className="flex-1 justify-end bg-black/40" onPress={onClose}>
         <Pressable
           onPress={(e) => e.stopPropagation()}
