@@ -16,6 +16,12 @@ import { CategoryService, type CategoryNode } from "../../lib/services/category.
 import { SearchService } from "../../lib/services/product.service";
 import { colors } from "../../theme/tokens";
 
+// The heading area is a fixed height: the title switches between one line
+// ("All products") and two ('Search results for "…"'), and a header that changes
+// size mid-scroll makes the list re-measure and leaves a gap under it.
+const HEADER_H = 58;
+const HEADER_H_WITH_SUBTITLE = 76;
+
 const SORTS: { key: SortOption; label: string }[] = [
   { key: "newest", label: "Newest" },
   { key: "price_asc", label: "Price: Low to High" },
@@ -143,11 +149,51 @@ export function ProductListing({ filter, basePreOrder, autoFocusFromHome, defaul
     return flatCategories.find((c) => c.slug === filter.category)?.name ?? null;
   }, [filter.category, flatCategories]);
 
+  const searching = !!debouncedSearch;
+
   const title = debouncedSearch
     ? `Search results for "${debouncedSearch}"`
     : categoryName || defaultTitle;
 
   const hasActiveFilters = !!filter.category || filter.priceMin != null || filter.priceMax != null || filter.inStockOnly;
+
+  // Stable identities so the memoized grid isn't re-rendered on every keystroke.
+  const listHeader = useMemo(
+    () => (
+      <View
+        className="justify-center px-4 pb-2"
+        style={{ height: subtitle ? HEADER_H_WITH_SUBTITLE : HEADER_H }}
+      >
+        <Text className="text-center text-xl font-jakarta-bold text-primary" numberOfLines={2}>
+          {title}
+        </Text>
+        {subtitle ? (
+          <Text className="mt-0.5 text-center text-xs text-muted" numberOfLines={1}>
+            {subtitle}
+          </Text>
+        ) : null}
+      </View>
+    ),
+    [title, subtitle]
+  );
+
+  const refetch = query.refetch;
+  const onRefresh = useCallback(() => {
+    refetch();
+  }, [refetch]);
+
+  const hasNextPage = query.hasNextPage;
+  const fetchNextPage = query.fetchNextPage;
+  const onEndReached = useCallback(() => {
+    if (hasNextPage) fetchNextPage();
+  }, [hasNextPage, fetchNextPage]);
+
+  const emptyTitle = debouncedSearch ? "No results" : basePreOrder ? "No pre-order products yet" : "No products found";
+  const emptySubtitle = debouncedSearch
+    ? `Nothing matches "${debouncedSearch}".`
+    : basePreOrder
+      ? "Check back soon for items available to reserve."
+      : undefined;
 
   const applyPrice = () => {
     filter.setPriceRange(minInput ? Number(minInput) : undefined, maxInput ? Number(maxInput) : undefined);
@@ -207,20 +253,30 @@ export function ProductListing({ filter, basePreOrder, autoFocusFromHome, defaul
         <View className="flex-row gap-2">
           <Pressable
             onPress={() => setSortOpen(true)}
-            className="flex-1 flex-row items-center justify-center gap-1.5 rounded-md border border-border bg-surface py-2.5"
+            disabled={searching}
+            className={`flex-1 flex-row items-center justify-center gap-1.5 rounded-md border border-border bg-surface py-2.5 ${searching ? "opacity-40" : ""}`}
           >
             <Ionicons name="swap-vertical" size={16} color={colors.text} />
             <Text className="font-jakarta-medium text-text">Sort</Text>
           </Pressable>
           <Pressable
             onPress={() => setFilterOpen(true)}
-            className="flex-1 flex-row items-center justify-center gap-1.5 rounded-md border border-border bg-surface py-2.5"
+            disabled={searching}
+            className={`flex-1 flex-row items-center justify-center gap-1.5 rounded-md border border-border bg-surface py-2.5 ${searching ? "opacity-40" : ""}`}
           >
             <Ionicons name="options-outline" size={16} color={colors.text} />
             <Text className="font-jakarta-medium text-text">Filter</Text>
             {hasActiveFilters ? <View className="h-1.5 w-1.5 rounded-full bg-primary" /> : null}
           </Pressable>
         </View>
+
+        {/* The search endpoint ranks the whole catalogue and takes no filters,
+            so say so rather than showing controls that quietly do nothing. */}
+        {searching ? (
+          <Text className="text-center text-xs text-muted">
+            Sorting and filters don&apos;t apply to search results.
+          </Text>
+        ) : null}
       </View>
 
       <ProductGrid
@@ -228,27 +284,13 @@ export function ProductListing({ filter, basePreOrder, autoFocusFromHome, defaul
         isLoading={query.isLoading}
         isError={query.isError}
         refreshing={query.isRefetching && !query.isFetchingNextPage}
-        onRefresh={() => query.refetch()}
-        onEndReached={() => query.hasNextPage && query.fetchNextPage()}
+        onRefresh={onRefresh}
+        onEndReached={onEndReached}
         loadingMore={query.isFetchingNextPage}
-        ListHeaderComponent={
-          <View className="pb-1">
-            <Text className="px-4 text-center text-xl font-jakarta-bold text-primary" numberOfLines={2}>
-              {title}
-            </Text>
-            {subtitle && !debouncedSearch ? (
-              <Text className="mt-0.5 px-4 text-center text-xs text-muted">{subtitle}</Text>
-            ) : null}
-          </View>
-        }
-        emptyTitle={debouncedSearch ? "No results" : basePreOrder ? "No pre-order products yet" : "No products found"}
-        emptySubtitle={
-          debouncedSearch
-            ? `Nothing matches "${debouncedSearch}".`
-            : basePreOrder
-              ? "Check back soon for items available to reserve."
-              : undefined
-        }
+        hasMore={hasNextPage}
+        ListHeaderComponent={listHeader}
+        emptyTitle={emptyTitle}
+        emptySubtitle={emptySubtitle}
       />
 
       <Sheet visible={sortOpen} onClose={() => setSortOpen(false)} title="Sort by">

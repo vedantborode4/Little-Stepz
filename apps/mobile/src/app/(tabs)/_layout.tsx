@@ -1,7 +1,8 @@
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { View, Text } from "react-native";
-import { useBottomInset } from "../../hooks/useBottomInset";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { MIN_BOTTOM_INSET, useBottomInset } from "../../hooks/useBottomInset";
 import { useThemeColors } from "../../theme/useThemeColors";
 import { useCartStore } from "../../store/cart.store";
 
@@ -22,6 +23,11 @@ function CartIcon({ color, size }: { color: string; size: number }) {
 export default function TabsLayout() {
   const colors = useThemeColors();
   const bottomInset = useBottomInset();
+  const insets = useSafeAreaInsets();
+  // A 3-button nav bar reports ~0, so the floored inset is all that separates the
+  // labels from the buttons and the row reads as flush against them. Top those
+  // devices up; gesture-nav devices already report 20-34 and need nothing.
+  const extraBottom = insets.bottom < MIN_BOTTOM_INSET ? 12 : 0;
   return (
     <Tabs
       screenOptions={{
@@ -36,11 +42,13 @@ export default function TabsLayout() {
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.border,
-          height: 56 + bottomInset,
+          // The bar grows by extraBottom so the icons and labels keep their
+          // position and the added room lands entirely below them.
+          height: 56 + bottomInset + extraBottom,
           paddingTop: 2,
           // +4 over the inset floor: a small breathing gap under the labels so the
           // row never sits flush against the device's navigation area.
-          paddingBottom: bottomInset + 4,
+          paddingBottom: bottomInset + 4 + extraBottom,
         },
         tabBarItemStyle: { paddingTop: 2 },
         tabBarLabelStyle: { fontFamily: "Jakarta-SemiBold", fontSize: 11, marginTop: 2 },

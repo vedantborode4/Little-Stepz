@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
  * screen, so anything pinned to the bottom lands on top of them. The previous
  * floor of 12 was not enough and the tab bar collided with the nav buttons.
  */
-const MIN_BOTTOM_INSET = 10;
+export const MIN_BOTTOM_INSET = 10;
 
 /**
  * Bottom safe-area inset, floored so content always clears the navigation bar.

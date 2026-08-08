@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -46,6 +46,30 @@ export default function CategoryScreen() {
     : "Category";
 
   const hasActiveFilters = priceMin != null || priceMax != null;
+
+  // Stable identities — ProductGrid is memoized, and inline props would defeat it.
+  const listHeader = useMemo(
+    () => (
+      <View className="gap-3">
+        <PromoSlot position="CATEGORY_TOP" />
+        <Text className="px-4 pb-2 text-center text-2xl font-jakarta-bold text-primary">{title}</Text>
+      </View>
+    ),
+    [title]
+  );
+
+  const refetch = query.refetch;
+  const onRefresh = useCallback(() => {
+    refetch();
+  }, [refetch]);
+
+  const hasNextPage = query.hasNextPage;
+  const fetchNextPage = query.fetchNextPage;
+  const onEndReached = useCallback(() => {
+    if (hasNextPage) fetchNextPage();
+  }, [hasNextPage, fetchNextPage]);
+
+  const onEmptyAction = useCallback(() => router.push("/search"), []);
 
   const applyPrice = () => {
     setPriceMin(minInput ? Number(minInput) : undefined);
@@ -99,19 +123,15 @@ export default function CategoryScreen() {
         isLoading={query.isLoading}
         isError={query.isError}
         refreshing={query.isRefetching && !query.isFetchingNextPage}
-        onRefresh={() => query.refetch()}
-        onEndReached={() => query.hasNextPage && query.fetchNextPage()}
+        onRefresh={onRefresh}
+        onEndReached={onEndReached}
         loadingMore={query.isFetchingNextPage}
-        ListHeaderComponent={
-          <View className="gap-3">
-            <PromoSlot position="CATEGORY_TOP" />
-            <Text className="px-4 pb-2 text-center text-2xl font-jakarta-bold text-primary">{title}</Text>
-          </View>
-        }
+        hasMore={hasNextPage}
+        ListHeaderComponent={listHeader}
         emptyTitle="No products in this category"
         emptySubtitle="Browse our full range instead."
         emptyActionLabel="View all products"
-        onEmptyAction={() => router.push("/search")}
+        onEmptyAction={onEmptyAction}
       />
 
       <Sheet visible={sortOpen} onClose={() => setSortOpen(false)} title="Sort by">

@@ -53,7 +53,7 @@ const legalRows: Row[] = [
 /** Prominent "Chat with us" entry — shown to signed-in and signed-out users alike. */
 function ChatWithUsCard() {
   return (
-    <Card elevated clip className="p-0">
+    <Card elevated={false} clip className="p-0">
       <Pressable
         onPress={() => router.push("/support")}
         className="flex-row items-center gap-3 px-4 py-4"
@@ -77,7 +77,7 @@ function LegalPoliciesSection() {
       <Text className="px-1 text-xs font-jakarta-semibold uppercase tracking-wide text-muted">
         Legal & Policies
       </Text>
-      <Card elevated clip className="p-0">
+      <Card elevated={false} clip className="p-0">
         {legalRows.map((r, i) => (
           <Pressable
             key={r.label}
@@ -167,7 +167,7 @@ export default function Account() {
   return (
     <ScreenContainer>
       <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
-        <Card className="flex-row items-center gap-3">
+        <Card elevated={false} className="flex-row items-center gap-3">
           <View className="h-12 w-12 items-center justify-center rounded-full bg-primary">
             <Text className="text-lg font-jakarta-bold text-white">
               {user?.name?.[0]?.toUpperCase() ?? "U"}
@@ -181,7 +181,7 @@ export default function Account() {
 
         <ChatWithUsCard />
 
-        <Card elevated clip className="p-0">
+        <Card elevated={false} clip className="p-0">
           {rows.map((r, i) => (
             <Pressable
               key={r.label}

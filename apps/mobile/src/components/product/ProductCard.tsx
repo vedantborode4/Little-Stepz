@@ -13,6 +13,24 @@ import { useCartStore } from "../../store/cart.store";
 import type { Product } from "../../types/product";
 import { colors } from "../../theme/tokens";
 
+/**
+ * Height of the price block. Reserved for two lines so a discounted card (sale +
+ * struck regular + "-N%", which wraps at card width) is exactly as tall as a
+ * plain one — see CARD_BODY_H.
+ */
+const PRICE_H = 44;
+
+/**
+ * Height of everything below the square image: p-2.5 (10+10) + title h-8 (32) +
+ * mt-0.5 (2) + price block (44) + mb-2 (8) + button h-8 (32).
+ *
+ * Every part of the body is a *fixed* height, so a card is always
+ * `width + CARD_BODY_H` tall. ProductGrid relies on that to give FlatList an
+ * exact `getItemLayout` — without it, rows of unequal height make the list
+ * mispredict offsets and leave blank bands between rows.
+ */
+export const CARD_BODY_H = 138;
+
 function ProductCardBase({ product }: { product: Product }) {
   const isWishlisted = useWishlistStore((s) => s.items.includes(product.id));
   const toggle = useWishlistStore((s) => s.toggle);
@@ -94,10 +112,13 @@ function ProductCardBase({ product }: { product: Product }) {
       </View>
 
       <View className="flex-1 p-2.5">
-        <Text numberOfLines={2} className="min-h-8 text-xs font-jakarta-medium leading-tight text-text">
+        <Text numberOfLines={2} className="h-8 text-xs font-jakarta-medium leading-tight text-text">
           {product.name}
         </Text>
-        <View className="mb-2 mt-0.5">
+        {/* Fixed height, not content-sized: the discount row wraps to two lines
+            for longer prices, and a card that grows taller than its neighbours
+            breaks the grid's uniform row height. */}
+        <View className="mb-2 mt-0.5 justify-center overflow-hidden" style={{ height: PRICE_H }}>
           {hasVariants && !priceRange.single ? (
             <Text className="text-sm font-jakarta-bold text-primary">From {formatPrice(priceRange.min)}</Text>
           ) : (
