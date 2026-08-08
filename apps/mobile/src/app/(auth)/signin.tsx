@@ -9,7 +9,7 @@ import { SigninSchema, type SigninData } from "@repo/zod-schema/index";
 import { ScreenContainer } from "../../components/layout/ScreenContainer";
 import { Input } from "../../components/ui/Input";
 import { Button } from "../../components/ui/Button";
-import { GoogleAuthButton } from "../../components/auth/GoogleAuthButton";
+import { SocialAuth } from "../../components/auth/SocialAuth";
 import { useAuth } from "../../hooks/useAuth";
 import { AuthService } from "../../lib/services/auth.service";
 import { toast } from "../../store/toast.store";
@@ -110,7 +110,7 @@ export default function SignIn() {
             <Button label="Sign In" loading={submitting} onPress={handleSubmit(onSubmit)} />
           </View>
 
-          <GoogleAuthButton redirectTo={(redirect as string) || "/(tabs)/home"} />
+          <SocialAuth redirectTo={(redirect as string) || "/(tabs)/home"} />
 
           <View className="mt-6 flex-row justify-center">
             <Text className="text-muted">Don&apos;t have an account? </Text>

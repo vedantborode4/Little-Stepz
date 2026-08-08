@@ -4,6 +4,19 @@
     "appVersionSource": "remote"
   },
   "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_TAWK_PROPERTY_ID": "6a5f85dfbed7cd1d436e6dc1",
+        "EXPO_PUBLIC_TAWK_WIDGET_ID": "1ju2i5t20",
+        "EXPO_PUBLIC_GOOGLE_CLIENT_ID_WEB": "85551977494-ateqjs33jhed2gf93sp3mjh3kepo955e.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_CLIENT_ID_ANDROID": "85551977494-d53c61eam0ra6bstrms6bup9t2pfhi9l.apps.googleusercontent.com"
+      }
+    },
     "preview": {
       "android": {
         "buildType": "apk"
@@ -13,10 +26,12 @@
         "EXPO_PUBLIC_API_URL": "https://littlestepz.in/api/v1",
         "EXPO_PUBLIC_TAWK_PROPERTY_ID": "6a5f85dfbed7cd1d436e6dc1",
         "EXPO_PUBLIC_TAWK_WIDGET_ID": "1ju2i5t20",
+        "EXPO_PUBLIC_GOOGLE_CLIENT_ID_WEB": "85551977494-ateqjs33jhed2gf93sp3mjh3kepo955e.apps.googleusercontent.com",
         "EXPO_PUBLIC_GOOGLE_CLIENT_ID_ANDROID": "85551977494-d53c61eam0ra6bstrms6bup9t2pfhi9l.apps.googleusercontent.com"
       }
     },
     "production": {
+      "autoIncrement": true,
       "android": {
         "buildType": "app-bundle"
       },
@@ -24,11 +39,17 @@
         "EXPO_PUBLIC_API_URL": "https://littlestepz.in/api/v1",
         "EXPO_PUBLIC_TAWK_PROPERTY_ID": "6a5f85dfbed7cd1d436e6dc1",
         "EXPO_PUBLIC_TAWK_WIDGET_ID": "1ju2i5t20",
+        "EXPO_PUBLIC_GOOGLE_CLIENT_ID_WEB": "85551977494-ateqjs33jhed2gf93sp3mjh3kepo955e.apps.googleusercontent.com",
         "EXPO_PUBLIC_GOOGLE_CLIENT_ID_ANDROID": "85551977494-d53c61eam0ra6bstrms6bup9t2pfhi9l.apps.googleusercontent.com"
       }
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "android": {
+        "serviceAccountKeyPath": "./google-play-service-account.json",
+        "track": "internal"
+      }
+    }
   }
 }

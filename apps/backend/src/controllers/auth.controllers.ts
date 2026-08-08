@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import {
+  AppleAuthSchema,
   forgotPasswordSchema,
   GoogleAuthSchema,
   resetPasswordSchema,
@@ -8,6 +9,7 @@ import {
   verifyResetCodeSchema,
 } from "@repo/zod-schema/index";
 import {
+  appleAuthService,
   googleAuthService,
   logoutService,
   refreshService,
@@ -106,6 +108,36 @@ export async function googleController(req: Request, res: Response) {
 
     const { user, accessToken, refreshToken } =
       await googleAuthService(parsed.data.idToken, parsed.data.referralCode);
+
+    res.cookie("accessToken", accessToken, accessTokenCookieOptions);
+    res.cookie("refreshToken", refreshToken, refreshTokenCookieOptions);
+
+    return res.status(200).json(authPayload(req, user, accessToken, refreshToken));
+  } catch (err) {
+    if (err instanceof Error) {
+      return res.status(401).json({ message: err.message });
+    }
+    return res.status(500).json({ message: "Internal server error" });
+  }
+}
+
+export async function appleController(req: Request, res: Response) {
+  try {
+    const parsed = AppleAuthSchema.safeParse(req.body);
+
+    if (!parsed.success) {
+      return res.status(400).json({
+        message: "Invalid request data",
+        errors: parsed.error.flatten().fieldErrors,
+      });
+    }
+
+    const { identityToken, givenName, familyName, referralCode } = parsed.data;
+
+    const { user, accessToken, refreshToken } = await appleAuthService(
+      identityToken,
+      { givenName, familyName, referralCode }
+    );
 
     res.cookie("accessToken", accessToken, accessTokenCookieOptions);
     res.cookie("refreshToken", refreshToken, refreshTokenCookieOptions);

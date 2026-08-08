@@ -12,8 +12,9 @@ import {
   MAX_RESET_CODE_ATTEMPTS,
   PASSWORD_RESET_TTL_MINUTES,
 } from "../utils/auth/reset-token";
-import { TokenReuseDetectedError } from "../utils/auth/errors";
+import { InvalidTokenError, TokenReuseDetectedError } from "../utils/auth/errors";
 import { verifyGoogleIdToken } from "../utils/auth/google";
+import { verifyAppleIdentityToken } from "../utils/auth/apple";
 import { ApiError } from "../utils/api/ApiError";
 import { sendPasswordChangedEmail, sendPasswordResetEmail } from "../utils/email";
 import { notify } from "./notification.services";
@@ -216,6 +217,108 @@ export async function googleAuthService(idToken: string, referralCode?: string) 
         type: "REFERRAL_SIGNUP",
         title: "New referral joined 🎉",
         body: `${profile.name} signed up using your referral link.`,
+        data: { screen: "AffiliateDashboard" },
+      });
+    }
+  }
+
+  const accessToken = generateAccessToken({
+    userId: user.id,
+    role: user.role,
+  });
+
+  const refresh = await generateRefreshToken();
+
+  await prisma.$transaction(async (tx) => {
+    await tx.refreshToken.deleteMany({ where: { userId: user!.id } });
+    await tx.refreshToken.create({
+      data: {
+        tokenHash: refresh.tokenHash,
+        userId: user!.id,
+        expiresAt: refresh.expiresAt,
+      },
+    });
+  });
+
+  return {
+    user,
+    accessToken,
+    refreshToken: refresh.token,
+  };
+}
+
+export async function appleAuthService(
+  identityToken: string,
+  opts: { givenName?: string; familyName?: string; referralCode?: string } = {}
+) {
+  const profile = await verifyAppleIdentityToken(identityToken);
+
+  // 1. Existing Apple user (fast path).
+  let user = await prisma.user.findUnique({
+    where: { appleId: profile.sub },
+    select: userSelect,
+  });
+
+  // 2. Auto-link: an account already owns this (verified) email. Private-relay
+  //    addresses are stable per user, so they link just as safely as real ones.
+  if (!user && profile.email && profile.emailVerified) {
+    const existing = await prisma.user.findUnique({
+      where: { email: profile.email },
+      select: { id: true, appleId: true },
+    });
+
+    if (existing) {
+      user = await prisma.user.update({
+        where: { id: existing.id },
+        data: {
+          appleId: existing.appleId ?? profile.sub,
+          emailVerified: true,
+        },
+        select: userSelect,
+      });
+    }
+  }
+
+  // 3. Brand-new account (no password — Apple-only).
+  if (!user) {
+    if (!profile.email) {
+      throw new InvalidTokenError(
+        "Apple did not share an email for this account. Please sign in with your email and password instead."
+      );
+    }
+
+    let referredById: string | undefined;
+    if (opts.referralCode) {
+      const referrer = await prisma.user.findUnique({
+        where: { referralCode: opts.referralCode },
+        select: { id: true },
+      });
+      if (referrer) referredById = referrer.id;
+    }
+
+    // Apple only sends the name on the very first authorization, and the token
+    // never carries it — so this is the one and only chance to record it.
+    const name =
+      [opts.givenName, opts.familyName].filter(Boolean).join(" ").trim() ||
+      profile.email.split("@")[0]!;
+
+    user = await prisma.user.create({
+      data: {
+        email: profile.email,
+        name,
+        appleId: profile.sub,
+        emailVerified: profile.emailVerified,
+        referredById,
+      },
+      select: userSelect,
+    });
+
+    if (referredById) {
+      void notify({
+        userId: referredById,
+        type: "REFERRAL_SIGNUP",
+        title: "New referral joined 🎉",
+        body: `${name} signed up using your referral link.`,
         data: { screen: "AffiliateDashboard" },
       });
     }

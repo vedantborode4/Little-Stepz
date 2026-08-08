@@ -11,7 +11,7 @@ import { SignupSchema, type SignupData } from "@repo/zod-schema/index";
 import { ScreenContainer } from "../../components/layout/ScreenContainer";
 import { Input } from "../../components/ui/Input";
 import { Button } from "../../components/ui/Button";
-import { GoogleAuthButton } from "../../components/auth/GoogleAuthButton";
+import { SocialAuth } from "../../components/auth/SocialAuth";
 import { useAuth } from "../../hooks/useAuth";
 import { AuthService } from "../../lib/services/auth.service";
 import { toast } from "../../store/toast.store";
@@ -148,7 +148,7 @@ export default function SignUp() {
             <Button label="Create Account" loading={submitting} onPress={handleSubmit(onSubmit)} />
           </View>
 
-          <GoogleAuthButton redirectTo="/(tabs)/home" />
+          <SocialAuth redirectTo="/(tabs)/home" />
 
           <View className="mt-6 flex-row justify-center">
             <Text className="text-muted">Already have an account? </Text>

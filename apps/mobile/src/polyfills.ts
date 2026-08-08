@@ -2,7 +2,6 @@
 // Some Hermes/Expo Go builds are missing web globals that RN 0.81 references
 // during startup (e.g. DOMException), which throws "[runtime not ready]".
 
-// @ts-expect-error - augmenting global
 if (typeof globalThis.DOMException === "undefined") {
   class DOMExceptionPolyfill extends Error {
     code: number;

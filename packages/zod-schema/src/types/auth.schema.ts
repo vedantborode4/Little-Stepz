@@ -28,6 +28,20 @@ export const GoogleAuthSchema = z.object({
     .optional(),
 });
 
+/**
+ * Apple returns the user's name ONLY on the very first authorization, and never
+ * again — so the client forwards it alongside the identity token and the server
+ * must persist it on account creation. The token itself carries no name claim.
+ */
+export const AppleAuthSchema = z.object({
+  identityToken: z.string().min(1, "Apple identity token is required"),
+  givenName: z.string().max(50).optional(),
+  familyName: z.string().max(50).optional(),
+  referralCode: z.string()
+    .max(20, "Referral code must be at most 20 characters")
+    .optional(),
+});
+
 export const forgotPasswordSchema = z.object({
   email: emailSchema,
 });
@@ -46,6 +60,7 @@ export type SignupData = z.infer<typeof SignupSchema>;
 export type SigninData = z.infer<typeof SigninSchema>;
 export type LogoutData = z.infer<typeof logoutSchema>;
 export type GoogleAuthData = z.infer<typeof GoogleAuthSchema>;
+export type AppleAuthData = z.infer<typeof AppleAuthSchema>;
 export type ForgotPasswordData = z.infer<typeof forgotPasswordSchema>;
 export type VerifyResetCodeData = z.infer<typeof verifyResetCodeSchema>;
 export type ResetPasswordData = z.infer<typeof resetPasswordSchema>;

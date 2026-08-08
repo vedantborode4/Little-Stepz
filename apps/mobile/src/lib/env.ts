@@ -11,9 +11,15 @@ import Constants from "expo-constants";
  *     the LAN IP. `localhost`/`127.0.0.1` will NOT work from a real device.
  *  3. Last-resort localhost (works for web / iOS simulator only).
  */
+const PRODUCTION_API_URL = "https://littlestepz.in/api/v1";
+
 function resolveApiUrl(): string {
   const explicit = process.env.EXPO_PUBLIC_API_URL;
   if (explicit) return explicit.replace(/\/+$/, "");
+
+  // A release build has no Metro host to derive from, so the dev fallbacks below
+  // would resolve to localhost and ship a store binary that reaches no backend.
+  if (!__DEV__) return PRODUCTION_API_URL;
 
   const hostUri = Constants.expoConfig?.hostUri ?? "";
 

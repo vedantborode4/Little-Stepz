@@ -22,6 +22,7 @@ model User {
   role         Role     @default(USER)
 
   googleId      String?  @unique
+  appleId       String?  @unique
   avatarUrl     String?
   emailVerified Boolean  @default(false)
 

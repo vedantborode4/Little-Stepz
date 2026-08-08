@@ -1,12 +1,21 @@
 {
   "expo": {
-    "name": "mobile",
+    "name": "Little Stepz",
     "slug": "mobile",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "mobile",
+    "scheme": "littlestepz",
     "userInterfaceStyle": "automatic",
+    "ios": {
+      "bundleIdentifier": "in.humancapitalists.littlestepz",
+      "icon": "./assets/images/ios-icon.png",
+      "supportsTablet": false,
+      "usesAppleSignIn": true,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
     "android": {
       "package": "in.humancapitalists.littlestepz",
       "adaptiveIcon": {
@@ -23,6 +32,13 @@
     },
     "plugins": [
       "expo-router",
+      "expo-apple-authentication",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Little Stepz needs access to your photos so you can add pictures to a product review or set your profile picture."
+        }
+      ],
       [
         "expo-notifications",
         {
@@ -36,13 +52,24 @@
           "backgroundColor": "#FFFFFF",
           "image": "./assets/images/icon.png",
           "imageWidth": 140,
+          "dark": {
+            "backgroundColor": "#0B0B0F",
+            "image": "./assets/images/icon.png",
+            "imageWidth": 140
+          },
           "android": {
             "backgroundColor": "#FFFFFF",
             "image": "./assets/images/icon.png",
-            "imageWidth": 140
+            "imageWidth": 140,
+            "dark": {
+              "backgroundColor": "#0B0B0F",
+              "image": "./assets/images/icon.png",
+              "imageWidth": 140
+            }
           }
         }
-      ]
+      ],
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true,

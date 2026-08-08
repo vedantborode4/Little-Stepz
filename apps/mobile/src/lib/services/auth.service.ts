@@ -2,6 +2,7 @@ import { api } from "../api/client";
 import { getRefreshTokenSync } from "../api/token";
 import type { AuthResponse } from "../../types/auth";
 import type {
+  AppleAuthData,
   ForgotPasswordData,
   ResetPasswordData,
   SigninData,
@@ -23,6 +24,11 @@ export const AuthService = {
 
   googleAuth: async (idToken: string, referralCode?: string): Promise<AuthResponse> => {
     const res = await api.post<AuthResponse>("/auth/google", { idToken, referralCode });
+    return res.data;
+  },
+
+  appleAuth: async (data: AppleAuthData): Promise<AuthResponse> => {
+    const res = await api.post<AuthResponse>("/auth/apple", data);
     return res.data;
   },
 
