@@ -130,34 +130,34 @@ export default function ProductInfo({
     <>
       <div className="space-y-5 pb-24 lg:pb-0">
         {/* Header */}
-        <div className="flex justify-between items-start gap-4">
-          <div>
+        <div>
+          <div className="flex items-center gap-4">
             {product.category && (
               <span className="text-xs font-semibold text-primary bg-primary/10 px-2.5 py-1 rounded-full uppercase tracking-wide">
                 {product.category.name}
               </span>
             )}
-            <h1 className="text-2xl font-bold text-text mt-2 leading-tight">{product.name}</h1>
+            <div className="flex items-center gap-2 flex-shrink-0 ml-auto">
+              <button
+                onClick={handleWishlist}
+                className={`w-11 h-11 flex items-center justify-center rounded-xl border transition-all ${
+                  isInWishlist
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border text-faint hover:border-primary hover:text-primary hover:bg-primary/5"
+                }`}
+              >
+                <Heart className={`w-5 h-5 ${isInWishlist ? "fill-primary" : ""}`} />
+              </button>
+              <ProductShare
+                slug={product.slug}
+                name={product.name}
+                className="flex items-center gap-2"
+                buttonClassName="w-11 h-11 flex items-center justify-center rounded-xl border border-border text-faint hover:border-primary hover:text-primary hover:bg-primary/5 transition-all"
+                iconSize={18}
+              />
+            </div>
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <button
-              onClick={handleWishlist}
-              className={`w-11 h-11 flex items-center justify-center rounded-xl border transition-all ${
-                isInWishlist
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-border text-faint hover:border-primary hover:text-primary hover:bg-primary/5"
-              }`}
-            >
-              <Heart className={`w-5 h-5 ${isInWishlist ? "fill-primary" : ""}`} />
-            </button>
-            <ProductShare
-              slug={product.slug}
-              name={product.name}
-              className="flex items-center gap-2"
-              buttonClassName="w-11 h-11 flex items-center justify-center rounded-xl border border-border text-faint hover:border-primary hover:text-primary hover:bg-primary/5 transition-all"
-              iconSize={18}
-            />
-          </div>
+          <h1 className="text-2xl font-bold text-text mt-2 leading-tight">{product.name}</h1>
         </div>
 
         {/* Price + Stock */}
