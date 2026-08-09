@@ -28,6 +28,7 @@ import type {
 } from "@repo/zod-schema/index";
 import { Request } from "express";
 import { releasePendingOrderStock } from "../utils/pendingRelease";
+import { settleCodOnDelivery } from "./codSettlement.services";
 
 const MAX_PAYMENT_ATTEMPTS = 3;
 const TX_RETRIES           = 3;
@@ -845,9 +846,9 @@ async function handleRefundProcessed(payload: any): Promise<void> {
 
   const refunded = await prisma.$transaction(async (tx) => {
     const payments = await tx.$queryRaw<Array<{
-      id: string; orderId: string; status: string;
+      id: string; orderId: string; status: string; amount: unknown;
     }>>`
-      SELECT id, "orderId", status
+      SELECT id, "orderId", status, amount
       FROM "Payment"
       WHERE "razorpayPaymentId" = ${paymentId}
       FOR UPDATE
@@ -859,27 +860,43 @@ async function handleRefundProcessed(payload: any): Promise<void> {
 
     const refundAmount = amountPaise ? amountPaise / 100 : undefined;
 
+    // A partial refund must not mark the whole payment (and the whole order)
+    // refunded. `resolveReturnService` can refund less than the captured amount,
+    // and this previously flipped a ₹2000 order to REFUNDED over a ₹100 return.
+    // Comparing this refund against the captured amount is sufficient because the
+    // app never issues more than one refund per payment — resolveReturn refuses a
+    // second, and the cancellation path claims SUCCESS -> REFUND_INITIATED atomically.
+    const isFullRefund =
+      refundAmount === undefined || refundAmount >= Number(payment.amount) - 0.01;
+
     await tx.payment.update({
       where: { id: payment.id },
       data: {
-        status:      "REFUNDED",
+        status:      isFullRefund ? "REFUNDED" : "PARTIALLY_REFUNDED",
         refundId:    razorpayRefundId,
         refundAmount: refundAmount ? new Decimal(refundAmount) : undefined,
         refundedAt:  new Date(),
       },
     });
 
-    const order = await tx.order.update({
-      where: { id: payment.orderId },
-      data:  { status: "REFUNDED" },
-      select: { userId: true },
-    });
+    // Only a full refund unwinds the order. A partially refunded order keeps the
+    // status its return/cancellation flow gave it.
+    const order = isFullRefund
+      ? await tx.order.update({
+          where: { id: payment.orderId },
+          data:  { status: "REFUNDED" },
+          select: { userId: true },
+        })
+      : await tx.order.findUniqueOrThrow({
+          where: { id: payment.orderId },
+          select: { userId: true },
+        });
 
     await createAuditLogInTx(tx, {
       action:   "REFUND_SUCCESS",
       entity:   "Payment",
       entityId: payment.orderId,
-      newValue: { refundId: razorpayRefundId, refundAmount, source: "webhook" },
+      newValue: { refundId: razorpayRefundId, refundAmount, partial: !isFullRefund, source: "webhook" },
     });
 
     return { userId: order.userId, orderId: payment.orderId, refundAmount };
@@ -1390,6 +1407,14 @@ export async function handleDelhiveryWebhookService(
         await tx.order.update({ where: { id: shipment.orderId }, data: { status: "DELIVERED" } });
       }
     });
+
+    // Delivery is when COD cash is actually collected — book the payment and the
+    // affiliate commission. No-op for online orders and for replayed webhooks.
+    if (delivered) {
+      await settleCodOnDelivery(shipment.orderId).catch((err) =>
+        console.error("[webhook] COD settlement failed:", err)
+      );
+    }
 
     await prisma.webhookEvent.update({
       where: { id: webhookEvent.id },

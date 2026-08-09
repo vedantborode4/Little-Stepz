@@ -4,6 +4,9 @@ import { OrderErrorCode } from "../../utils/orderErrors";
 import { notify } from "../notification.services";
 import { orderStatusNotification } from "../../utils/notificationCopy";
 import { syncProductStockFlags } from "../../utils/stock";
+import { reverseAffiliateCommissionsService } from "../affiliate.services";
+import { refundCapturedOrderPayment } from "../refund.services";
+import { settleCodOnDelivery } from "../codSettlement.services";
 
 
 const statusTransitions: Record<OrderStatus, OrderStatus[]> = {
@@ -151,14 +154,19 @@ export async function updateOrderStatusService(
         });
       }
 
-      // Reverse unpaid commissions
-      await tx.commission.updateMany({
-        where: {
-          orderId: id,
-          status: { not: "PAID" },
-        },
-        data: { status: "CANCELLED" },
+      // Close out a payment that was never collected. The customer cancel path
+      // already did this; the admin path left a cancelled COD order sitting on a
+      // PENDING payment, as though the money were still owed.
+      await tx.payment.updateMany({
+        where: { orderId: id, status: { in: ["PENDING", "INITIATED"] } },
+        data: { status: "FAILED" },
       });
+
+      // Reverse commissions through the shared helper. The previous inline
+      // updateMany flipped the commission rows but never decremented the
+      // affiliate's totalCommission/pendingBalance, so cancelled orders left the
+      // affiliate's payable balance permanently inflated.
+      await reverseAffiliateCommissionsService({ tx, orderId: id, adminUserId: adminId });
     }
 
 
@@ -171,16 +179,29 @@ export async function updateOrderStatusService(
     };
   });
 
+  // Both of these make their own external/DB calls and so run after the commit.
+  let refund: Awaited<ReturnType<typeof refundCapturedOrderPayment>> = { status: "none" };
+
+  if (newStatus === OrderStatus.CANCELLED) {
+    refund = await refundCapturedOrderPayment(id, "Order cancelled by admin");
+  }
+
+  if (newStatus === OrderStatus.DELIVERED) {
+    await settleCodOnDelivery(id);
+  }
+
   const copy = orderStatusNotification(newStatus, result.id);
   if (copy) {
     void notify({
       userId: result.userId,
       type: copy.type,
       title: copy.title,
-      body: copy.body,
+      body: refund.status === "initiated"
+        ? `${copy.body} Your refund has been initiated.`
+        : copy.body,
       data: { screen: "Order", orderId: result.id },
     });
   }
 
-  return result;
+  return { ...result, refund: refund.status };
 }

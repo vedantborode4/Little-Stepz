@@ -10,6 +10,8 @@ import { notify } from './notification.services';
 import { orderShortRef } from '../utils/notificationCopy';
 import { syncProductStockFlag, syncProductStockFlags } from '../utils/stock';
 import { releasePendingOrderStock, stalePendingOrderWhere } from '../utils/pendingRelease';
+import { refundCapturedOrderPayment } from './refund.services';
+import { reverseAffiliateCommissionsService } from './affiliate.services';
 
 const MAX_TX_RETRIES = 3;
 
@@ -414,19 +416,30 @@ export async function cancelOrderService(userId: string, orderId: string, reason
         data: { status: 'FAILED' },
       });
 
+      // A cancelled sale must not keep earning commission. The admin cancel path
+      // already did this; the customer path didn't, so a self-cancelled order left
+      // a payable commission behind.
+      await reverseAffiliateCommissionsService({ tx, orderId, adminUserId: userId });
+
       return { orderId, status: 'CANCELLED' };
     });
   });
+
+  // After the commit, never inside it — this makes an external Razorpay call.
+  // Returns 'none' for COD and for orders that were never actually paid.
+  const refund = await refundCapturedOrderPayment(orderId, 'Order cancelled by customer');
 
   void notify({
     userId,
     type: 'ORDER_CANCELLED',
     title: 'Order cancelled',
-    body: `Your order #${orderShortRef(orderId)} has been cancelled.`,
+    body: refund.status === 'initiated'
+      ? `Your order #${orderShortRef(orderId)} has been cancelled and your refund has been initiated.`
+      : `Your order #${orderShortRef(orderId)} has been cancelled.`,
     data: { screen: 'Order', orderId },
   });
 
-  return { orderId, status: 'CANCELLED' };
+  return { orderId, status: 'CANCELLED', refund: refund.status };
 }
 
 /**

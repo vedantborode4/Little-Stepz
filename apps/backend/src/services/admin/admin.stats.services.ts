@@ -1,5 +1,28 @@
-import { prisma } from "@repo/db/client";
+import { prisma, Prisma, OrderStatus } from "@repo/db/client";
 import type { AdminStatsQuery } from "@repo/zod-schema/index";
+
+/**
+ * Orders that represent money actually earned.
+ *
+ * Revenue was computed three different ways, all wrong. `totalRevenue`,
+ * `avgOrderValue` and `revenueChart` summed EVERY order — including PENDING ones
+ * that were never paid for, plus CANCELLED and REFUNDED — so they over-reported.
+ * `revenueLast30d` summed only SUCCESS payments, which until COD was settled on
+ * delivery meant it silently excluded every COD sale.
+ *
+ * One list, used by all of them, so the figures can no longer disagree. RETURN_*
+ * counts as earned (the goods were delivered and paid for); the money only leaves
+ * once a refund actually lands, which is REFUNDED.
+ */
+const REVENUE_ORDER_STATUSES: OrderStatus[] = [
+  OrderStatus.CONFIRMED,
+  OrderStatus.PROCESSING,
+  OrderStatus.SHIPPED,
+  OrderStatus.OUT_FOR_DELIVERY,
+  OrderStatus.DELIVERED,
+  OrderStatus.RETURN_REQUESTED,
+  OrderStatus.RETURN_REJECTED,
+];
 
 export async function adminGetStatsService(query: AdminStatsQuery) {
   const now   = new Date();
@@ -26,10 +49,10 @@ export async function adminGetStatsService(query: AdminStatsQuery) {
     prisma.order.count({ where: { deletedAt: null, createdAt: { gte: today } } }),
     prisma.order.count({ where: { deletedAt: null, createdAt: { gte: startOf7d } } }),
     prisma.order.groupBy({ by: ["status"], where: { deletedAt: null }, _count: { id: true } }),
-    prisma.order.aggregate({ where: { deletedAt: null, createdAt: rangeFilter }, _sum: { total: true }, _avg: { total: true }, _count: { id: true } }),
+    prisma.order.aggregate({ where: { deletedAt: null, createdAt: rangeFilter, status: { in: REVENUE_ORDER_STATUSES } }, _sum: { total: true }, _avg: { total: true }, _count: { id: true } }),
     prisma.payment.count({ where: { status: "SUCCESS", deletedAt: null } }),
     prisma.payment.count({ where: { status: "FAILED",  deletedAt: null } }),
-    prisma.payment.aggregate({ where: { status: "SUCCESS", deletedAt: null, createdAt: rangeFilter }, _sum: { amount: true } }),
+    prisma.order.aggregate({ where: { deletedAt: null, createdAt: rangeFilter, status: { in: REVENUE_ORDER_STATUSES } }, _sum: { total: true } }),
     prisma.user.count({ where: { deletedAt: null } }),
     prisma.user.count({ where: { deletedAt: null, createdAt: { gte: today } } }),
     prisma.user.count({ where: { deletedAt: null, createdAt: { gte: startOf7d } } }),
@@ -48,6 +71,7 @@ export async function adminGetStatsService(query: AdminStatsQuery) {
       WHERE "deletedAt" IS NULL
         AND "createdAt" >= ${startOf30d}
         AND "createdAt" <= ${now}
+        AND status::TEXT IN (${Prisma.join(REVENUE_ORDER_STATUSES.map(String))})
       GROUP BY DATE("createdAt")
       ORDER BY day ASC`,
     prisma.orderItem.groupBy({
@@ -68,7 +92,7 @@ export async function adminGetStatsService(query: AdminStatsQuery) {
       totalOrders, ordersToday, ordersThisWeek,
       totalRevenue:   ordersRevenue._sum.total?.toNumber()   ?? 0,
       avgOrderValue:  ordersRevenue._avg.total?.toNumber()   ?? 0,
-      revenueLast30d: revenueLast30d._sum.amount?.toNumber() ?? 0,
+      revenueLast30d: revenueLast30d._sum.total?.toNumber() ?? 0,
       totalUsers, newUsersToday, newUsersThisWeek,
       totalProducts, lowStockProducts,
       totalAffiliates, pendingAffiliates, pendingReturns,
