@@ -1,7 +1,6 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import { WishlistService } from "../lib/services/wishlist.service"
-import { getAccessToken } from "../lib/utils/token"
 
 interface WishlistState {
   items: string[]
@@ -18,20 +17,17 @@ export const useWishlistStore = create<WishlistState>()(
       items: [],
       isLoading: false,
 
+      // Always attempts the request. Do NOT gate this on a client-readable token:
+      // the backend's accessToken cookie is httpOnly, so the JS-visible copy is
+      // absent for a whole browser session until something triggers a refresh.
+      // Short-circuiting here skipped axios entirely, which meant the 401-refresh
+      // interceptor never ran and a signed-in user saw an empty wishlist.
       fetchWishlist: async () => {
-        // The wishlist is a per-user resource — requesting it as a guest is a
-        // guaranteed 401. Skip the round-trip entirely.
-        if (!getAccessToken()) {
-          set({ items: [] })
-          return
-        }
-
         set({ isLoading: true })
 
         try {
           const data = await WishlistService.getWishlist()
 
-          // ✅ correct mapping for your backend
           set({
             items: data.items.map((i: any) => i.product.id),
           })

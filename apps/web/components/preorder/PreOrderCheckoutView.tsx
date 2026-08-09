@@ -29,7 +29,12 @@ export default function PreOrderCheckoutView({ product }: { product: Product }) 
   const router = useRouter()
   const variantId = search?.get("variant") || undefined
 
-  const [quantity, setQuantity] = useState(1)
+  // Seeded from the PDP stepper (?qty=) so the chosen quantity survives the hop;
+  // clamped below once the limit is known.
+  const [quantity, setQuantity] = useState(() => {
+    const raw = Number(search?.get("qty"))
+    return Number.isFinite(raw) && raw >= 1 ? Math.floor(raw) : 1
+  })
   const [placing, setPlacing] = useState(false)
   const addressId = useAddressStore((s) => s.selectedAddressId) ?? ""
   // Stable per-attempt key so retries de-duplicate server-side.
@@ -43,6 +48,11 @@ export default function PreOrderCheckoutView({ product }: { product: Product }) 
   const maxQty = product.preOrderLimit
     ? Math.max(1, product.preOrderLimit - (product.preOrderCount ?? 0))
     : 99
+
+  // A ?qty= above the remaining limit must not survive into the booking request —
+  // the server rejects it and the summary would have quoted the wrong total.
+  const qty = Math.min(quantity, maxQty)
+  if (qty !== quantity) setQuantity(qty)
 
   const unit = getChargedPrice(product, variant)
   const booking = product.bookingAmount != null ? Number(product.bookingAmount) : 0
@@ -100,10 +110,32 @@ export default function PreOrderCheckoutView({ product }: { product: Product }) 
           <p className="text-sm text-muted mt-1">{inr(unit)} each</p>
           {product.preOrderNote && <p className="text-xs text-primary mt-1">{product.preOrderNote}</p>}
         </div>
-        <div className="flex items-center border border-border rounded-xl overflow-hidden h-9">
-          <button onClick={() => setQuantity((q) => Math.max(1, q - 1))} className="px-3 text-muted">−</button>
-          <span className="px-3 text-sm font-semibold">{quantity}</span>
-          <button onClick={() => setQuantity((q) => Math.min(maxQty, q + 1))} className="px-3 text-muted">+</button>
+        <div className="flex flex-col items-end gap-1">
+          <div className="flex items-center border border-border rounded-xl overflow-hidden h-9">
+            <button
+              type="button"
+              aria-label="Decrease quantity"
+              disabled={placing || quantity <= 1}
+              onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+              className="px-3 text-muted disabled:opacity-40 transition"
+            >
+              −
+            </button>
+            <span className="px-3 text-sm font-semibold">{quantity}</span>
+            <button
+              type="button"
+              aria-label="Increase quantity"
+              disabled={placing || quantity >= maxQty}
+              onClick={() => setQuantity((q) => Math.min(maxQty, q + 1))}
+              className="px-3 text-muted disabled:opacity-40 transition"
+            >
+              +
+            </button>
+          </div>
+          {/* Say why the stepper stopped, rather than silently ignoring the tap. */}
+          {product.preOrderLimit != null && quantity >= maxQty && (
+            <span className="text-[10px] text-faint">Max {maxQty} per order</span>
+          )}
         </div>
       </div>
 

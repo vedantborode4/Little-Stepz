@@ -109,11 +109,22 @@ export async function createProductService(data: {
     throw new ApiError(409, "Slug already in use");
   }
 
+  // Availability is derived from quantity, never taken from the form's checkbox.
+  // `data.inStock ?? …` honoured the checkbox whenever it was sent — and the admin
+  // form always sends it, defaulting to true — so a product created with
+  // `quantity: 0` was born `inStock: true` and stayed that way. The storefront then
+  // advertised it as available with Add to Cart enabled, and the add failed
+  // server-side with STOCK_INSUFFICIENT. This is the same rule updateProductService
+  // already applies; it was simply missing here.
+  //
+  // A product cannot have variants at creation time, so quantity is the whole story.
+  const quantity = data.quantity ?? 0;
+
   const product = await prisma.product.create({
     data: {
       ...data,
-      quantity: data.quantity ?? 0,
-      inStock: data.inStock ?? (data.quantity ?? 0) > 0,
+      quantity,
+      inStock: quantity > 0,
     },
     select: baseProductSelect,
   });

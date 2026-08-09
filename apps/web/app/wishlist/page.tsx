@@ -5,7 +5,7 @@ import Link from "next/link"
 import { Heart, ArrowRight } from "lucide-react"
 import { WishlistService } from "../../lib/services/wishlist.service"
 import { useWishlistStore } from "../../store/useWishlistStore"
-import { getAccessToken } from "../../lib/utils/token"
+import { useAuthStore } from "../../store/auth.store"
 import ProductCard from "../../components/products/ProductCard"
 
 function WishlistSkeleton() {
@@ -33,18 +33,25 @@ export default function WishlistPage() {
   const [loading, setLoading] = useState(true)
   const savedIds = useWishlistStore((s) => s.items)
 
+  // Gate on the persisted session flag, NOT on a readable token. The backend's
+  // accessToken cookie is httpOnly and its JS-visible copy dies with the browser
+  // session, so the old `getAccessToken()` check declared signed-in users guests
+  // and returned an empty list without ever calling the API — which also denied
+  // the 401-refresh interceptor the chance to restore the session. Guests still
+  // short-circuit here, so they get the empty state rather than a sign-in bounce.
   useEffect(() => {
     const load = async () => {
       setLoading(true)
       try {
-        // Guests have no server-side wishlist — don't fire a guaranteed 401.
-        if (!getAccessToken()) {
+        if (!useAuthStore.getState().isAuthenticated) {
           setItems([])
           return
         }
-        await useWishlistStore.getState().fetchWishlist()
         const data = await WishlistService.getWishlist()
         setItems(data.items)
+        // Seed the store from the same response so hearts render filled without
+        // a second round-trip.
+        useWishlistStore.setState({ items: data.items.map((i: any) => i.product.id) })
       } catch (err: any) {
         if (err?.response?.status !== 401) {
           console.error(
@@ -57,14 +64,16 @@ export default function WishlistPage() {
       }
     }
     load()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   if (loading) return <WishlistSkeleton />
 
-  // ProductCard's heart toggles the store, so the grid follows the store's ids —
-  // otherwise an unsaved product would linger until a reload.
-  const visibleItems = items.filter((item) => savedIds.includes(item.product.id))
+  // Hide anything un-hearted in this session so the grid reacts to ProductCard's
+  // toggle, but never hide what the store simply hasn't loaded — an id absent
+  // from `savedIds` because the store is empty must still render.
+  const visibleItems = savedIds.length
+    ? items.filter((item) => savedIds.includes(item.product.id))
+    : items
 
   if (!visibleItems.length) {
     return (

@@ -1,8 +1,9 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 
 import type { Product, Variant } from "../../../types/product"
+import { ProductService } from "../../../lib/services/product.service"
 
 import ProductGallery from "./ProductGallery"
 import ProductInfo from "./ProductInfo"
@@ -20,8 +21,51 @@ import { trackViewItem } from "../../../lib/analytics/ecommerce"
  * specs land in the initial HTML (plan W1). Only the interactive bits (variant
  * selection, gallery state, cart/wishlist) run on the client after hydration.
  */
-export default function ProductDetailView({ product }: { product: Product }) {
+export default function ProductDetailView({ product: initialProduct }: { product: Product }) {
   const [selectedVariant, setSelectedVariant] = useState<Variant | null>(null)
+
+  // The server payload is cached, so its availability can be stale — and
+  // availability decides the In Stock badge and whether Add to Cart / Buy Now are
+  // enabled. Re-read it live on mount and overlay just those fields, leaving the
+  // server-rendered copy (title, description, specs, images) as the SEO source of
+  // truth. Failures are ignored: the cached values are what we already show.
+  const [live, setLive] = useState<Pick<
+    Product,
+    "inStock" | "quantity" | "variants" | "preOrderCount"
+  > | null>(null)
+
+  useEffect(() => {
+    let active = true
+    ProductService.getBySlug(initialProduct.slug)
+      .then((fresh: any) => {
+        if (!active || !fresh) return
+        setLive({
+          inStock: fresh.inStock,
+          quantity: fresh.quantity,
+          variants: fresh.variants,
+          preOrderCount: fresh.preOrderCount,
+        })
+      })
+      .catch(() => {})
+    return () => { active = false }
+  }, [initialProduct.slug])
+
+  const product = useMemo(
+    () => (live ? { ...initialProduct, ...live } : initialProduct),
+    [initialProduct, live],
+  )
+
+  // `selectedVariant` is captured from the payload that was current when the
+  // shopper picked it. Once fresh data lands, re-resolve it by id so its `stock`
+  // is the live one — otherwise a variant selected pre-refresh keeps quoting the
+  // stale availability that gates Add to Cart.
+  const resolvedVariant = useMemo(
+    () =>
+      selectedVariant
+        ? product.variants?.find((v) => v.id === selectedVariant.id) ?? selectedVariant
+        : null,
+    [selectedVariant, product.variants],
+  )
 
   const tree = useCategoryStore((s) => s.tree)
   const setCategoryPath = useCategoryStore((s) => s.setCategoryPath)
@@ -49,13 +93,13 @@ export default function ProductDetailView({ product }: { product: Product }) {
       <div className="grid lg:grid-cols-2 gap-10 lg:items-start">
         <div className="lg:sticky lg:top-20 self-start">
           <ProductGallery
-            key={selectedVariant?.id ?? "product"}
-            images={selectedVariant?.images?.length ? selectedVariant.images : product.images}
+            key={resolvedVariant?.id ?? "product"}
+            images={resolvedVariant?.images?.length ? resolvedVariant.images : product.images}
           />
         </div>
         <ProductInfo
           product={product}
-          selectedVariant={selectedVariant}
+          selectedVariant={resolvedVariant}
           onSelectVariant={setSelectedVariant}
         />
       </div>

@@ -96,6 +96,21 @@ export default function ProductInfo({
 
   const canPreOrder = !inStock && !!product.preOrderEnabled && product.bookingAmount != null
 
+  // A pre-order product is out of stock by definition, so capping the stepper at
+  // available stock pinned it to `quantity >= 0` and disabled BOTH buttons — the
+  // quantity control was dead on every pre-order product. Pre-orders are bounded
+  // by the pre-order limit, not by stock.
+  const maxQty = useMemo(() => {
+    if (!canPreOrder) return maxStock
+    if (product.preOrderLimit == null) return 99
+    return Math.max(1, product.preOrderLimit - (product.preOrderCount ?? 0))
+  }, [canPreOrder, maxStock, product.preOrderLimit, product.preOrderCount])
+
+  // Carried to the booking page so the chosen quantity survives the hop.
+  const preOrderHref = `/pre-order/${product.slug}?qty=${quantity}${
+    selectedVariant ? `&variant=${selectedVariant.id}` : ""
+  }`
+
   const handleAddToCart = async () => {
     if (isAdding) return
     try {
@@ -274,8 +289,8 @@ export default function ProductInfo({
               {quantity}
             </span>
             <button
-              disabled={isAdding || isBuyingNow || quantity >= maxStock}
-              onClick={() => setQuantity((q) => Math.min(maxStock, q + 1))}
+              disabled={isAdding || isBuyingNow || quantity >= maxQty}
+              onClick={() => setQuantity((q) => Math.min(maxQty, q + 1))}
               className="px-4 py-2.5 text-muted hover:bg-surface-2 disabled:opacity-40 transition font-medium"
             >
               +
@@ -287,7 +302,7 @@ export default function ProductInfo({
         <div className="hidden lg:flex gap-3 pt-1">
           {canPreOrder ? (
             <Link
-              href={`/pre-order/${product.slug}${selectedVariant ? `?variant=${selectedVariant.id}` : ""}`}
+              href={preOrderHref}
               className="flex-1 bg-primary text-white py-3.5 rounded-xl font-semibold hover:opacity-90 transition flex items-center justify-center gap-2 shadow-sm"
             >
               <Clock size={17} />
@@ -388,7 +403,7 @@ export default function ProductInfo({
       <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-surface border-t border-border p-3 flex gap-2.5 z-30 shadow-lg">
         {canPreOrder ? (
           <Link
-            href={`/pre-order/${product.slug}${selectedVariant ? `?variant=${selectedVariant.id}` : ""}`}
+            href={preOrderHref}
             className="flex-1 bg-primary text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-1.5 text-sm shadow-sm"
           >
             <Clock size={15} />

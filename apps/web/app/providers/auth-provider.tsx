@@ -21,24 +21,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Fix: Read store actions from getState() (always stable references) and use
     // an empty deps array so hydration only ever happens once on mount.
     const hydrate = async () => {
-      const token = getAccessToken()
-
-      const { setAuth, logout, setHydrated } = useAuthStore.getState()
+      const { setAuth, logout, setHydrated, isAuthenticated } = useAuthStore.getState()
       const { fetchCart } = useCartStore.getState()
       const { fetchWishlist } = useWishlistStore.getState()
 
+      // Signals a prior session WITHOUT depending on a readable token. The
+      // backend's accessToken cookie is httpOnly, and the JS-visible copy is a
+      // session cookie — so after a browser restart it is gone while the 15-day
+      // refresh cookie is still perfectly valid. Keying off the cookie declared
+      // those users guests and skipped every authenticated fetch. `isAuthenticated`
+      // is persisted to localStorage and survives the restart, so it is the honest
+      // signal. Requests then go through the api client, whose 401 interceptor
+      // spends the refresh cookie and repairs the readable copy.
+      const hadSession = isAuthenticated || !!getAccessToken()
+
       try {
-        if (token) {
+        if (hadSession) {
           const user = await UserService.getMe()
-          setAuth({
-            accessToken: token,
-            user,
-          } as any)
+          setAuth({ accessToken: getAccessToken() ?? null, user } as any)
         }
 
         await fetchCart()
 
-        if (token) {
+        if (hadSession) {
           await fetchWishlist()
         }
       } catch {

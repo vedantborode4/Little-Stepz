@@ -6,6 +6,7 @@ import { errorHandler } from "./middlewares/errorHandler.middleware";
 import cors from "cors";
 import { webhookRouter } from "./routes/webhook.routes";
 import { startStockSweeper } from "./services/stockSweeper.services";
+import { startShipmentSweeper } from "./services/shipmentSweeper.services";
 
 const app = express();
 // Allow-list of dev origins (the `||` chain only ever returned the first value).
@@ -59,4 +60,5 @@ app.listen(PORT, () => {
   console.log(`[Server] Running on port ${PORT}`);
   console.log(`[Server] Environment: ${process.env.NODE_ENV || "development"}`);
   startStockSweeper();
+  startShipmentSweeper();
 });

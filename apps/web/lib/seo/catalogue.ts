@@ -49,10 +49,23 @@ export interface SeoProduct {
 /** Revalidate hourly — the catalogue changes rarely and this feeds cached routes. */
 const REVALIDATE = 3600
 
-async function getJson<T>(path: string, tag: string): Promise<T | null> {
+/**
+ * Product detail is cached far more briefly than the rest of the catalogue.
+ *
+ * Its payload carries `inStock`, `quantity` and per-variant `stock`, which drive
+ * the In Stock badge and whether Add to Cart / Buy Now are enabled. At the hourly
+ * catalogue TTL a sold-out product went on advertising itself as available for up
+ * to an hour. `revalidateTag` is never called anywhere in this app, so the TTL is
+ * the only thing bounding that staleness. ProductDetailView additionally refreshes
+ * availability on mount, so this only bounds what the FIRST paint (and a crawler)
+ * can be wrong by.
+ */
+const PRODUCT_REVALIDATE = 60
+
+async function getJson<T>(path: string, tag: string, revalidate = REVALIDATE): Promise<T | null> {
   try {
     const res = await fetch(`${BASE}${path}`, {
-      next: { revalidate: REVALIDATE, tags: [tag] },
+      next: { revalidate, tags: [tag] },
     })
     if (!res.ok) return null
     return (await res.json()).data as T
@@ -68,7 +81,15 @@ export async function getCategories(): Promise<SeoCategory[]> {
 }
 
 export async function getProductBySlug(slug: string): Promise<SeoProduct | null> {
-  return await getJson<SeoProduct>(`/products/${encodeURIComponent(slug)}`, `product:${slug}`)
+  // Same URL *and* same revalidate as getFullProductBySlug, so Next still dedupes
+  // the metadata fetch with the page fetch into one network call. Differing cache
+  // options would split them into two entries. Its JSON-LD carries availability
+  // too, so the shorter TTL is correct here as well.
+  return await getJson<SeoProduct>(
+    `/products/${encodeURIComponent(slug)}`,
+    `product:${slug}`,
+    PRODUCT_REVALIDATE,
+  )
 }
 
 /**
@@ -77,7 +98,11 @@ export async function getProductBySlug(slug: string): Promise<SeoProduct | null>
  * layout's metadata fetch — one network call feeds both metadata and the page.
  */
 export async function getFullProductBySlug(slug: string): Promise<Product | null> {
-  return await getJson<Product>(`/products/${encodeURIComponent(slug)}`, `product:${slug}`)
+  return await getJson<Product>(
+    `/products/${encodeURIComponent(slug)}`,
+    `product:${slug}`,
+    PRODUCT_REVALIDATE,
+  )
 }
 
 export async function getCategoryBySlug(slug: string): Promise<SeoCategory | null> {

@@ -48,7 +48,11 @@ export default function ProductCard({ product }: { product: Product }) {
   const variants = product.variants ?? []
   const hasVariants = variants.length > 0
   const priceRange = getPriceRange(product, variants)
-  const inStock = product.inStock ?? true
+  // Fail closed. Defaulting a missing availability flag to "in stock" enables Add
+  // to Cart on something we cannot confirm is sellable; every product endpoint
+  // selects `inStock`, so an absent value means the payload is wrong, not that the
+  // item is available.
+  const inStock = product.inStock ?? false
   const isPreOrder = !inStock && !!product.preOrderEnabled && product.bookingAmount != null
 
   const handleAddToCart = async (e: React.MouseEvent<HTMLButtonElement>) => {
