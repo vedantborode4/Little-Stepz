@@ -1,5 +1,6 @@
 import "./globals.css"
 import { Anton, Manrope, Sora, Orbitron } from "next/font/google"
+import Script from "next/script"
 
 import { AuthProvider } from "./providers/auth-provider"
 import { ThemeProvider } from "./providers/theme-provider"
@@ -77,8 +78,11 @@ export default function RootLayout({
           </AuthProvider>
         </ThemeProvider>
 
-        {/* Razorpay is loaded on demand from lib/openRazorpay (plan W6) — no
-            longer a global third-party script on every route. */}
+        <Script
+          src="https://checkout.razorpay.com/v1/checkout.js"
+          strategy="afterInteractive"
+        />
+
         <TawkWidget />
       </body>
     </html>

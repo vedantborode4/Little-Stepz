@@ -15,63 +15,17 @@ export interface RazorpayResult {
   razorpaySignature: string
 }
 
-const RAZORPAY_SRC = "https://checkout.razorpay.com/v1/checkout.js"
-let loadPromise: Promise<boolean> | null = null
-
-/**
- * Lazy-load the Razorpay checkout script on demand — only when the user actually
- * initiates a payment (plan W6). It previously loaded on every route from the
- * root layout, putting a third-party script on the critical path of every page
- * (an INP/CWV cost). Deferring it costs the checkout flow nothing: the modal is
- * opened after an explicit click, so a few hundred ms to fetch the script here
- * is imperceptible.
- */
-function loadRazorpay(): Promise<boolean> {
-  if (typeof window === "undefined") return Promise.resolve(false)
-  if ((window as any).Razorpay) return Promise.resolve(true)
-  if (loadPromise) return loadPromise
-
-  loadPromise = new Promise<boolean>((resolve) => {
-    const done = (ok: boolean) => {
-      if (!ok) loadPromise = null // let a later attempt retry
-      resolve(ok)
-    }
-
-    const existing = document.querySelector<HTMLScriptElement>(
-      `script[src="${RAZORPAY_SRC}"]`,
-    )
-    if (existing) {
-      if ((window as any).Razorpay) return done(true)
-      existing.addEventListener("load", () => done(true))
-      existing.addEventListener("error", () => done(false))
-      return
-    }
-
-    const s = document.createElement("script")
-    s.src = RAZORPAY_SRC
-    s.async = true
-    s.onload = () => done(true)
-    s.onerror = () => done(false)
-    document.body.appendChild(s)
-  })
-
-  return loadPromise
-}
-
 /**
  * Opens the Razorpay checkout modal and resolves with the payment response,
- * or null if dismissed/failed. Loads the SDK on first use.
+ * or null if dismissed/failed. Mirrors the checkout store flow.
  */
-export async function openRazorpay(
-  init: RazorpayInit,
-): Promise<RazorpayResult | null> {
-  const loaded = await loadRazorpay()
-  if (!loaded || typeof (window as any).Razorpay === "undefined") {
-    toast.error("Payment gateway couldn't load. Please check your connection and try again.")
-    return null
-  }
-
+export function openRazorpay(init: RazorpayInit): Promise<RazorpayResult | null> {
   return new Promise((resolve) => {
+    if (typeof (window as any).Razorpay === "undefined") {
+      toast.error("Payment gateway not loaded. Please refresh the page.")
+      return resolve(null)
+    }
+
     const rzp = new (window as any).Razorpay({
       key: init.keyId,
       amount: init.amount * 100,
