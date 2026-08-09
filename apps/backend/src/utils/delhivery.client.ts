@@ -238,8 +238,16 @@ export function mapDelhiveryStatus(status: string, statusType: string): Shipment
   const s = (status ?? "").toLowerCase();
   const t = (statusType ?? "").toUpperCase();
 
-  if (t === "DL" || s.includes("delivered")) return "DELIVERED";
-  if (t === "RT" || s.includes("rto") || s.includes("return")) return "RETURNED";
+  // RTO is checked BEFORE delivered, and StatusType before free text. Delhivery
+  // reports a returned parcel arriving back at origin as "RTO Delivered" (and
+  // "DTO Delivered"), which the old delivered-first order matched as a successful
+  // customer delivery — marking the order DELIVERED, settling COD as collected for
+  // cash nobody paid, paying affiliate commission and telling the customer their
+  // parcel had arrived.
+  if (t === "RT") return "RETURNED";
+  if (t === "DL") return "DELIVERED";
+  if (s.includes("rto") || s.includes("return")) return "RETURNED";
+  if (s.includes("delivered")) return "DELIVERED";
   if (s.includes("cancel") || s.includes("lost") || s.includes("damaged")) return "FAILED";
   if (s.includes("out for delivery") || s.includes("dispatched")) return "OUT_FOR_DELIVERY";
   if (s.includes("manifest") || s.includes("pending") || s.includes("not picked")) return "PROCESSING";

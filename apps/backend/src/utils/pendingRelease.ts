@@ -1,5 +1,5 @@
 import { Prisma } from "@repo/db/client";
-import { syncProductStockFlags } from "./stock";
+import { restoreOrderStock } from "./stock";
 
 /**
  * How long a never-paid order may hold its stock.
@@ -62,29 +62,11 @@ export async function releasePendingOrderStock(
 
   const order = await tx.order.findUnique({
     where: { id: orderId },
-    select: {
-      couponId: true,
-      items: { select: { productId: true, variantId: true, quantity: true } },
-    },
+    select: { couponId: true },
   });
   if (!order) return false;
 
-  for (const item of order.items) {
-    if (item.variantId) {
-      await tx.variant.update({
-        where: { id: item.variantId },
-        data: { stock: { increment: item.quantity } },
-      });
-    } else {
-      await tx.product.update({
-        where: { id: item.productId },
-        data: { quantity: { increment: item.quantity } },
-      });
-    }
-  }
-
-  // Returning stock can bring a sold-out product back in stock.
-  await syncProductStockFlags(tx, order.items.map((i) => i.productId));
+  await restoreOrderStock(tx, orderId);
 
   if (order.couponId) {
     await tx.coupon.updateMany({

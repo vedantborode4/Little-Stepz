@@ -50,3 +50,42 @@ export async function syncProductStockFlags(
     await syncProductStockFlag(tx, id);
   }
 }
+
+/**
+ * Put an order's items back into sellable stock.
+ *
+ * Stock leaves at order creation, so every path that undoes an order has to put it
+ * back the same way: abandoned checkouts, cancellations, RTO parcels and approved
+ * returns. They used to each carry their own copy of this loop, which is how the
+ * admin cancel path ended up restoring the numbers without resyncing `inStock`.
+ *
+ * Callers are responsible for deciding *whether* stock should come back — this
+ * only performs the movement. Notably a cancelled-in-transit parcel must NOT call
+ * this until it physically returns (the RTO webhook), or the units get sold twice.
+ */
+export async function restoreOrderStock(
+  tx: Prisma.TransactionClient,
+  orderId: string
+): Promise<void> {
+  const items = await tx.orderItem.findMany({
+    where: { orderId },
+    select: { productId: true, variantId: true, quantity: true },
+  });
+
+  for (const item of items) {
+    if (item.variantId) {
+      await tx.variant.update({
+        where: { id: item.variantId },
+        data: { stock: { increment: item.quantity } },
+      });
+    } else {
+      await tx.product.update({
+        where: { id: item.productId },
+        data: { quantity: { increment: item.quantity } },
+      });
+    }
+  }
+
+  // Returning stock can bring a sold-out product back in stock.
+  await syncProductStockFlags(tx, items.map((i) => i.productId));
+}

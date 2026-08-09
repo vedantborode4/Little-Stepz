@@ -1,4 +1,5 @@
 import { prisma, Prisma, PaymentStatus, OrderStatus, PaymentMethod, WebhookStatus, ReturnStatus } from "@repo/db/client";
+import type { ShipmentStatus } from "@repo/db/client";
 import { ApiError } from "../utils/api";
 import { PaymentErrorCode } from "../utils/paymentErrors";
 import { createAuditLog, createAuditLogInTx } from "../utils/auditLog";
@@ -29,6 +30,8 @@ import type {
 import { Request } from "express";
 import { releasePendingOrderStock } from "../utils/pendingRelease";
 import { settleCodOnDelivery } from "./codSettlement.services";
+import { refundCapturedOrderPayment } from "./refund.services";
+import { restoreOrderStock } from "../utils/stock";
 
 const MAX_PAYMENT_ATTEMPTS = 3;
 const TX_RETRIES           = 3;
@@ -927,6 +930,12 @@ export async function createReturnRequestService(
       include: {
         payment: true,
         returns: true,
+        shipments: {
+          where: { deliveredAt: { not: null } },
+          orderBy: { deliveredAt: "desc" },
+          take: 1,
+          select: { deliveredAt: true },
+        },
       },
     });
 
@@ -941,7 +950,11 @@ export async function createReturnRequestService(
       throw new ApiError(409, PaymentErrorCode.RETURN_ALREADY_REQUESTED);
     }
 
-    const deliveredAt = order.updatedAt; // Approximation — use actual delivery date from Shipment
+    // The courier's delivery timestamp, not `order.updatedAt` — that bumps on ANY
+    // write, so any admin touch silently restarted the customer's return window.
+    // Falls back to updatedAt only for orders marked delivered by hand, which have
+    // no shipment timestamp to read.
+    const deliveredAt = order.shipments[0]?.deliveredAt ?? order.updatedAt;
     const returnWindowEnd = new Date(deliveredAt);
     returnWindowEnd.setDate(returnWindowEnd.getDate() + RETURN_WINDOW_DAYS);
     if (new Date() > returnWindowEnd) {
@@ -1029,6 +1042,14 @@ export async function resolveReturnService(
         where: { id: returnReq.orderId },
         data:  { status: newOrderStatus },
       });
+
+      // Approved returns put the units back on sale. Gated on the return's own
+      // PENDING -> APPROVED claim above (`RETURN_ALREADY_RESOLVED`), so approving
+      // twice cannot restore twice. The RTO path deliberately skips RETURN_* orders
+      // so the parcel physically arriving does not restore them a second time.
+      if (data.status === "APPROVED") {
+        await restoreOrderStock(tx, returnReq.orderId);
+      }
 
       if (data.status === "APPROVED" && order.payment) {
         const payment = order.payment;
@@ -1334,6 +1355,79 @@ export async function cancelShipmentService(
   });
 }
 
+/**
+ * The order status a courier state implies.
+ *
+ * `mapDelhiveryStatus` never returns SHIPPED — in-transit parcels come back as
+ * IN_TRANSIT — so the "Order shipped 🚚" copy was unreachable and the order never
+ * left PROCESSING. Both enums share member names, which is what made the old
+ * `mapped as unknown as OrderStatus` cast look like it worked.
+ */
+function shipmentStatusToOrderStatus(s: ShipmentStatus): OrderStatus | null {
+  switch (s) {
+    case "SHIPPED":
+    case "IN_TRANSIT":       return OrderStatus.SHIPPED;
+    case "OUT_FOR_DELIVERY": return OrderStatus.OUT_FOR_DELIVERY;
+    case "DELIVERED":        return OrderStatus.DELIVERED;
+    // PENDING/PROCESSING carry no new information; FAILED and RETURNED are handled
+    // separately (a failed pickup must not move the order at all).
+    default:                 return null;
+  }
+}
+
+/** The fulfilment ladder, used to keep courier updates strictly forward-moving. */
+const FULFILMENT_SEQUENCE: OrderStatus[] = [
+  OrderStatus.CONFIRMED,
+  OrderStatus.PROCESSING,
+  OrderStatus.SHIPPED,
+  OrderStatus.OUT_FOR_DELIVERY,
+  OrderStatus.DELIVERED,
+];
+
+/**
+ * Statuses strictly earlier than `target`. Used as the WHERE for courier updates so
+ * an out-of-order or replayed event cannot drag an order backwards, and so a
+ * cancelled/returned/refunded order is never revived by a late scan.
+ */
+function ordersBehind(target: OrderStatus): OrderStatus[] {
+  return FULFILMENT_SEQUENCE.slice(0, FULFILMENT_SEQUENCE.indexOf(target));
+}
+
+/**
+ * Orders we consider finished. A courier still reporting movement against one of
+ * these is a real-world/data mismatch someone has to look at: the parcel exists and
+ * is moving, but we have closed the order and, for the refunded ones, already given
+ * the money back.
+ */
+const CLOSED_ORDER_STATUSES: OrderStatus[] = [
+  OrderStatus.CANCELLED,
+  OrderStatus.RETURNED,
+  OrderStatus.REFUND_INITIATED,
+  OrderStatus.REFUNDED,
+];
+
+/**
+ * An RTO we have already processed leaves the order in one of these, and Delhivery
+ * emits several RTO scans per parcel ("RTO In Transit", "RTO Delivered", …). Those
+ * repeats are normal and must not alarm — only CANCELLED is worth waking someone
+ * for, because that is the one an RTO cannot auto-restore stock for.
+ */
+const RTO_ALARM_STATUSES: OrderStatus[] = [OrderStatus.CANCELLED];
+
+/** The order's status if it is one of `alarming`, else null. Drives the alert. */
+async function orderStatusIfIn(
+  tx: Prisma.TransactionClient,
+  orderId: string,
+  alarming: OrderStatus[]
+): Promise<string | null> {
+  const order = await tx.order.findUnique({
+    where: { id: orderId },
+    select: { status: true },
+  });
+  if (!order) return null;
+  return alarming.includes(order.status) ? order.status : null;
+}
+
 export async function handleDelhiveryWebhookService(
   payload: any
 ): Promise<{ processed: boolean; message: string }> {
@@ -1391,11 +1485,27 @@ export async function handleDelhiveryWebhookService(
     const delivered = mapped === "DELIVERED";
     const prevStatus = shipment.status;
 
+    // An RTO is a parcel coming back undelivered. It is NOT a customer return: those
+    // already carry a RETURN_* status and have had their refund issued by
+    // resolveReturnService, so claiming here would double-restore their stock.
+    let rtoClaimed = false;
+
+    // A courier event we could not apply because the order is closed. Dropping these
+    // silently is how a parcel ends up moving in the real world for an order we have
+    // already cancelled or refunded, with nobody aware of it.
+    let droppedForStatus: string | null = null;
+
+    // The courier reported the parcel lost, damaged or cancelled at their end.
+    let courierFailed = false;
+
     await prisma.$transaction(async (tx) => {
       await tx.shipment.update({
         where: { id: shipment.id },
         data: {
-          status:       mapped,
+          // A shipment we cancelled stays cancelled. Letting a later courier scan
+          // move it out of FAILED would also clear the guard below, so the next
+          // event could then be treated as a live RTO.
+          status:       prevStatus === "FAILED" ? "FAILED" : mapped,
           trackingData: payload as any,
           deliveredAt:  delivered
             ? (statusDateTime ? new Date(statusDateTime) : new Date())
@@ -1403,10 +1513,145 @@ export async function handleDelhiveryWebhookService(
         },
       });
 
-      if (delivered) {
-        await tx.order.update({ where: { id: shipment.orderId }, data: { status: "DELIVERED" } });
+      // `prevStatus === "FAILED"` means we already cancelled this waybill with
+      // Delhivery. A late RTO scan on that dead shipment must not mark an order
+      // returned when a replacement parcel is already in flight.
+      if (mapped === "RETURNED" && prevStatus !== "FAILED") {
+        // The claim is the idempotency guard: a repeated RTO scan arrives with a new
+        // eventId, so without it the stock would be restored twice.
+        const claimed = await tx.order.updateMany({
+          where: {
+            id: shipment.orderId,
+            status: { in: ["CONFIRMED", "PROCESSING", "SHIPPED", "OUT_FOR_DELIVERY"] },
+          },
+          data: { status: "RETURNED" },
+        });
+        rtoClaimed = claimed.count > 0;
+
+        // The goods are physically back, so the units are sellable again. An order
+        // still in fulfilment never had its stock returned — this is that moment.
+        if (rtoClaimed) {
+          await restoreOrderStock(tx, shipment.orderId);
+        } else {
+          droppedForStatus = await orderStatusIfIn(tx, shipment.orderId, RTO_ALARM_STATUSES);
+        }
+      } else {
+        // Keep the order in step with the courier. Previously only DELIVERED was
+        // written, so an order sat at PROCESSING while the customer received an
+        // "Out for delivery" push — the notification contradicted the order page.
+        const nextOrderStatus = shipmentStatusToOrderStatus(mapped);
+
+        // Lost / damaged / carrier-cancelled. There is no safe automatic action —
+        // the goods may or may not exist — but the customer has paid and will not
+        // receive them, so this must never pass silently. `prevStatus === "FAILED"`
+        // means we cancelled this waybill ourselves; that is not a failure.
+        if (mapped === "FAILED" && prevStatus !== "FAILED") {
+          courierFailed = true;
+        }
+
+        if (nextOrderStatus) {
+          const advanced = await tx.order.updateMany({
+            // Forward-only, and never over a cancelled/returned/refunded order: a
+            // stale courier event must not drag an order backwards or revive it.
+            where: {
+              id: shipment.orderId,
+              status: { in: ordersBehind(nextOrderStatus) },
+            },
+            data: { status: nextOrderStatus },
+          });
+
+          // Nothing moved. Usually harmless — the order is already at or past this
+          // point (replayed or out-of-order scan). It is only worth waking someone
+          // for when the order is CLOSED, because then a live parcel is in the wild
+          // for an order we consider finished and may already have refunded.
+          if (advanced.count === 0) {
+            droppedForStatus = await orderStatusIfIn(tx, shipment.orderId, CLOSED_ORDER_STATUSES);
+          }
+        }
       }
     });
+
+    // A parcel is moving for an order we have closed. Never silent: for a CANCELLED
+    // order this is also the case where an RTO cannot auto-restore stock (there is
+    // no status left to claim atomically), so a human has to reconcile it.
+    if (droppedForStatus) {
+      await createAuditLog({
+        action: "WEBHOOK_PROCESSED",
+        entity: "Shipment",
+        entityId: shipment.id,
+        newValue: {
+          dropped: true,
+          reason: "ORDER_CLOSED",
+          orderId: shipment.orderId,
+          orderStatus: droppedForStatus,
+          courierStatus: statusText,
+          mapped,
+          waybill,
+        },
+      });
+
+      void notifyAdmins({
+        type: "ADMIN_CUSTOM",
+        title: "Courier update on a closed order ⚠️",
+        body: `Delhivery reported "${statusText || mapped}" for order #${orderShortRef(
+          shipment.orderId
+        )}, which is ${droppedForStatus}. The parcel (${waybill}) may still be in transit — check stock and refunds.`,
+        data: { screen: "AdminOrder", orderId: shipment.orderId },
+      });
+    }
+
+    if (courierFailed) {
+      await createAuditLog({
+        action: "SHIPMENT_FAILED",
+        entity: "Shipment",
+        entityId: shipment.id,
+        newValue: { orderId: shipment.orderId, courierStatus: statusText, waybill, source: "webhook" },
+      });
+
+      void notifyAdmins({
+        type: "ADMIN_CUSTOM",
+        title: "Parcel failed in transit ⚠️",
+        body: `Delhivery reported "${statusText || mapped}" for order #${orderShortRef(
+          shipment.orderId
+        )} (${waybill}). The customer has paid and will not receive it — decide on a refund or a reship.`,
+        data: { screen: "AdminOrder", orderId: shipment.orderId },
+      });
+    }
+
+    // Undelivered goods mean the customer's money must go back.
+    if (rtoClaimed) {
+      const refund = await refundCapturedOrderPayment(
+        shipment.orderId,
+        "Parcel returned to origin (RTO)"
+      );
+
+      // `orderStatusNotification` has no RETURNED case, and an RTO needs its own
+      // wording anyway — the customer never received anything.
+      const rtoOrder = await prisma.order.findUnique({
+        where: { id: shipment.orderId },
+        select: { userId: true },
+      });
+      if (rtoOrder) {
+        void notify({
+          userId: rtoOrder.userId,
+          type: refund.status === "initiated" ? "REFUND_PROCESSED" : "ORDER_CANCELLED",
+          title: "Order returned to us ↩️",
+          body: refund.status === "initiated"
+            ? `Order #${orderShortRef(shipment.orderId)} couldn't be delivered and came back to us. Your refund has been initiated.`
+            : `Order #${orderShortRef(shipment.orderId)} couldn't be delivered and came back to us. Please contact support if you'd like it resent.`,
+          data: { screen: "Order", orderId: shipment.orderId },
+        });
+      }
+
+      void notifyAdmins({
+        type: "ADMIN_CUSTOM",
+        title: "Parcel returned to origin ↩️",
+        body: `Order #${orderShortRef(shipment.orderId)} came back undelivered. Stock restored${
+          refund.status === "initiated" ? " and the customer refunded" : ""
+        }.`,
+        data: { screen: "AdminOrder", orderId: shipment.orderId },
+      });
+    }
 
     // Delivery is when COD cash is actually collected — book the payment and the
     // affiliate commission. No-op for online orders and for replayed webhooks.
@@ -1421,9 +1666,12 @@ export async function handleDelhiveryWebhookService(
       data:  { status: "PROCESSED", processedAt: new Date() },
     });
 
-    // Notify the customer on a real courier transition (shipped / out-for-delivery / delivered).
+    // Notify the customer on a real courier transition (shipped / out-for-delivery /
+    // delivered). Uses the same mapping as the status write, so the push and the
+    // order page can no longer disagree.
     if (mapped !== prevStatus) {
-      const copy = orderStatusNotification(mapped as unknown as OrderStatus, shipment.orderId);
+      const notifyStatus = shipmentStatusToOrderStatus(mapped);
+      const copy = notifyStatus ? orderStatusNotification(notifyStatus, shipment.orderId) : null;
       if (copy) {
         const order = await prisma.order.findUnique({
           where: { id: shipment.orderId },
