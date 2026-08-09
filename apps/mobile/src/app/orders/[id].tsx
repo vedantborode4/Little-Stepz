@@ -204,7 +204,7 @@ export default function OrderDetail() {
         <Card className="gap-1">
           {order.subtotal != null ? <Row label="Subtotal" value={formatPrice(order.subtotal)} /> : null}
           {order.discount != null && Number(order.discount) > 0 ? <Row label="Discount" value={`- ${formatPrice(order.discount)}`} /> : null}
-          {order.shippingCharges != null ? <Row label="Shipping" value={formatPrice(order.shippingCharges)} /> : null}
+          {order.shippingCharges != null && Number(order.shippingCharges) > 0 ? <Row label="Shipping" value={formatPrice(order.shippingCharges)} /> : null}
           <View className="my-1 h-px bg-border" />
           <View className="flex-row items-center justify-between">
             <Text className="font-jakarta-bold text-text">Total</Text>

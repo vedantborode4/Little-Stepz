@@ -241,6 +241,14 @@ export default function Checkout() {
                   <Text className="text-sm text-success">− {formatPrice(view.discount)}</Text>
                 </View>
               ) : null}
+              <View className="flex-row items-center justify-between">
+                <Text className="text-sm text-muted">Shipping</Text>
+                {view.shipping > 0 ? (
+                  <Text className="text-sm text-text">{formatPrice(view.shipping)}</Text>
+                ) : (
+                  <Text className="text-sm text-success">Free</Text>
+                )}
+              </View>
               <View className="h-px bg-border" />
               <View className="flex-row items-center justify-between">
                 <Text className="text-base font-jakarta-bold text-text">Total</Text>

@@ -20,7 +20,8 @@ import { useAuthStore } from "../../store/auth.store";
 import { colors } from "../../theme/tokens";
 import type { Product } from "../../types/product";
 
-const SHIPPING = 5;
+// Mirrors the backend's customer shipping charge (FREE_SHIPPING) — delivery is on us.
+const SHIPPING = 0;
 
 export default function PreOrderCheckout() {
   const params = useLocalSearchParams<{ slug: string; variant?: string }>();
@@ -178,7 +179,7 @@ export default function PreOrderCheckout() {
 
         <Card className="gap-1.5">
           <Row label={`Subtotal (${quantity})`} value={formatPrice(unit * quantity)} />
-          <Row label="Shipping" value={formatPrice(SHIPPING)} />
+          <Row label="Shipping" value={SHIPPING === 0 ? "Free" : formatPrice(SHIPPING)} />
           <View className="my-1 h-px bg-border" />
           <Row label="Order total" value={formatPrice(total)} bold />
           <Row label="Pay now (booking)" value={formatPrice(booking)} highlight />

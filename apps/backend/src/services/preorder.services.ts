@@ -16,6 +16,7 @@ import {
   sendBalancePaidEmail,
 } from "../utils/email";
 import { Decimal } from "decimal.js";
+import { isFreeShippingEnabled } from "../utils/shipping";
 import type { CreatePreOrderData, VerifyPreOrderPaymentData } from "@repo/zod-schema/index";
 
 const TX_RETRIES = 3;
@@ -112,7 +113,7 @@ export async function createPreOrderService(
 
       // Pricing snapshot (uses the actually-charged price, sale-aware).
       const unitPrice = resolveChargedPrice(product as any, variant as any);
-      const shipping = FLAT_SHIPPING;
+      const shipping = isFreeShippingEnabled() ? new Decimal(0) : FLAT_SHIPPING;
       const total = unitPrice.mul(data.quantity).add(shipping).toDecimalPlaces(2, Decimal.ROUND_HALF_EVEN);
       const booking = new Decimal(product.bookingAmount.toString()).toDecimalPlaces(2, Decimal.ROUND_HALF_EVEN);
       // Guard: a booking can never meet/exceed the order total (would make the balance ≤ 0).

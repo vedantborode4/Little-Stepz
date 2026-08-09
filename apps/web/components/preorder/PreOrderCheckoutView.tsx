@@ -14,7 +14,8 @@ import type { Product } from "../../types/product"
 import { friendlyError } from "../../lib/errorMessages"
 
 const inr = (n: number) => `₹${Number(n).toLocaleString("en-IN")}`
-const SHIPPING = 5
+// Mirrors the backend's customer shipping charge (FREE_SHIPPING) — delivery is on us.
+const SHIPPING = 0
 
 /**
  * Interactive pre-order checkout island (plan W1).
@@ -117,7 +118,7 @@ export default function PreOrderCheckoutView({ product }: { product: Product }) 
       {/* Summary */}
       <div className="bg-surface border border-border rounded-2xl p-4 space-y-2 text-sm">
         <div className="flex justify-between text-muted"><span>Subtotal ({quantity})</span><span>{inr(unit * quantity)}</span></div>
-        <div className="flex justify-between text-muted"><span>Shipping</span><span>{inr(SHIPPING)}</span></div>
+        <div className="flex justify-between text-muted"><span>Shipping</span><span className={SHIPPING === 0 ? "font-medium text-green-600 dark:text-green-400" : undefined}>{SHIPPING === 0 ? "Free" : inr(SHIPPING)}</span></div>
         <div className="flex justify-between text-text font-semibold border-t border-border pt-2"><span>Order total</span><span>{inr(total)}</span></div>
         <div className="flex justify-between text-primary font-semibold"><span>Pay now (booking)</span><span>{inr(booking)}</span></div>
         <div className="flex justify-between text-muted"><span>Balance later</span><span>{inr(balance)}</span></div>

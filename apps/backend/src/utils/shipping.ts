@@ -23,9 +23,19 @@ export async function assertServiceable(pincode: string): Promise<void> {
   }
 }
 
+// Delivery is free for the customer — the business absorbs the carrier cost. Set
+// FREE_SHIPPING=false to go back to billing the customer. NOTE: web's checkout summary computes
+// its displayed total as `subtotal - discount` and hardcodes "Shipping: Free"; make it read
+// /checkout/calculate before ever turning this off, or web will under-display the charged total.
+export function isFreeShippingEnabled(): boolean {
+  return (process.env.FREE_SHIPPING ?? "true").toLowerCase() !== "false";
+}
+
 // Live Delhivery shipping rate for a destination pincode, with a configured flat fallback so
 // checkout never hard-fails on a shipping-cost lookup. Estimates as Pre-paid.
 export async function resolveShippingCharge(destPincode: string): Promise<Decimal> {
+  if (isFreeShippingEnabled()) return new Decimal(0);
+
   const fallback  = new Decimal(process.env.DELHIVERY_FALLBACK_SHIPPING ?? "50");
   const originPin = getOriginPincode();
 
