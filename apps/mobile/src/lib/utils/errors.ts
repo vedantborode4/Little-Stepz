@@ -9,6 +9,7 @@ const FRIENDLY: Record<string, string> = {
   COUPON_NOT_STARTED: "This code isn't active yet.",
   COUPON_EXPIRED: "This code has expired.",
   COUPON_USAGE_LIMIT_REACHED: "This code has reached its usage limit.",
+  COUPON_USER_LIMIT_REACHED: "You've already used this code the maximum number of times.",
   MIN_ORDER_VALUE_NOT_MET: "Your order doesn't meet this code's minimum value.",
   CART_HAS_INVALID_ITEMS: "Some items in your cart aren't eligible for this code.",
   INVALID_COUPON_TYPE: "This code can't be applied right now.",

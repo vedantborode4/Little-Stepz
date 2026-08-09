@@ -1,4 +1,4 @@
-import { prisma } from '@repo/db/client';
+import { prisma, OrderStatus } from '@repo/db/client';
 import { ApiError } from '../utils/api';
 import { OrderErrorCode } from '../utils/orderErrors';
 import { resolveChargedPrice } from '../utils/pricing';
@@ -74,8 +74,8 @@ export async function createOrderService(userId: string, data: CreateOrderBody, 
     where: { id: data.addressId, userId, deletedAt: null },
   });
   if (!shippingAddress) throw new ApiError(400, OrderErrorCode.INVALID_ADDRESS);
-  await assertServiceable(shippingAddress.pincode);
-  const precomputedShipping = await resolveShippingCharge(shippingAddress.pincode);
+  await assertServiceable(shippingAddress.pincode, data.paymentMethod);
+  const precomputedShipping = await resolveShippingCharge(shippingAddress.pincode, data.paymentMethod);
 
   const result = await runWithRetry(async () => {
     return await prisma.$transaction(async (tx) => {
@@ -265,7 +265,14 @@ export async function getOrdersService(userId: string, page: number, limit: numb
   const skip = (page - 1) * limit;
 
   const where: any = { userId, deletedAt: null }; // Use any to avoid type issues
-  if (status) where.status = status;
+  if (status) {
+    // Prisma throws on an unknown enum value, which surfaced as a 500 for anything
+    // the caller typed into ?status=.
+    if (!Object.values(OrderStatus).includes(status as OrderStatus)) {
+      throw new ApiError(400, OrderErrorCode.INVALID_STATUS_TRANSITION);
+    }
+    where.status = status;
+  }
 
   const [orders, total] = await Promise.all([
     prisma.order.findMany({

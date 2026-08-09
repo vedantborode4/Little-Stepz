@@ -426,6 +426,10 @@ model Coupon {
   maxDiscount   Decimal?    @db.Decimal(12,2)
   usageLimit    Int?
   usedCount     Int         @default(0)
+  /// How many times ONE customer may use this coupon. Null = unlimited per user
+  /// (the previous behaviour: only the global `usageLimit` applied, so a single
+  /// customer could redeem a welcome offer as often as they liked).
+  perUserLimit  Int?
 
   validFrom DateTime?
   validUntil DateTime?
@@ -513,6 +517,9 @@ model Order {
   @@index([idempotencyKey])
   @@index([paymentMethod])
   @@index([affiliateId])
+  /// Backs the per-user coupon cap — Order already records both, so counting a
+  /// customer's redemptions needs no separate redemption table.
+  @@index([couponId, userId])
 }
 
 

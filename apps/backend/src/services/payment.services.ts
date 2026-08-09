@@ -174,6 +174,14 @@ export async function createPaymentService(
 
       const totalAmount = Number(order.total);
 
+      // Razorpay rejects anything below ₹1. A coupon covering the whole subtotal
+      // with free shipping produces a ₹0 total, which would leave the order stuck:
+      // unpayable online and never confirmable. Not reachable with today's coupon
+      // data, but the failure mode is a dead order, so guard it explicitly.
+      if (totalAmount < 1) {
+        throw new ApiError(400, PaymentErrorCode.AMOUNT_MISMATCH);
+      }
+
       let razorpayOrder;
       try {
         razorpayOrder = await createRazorpayOrder({

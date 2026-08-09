@@ -36,7 +36,8 @@ export const CheckoutService = {
     addressId: string,
     cartItems: CartItemPayload[],
     couponCode?: string | null,
-    idempotencyKey?: string
+    idempotencyKey?: string,
+    paymentMethod: "ONLINE" | "COD" = "ONLINE"
   ) => {
     const affiliateId = await getAffiliateId();
     const headers: Record<string, string> = {};
@@ -52,6 +53,9 @@ export const CheckoutService = {
           variantId: i.variantId || undefined,
           quantity: i.quantity,
         })),
+        // Lets the backend reject COD to prepaid-only pincodes and quote the COD
+        // shipping rate. It was never transmitted, so every order looked ONLINE.
+        paymentMethod,
         ...(couponCode ? { couponCode } : {}),
       },
       { headers }
@@ -108,11 +112,13 @@ export const CheckoutService = {
   calculate: async (
     cartItems: CartItemPayload[],
     addressId: string,
-    couponCode?: string | null
+    couponCode?: string | null,
+    paymentMethod: "ONLINE" | "COD" = "ONLINE"
   ) => {
     const res = await api.post("/checkout/calculate", {
       cartItems,
       addressId,
+      paymentMethod,
       ...(couponCode ? { couponCode } : {}),
     });
     return res.data.data;

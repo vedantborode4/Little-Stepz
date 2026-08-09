@@ -5,7 +5,9 @@ import { useCartStore } from "../../store/useCartStore"
 import { useCheckoutStore } from "../../store/useCheckoutStore"
 import { useAddressStore } from "../../store/useAddressStore"
 import { useRouter } from "next/navigation"
+import { useEffect, useState } from "react"
 import CouponBox from "../cart/CouponBox"
+import { CheckoutService } from "../../lib/services/checkout.service"
 import { ShoppingBag, Loader2, Tag, Truck, CreditCard } from "lucide-react"
 
 export default function CheckoutSummary({
@@ -20,11 +22,46 @@ export default function CheckoutSummary({
   const user = useAuthStore((s) => s.user)
   const isGuest = !user
 
-  const { subtotal, total, discount, couponCode } = useCartStore()
+  const { subtotal, total, discount, couponCode, items } = useCartStore()
   const { placeOrder, placingOrder, paymentMethod } = useCheckoutStore()
 
   const storeAddressId = useAddressStore((s) => s.selectedAddressId)
   const resolvedAddressId = addressId || storeAddressId || ""
+
+  // Server-authoritative totals. This summary used to compute the total client-side
+  // and hardcode "Shipping: Free", so it agreed with the amount actually charged
+  // only for as long as shipping happened to be free. Mobile already asks the
+  // backend; web now does the same, and falls back to the local figures if the
+  // call fails so the page never blocks on it.
+  const [quote, setQuote] = useState<{
+    subtotal: number; discount: number; shippingCharges: number; total: number
+  } | null>(null)
+
+  useEffect(() => {
+    if (isGuest || !resolvedAddressId || !items.length) {
+      setQuote(null)
+      return
+    }
+    let cancelled = false
+    CheckoutService.calculate(
+      items.map((i) => ({
+        productId: i.productId,
+        variantId: i.variantId ?? undefined,
+        quantity: i.quantity,
+      })),
+      resolvedAddressId,
+      couponCode || null,
+      paymentMethod
+    )
+      .then((res) => { if (!cancelled) setQuote(res) })
+      .catch(() => { if (!cancelled) setQuote(null) })
+    return () => { cancelled = true }
+  }, [isGuest, resolvedAddressId, items, couponCode, paymentMethod])
+
+  const shownSubtotal = quote?.subtotal ?? subtotal
+  const shownDiscount = quote?.discount ?? discount
+  const shownShipping = quote?.shippingCharges ?? 0
+  const shownTotal    = quote?.total ?? total
 
   const handleOrder = async () => {
     // Guests browse checkout freely; we only require an account at the moment
@@ -57,7 +94,7 @@ export default function CheckoutSummary({
       <div className="space-y-3">
         <div className="flex justify-between text-sm">
           <span className="text-muted">Subtotal</span>
-          <span className="font-medium text-text">₹{subtotal?.toLocaleString("en-IN")}</span>
+          <span className="font-medium text-text">₹{shownSubtotal?.toLocaleString("en-IN")}</span>
         </div>
 
         {couponCode && (
@@ -66,7 +103,7 @@ export default function CheckoutSummary({
               <Tag size={12} />
               Coupon ({couponCode})
             </span>
-            <span className="font-medium text-green-600 dark:text-green-400">−₹{discount?.toLocaleString("en-IN")}</span>
+            <span className="font-medium text-green-600 dark:text-green-400">−₹{shownDiscount?.toLocaleString("en-IN")}</span>
           </div>
         )}
 
@@ -75,14 +112,18 @@ export default function CheckoutSummary({
             <Truck size={13} />
             Shipping
           </span>
-          <span className="font-medium text-green-600 dark:text-green-400">Free</span>
+          {shownShipping > 0 ? (
+            <span className="font-medium text-text">₹{shownShipping.toLocaleString("en-IN")}</span>
+          ) : (
+            <span className="font-medium text-green-600 dark:text-green-400">Free</span>
+          )}
         </div>
       </div>
 
       {/* Total */}
       <div className="border-t border-border pt-4 flex justify-between items-center">
         <span className="font-semibold text-text">Total</span>
-        <span className="text-xl font-bold text-primary">₹{total?.toLocaleString("en-IN")}</span>
+        <span className="text-xl font-bold text-primary">₹{shownTotal?.toLocaleString("en-IN")}</span>
       </div>
 
       {/* Payment method badge */}

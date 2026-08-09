@@ -73,6 +73,24 @@ export async function validateCouponService(
     throw new ApiError(400, CouponErrorCode.COUPON_USAGE_LIMIT_REACHED);
   }
 
+  // Per-customer cap. Only the global limit existed, so one customer could redeem a
+  // welcome offer as many times as they liked. Counted from Order(userId, couponId)
+  // — Order already records both, so no redemption table is needed. Cancelled orders
+  // don't count, matching the `usedCount` refund in the cancel paths.
+  if (coupon.perUserLimit !== null && identifier.type === 'user') {
+    const usedByUser = await prisma.order.count({
+      where: {
+        userId: identifier.id,
+        couponId: coupon.id,
+        deletedAt: null,
+        status: { not: 'CANCELLED' },
+      },
+    });
+    if (usedByUser >= coupon.perUserLimit) {
+      throw new ApiError(400, CouponErrorCode.COUPON_USER_LIMIT_REACHED);
+    }
+  }
+
   // Use the pre-verified subtotal from order creation when available.
   // Otherwise fall back to re-querying the cart (used by the standalone
   // POST /coupons/validate endpoint which does have a cart identifier).

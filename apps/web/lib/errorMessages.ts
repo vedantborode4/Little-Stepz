@@ -12,6 +12,7 @@ const ERROR_COPY: Record<string, string> = {
   COUPON_EXPIRED: "This code has expired.",
   COUPON_INVALID: "This code is invalid or has expired.",
   COUPON_USAGE_LIMIT_REACHED: "This code has reached its usage limit.",
+  COUPON_USER_LIMIT_REACHED: "You've already used this code the maximum number of times.",
   MIN_ORDER_VALUE_NOT_MET: "Your order doesn't meet the minimum value for this code.",
   INVALID_COUPON_TYPE: "We couldn't apply this code. Please try another.",
   COUPON_IN_USE: "This code is currently in use. Please try again.",

@@ -34,6 +34,12 @@ export const createCouponBodySchema = z.object({
         .positive("Usage limit must be greater than 0")
         .optional(),
 
+    // How many times ONE customer may redeem this coupon. Omit for unlimited.
+    perUserLimit: z.number()
+        .int("Per-user limit must be an integer")
+        .positive("Per-user limit must be greater than 0")
+        .optional(),
+
     validFrom: optionalDateSchema,
     validUntil: optionalDateSchema,
 

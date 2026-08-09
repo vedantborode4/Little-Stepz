@@ -97,8 +97,8 @@ export async function calculateCheckoutService(userId: string, data: CheckoutCal
     discount = calcDiscount;
   }
 
-  await assertServiceable(address.pincode);
-  let shippingCharges = await resolveShippingCharge(address.pincode);
+  await assertServiceable(address.pincode, data.paymentMethod);
+  let shippingCharges = await resolveShippingCharge(address.pincode, data.paymentMethod);
 
   let total = subtotal.sub(discount).add(shippingCharges);
   if (total.lt(0)) total = new Decimal(0); // Safety

@@ -85,7 +85,8 @@ export const useCheckoutStore = create<CheckoutState>((set, get) => ({
         addressId,
         cartItems,
         couponCode || null,
-        idempotencyKey
+        idempotencyKey,
+        paymentMethod
       )
 
       // ── Step 2a: COD ─────────────────────────────────────────────────

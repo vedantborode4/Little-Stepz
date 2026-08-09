@@ -35,6 +35,35 @@ export const CheckoutService = {
   },
 
   /**
+   * Server-side totals (shipping, discount, tax). The checkout summary renders
+   * these rather than computing its own, so what the customer sees is what the
+   * backend will charge.
+   */
+  calculate: async (
+    cartItems: CartItemPayload[],
+    addressId: string,
+    couponCode?: string | null,
+    paymentMethod: "ONLINE" | "COD" = "ONLINE"
+  ) => {
+    const res = await api.post("/checkout/calculate", {
+      cartItems: cartItems.map((i) => ({
+        productId: i.productId,
+        variantId: i.variantId || undefined,
+        quantity: i.quantity,
+      })),
+      addressId,
+      paymentMethod,
+      ...(couponCode ? { couponCode } : {}),
+    })
+    return res.data.data as {
+      subtotal: number
+      discount: number
+      shippingCharges: number
+      total: number
+    }
+  },
+
+  /**
    * Step 1 — Create the order record.
    * idempotencyKey is generated ONCE per checkout session by the store
    * and reused on retries so the backend deduplicates repeated calls.
@@ -43,7 +72,8 @@ export const CheckoutService = {
     addressId: string,
     cartItems: CartItemPayload[],
     couponCode?: string | null,
-    idempotencyKey?: string
+    idempotencyKey?: string,
+    paymentMethod: "ONLINE" | "COD" = "ONLINE"
   ) => {
     const affiliateId = getAffiliateId()
     const headers: Record<string, string> = {}
@@ -60,6 +90,9 @@ export const CheckoutService = {
           variantId: i.variantId || undefined,
           quantity: i.quantity,
         })),
+        // Sent so the backend can reject COD to prepaid-only pincodes and quote the
+        // COD shipping rate. It was never transmitted, so every order looked ONLINE.
+        paymentMethod,
         ...(couponCode ? { couponCode } : {}),
       },
       { headers }

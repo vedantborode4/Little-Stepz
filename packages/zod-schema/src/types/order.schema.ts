@@ -19,6 +19,11 @@ export const checkoutCalculateBodySchema = z
       .min(1, "Cart cannot be empty"),
     addressId: uuidSchema,
     couponCode: z.string().trim().min(1).optional(),
+
+    // Shipping is quoted per payment mode (COD carries a collection fee) and some
+    // pincodes are prepaid-only, so the quote must know which one is being asked
+    // about. Defaulted, so existing callers keep working unchanged.
+    paymentMethod: z.enum(["ONLINE", "COD"]).default("ONLINE"),
   })
   .strict();
 

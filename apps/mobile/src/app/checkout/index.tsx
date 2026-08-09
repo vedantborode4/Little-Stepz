@@ -138,7 +138,7 @@ export default function Checkout() {
           variantId: i.variantId ?? undefined,
           quantity: i.quantity,
         }));
-        const res: any = await CheckoutService.calculate(cartItems, selectedAddressId, couponCode || null);
+        const res: any = await CheckoutService.calculate(cartItems, selectedAddressId, couponCode || null, paymentMethod);
         if (cancelled) return;
         const next: ServerTotals = {
           subtotal: Number(res.subtotal),
@@ -163,7 +163,9 @@ export default function Checkout() {
     return () => {
       cancelled = true;
     };
-  }, [selectedAddressId, couponCode, cartSignature]);
+    // paymentMethod included: COD is quoted at a different shipping rate and some
+    // pincodes are prepaid-only, so switching it must re-quote.
+  }, [selectedAddressId, couponCode, cartSignature, paymentMethod]);
 
   const selectedAddress = addresses.find((a) => a.id === selectedAddressId);
 
