@@ -119,6 +119,22 @@ body {
   }
 }
 
+/* Accessibility: visually-hidden content that stays in the DOM and a11y tree
+   (e.g. the homepage SEO H1). Defined explicitly because Tailwind's built-in
+   `sr-only` isn't emitted in this project's build. Unlayered so it reliably
+   wins over the base `h1` rule above. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
 /* Display / section headings → Anton (matches the mobile app's `font-anton`). */
 .font-anton {
   font-family: var(--font-anton), sans-serif;

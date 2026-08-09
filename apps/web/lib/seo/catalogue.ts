@@ -1,7 +1,8 @@
 import "server-only"
+import type { Product } from "../../types/product"
 
 /**
- * Server-side catalogue reads for sitemap, llms.txt and (later) server-rendered
+ * Server-side catalogue reads for sitemap, llms.txt and server-rendered
  * product pages.
  *
  * Deliberately NOT lib/api-client.ts — that instance is browser-coupled
@@ -18,6 +19,10 @@ export interface SeoCategory {
   slug: string
   name: string
   description: string | null
+  metaTitle?: string | null
+  metaDescription?: string | null
+  ogImage?: string | null
+  noindex?: boolean
   updatedAt?: string
 }
 
@@ -30,6 +35,14 @@ export interface SeoProduct {
   inStock: boolean
   category: { slug: string; name: string }
   images: { url: string; alt: string | null }[]
+  metaTitle?: string | null
+  metaDescription?: string | null
+  ogImage?: string | null
+  noindex?: boolean
+  brand?: string | null
+  gtin?: string | null
+  mpn?: string | null
+  condition?: string | null
   updatedAt?: string
 }
 
@@ -58,6 +71,15 @@ export async function getProductBySlug(slug: string): Promise<SeoProduct | null>
   return await getJson<SeoProduct>(`/products/${encodeURIComponent(slug)}`, `product:${slug}`)
 }
 
+/**
+ * Full product for the server-rendered product page (W1). Hits the same
+ * `/products/:slug` endpoint as the browser service, so Next dedupes it with the
+ * layout's metadata fetch — one network call feeds both metadata and the page.
+ */
+export async function getFullProductBySlug(slug: string): Promise<Product | null> {
+  return await getJson<Product>(`/products/${encodeURIComponent(slug)}`, `product:${slug}`)
+}
+
 export async function getCategoryBySlug(slug: string): Promise<SeoCategory | null> {
   const all = await getCategories()
   return all.find((c) => c.slug === slug) ?? null
@@ -70,6 +92,63 @@ export async function getProductsByCategory(slug: string): Promise<SeoProduct[]>
     `category:${slug}`,
   )
   return data?.products ?? []
+}
+
+/**
+ * Page 1 of a category's full products, for the server-rendered category grid
+ * (W1). Separate from getProductsByCategory (which returns the SeoProduct subset
+ * for schema/counts) because ProductCard needs the full Product shape.
+ */
+export async function getCategoryProductsPage(
+  slug: string,
+  limit = 12,
+): Promise<{ products: Product[]; totalPages: number }> {
+  const data = await getJson<{ products: Product[]; pages?: number }>(
+    `/products/category/${encodeURIComponent(slug)}?page=1&limit=${limit}`,
+    `category:${slug}`,
+  )
+  return { products: data?.products ?? [], totalPages: data?.pages ?? 1 }
+}
+
+/**
+ * Page 1 of the full catalogue, for the server-rendered /products listing (W1).
+ * Renders the default (unfiltered) grid into HTML; the client island applies any
+ * URL filters/search/pagination after hydration.
+ */
+export async function getProductsPage(
+  limit = 12,
+): Promise<{ products: Product[]; totalPages: number }> {
+  const data = await getJson<{ products: Product[]; pages?: number }>(
+    `/products?page=1&limit=${limit}`,
+    "products",
+  )
+  return { products: data?.products ?? [], totalPages: data?.pages ?? 1 }
+}
+
+/**
+ * Featured products for the server-rendered homepage sections (W1) — Best
+ * Sellers, New Arrivals, etc. Mirrors the sort keys the client ProductService
+ * uses so the seeded grid matches what the client would fetch.
+ */
+const HOME_SORT_MAP: Record<string, string> = {
+  price_asc: "price:asc",
+  price_desc: "price:desc",
+  newest: "createdAt:desc",
+  oldest: "createdAt:asc",
+  name_asc: "name:asc",
+  name_desc: "name:desc",
+}
+
+export async function getFeaturedProducts(
+  sortKey: string,
+  limit = 8,
+): Promise<Product[]> {
+  const sort = HOME_SORT_MAP[sortKey] ?? sortKey
+  const data = await getJson<{ products: Product[] }>(
+    `/products?page=1&limit=${limit}&sort=${encodeURIComponent(sort)}`,
+    `products:${sortKey}`,
+  )
+  return (data?.products ?? []).slice(0, limit)
 }
 
 export async function getAllProducts(): Promise<SeoProduct[]> {

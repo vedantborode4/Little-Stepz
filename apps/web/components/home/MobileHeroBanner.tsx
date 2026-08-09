@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { BannerService } from "../../lib/services/banner.service"
 import type { AdminBanner } from "../../lib/services/admin-banner.service"
@@ -43,12 +44,15 @@ export default function MobileHeroBanner() {
   // The whole banner is clickable when it has a link — no separate "Shop Now" button.
   const slide = (
     <>
-      <img
+      <Image
         key={b.id}
         src={b.imageUrl}
-        alt={b.altText ?? b.title}
-        className="w-full h-full object-cover"
-        onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }}
+        alt={b.altText ?? b.title ?? ""}
+        fill
+        priority
+        sizes="100vw"
+        className="object-cover"
+        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none" }}
       />
 
       <div className="absolute inset-0 flex flex-col justify-center px-5">

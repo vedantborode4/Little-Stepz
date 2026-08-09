@@ -74,11 +74,24 @@ export interface ProductSchemaInput {
   brand?: string | null
   gtin?: string | null
   mpn?: string | null
+  condition?: string | null
   rating?: { value: number; count: number } | null
 }
 
+const CONDITION_URL: Record<string, string> = {
+  new: "https://schema.org/NewCondition",
+  used: "https://schema.org/UsedCondition",
+  refurbished: "https://schema.org/RefurbishedCondition",
+}
+const conditionUrl = (c?: string | null): string =>
+  CONDITION_URL[(c || "new").toLowerCase()] ?? "https://schema.org/NewCondition"
+
 export function productSchema(p: ProductSchemaInput): Json {
   const price = String(p.salePrice ?? p.price)
+  // Merchant Center + rich results recommend a price-validity window; roll ~1yr.
+  const priceValidUntil = new Date(Date.now() + 365 * 86_400_000)
+    .toISOString()
+    .slice(0, 10)
   const schema: Json = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -91,10 +104,11 @@ export function productSchema(p: ProductSchemaInput): Json {
       url: absolute(`/products/${p.slug}`),
       priceCurrency: "INR",
       price,
+      priceValidUntil,
       availability: p.inStock
         ? "https://schema.org/InStock"
         : "https://schema.org/OutOfStock",
-      itemCondition: "https://schema.org/NewCondition",
+      itemCondition: conditionUrl(p.condition),
       seller: { "@id": ORG_ID },
     },
   }

@@ -129,6 +129,13 @@ model Category {
   slug        String   @unique
   description String?
   image       String?
+
+  // SEO overrides (admin SEO panel) — fall back to generated metadata when null.
+  metaTitle       String?
+  metaDescription String?
+  ogImage         String?
+  noindex         Boolean @default(false)
+
   parentId    String?
   isActive    Boolean  @default(true)
 
@@ -169,6 +176,18 @@ model Product {
   categoryId  String
 
   specifications Json?
+
+  // SEO overrides (admin SEO panel) — fall back to generated metadata when null.
+  metaTitle       String?
+  metaDescription String?
+  ogImage         String?
+  noindex         Boolean @default(false)
+
+  // Merchant / product identity (Google Shopping feed + Product JSON-LD).
+  brand     String?
+  gtin      String?
+  mpn       String?
+  condition String? @default("new")
 
   preOrderEnabled Boolean  @default(false)
   bookingAmount   Decimal? @db.Decimal(12,2)

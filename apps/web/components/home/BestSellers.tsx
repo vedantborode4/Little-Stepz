@@ -12,13 +12,18 @@ interface Props {
   showViewAll?: boolean
   /** "grid" = static responsive grid (2/3/4 cols); "slider" = horizontal carousel. */
   layout?: "grid" | "slider"
+  /** Server-fetched products (W1). When provided, the grid renders into the
+   *  initial HTML and the client fetch is skipped. */
+  initialProducts?: Product[]
 }
 
-export default function BestSellers({ sort = "newest", limit = 12, showViewAll = true, layout = "slider" }: Props) {
-  const [products, setProducts] = useState<Product[]>([])
-  const [loading, setLoading] = useState(true)
+export default function BestSellers({ sort = "newest", limit = 12, showViewAll = true, layout = "slider", initialProducts }: Props) {
+  const [products, setProducts] = useState<Product[]>(initialProducts ?? [])
+  const [loading, setLoading] = useState(!initialProducts?.length)
 
   useEffect(() => {
+    // Server already delivered these — don't refetch on the client.
+    if (initialProducts?.length) return
     const load = async () => {
       try {
         const res = await ProductService.getProducts({ limit, sort })
@@ -30,6 +35,7 @@ export default function BestSellers({ sort = "newest", limit = 12, showViewAll =
       }
     }
     load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sort, limit])
 
   return (

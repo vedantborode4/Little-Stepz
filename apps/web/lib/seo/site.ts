@@ -39,10 +39,10 @@ export const CONTACT = {
   country: "IN",
 } as const
 
-/** Verified live 21 Jul 2026. TODO(client): replace the Facebook share link with the canonical page URL. */
+/** Verified live 21 Jul 2026. Facebook set to the canonical page URL (client-confirmed). */
 export const SOCIALS = [
   "https://www.instagram.com/littlestepzofficial",
-  "https://www.facebook.com/share/1BYNjMRyJJ/",
+  "https://www.facebook.com/LittleStepzOfficial/",
   "https://x.com/LittlestepzOff",
   "https://youtube.com/@littlestepzofficial",
   "https://www.threads.com/@littlestepzofficial",
@@ -58,6 +58,14 @@ export const OG_IMAGE = `${SITE_URL}/opengraph-image`
  */
 export const GA_MEASUREMENT_ID =
   process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ?? "G-EWT0G2CD9X"
+
+/**
+ * Google Tag Manager container ID. Overridable per-environment (set it empty to
+ * disable, e.g. local dev). GA4 is loaded directly via <GoogleAnalytics />
+ * (gtag.js) — do NOT also add a GA4 tag inside this GTM container, or every hit
+ * double-counts.
+ */
+export const GTM_ID = process.env.NEXT_PUBLIC_GTM_ID ?? "GTM-WQ7N8723"
 
 /**
  * Two different tools for two different problems — do not merge these lists.

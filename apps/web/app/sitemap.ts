@@ -43,7 +43,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const populated = new Set(products.map((p) => p.category?.slug).filter(Boolean))
 
   for (const c of categories) {
-    if (EMPTY_CATEGORIES.includes(c.slug) || !populated.has(c.slug)) continue
+    if (EMPTY_CATEGORIES.includes(c.slug) || !populated.has(c.slug) || c.noindex) continue
     entries.push({
       url: absolute(`/products/category/${c.slug}`),
       lastModified: c.updatedAt ? new Date(c.updatedAt) : now,
@@ -53,6 +53,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
 
   for (const p of products) {
+    if (p.noindex) continue // admin excluded this product from search + sitemap
     entries.push({
       url: absolute(`/products/${p.slug}`),
       lastModified: p.updatedAt ? new Date(p.updatedAt) : now,

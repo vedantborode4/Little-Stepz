@@ -52,6 +52,15 @@ const baseProductSelect = {
   preOrderLimit: true,
   preOrderCount: true,
   preOrderNote: true,
+  // SEO overrides + merchant identity — drive metadata, sitemap and Product JSON-LD.
+  metaTitle: true,
+  metaDescription: true,
+  ogImage: true,
+  noindex: true,
+  brand: true,
+  gtin: true,
+  mpn: true,
+  condition: true,
   category: { select: { id: true, name: true, slug: true } },
   images: {
     where: { variantId: null, deletedAt: null },
@@ -371,4 +380,4 @@ export async function getProductsByCategorySlugService(
     minPrice,
     maxPrice,
   });
-}
+}

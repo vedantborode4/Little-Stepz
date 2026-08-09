@@ -1,189 +1,41 @@
-"use client"
+import { notFound } from "next/navigation"
 
-import { useEffect, useState, useMemo } from "react"
-import { useParams } from "next/navigation"
-import { useCategoryStore } from "../../../../store/useCategoryStore"
-import { useProductFilterStore } from "../../../../store/useProductFilterStore"
+import {
+  getCategoryBySlug,
+  getCategoryProductsPage,
+} from "../../../../lib/seo/catalogue"
+import { categoryCopy } from "../../../../lib/seo/categoryCopy"
+import CategoryProductsView from "../../../../components/products/CategoryProductsView"
 
-import Breadcrumbs from "../../../../components/common/Breadcrumbs"
+/**
+ * Server shell for a category page (plan W1).
+ *
+ * Fetches the category and page 1 of its products on the server, then hands them
+ * to the interactive island so the H1, intro passage and the first grid of
+ * product links are present in the initial HTML. Filters/sort/pagination stay
+ * client-side. CollectionPage/Breadcrumb JSON-LD comes from the sibling layout.
+ */
+type Props = { params: Promise<{ slug: string }> }
 
-import { ProductService } from "../../../../lib/services/product.service"
-import type { Product } from "../../../../types/product"
+export default async function CategoryProductsPage({ params }: Props) {
+  const { slug } = await params
 
-import ProductCard from "../../../../components/products/ProductCard"
-import ProductGridSkeleton from "../../../../components/products/ProductGridSkeleton"
-import { Pagination } from "../../../../components/products/Pagination"
-import FilterSidebar from "../../../../components/products/filters/FilterSidebar"
-import MobileFilterDrawer from "../../../../components/products/filters/MobileFilterDrawer"
-import DynamicPromoBanner from "../../../../components/home/DynamicPromoBanner"
-import Link from "next/link"
+  const [category, { products, totalPages }] = await Promise.all([
+    getCategoryBySlug(slug),
+    getCategoryProductsPage(slug, 12),
+  ])
 
-export default function CategoryProductsPage() {
-  const { slug } = useParams<{ slug: string }>()
+  if (!category) notFound()
 
-  const { tree } = useCategoryStore()
-
-  // Applied (post-"Apply") sort/price from the filter sidebar
-  const sort = useProductFilterStore((s) => s.sort)
-  const priceMin = useProductFilterStore((s) => s.priceMin)
-  const priceMax = useProductFilterStore((s) => s.priceMax)
-
-  const [products, setProducts] = useState<Product[]>([])
-  const [totalPages, setTotalPages] = useState(1)
-  const [page, setPage] = useState(1)
-
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(false)
-
-  const formattedTitle = useMemo(() => {
-    if (!slug) return ""
-    return slug
-      .split("-")
-      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-      .join(" ")
-  }, [slug])
-
-  useEffect(() => {
-    if (!useCategoryStore.getState().tree.length) {
-      useCategoryStore.getState().fetchTree()
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  useEffect(() => {
-    if (slug && tree.length) {
-      useCategoryStore.getState().setCategoryPath(slug)
-    }
-  }, [slug, tree])
-
-  // Entering a category: clear any leftover global sort/price filters so the
-  // category isn't accidentally over-filtered (which would hide products and
-  // collapse pagination to a single page).
-  useEffect(() => {
-    useProductFilterStore.getState().setFilters({
-      sort: undefined,
-      priceMin: undefined,
-      priceMax: undefined,
-      page: 1,
-    })
-  }, [slug])
-
-  useEffect(() => {
-    setPage(1)
-  }, [slug, sort, priceMin, priceMax])
-
-  useEffect(() => {
-    if (!slug) return
-
-    let ignore = false
-
-    const fetchCategoryProducts = async () => {
-      try {
-        setLoading(true)
-        setError(false)
-
-        const res = await ProductService.getByCategorySlug(
-          slug,
-          page,
-          12,
-          sort,
-          priceMin,
-          priceMax
-        )
-
-        if (ignore) return
-
-        setProducts(res.data)
-        setTotalPages(res.meta.totalPages)
-      } catch {
-        if (!ignore) setError(true)
-      } finally {
-        if (!ignore) setLoading(false)
-      }
-    }
-
-    fetchCategoryProducts()
-
-    return () => {
-      ignore = true
-    }
-  }, [slug, page, sort, priceMin, priceMax])
-
-  if (loading) return <ProductGridSkeleton />
-
-  if (error)
-    return (
-      <p className="text-center text-red-500 dark:text-red-400 py-10">
-        Failed to load category products
-      </p>
-    )
-
-  if (!products.length)
-    return (
-      <div className="max-w-2xl mx-auto text-center py-16 space-y-6">
-
-        <p className="text-lg font-medium">
-          No products found in this category
-        </p>
-
-        <div className="flex flex-wrap justify-center gap-3">
-
-          <Link
-            href="/products"
-            className="px-5 py-2.5 rounded-lg bg-primary text-white text-sm font-medium hover:opacity-90 transition"
-          >
-            View all products
-          </Link>
-
-          <Link
-            href="/"
-            className="px-5 py-2.5 rounded-lg border border-border text-sm font-medium hover:bg-surface-2 transition"
-          >
-            Browse other categories
-          </Link>
-
-        </div>
-      </div>
-    )
+  const copy = categoryCopy(slug, category.name)
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8 space-y-6">
-
-      <DynamicPromoBanner position="CATEGORY_TOP" />
-
-      <Breadcrumbs />
-
-      <h1 className="text-3xl font-bold text-primary text-center">
-        {formattedTitle}
-      </h1>
-
-      <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-8">
-
-        <div className="space-y-4">
-          <FilterSidebar />
-          <DynamicPromoBanner position="PRODUCT_SIDEBAR" />
-        </div>
-
-        <div className="w-full">
-
-          <div className="flex justify-between items-center mb-4 lg:hidden">
-            <MobileFilterDrawer />
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-6">
-            {products.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
-
-          <Pagination
-            totalPages={totalPages}
-            currentPage={page}
-            onPageChange={setPage}
-          />
-
-        </div>
-      </div>
-    </div>
+    <CategoryProductsView
+      slug={slug}
+      heading={copy.h1}
+      intro={copy.intro}
+      initialProducts={products}
+      initialTotalPages={totalPages}
+    />
   )
 }

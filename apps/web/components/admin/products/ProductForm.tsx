@@ -15,6 +15,8 @@ import SpecificationsEditor, { type SpecRow } from "./SpecificationsEditor"
 import Toggle from "../../common/Toggle"
 import type { ProductOption, ProductVariant } from "../../../lib/services/admin-product.service"
 import { toast } from "sonner"
+import SeoPanel from "../SeoPanel"
+import { productMetaTitle, productMetaDescription } from "../../../lib/seo/metadata"
 
 interface Props {
   mode?: "create" | "edit"
@@ -46,6 +48,7 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
   const [form, setForm] = useState({
     name: "", slug: "", description: "", longDescription: "", price: "", salePrice: "", costPrice: "", isOnSale: false, priceDisplay: "BOTH", quantity: 0, inStock: true, categoryId: "",
     preOrderEnabled: false, bookingAmount: "", preOrderLimit: "", preOrderNote: "",
+    metaTitle: "", metaDescription: "", ogImage: "", noindex: false, brand: "", gtin: "", mpn: "", condition: "new",
   })
   const [images, setImages] = useState<any[]>([])
   const [specifications, setSpecifications] = useState<SpecRow[]>([])
@@ -75,6 +78,14 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
         bookingAmount: initialData.bookingAmount != null ? String(initialData.bookingAmount) : "",
         preOrderLimit: initialData.preOrderLimit != null ? String(initialData.preOrderLimit) : "",
         preOrderNote: initialData.preOrderNote ?? "",
+        metaTitle: initialData.metaTitle ?? "",
+        metaDescription: initialData.metaDescription ?? "",
+        ogImage: initialData.ogImage ?? "",
+        noindex: initialData.noindex ?? false,
+        brand: initialData.brand ?? "",
+        gtin: initialData.gtin ?? "",
+        mpn: initialData.mpn ?? "",
+        condition: initialData.condition ?? "new",
       })
       setImages(initialData.images || [])
       setSpecifications(
@@ -142,6 +153,13 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
       preOrderLimit: form.preOrderLimit === "" ? undefined : form.preOrderLimit,
       preOrderNote: form.preOrderNote === "" ? undefined : form.preOrderNote,
       specifications: cleanSpecs.length ? cleanSpecs : undefined,
+      metaTitle: form.metaTitle || undefined,
+      metaDescription: form.metaDescription || undefined,
+      ogImage: form.ogImage || undefined,
+      brand: form.brand || undefined,
+      gtin: form.gtin || undefined,
+      mpn: form.mpn || undefined,
+      // noindex (boolean) + condition (enum) pass through from ...form
     }
     const parsed = createProductSchema.safeParse(payload)
     if (!parsed.success) {
@@ -341,6 +359,30 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
             </div>
           )}
         </div>
+
+        {/* SEO + Google Shopping */}
+        <SeoPanel
+          values={{
+            metaTitle: form.metaTitle,
+            metaDescription: form.metaDescription,
+            ogImage: form.ogImage,
+            noindex: form.noindex,
+            brand: form.brand,
+            gtin: form.gtin,
+            mpn: form.mpn,
+            condition: form.condition,
+          }}
+          onChange={(k, v) => onChange(k, v)}
+          errors={errors}
+          previewPath={`products/${form.slug || "product-slug"}`}
+          fallbackTitle={productMetaTitle(form.name || "Product name")}
+          fallbackDescription={productMetaDescription(
+            form.description || null,
+            form.name || "this product",
+            form.salePrice || form.price || undefined,
+          )}
+          showMerchant
+        />
 
         {/* Save — scoped to product details only */}
         <div className="pt-4 border-t border-border flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">

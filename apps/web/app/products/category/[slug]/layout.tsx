@@ -29,10 +29,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const copy = categoryCopy(slug, category.name)
 
   return pageMetadata({
-    title: copy.title,
-    description: copy.description,
+    title: category.metaTitle || copy.title,
+    description: category.metaDescription || copy.description,
     path: `/products/category/${slug}`,
-    noindex: products.length === 0,
+    image: category.ogImage || undefined,
+    noindex: (category.noindex ?? false) || products.length === 0,
   })
 }
 

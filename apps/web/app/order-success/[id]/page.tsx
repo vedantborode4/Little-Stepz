@@ -6,6 +6,7 @@ import { useOrderStore } from "../../../store/useOrderStore"
 import { useCartStore } from "../../../store/useCartStore"
 import { CheckCircle, Package, MapPin, ArrowRight, ShoppingBag } from "lucide-react"
 import Link from "next/link"
+import { trackPurchase } from "../../../lib/analytics/ecommerce"
 
 /* ── Lightweight confetti — no external dependency ─────────────────────── */
 const COLORS = ["#FF383C", "#4ECDC4", "#FFD700", "#A855F7", "#34D399"]
@@ -56,6 +57,7 @@ export default function OrderSuccessPage() {
   const { id } = useParams<{ id: string }>()
   const { currentOrder, fetchOrderById, loading } = useOrderStore()
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const purchaseTracked = useRef(false)
 
   useEffect(() => {
     if (id) {
@@ -70,6 +72,18 @@ export default function OrderSuccessPage() {
   }, [id])
 
   const o = currentOrder
+
+  // GA4: purchase — fire once per order id (guards re-render + refresh). (plan W7)
+  useEffect(() => {
+    if (!o?.id || String(o.id) !== id || purchaseTracked.current) return
+    purchaseTracked.current = true
+    const key = `ga_purchase_${o.id}`
+    if (typeof window !== "undefined") {
+      if (sessionStorage.getItem(key)) return
+      sessionStorage.setItem(key, "1")
+    }
+    trackPurchase(o)
+  }, [o, id])
 
   // Backend returns `address` field; alias it here
   const addr = o?.shippingAddress ?? o?.address ?? null

@@ -22,6 +22,14 @@ const baseProductSelect = {
   preOrderLimit: true,
   preOrderCount: true,
   preOrderNote: true,
+  metaTitle: true,
+  metaDescription: true,
+  ogImage: true,
+  noindex: true,
+  brand: true,
+  gtin: true,
+  mpn: true,
+  condition: true,
   category: { select: { id: true, name: true, slug: true } },
   images: {
     where: { variantId: null, deletedAt: null },
@@ -78,6 +86,14 @@ export async function createProductService(data: {
   bookingAmount?: number;
   preOrderLimit?: number;
   preOrderNote?: string;
+  metaTitle?: string;
+  metaDescription?: string;
+  ogImage?: string;
+  noindex?: boolean;
+  brand?: string;
+  gtin?: string;
+  mpn?: string;
+  condition?: string;
 }) {
   if (!data.slug?.trim()) {
     throw new ApiError(400, "Slug is required");
@@ -126,6 +142,14 @@ export async function updateProductService(
     bookingAmount: number | null;
     preOrderLimit: number | null;
     preOrderNote: string | null;
+    metaTitle: string | null;
+    metaDescription: string | null;
+    ogImage: string | null;
+    noindex: boolean;
+    brand: string | null;
+    gtin: string | null;
+    mpn: string | null;
+    condition: string | null;
   }>
 ) {
   const product = await prisma.product.findFirst({

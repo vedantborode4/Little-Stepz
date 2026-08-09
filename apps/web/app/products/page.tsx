@@ -1,194 +1,22 @@
-"use client"
+import { getProductsPage } from "../../lib/seo/catalogue"
+import ProductsListingView from "../../components/products/ProductsListingView"
 
-import { useEffect, useRef, useState } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
-import Link from "next/link"
-
-import { ProductService } from "../../lib/services/product.service"
-import { buildProductQuery } from "../../lib/utils/buildProductQuery"
-import { useProductFilterStore } from "../../store/useProductFilterStore"
-import { useCategoryStore } from "../../store/useCategoryStore"
-
-import ProductCard from "../../components/products/ProductCard"
-import ProductGridSkeleton from "../../components/products/ProductGridSkeleton"
-import { Pagination } from "../../components/products/Pagination"
-import FilterSidebar from "../../components/products/filters/FilterSidebar"
-import MobileFilterDrawer from "../../components/products/filters/MobileFilterDrawer"
-import DynamicPromoBanner from "../../components/home/DynamicPromoBanner"
-
-import type { Product } from "../../types/product"
-
-export default function ProductsPage() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const hasHydrated = useRef(false)
-
-  const page     = useProductFilterStore((s) => s.page)
-  const category = useProductFilterStore((s) => s.category)
-  const sort     = useProductFilterStore((s) => s.sort)
-  const priceMin = useProductFilterStore((s) => s.priceMin)
-  const priceMax = useProductFilterStore((s) => s.priceMax)
-  const search   = useProductFilterStore((s) => s.search)
-  const setFilters = useProductFilterStore((s) => s.setFilters)
-
-  const tree = useCategoryStore((s) => s.tree)
-
-  const isSearchMode = !!search
-
-  const [products, setProducts] = useState<Product[]>([])
-  const [totalPages, setTotalPages] = useState(1)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(false)
-
-  useEffect(() => {
-    if (!useCategoryStore.getState().tree.length) {
-      useCategoryStore.getState().fetchTree()
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  const getCategoryName = (slug?: string): string | null => {
-    if (!slug || !tree.length) return null
-    const find = (nodes: any[]): string | null => {
-      for (const node of nodes) {
-        if (node.slug === slug) return node.name
-        if (node.children?.length) {
-          const found = find(node.children)
-          if (found) return found
-        }
-      }
-      return null
-    }
-    return find(tree)
-  }
-
-  useEffect(() => {
-    if (hasHydrated.current) return
-    useProductFilterStore.getState().setFilters({
-      page:     Number(searchParams.get("page") || 1),
-      category: searchParams.get("category") || undefined,
-      sort:     searchParams.get("sort") || undefined,
-      search:   searchParams.get("search") || undefined,
-      priceMin: searchParams.get("priceMin") ? Number(searchParams.get("priceMin")) : undefined,
-      priceMax: searchParams.get("priceMax") ? Number(searchParams.get("priceMax")) : undefined,
-    })
-    hasHydrated.current = true
-  }, [searchParams])
-
-  // Keep `search` in sync with the URL after hydration. Navigating to /products
-  // with no ?search (e.g. the "All Products" link) must exit search mode so the
-  // full, paginated grid shows again — otherwise a stale search hides pagination.
-  useEffect(() => {
-    if (!hasHydrated.current) return
-    const urlSearch = searchParams.get("search") || undefined
-    const storeSearch = useProductFilterStore.getState().search || undefined
-    if (urlSearch !== storeSearch) {
-      setFilters({ search: urlSearch, page: Number(searchParams.get("page") || 1) })
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams])
-
-  useEffect(() => {
-    if (!hasHydrated.current) return
-    const fetchProducts = async () => {
-      try {
-        setLoading(true)
-        setError(false)
-        const res = await ProductService.getProducts({ page, limit: 12, category, sort, priceMin, priceMax, search })
-        setProducts(res.data)
-        setTotalPages(res.meta.totalPages)
-      } catch {
-        setError(true)
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchProducts()
-  }, [page, category, sort, priceMin, priceMax, search])
-
-  useEffect(() => {
-    if (!hasHydrated.current) return
-    const query = buildProductQuery({ page, category, sort, priceMin, priceMax, search })
-    if (query !== searchParams.toString()) {
-      router.replace(`/products?${query}`, { scroll: false })
-    }
-  }, [page, category, sort, priceMin, priceMax, search, router, searchParams])
-
-  if (loading) return <ProductGridSkeleton />
-  if (error) return <p className="text-center text-red-500 dark:text-red-400 py-10">Failed to load products</p>
-
-  const categoryName = getCategoryName(category)
-  const hasNoResults = !products.length
+/**
+ * Server shell for the catalogue listing (plan W1).
+ *
+ * Fetches page 1 of the unfiltered catalogue on the server so the H1 and the
+ * first product grid render into the initial HTML. The client island (below)
+ * layers on filters, search, sorting and pagination after hydration. Metadata
+ * comes from the sibling layout, which also provides the Suspense boundary that
+ * the island's useSearchParams() needs.
+ */
+export default async function ProductsPage() {
+  const { products, totalPages } = await getProductsPage(12)
 
   return (
-    <div className="max-w-7xl bg-surface mx-auto px-3 sm:px-4 py-5 sm:py-8">
-
-      {/* BREADCRUMB */}
-      <div className="text-xs sm:text-sm text-muted flex items-center gap-1.5 sm:gap-2 flex-wrap mb-3 sm:mb-4">
-        <Link href="/" className="hover:text-primary">Home</Link>
-        <span>/</span>
-        <Link href="/products" className="hover:text-primary">Products</Link>
-        {categoryName && (
-          <>
-            <span>/</span>
-            <span className="text-primary font-medium">{categoryName}</span>
-          </>
-        )}
-        {isSearchMode && (
-          <>
-            <span>/</span>
-            <span className="text-primary font-medium">Search</span>
-          </>
-        )}
-      </div>
-
-      <h1 className="text-xl sm:text-3xl font-bold text-primary text-center mb-5 sm:mb-8">
-        {isSearchMode ? `Search results for "${search}"` : categoryName || "All Products"}
-      </h1>
-
-      <div className={`grid gap-4 sm:gap-8 ${isSearchMode ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-[260px_1fr]"}`}>
-        {/* Sidebar (filters + promo) stays mounted even when there are no results,
-            so a too-narrow price filter can always be adjusted/cleared. */}
-        {!isSearchMode && (
-          <div className="space-y-4">
-            <FilterSidebar />
-            <DynamicPromoBanner position="PRODUCT_SIDEBAR" />
-          </div>
-        )}
-
-        <div className="w-full">
-          {!isSearchMode && (
-            <div className="flex justify-between items-center mb-3 sm:mb-4 lg:hidden">
-              <MobileFilterDrawer />
-            </div>
-          )}
-
-          {hasNoResults ? (
-            <div className="text-center py-16 space-y-3 px-4">
-              <p className="text-base sm:text-lg font-medium text-muted">
-                {isSearchMode ? `No results found for "${search}"` : "No products match these filters"}
-              </p>
-              <p className="text-sm text-faint">Try widening your price range or clearing the filters.</p>
-              <button
-                onClick={() => setFilters({ search: "", priceMin: undefined, priceMax: undefined, page: 1 })}
-                className="text-primary font-medium"
-              >
-                Clear filters
-              </button>
-            </div>
-          ) : (
-            <>
-              <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-6">
-                {products.map((product) => (
-                  <ProductCard key={product.id} product={product} />
-                ))}
-              </div>
-
-              {!isSearchMode && <Pagination totalPages={totalPages} />}
-            </>
-          )}
-        </div>
-      </div>
-    </div>
+    <ProductsListingView
+      initialProducts={products}
+      initialTotalPages={totalPages}
+    />
   )
 }

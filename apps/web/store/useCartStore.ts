@@ -2,6 +2,7 @@ import { create } from "zustand"
 import { CartService } from "../lib/services/cart.service"
 import { CouponService } from "../lib/services/coupon.service"
 import { getChargedPrice } from "../lib/pricing"
+import { trackAddToCartItem } from "../lib/analytics/ecommerce"
 import type { CartItem } from "../types/cart"
 import { toast } from "sonner"
 
@@ -212,6 +213,12 @@ revalidateCoupon: async () => {
         subtotal: data.subtotal,
         total: data.subtotal - get().discount,
       })
+
+      // GA4: add_to_cart for the quantity just added (plan W7).
+      const added = data.items.find((i: CartItem) =>
+        matchItem(i, payload.productId, payload.variantId)
+      )
+      if (added) trackAddToCartItem(added, payload.quantity)
 
       get().revalidateCoupon()
     } catch {

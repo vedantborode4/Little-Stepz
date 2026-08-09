@@ -18,7 +18,13 @@ export const createCategorySchema = z.object({
 
   parentId: optionalUuidSchema,
 
-  isActive: z.boolean().optional()
+  isActive: z.boolean().optional(),
+
+  // ── SEO overrides (admin SEO panel; fall back to generated metadata) ──
+  metaTitle: z.string().max(70, "Keep the SEO title under ~70 characters").optional(),
+  metaDescription: z.string().max(160, "Keep the meta description under ~160 characters").optional(),
+  ogImage: z.union([z.string().url("Must be a valid URL").max(2048), z.literal("")]).optional(),
+  noindex: z.boolean().optional(),
 });
 
 

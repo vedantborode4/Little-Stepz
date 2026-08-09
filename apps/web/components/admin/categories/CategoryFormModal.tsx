@@ -7,6 +7,8 @@ import { AdminProductImageService } from "../../../lib/services/admin-product-im
 import { uploadToCloudinary } from "../../../lib/utils/uploadToCloudinary"
 import { toast } from "sonner"
 import { ImagePlus, Loader2, X } from "lucide-react"
+import SeoPanel from "../SeoPanel"
+import { categoryCopy } from "../../../lib/seo/categoryCopy"
 
 interface Category {
   id: string
@@ -36,6 +38,10 @@ export default function CategoryFormModal({
     image: initialData?.image ?? "",
     // Use empty string "" to represent "no parent" in the select widget
     parentId: initialData?.parentId ?? "",
+    metaTitle: initialData?.metaTitle ?? "",
+    metaDescription: initialData?.metaDescription ?? "",
+    ogImage: initialData?.ogImage ?? "",
+    noindex: initialData?.noindex ?? false,
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
@@ -60,13 +66,13 @@ export default function CategoryFormModal({
     }
   }
 
-  const onChange = (key: string, value: string) => {
+  const onChange = (key: string, value: string | boolean) => {
     setErrors((e) => ({ ...e, [key]: "" }))
     setForm((p) => ({
       ...p,
       [key]: value,
       ...(key === "name" && {
-        slug: slugify(value, { lower: true, strict: true }),
+        slug: slugify(value as string, { lower: true, strict: true }),
       }),
     }))
   }
@@ -92,6 +98,10 @@ export default function CategoryFormModal({
           ...(form.image ? { image: form.image } : {}),
           // Only send parentId if one is actually selected
           ...(form.parentId ? { parentId: form.parentId } : {}),
+          ...(form.metaTitle ? { metaTitle: form.metaTitle } : {}),
+          ...(form.metaDescription ? { metaDescription: form.metaDescription } : {}),
+          ...(form.ogImage ? { ogImage: form.ogImage } : {}),
+          noindex: form.noindex,
         })
         toast.success("Category created")
       } else {
@@ -103,6 +113,10 @@ export default function CategoryFormModal({
           image: form.image ?? "",
           // Send null explicitly when "No parent" is selected — this clears the parent on the backend
           parentId: form.parentId === "" ? null : form.parentId,
+          metaTitle: form.metaTitle || undefined,
+          metaDescription: form.metaDescription || undefined,
+          ogImage: form.ogImage || undefined,
+          noindex: form.noindex,
         })
         toast.success("Category updated")
       }
@@ -115,9 +129,11 @@ export default function CategoryFormModal({
     }
   }
 
+  const copy = categoryCopy(form.slug || "", form.name || "")
+
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-surface rounded-2xl w-full max-w-lg shadow-2xl">
+      <div className="bg-surface rounded-2xl w-full max-w-lg shadow-2xl max-h-[92vh] overflow-y-auto">
 
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
@@ -252,6 +268,20 @@ export default function CategoryFormModal({
               </p>
             )}
           </div>
+
+          {/* SEO */}
+          <SeoPanel
+            values={{
+              metaTitle: form.metaTitle,
+              metaDescription: form.metaDescription,
+              ogImage: form.ogImage,
+              noindex: form.noindex,
+            }}
+            onChange={(k, v) => onChange(k, v)}
+            previewPath={`products/category/${form.slug || "category-slug"}`}
+            fallbackTitle={copy.title}
+            fallbackDescription={copy.description}
+          />
 
           {/* Actions */}
           <div className="flex gap-3 pt-2">
