@@ -3,6 +3,7 @@ import { ApiError } from "../../utils/api";
 import { OrderErrorCode } from "../../utils/orderErrors";
 import { notify } from "../notification.services";
 import { orderStatusNotification } from "../../utils/notificationCopy";
+import { syncProductStockFlags } from "../../utils/stock";
 
 
 const statusTransitions: Record<OrderStatus, OrderStatus[]> = {
@@ -136,6 +137,10 @@ export async function updateOrderStatusService(
           });
         }
       }
+
+      // Returning stock can bring a sold-out product back in stock. Without this the
+      // numbers recover but `inStock` stays false, leaving the product unbuyable.
+      await syncProductStockFlags(tx, order.items.map((i) => i.productId));
 
       // Give the coupon use back, otherwise a cancelled order permanently consumes
       // a slot against the coupon's usage limit.

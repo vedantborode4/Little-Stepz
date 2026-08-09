@@ -82,6 +82,17 @@ export const CheckoutService = {
     };
   },
 
+  /**
+   * The customer left the payment sheet without paying.
+   *
+   * Stock is held from order creation onwards, so reporting this puts the units
+   * back on sale immediately instead of leaving them locked until the server-side
+   * TTL expires. Best-effort — the sweeper is the guarantee, this is the fast path.
+   */
+  abandonOrder: async (orderId: string) => {
+    await api.post(`/orders/${orderId}/abandon`);
+  },
+
   /** Step 3 — verify Razorpay payment. */
   verifyPayment: async (payload: {
     razorpayOrderId: string;

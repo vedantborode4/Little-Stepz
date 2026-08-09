@@ -90,6 +90,18 @@ export const CheckoutService = {
   },
 
   /**
+   * The customer closed the payment sheet without paying.
+   *
+   * Stock is held from the moment the order is created, so telling the backend
+   * immediately puts those units back on sale in milliseconds instead of leaving
+   * them locked until the server-side TTL expires. Best-effort by design — the
+   * sweeper is the guarantee, this is just the fast path.
+   */
+  abandonOrder: async (orderId: string) => {
+    await api.post(`/orders/${orderId}/abandon`)
+  },
+
+  /**
    * Step 3 — Verify Razorpay payment after Razorpay handler fires.
    */
   verifyPayment: async (payload: {

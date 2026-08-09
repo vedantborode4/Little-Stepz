@@ -9,6 +9,7 @@ import { assertServiceable, resolveShippingCharge } from '../utils/shipping';
 import { notify } from './notification.services';
 import { orderShortRef } from '../utils/notificationCopy';
 import { syncProductStockFlag, syncProductStockFlags } from '../utils/stock';
+import { releasePendingOrderStock, stalePendingOrderWhere } from '../utils/pendingRelease';
 
 const MAX_TX_RETRIES = 3;
 
@@ -32,72 +33,28 @@ async function runWithRetry<T>(fn: () => Promise<T>): Promise<T> {
 
 const MAX_CART_ITEMS = 100;
 
-const STALE_PENDING_ORDER_MS = Number(process.env.PENDING_ORDER_TTL_MIN ?? 30) * 60 * 1000;
-
 type OrderTx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
 /**
  * Reclaim never-paid PENDING orders that still hold stock for any of `productIds`.
- * Mirrors the pre-order reclaim in preorder.services.ts — lazy and in-transaction,
- * so no scheduler is required. Restores stock and coupon usage.
+ *
+ * This runs opportunistically inside the next order-creation transaction, so a
+ * shopper never reads availability that an abandoned checkout is sitting on. It is
+ * NOT the safety net — being scoped to `productIds`, it can only fire when someone
+ * orders the same product. `stockSweeper.services.ts` is what guarantees release.
  */
 async function reclaimStalePendingOrders(tx: OrderTx, productIds: string[]) {
-  const staleBefore = new Date(Date.now() - STALE_PENDING_ORDER_MS);
-
   const stale = await tx.order.findMany({
     where: {
-      status: 'PENDING',
-      deletedAt: null,
-      createdAt: { lt: staleBefore },
+      ...stalePendingOrderWhere(),
       items: { some: { productId: { in: productIds } } },
-      // Never touch an order whose money already moved. A COD order is flipped to
-      // CONFIRMED in the same request, so it is never PENDING this long anyway.
-      OR: [{ payment: { is: null } }, { payment: { status: { in: ['INITIATED', 'FAILED'] } } }],
     },
-    select: {
-      id: true,
-      couponId: true,
-      items: { select: { productId: true, variantId: true, quantity: true } },
-    },
+    select: { id: true },
     take: 50,
   });
 
   for (const order of stale) {
-    // Re-assert PENDING atomically: a concurrent verify/webhook may have just
-    // confirmed this order. If we lose that race we must not restore its stock.
-    const claimed = await tx.order.updateMany({
-      where: { id: order.id, status: 'PENDING' },
-      data: { status: 'CANCELLED' },
-    });
-    if (claimed.count === 0) continue;
-
-    for (const item of order.items) {
-      if (item.variantId) {
-        await tx.variant.update({
-          where: { id: item.variantId },
-          data: { stock: { increment: item.quantity } },
-        });
-      } else {
-        await tx.product.update({
-          where: { id: item.productId },
-          data: { quantity: { increment: item.quantity } },
-        });
-      }
-    }
-    // Returning stock can bring a sold-out product back in stock.
-    await syncProductStockFlags(tx, order.items.map((i) => i.productId));
-
-    if (order.couponId) {
-      await tx.coupon.updateMany({
-        where: { id: order.couponId, usedCount: { gt: 0 } },
-        data: { usedCount: { decrement: 1 } },
-      });
-    }
-
-    await tx.payment.updateMany({
-      where: { orderId: order.id, status: { in: ['INITIATED', 'PENDING'] } },
-      data: { status: 'FAILED' },
-    });
+    await releasePendingOrderStock(tx, order.id);
   }
 }
 
@@ -470,4 +427,43 @@ export async function cancelOrderService(userId: string, orderId: string, reason
   });
 
   return { orderId, status: 'CANCELLED' };
+}
+
+/**
+ * The customer closed the payment sheet without paying.
+ *
+ * This is the one moment we know for certain that a checkout was abandoned, and it
+ * was previously invisible to the backend — the clients only showed a toast, so the
+ * stock sat held until the TTL expired. Releasing here returns it in milliseconds
+ * instead of minutes.
+ *
+ * Unlike `cancelOrderService` this is deliberately silent: no notification, and no
+ * error when there is nothing to do. It is called fire-and-forget from a UI event,
+ * and a user who dismisses the sheet has not "had an order cancelled" in any sense
+ * worth telling them about. Anything not releasable — already paid, already
+ * confirmed, already gone — is simply left alone.
+ */
+export async function abandonOrderService(userId: string, orderId: string) {
+  const order = await prisma.order.findFirst({
+    where: { id: orderId, userId, deletedAt: null },
+    select: { id: true, status: true, payment: { select: { status: true } } },
+  });
+
+  if (!order) throw new ApiError(404, OrderErrorCode.ORDER_NOT_FOUND);
+
+  // Never release stock out from under money that has moved. The webhook can beat
+  // this call, and a captured payment must keep its order.
+  const paymentBlocks =
+    order.payment != null &&
+    !['INITIATED', 'PENDING', 'FAILED'].includes(order.payment.status);
+
+  if (order.status !== 'PENDING' || paymentBlocks) {
+    return { orderId, released: false, status: order.status };
+  }
+
+  const released = await runWithRetry(async () =>
+    prisma.$transaction((tx) => releasePendingOrderStock(tx, orderId))
+  );
+
+  return { orderId, released, status: released ? 'CANCELLED' : order.status };
 }

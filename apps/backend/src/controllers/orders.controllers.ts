@@ -6,6 +6,7 @@ import {
   getOrderByIdService,
   getOrderInvoiceService,
   cancelOrderService,
+  abandonOrderService,
 } from '../services/orders.services';
 import { orderParamsSchema } from '@repo/zod-schema/index';
 import { OrderErrorCode } from '../utils/orderErrors';
@@ -124,8 +125,17 @@ async function cancelOrder(req: Request, res: Response) {
   return new ApiResponse(200, result, 'Order cancelled').send(res);
 }
 
+async function abandonOrder(req: Request, res: Response) {
+  const userId = req.user?.userId;
+  if (!userId) throw new ApiError(401, 'Unauthorized');
+  const { id } = orderParamsSchema.parse(req.params);
+  const result = await abandonOrderService(userId, id);
+  return new ApiResponse(200, result, 'Checkout abandoned').send(res);
+}
+
 export const createOrderController = asyncHandler(createOrder);
 export const getOrdersController = asyncHandler(getOrders);
 export const getOrderByIdController = asyncHandler(getOrderById);
 export const getOrderInvoiceController = asyncHandler(getOrderInvoice);
 export const cancelOrderController = asyncHandler(cancelOrder);
+export const abandonOrderController = asyncHandler(abandonOrder);

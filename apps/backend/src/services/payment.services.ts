@@ -1,4 +1,4 @@
-import { prisma, PaymentStatus, OrderStatus, PaymentMethod, WebhookStatus, ReturnStatus } from "@repo/db/client";
+import { prisma, Prisma, PaymentStatus, OrderStatus, PaymentMethod, WebhookStatus, ReturnStatus } from "@repo/db/client";
 import { ApiError } from "../utils/api";
 import { PaymentErrorCode } from "../utils/paymentErrors";
 import { createAuditLog, createAuditLogInTx } from "../utils/auditLog";
@@ -27,6 +27,7 @@ import type {
   ResolveReturnBody,
 } from "@repo/zod-schema/index";
 import { Request } from "express";
+import { releasePendingOrderStock } from "../utils/pendingRelease";
 
 const MAX_PAYMENT_ATTEMPTS = 3;
 const TX_RETRIES           = 3;
@@ -223,6 +224,100 @@ export async function createPaymentService(
   });
 }
 
+/**
+ * A capture arrived for an order that is no longer PENDING.
+ *
+ * Stock is decremented at order creation and handed back the moment a never-paid
+ * order is cancelled (utils/pendingRelease.ts), so by the time we get here those
+ * units are back in the catalogue and may already be sold to someone else.
+ * Confirming would oversell, so the money goes straight back instead.
+ *
+ * Deliberately never throws. The payment has already left the customer's account;
+ * recording `razorpayPaymentId` against our Payment row matters more than the
+ * refund call succeeding. A refund we could not place is audit-logged as
+ * REFUND_FAILED and left SUCCESS for an admin to settle by hand — throwing would
+ * roll the transaction back and lose the only link between their money and us.
+ */
+async function refundOrphanedCapture(
+  tx: Prisma.TransactionClient,
+  params: {
+    paymentId:         string;
+    orderId:           string;
+    razorpayPaymentId: string;
+    amount:            number;
+    orderStatus:       string;
+    gatewayResponse:   unknown;
+    source:            "verify" | "webhook";
+  }
+): Promise<{ refunded: boolean }> {
+  let refundId: string | null = null;
+  try {
+    const refund = await initiateRazorpayRefund({
+      paymentId: params.razorpayPaymentId,
+      amount:    params.amount,
+      notes:     { orderId: params.orderId, reason: "Order no longer active" },
+    });
+    refundId = refund.id;
+  } catch {
+    refundId = null;
+  }
+
+  await tx.payment.update({
+    where: { id: params.paymentId },
+    data: refundId
+      ? {
+          status:            "REFUND_INITIATED",
+          razorpayPaymentId: params.razorpayPaymentId,
+          gatewayResponse:   params.gatewayResponse as any,
+          refundId,
+          refundAmount:      new Decimal(params.amount),
+          refundReason:      "Order cancelled before payment completed",
+        }
+      : {
+          status:            "SUCCESS",
+          razorpayPaymentId: params.razorpayPaymentId,
+          gatewayResponse:   params.gatewayResponse as any,
+        },
+  });
+
+  await createAuditLogInTx(tx, {
+    action:   refundId ? "REFUND_INITIATED" : "REFUND_FAILED",
+    entity:   "Payment",
+    entityId: params.orderId,
+    newValue: {
+      reason:      "ORDER_NOT_PENDING",
+      orderStatus: params.orderStatus,
+      source:      params.source,
+      razorpayPaymentId: params.razorpayPaymentId,
+      refundId,
+      amount:      params.amount,
+    },
+  });
+
+  return { refunded: refundId !== null };
+}
+
+/** Tell the customer their late payment was reversed rather than silently kept. */
+function emitOrphanedCaptureNotice(userId: string, orderId: string, refunded: boolean) {
+  void notify({
+    userId,
+    type:  refunded ? "REFUND_PROCESSED" : "PAYMENT_FAILED",
+    title: refunded ? "Payment refunded 💸" : "Payment could not be applied",
+    body:  refunded
+      ? `Order #${orderShortRef(orderId)} had already been cancelled, so your payment has been refunded. It should reach you in 5–7 working days.`
+      : `Order #${orderShortRef(orderId)} had already been cancelled and we couldn't apply your payment. Our team is on it and will refund you shortly.`,
+    data: { screen: "Order", orderId },
+  });
+  if (!refunded) {
+    void notifyAdmins({
+      type:  "ADMIN_CUSTOM",
+      title: "Manual refund needed ⚠️",
+      body:  `A payment landed on cancelled order #${orderShortRef(orderId)} and the automatic refund failed.`,
+      data:  { screen: "AdminOrder", orderId },
+    });
+  }
+}
+
 export async function verifyPaymentService(
   userId: string,
   data: VerifyPaymentBody,
@@ -267,7 +362,7 @@ export async function verifyPaymentService(
       if (!payment) throw new ApiError(404, PaymentErrorCode.PAYMENT_NOT_FOUND);
 
       if (payment.status === "SUCCESS") {
-        return { success: true, orderId: data.orderId, alreadyProcessed: true, total: 0, commission: null };
+        return { success: true, orderId: data.orderId, alreadyProcessed: true, total: 0, commission: null, orphaned: false, refunded: false };
       }
 
       if (payment.razorpayOrderId !== data.razorpayOrderId) {
@@ -303,6 +398,22 @@ export async function verifyPaymentService(
       const order = orders[0];
       if (!order) throw new ApiError(404, PaymentErrorCode.ORDER_NOT_FOUND);
       if (order.userId !== userId) throw new ApiError(403, PaymentErrorCode.UNAUTHORIZED_ACCESS);
+
+      // The order was cancelled underneath us — the sweeper reclaiming an abandoned
+      // checkout, or a user/admin cancel. Its stock is already back in the catalogue,
+      // so confirming now would oversell. Refund instead of resurrecting the order.
+      if (order.status !== "PENDING") {
+        const { refunded } = await refundOrphanedCapture(tx, {
+          paymentId:         payment.id,
+          orderId:           data.orderId,
+          razorpayPaymentId: data.razorpayPaymentId,
+          amount:            Number(payment.amount),
+          orderStatus:       order.status,
+          gatewayResponse:   razorpayPayment,
+          source:            "verify",
+        });
+        return { success: false, orderId: data.orderId, alreadyProcessed: false, total: 0, commission: null, orphaned: true, refunded };
+      }
 
       await tx.payment.update({
         where: { orderId: data.orderId },
@@ -346,9 +457,17 @@ export async function verifyPaymentService(
         req,
       });
 
-      return { success: true, orderId: data.orderId, alreadyProcessed: false, total: Number(order.total), commission };
+      return { success: true, orderId: data.orderId, alreadyProcessed: false, total: Number(order.total), commission, orphaned: false, refunded: false };
     });
   });
+
+  // Surfaced after the transaction commits so the refund record survives the throw.
+  // ORDER_NOT_PENDING is the code both checkout stores already handle by dropping the
+  // spent idempotency key, so the customer is put back on a clean, re-placeable order.
+  if (result.orphaned) {
+    emitOrphanedCaptureNotice(userId, result.orderId, result.refunded);
+    throw new ApiError(409, PaymentErrorCode.ORDER_NOT_PENDING);
+  }
 
   if (!result.alreadyProcessed) {
     emitOrderConfirmed(userId, result.orderId, result.total, { paid: true });
@@ -559,6 +678,37 @@ async function handlePaymentCaptured(payload: any): Promise<void> {
         throw new ApiError(400, PaymentErrorCode.AMOUNT_MISMATCH);
       }
 
+      // Lock the order and re-check it is still PENDING before confirming. The
+      // sweeper may have reclaimed it as an abandoned checkout and already returned
+      // its stock; resurrecting it here would oversell. Same guard as verify.
+      const lockedOrders = await tx.$queryRaw<Array<{ status: string; userId: string }>>`
+        SELECT status, "userId"
+        FROM "Order"
+        WHERE id = ${payment.orderId}
+        FOR UPDATE
+      `;
+      const lockedOrder = lockedOrders[0];
+
+      if (lockedOrder && lockedOrder.status !== "PENDING") {
+        const { refunded } = await refundOrphanedCapture(tx, {
+          paymentId:         payment.id,
+          orderId:           payment.orderId,
+          razorpayPaymentId,
+          amount:            Number(payment.amount),
+          orderStatus:       lockedOrder.status,
+          gatewayResponse:   entity,
+          source:            "webhook",
+        });
+        return {
+          orphaned: true as const,
+          refunded,
+          userId:   lockedOrder.userId,
+          orderId:  payment.orderId,
+          total:    0,
+          commission: null,
+        };
+      }
+
       await tx.payment.update({
         where: { id: payment.id },
         data: {
@@ -610,12 +760,14 @@ async function handlePaymentCaptured(payload: any): Promise<void> {
       });
 
       return order
-        ? { userId: order.userId, orderId: payment.orderId, total: Number(order.total), commission }
+        ? { orphaned: false as const, refunded: false, userId: order.userId, orderId: payment.orderId, total: Number(order.total), commission }
         : null;
     });
   });
 
-  if (confirmed) {
+  if (confirmed?.orphaned) {
+    emitOrphanedCaptureNotice(confirmed.userId, confirmed.orderId, confirmed.refunded);
+  } else if (confirmed) {
     emitOrderConfirmed(confirmed.userId, confirmed.orderId, confirmed.total, { paid: true });
     emitCommissionEarned(confirmed.commission, confirmed.orderId);
   }
@@ -649,6 +801,11 @@ async function handlePaymentFailed(payload: any): Promise<void> {
       },
     });
 
+    // An explicitly declined payment is the clearest possible signal that this order
+    // will never be paid — there is nothing to wait for. Hand its stock back now
+    // instead of letting it sit until the sweeper's TTL expires.
+    const released = await releasePendingOrderStock(tx, payment.orderId);
+
     await createAuditLogInTx(tx, {
       action:   "PAYMENT_FAILED",
       entity:   "Payment",
@@ -656,12 +813,13 @@ async function handlePaymentFailed(payload: any): Promise<void> {
       newValue: {
         status:       "FAILED",
         source:       "webhook",
+        orderCancelled: released,
         errorCode:    entity?.error_code,
         errorDesc:    entity?.error_description,
       },
     });
 
-    return { userId: payment.order.userId, orderId: payment.orderId };
+    return { userId: payment.order.userId, orderId: payment.orderId, released };
   });
 
   if (failed) {
@@ -669,7 +827,9 @@ async function handlePaymentFailed(payload: any): Promise<void> {
       userId: failed.userId,
       type: "PAYMENT_FAILED",
       title: "Payment failed",
-      body: `We couldn't process the payment for order #${orderShortRef(failed.orderId)}. Please try again.`,
+      body: failed.released
+        ? `We couldn't process the payment for order #${orderShortRef(failed.orderId)}, so it has been cancelled. Your items are still in your cart — please try again.`
+        : `We couldn't process the payment for order #${orderShortRef(failed.orderId)}. Please try again.`,
       data: { screen: "Order", orderId: failed.orderId },
     });
   }

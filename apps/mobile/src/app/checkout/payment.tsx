@@ -7,6 +7,7 @@ import { useCallback } from "react";
 import { ScreenContainer } from "../../components/layout/ScreenContainer";
 import { Header } from "../../components/layout/Header";
 import { useAuthStore } from "../../store/auth.store";
+import { useCheckoutStore } from "../../store/checkout.store";
 import { toast } from "../../store/toast.store";
 import { RAZORPAY_CHECKOUT_JS, RAZORPAY_ORIGIN } from "../../lib/env";
 import { scriptJson } from "../../lib/utils/scriptJson";
@@ -21,19 +22,27 @@ export default function Payment() {
     keyId: string;
   }>();
   const user = useAuthStore((s) => s.user);
+  const abandonOrder = useCheckoutStore((s) => s.abandonOrder);
   const handled = useRef(false);
   const opened = useRef(false);
 
-  // Android hardware back during a live payment. Backing out silently abandons a
-  // created order, so confirm first — and swallow the event (return true) so the
-  // navigation only happens if the user actually chooses to leave.
+  // Every path out of this screen that isn't a completed payment leaves an order
+  // holding stock. Report it so those units go back on sale immediately instead of
+  // waiting out the server-side TTL.
+  const release = useCallback(() => {
+    abandonOrder(params.orderId);
+  }, [abandonOrder, params.orderId]);
+
+  // Android hardware back during a live payment. Backing out abandons a created
+  // order, so confirm first — and swallow the event (return true) so the navigation
+  // only happens if the user actually chooses to leave.
   useFocusEffect(
     useCallback(() => {
       const sub = BackHandler.addEventListener("hardwareBackPress", () => {
         if (handled.current) return false;
         Alert.alert(
           "Cancel payment?",
-          "Your order is waiting for payment. You can pay for it later from My Orders.",
+          "This order will be cancelled, but your items stay in your cart so you can check out again.",
           [
             { text: "Keep paying", style: "cancel" },
             {
@@ -41,6 +50,7 @@ export default function Payment() {
               style: "destructive",
               onPress: () => {
                 handled.current = true;
+                release();
                 toast.info("Payment cancelled");
                 router.back();
               },
@@ -50,7 +60,7 @@ export default function Payment() {
         return true;
       });
       return () => sub.remove();
-    }, [])
+    }, [release])
   );
 
   const amountPaise = Number(params.amount) * 100;
@@ -67,6 +77,11 @@ export default function Payment() {
     name: "Little Stepz",
     description: "Order Payment",
     prefill: { name: user?.name ?? "", email: user?.email ?? "" },
+    // One order, one attempt. Razorpay's in-modal retry reuses the same razorpay
+    // order, so a second attempt would land on an order the payment.failed webhook
+    // has already cancelled and released stock for — and get auto-refunded.
+    // Retrying instead restarts checkout on a fresh order, with the cart intact.
+    retry: { enabled: false },
     theme: { color: colors.primary },
   };
 
@@ -100,6 +115,7 @@ export default function Payment() {
   const onLoadFailure = () => {
     if (handled.current || opened.current) return;
     handled.current = true;
+    release();
     toast.error("Couldn't reach the payment page. Please check your connection.");
     router.back();
   };
@@ -132,14 +148,17 @@ export default function Payment() {
       });
     } else if (msg.type === "failed") {
       handled.current = true;
+      release();
       toast.error(msg.error?.description || "Payment failed");
       router.replace({ pathname: "/checkout/success", params: { orderId: params.orderId, state: "failed" } });
     } else if (msg.type === "dismiss") {
       handled.current = true;
+      release();
       toast.info("Payment cancelled");
       router.back();
     } else if (msg.type === "error") {
       handled.current = true;
+      release();
       toast.error("Could not start payment");
       router.back();
     }

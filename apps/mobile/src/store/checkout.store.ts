@@ -29,6 +29,7 @@ interface CheckoutState {
   setStep: (step: number) => void;
   setPaymentMethod: (m: "COD" | "ONLINE") => void;
   placeOrder: (addressId: string) => Promise<PlaceOrderResult>;
+  abandonOrder: (orderId: string) => void;
   resetSession: () => void;
 }
 
@@ -45,6 +46,22 @@ export const useCheckoutStore = create<CheckoutState>((set, get) => ({
   setPaymentMethod: (m) => set({ paymentMethod: m }),
   resetSession: () =>
     set({ _idempotencyKey: null, _keySignature: null, placingOrder: false, step: 0 }),
+
+  /**
+   * The customer left the payment sheet without paying.
+   *
+   * Releases the stock the order is holding — it was decremented at order creation,
+   * so until this lands nobody else can buy those units — and retires the
+   * idempotency key that points at it, since that order is now cancelled and
+   * replaying it would only earn an ORDER_NOT_PENDING.
+   *
+   * Fire-and-forget: the server-side sweeper reclaims the order regardless, so a
+   * failed call costs a few minutes of held stock, never correctness.
+   */
+  abandonOrder: (orderId) => {
+    void CheckoutService.abandonOrder(orderId).catch(() => {});
+    set({ _idempotencyKey: null, _keySignature: null });
+  },
 
   placeOrder: async (addressId) => {
     if (get().placingOrder) return null;

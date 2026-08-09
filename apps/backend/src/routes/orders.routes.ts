@@ -6,6 +6,7 @@ import {
   getOrderByIdController,
   getOrderInvoiceController,
   cancelOrderController,
+  abandonOrderController,
 } from '../controllers/orders.controllers';
 import { orderRateLimiter } from '../middlewares/orderRateLimiter.middleware';
 import {
@@ -25,3 +26,4 @@ ordersRouter.get('/:id/invoice', orderRateLimiter, getOrderInvoiceController);
 ordersRouter.post('/:id/return', requestReturnController);
 ordersRouter.get('/:id/track',   trackOrderController);
 ordersRouter.post('/:id/cancel', orderRateLimiter, cancelOrderController);
+ordersRouter.post('/:id/abandon', orderRateLimiter, abandonOrderController);

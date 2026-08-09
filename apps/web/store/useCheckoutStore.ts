@@ -23,6 +23,17 @@ function generateKey(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 }
 
+/**
+ * Hand the order's stock back the moment the customer walks away from payment.
+ *
+ * Deliberately fire-and-forget: the server-side sweeper reclaims this order anyway,
+ * so a failed call costs a few minutes of held stock, not correctness. Nothing here
+ * is allowed to delay the toast or block the UI.
+ */
+function releaseAbandonedOrder(orderId: string): void {
+  void CheckoutService.abandonOrder(orderId).catch(() => {})
+}
+
 export const useCheckoutStore = create<CheckoutState>((set, get) => ({
   placingOrder: false,
   paymentMethod: "COD",
@@ -120,19 +131,44 @@ export const useCheckoutStore = create<CheckoutState>((set, get) => ({
               set({ placingOrder: false, _idempotencyKey: null, _keySignature: null })
               resolve(orderId)
             } catch (err: any) {
-              toast.error(friendlyError(err, "Payment verification failed"))
-              set({ placingOrder: false })
+              // Verify rejects with ORDER_NOT_PENDING when the payment landed on an
+              // order that had already been cancelled and its stock released. The
+              // backend refunds it, so say so — the generic mapping for that code
+              // ("this order can no longer be changed") is alarming right after the
+              // customer has watched money leave their account.
+              const orphaned = err?.response?.data?.message === "ORDER_NOT_PENDING"
+              toast.error(
+                orphaned
+                  ? "That checkout had expired, so your payment is being refunded. Please try again."
+                  : friendlyError(err, "Payment verification failed")
+              )
+              set(
+                orphaned
+                  ? { placingOrder: false, _idempotencyKey: null, _keySignature: null }
+                  : { placingOrder: false }
+              )
               resolve(null)
             }
           },
 
           modal: {
             ondismiss: () => {
+              releaseAbandonedOrder(orderId)
               toast.error("Payment cancelled")
-              set({ placingOrder: false })
+              // The order is cancelled now, so the key pointing at it is spent —
+              // clearing it makes the next attempt mint a fresh order rather than
+              // replaying a dead one into an ORDER_NOT_PENDING error.
+              set({ placingOrder: false, _idempotencyKey: null, _keySignature: null })
               resolve(null)
             },
           },
+
+          // One order, one attempt. Razorpay's in-modal retry reuses the same
+          // razorpay order, so a second attempt would land on an order the
+          // payment.failed webhook has already cancelled and released stock for —
+          // and get auto-refunded. Retrying instead restarts checkout on a fresh
+          // order; the cart is untouched, so that's one extra tap.
+          retry: { enabled: false },
 
           theme: { color: "#FF383C" },
         }
@@ -140,10 +176,11 @@ export const useCheckoutStore = create<CheckoutState>((set, get) => ({
         const rzp = new (window as any).Razorpay(options)
 
         rzp.on("payment.failed", (response: any) => {
+          releaseAbandonedOrder(orderId)
           toast.error(
             response?.error?.description || "Payment failed. Please try again."
           )
-          set({ placingOrder: false })
+          set({ placingOrder: false, _idempotencyKey: null, _keySignature: null })
           resolve(null)
         })
 

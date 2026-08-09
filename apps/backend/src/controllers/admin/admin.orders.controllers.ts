@@ -4,6 +4,7 @@ import {
   getAdminOrdersService,
   updateOrderStatusService,
 } from "../../services/admin/admin.orders.services";
+import { runStockSweep } from "../../services/stockSweeper.services";
 import {
   updateOrderStatusBodySchema,
   orderParamsSchema,
@@ -72,5 +73,11 @@ async function updateOrderStatus(req: Request, res: Response) {
   return new ApiResponse(200, updatedOrder, "Order status updated").send(res);
 }
 
+async function reclaimStock(_req: Request, res: Response) {
+  const result = await runStockSweep();
+  return new ApiResponse(200, result, "Stale holds reclaimed").send(res);
+}
+
 export const getAdminOrdersController = asyncHandler(getAdminOrders);
 export const updateOrderStatusController = asyncHandler(updateOrderStatus);
+export const reclaimStockController = asyncHandler(reclaimStock);

@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { prisma } from "@repo/db/client";
 import { ApiError } from "../utils/api";
 import { syncProductStockFlag } from "../utils/stock";
+import { PENDING_ORDER_TTL_MS } from "../utils/pendingRelease";
 import { PreOrderErrorCode } from "../utils/preorderErrors";
 import { resolveChargedPrice } from "../utils/pricing";
 import {
@@ -118,8 +119,10 @@ export async function createPreOrderService(
       if (booking.gte(total)) throw new ApiError(400, PreOrderErrorCode.BOOKING_EXCEEDS_TOTAL);
       const balance = Decimal.max(total.sub(booking), new Decimal(0)).toDecimalPlaces(2, Decimal.ROUND_HALF_EVEN);
 
-      // Reclaim abandoned (never-paid) bookings older than 30m so they don't hold cap slots.
-      const staleBefore = new Date(Date.now() - 30 * 60 * 1000);
+      // Reclaim abandoned (never-paid) bookings so they don't hold cap slots. Same
+      // window as orders; stockSweeper.services.ts sweeps these on a timer too, so
+      // this is opportunistic rather than the only release path.
+      const staleBefore = new Date(Date.now() - PENDING_ORDER_TTL_MS);
       const stale = await tx.preOrder.findMany({
         where: { productId: product.id, status: "PENDING_BOOKING", createdAt: { lt: staleBefore } },
         select: { id: true, quantity: true },
