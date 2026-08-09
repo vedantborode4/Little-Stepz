@@ -30,15 +30,45 @@ export async function syncProductStockFlag(
   });
   if (!product) return;
 
-  const inStock =
-    product.variants.length > 0
-      ? product.variants.some((v) => v.stock > 0)
-      : product.quantity > 0;
+  const inStock = deriveInStockFrom(product);
 
   // Only write when it actually changed — these run inside hot order transactions.
   if (product.inStock === inStock) return;
 
   await tx.product.update({ where: { id: productId }, data: { inStock } });
+}
+
+/** The availability rule itself, in one place. */
+function deriveInStockFrom(product: {
+  quantity: number;
+  variants: { stock: number }[];
+}): boolean {
+  return product.variants.length > 0
+    ? product.variants.some((v) => v.stock > 0)
+    : product.quantity > 0;
+}
+
+/**
+ * Compute availability without writing it.
+ *
+ * Previously lived in a second module (`utils/inventory.ts`) with its own
+ * count-based implementation of the same rule, used by the admin services while the
+ * order services used this one. Two implementations of "is this in stock" is exactly
+ * how the admin cancel path ended up leaving `inStock` false on a restocked product.
+ */
+export async function deriveInStock(
+  tx: Prisma.TransactionClient,
+  productId: string
+): Promise<boolean> {
+  const product = await tx.product.findUnique({
+    where: { id: productId },
+    select: {
+      quantity: true,
+      variants: { where: { deletedAt: null }, select: { stock: true } },
+    },
+  });
+  if (!product) return false;
+  return deriveInStockFrom(product);
 }
 
 /** Same, for a set of products touched by one transaction (deduped). */

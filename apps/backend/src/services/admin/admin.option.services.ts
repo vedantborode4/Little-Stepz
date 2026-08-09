@@ -1,6 +1,6 @@
 import { prisma } from "@repo/db/client";
 import { ApiError } from "../../utils/api";
-import { syncProductInStock } from "../../utils/inventory";
+import { syncProductStockFlag } from "../../utils/stock";
 
 type MatrixInput = {
   options: { name: string; values: { value: string; swatchHex?: string | null }[] }[];
@@ -103,7 +103,7 @@ export async function generateVariantMatrixService(productId: string, data: Matr
       created++;
     }
 
-    await syncProductInStock(tx, productId);
+    await syncProductStockFlag(tx, productId);
     return { created, skipped, total: combos.length };
   });
 }

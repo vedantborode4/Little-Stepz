@@ -83,11 +83,19 @@ async function razorpayWebhook(req: Request, res: Response) {
     return res.status(400).json({ success: false, message: "Invalid JSON payload" });
   }
 
-  res.status(200).json({ success: true, message: "Webhook received" });
-
-  handleRazorpayWebhookService(rawBody, signature, payload).catch((err) => {
+  // Processed BEFORE responding. Replying 200 first and handling in the background
+  // meant a failure was logged and lost: Razorpay only retries a non-2xx, so a
+  // payment that failed to apply was never retried and the order stayed unpaid.
+  // Handling is idempotent (WebhookEvent unique on provider+eventId, and every
+  // handler re-asserts state), so a retry is always safe.
+  try {
+    const result = await handleRazorpayWebhookService(rawBody, signature, payload);
+    return res.status(200).json({ success: true, message: result.message });
+  } catch (err: any) {
     console.error("[Webhook] Razorpay webhook processing failed:", err?.message);
-  });
+    // Non-2xx so Razorpay retries. The event is left FAILED and reclaimed on retry.
+    return res.status(500).json({ success: false, message: "Webhook processing failed" });
+  }
 }
 
 // Constant-time comparison so a wrong-but-same-length token can't be probed by timing.

@@ -1,7 +1,7 @@
 import { prisma } from "@repo/db/client";
 import { ApiError } from "../../utils/api";
 import { notifyRestockedPreOrders } from "../preorder.services";
-import { deriveInStock } from "../../utils/inventory";
+import { deriveInStock } from "../../utils/stock";
 
 const baseProductSelect = {
   id: true,
@@ -191,28 +191,34 @@ export async function updateProductService(
     }
   }
 
-  const activeVariantsCount = await prisma.variant.count({
-    where: {
-      productId: id,
-      deletedAt: null,
-    },
-  });
+  // Read-derive-write in ONE transaction. These were three separate queries, so a
+  // concurrent order (or variant edit) landing between the derivation and the write
+  // was overwritten by an already-stale `inStock` — leaving a sold-out product
+  // advertised as available, or a restocked one unbuyable.
+  const updated = await prisma.$transaction(async (tx) => {
+    const activeVariantsCount = await tx.variant.count({
+      where: {
+        productId: id,
+        deletedAt: null,
+      },
+    });
 
-  const updateData: typeof data & { inStock?: boolean } = { ...data };
+    const updateData: typeof data & { inStock?: boolean } = { ...data };
 
-  if (activeVariantsCount > 0) {
-    // Variant product: availability is derived from the variants, never the
-    // form's inStock/quantity input — otherwise the flag drifts out of sync.
-    // Uses the same shared derivation as the variant services.
-    updateData.inStock = await deriveInStock(prisma, id);
-  } else if (data.quantity !== undefined) {
-    updateData.inStock = data.quantity > 0;
-  }
+    if (activeVariantsCount > 0) {
+      // Variant product: availability is derived from the variants, never the
+      // form's inStock/quantity input — otherwise the flag drifts out of sync.
+      // Uses the same shared derivation as the variant services.
+      updateData.inStock = await deriveInStock(tx, id);
+    } else if (data.quantity !== undefined) {
+      updateData.inStock = data.quantity > 0;
+    }
 
-  const updated = await prisma.product.update({
-    where: { id },
-    data: updateData,
-    select: baseProductSelect,
+    return tx.product.update({
+      where: { id },
+      data: updateData,
+      select: baseProductSelect,
+    });
   });
 
   // Restock event: product went from unavailable -> available. Notify product-level pre-orders.

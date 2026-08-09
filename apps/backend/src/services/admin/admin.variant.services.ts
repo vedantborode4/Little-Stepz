@@ -1,7 +1,7 @@
 import { prisma } from "@repo/db/client";
 import { ApiError } from "../../utils/api";
 import { notifyRestockedPreOrders } from "../preorder.services";
-import { syncProductInStock } from "../../utils/inventory";
+import { syncProductStockFlag } from "../../utils/stock";
 
 
 type CreateVariantInput = {
@@ -83,7 +83,7 @@ export async function createVariantService(data: CreateVariantInput) {
       },
     });
 
-    await syncProductInStock(tx, productId);
+    await syncProductStockFlag(tx, productId);
 
     return variant;
   });
@@ -199,7 +199,7 @@ export async function updateVariantService(
       },
     });
 
-    await syncProductInStock(tx, updated.productId);
+    await syncProductStockFlag(tx, updated.productId);
 
     const newStock = stock !== undefined ? stock : variant.stock;
     const restocked = variant.stock <= 0 && newStock > 0;
@@ -235,6 +235,6 @@ export async function deleteVariantService(variantId: string) {
 
     // Re-derive availability via the shared helper: active variants remaining →
     // from their stock; last variant removed → falls back to product.quantity.
-    await syncProductInStock(tx, variant.productId);
+    await syncProductStockFlag(tx, variant.productId);
   });
 }

@@ -13,7 +13,6 @@ import { checkoutRouter } from "./checkout.routes";
 import { ordersRouter } from "./orders.routes";
 import { preOrderRouter } from "./preorder.routes";
 import { paymentRouter }  from "./payment.routes";
-import { webhookRouter }  from "./webhook.routes";
 import { affiliateRouter }  from "./affiliate.routes";
 import { handleReferralClickController } from "../controllers/affiliate.controllers";
 import { referralClickRateLimiter } from "../middlewares/affiliateRateLimiter.middleware";
@@ -51,7 +50,10 @@ appRouter.use("/pre-orders", preOrderRouter)
 
 appRouter.use("/payments",   paymentRouter);
 
-appRouter.use("/webhooks",   webhookRouter);
+// NOTE: no "/webhooks" mount here. `index.ts` mounts webhookRouter BEFORE the global
+// express.json(), because Razorpay's signature is computed over the raw body. Mounting
+// it again here put a second, JSON-parsed copy of the same paths behind the body
+// parser — and any request that reached it would fail signature verification.
 
 appRouter.use("/affiliate",  affiliateRouter);
 

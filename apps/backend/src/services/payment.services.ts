@@ -97,7 +97,12 @@ async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
         err?.code === "P2034" ||
         err?.message?.includes("serialization failure") ||
         err?.message?.includes("could not serialize") ||
-        err?.message?.includes("Transaction failed");
+        err?.message?.includes("Transaction failed") ||
+        // createPaymentService raises this when another request is mid-flight with
+        // the gateway. Backing off and retrying lets the winner finish, after which
+        // this attempt reuses its Razorpay order — which is what a double-clicked
+        // "Proceed to Pay" used to get from blocking on the row lock.
+        err?.message?.includes(PaymentErrorCode.CONCURRENCY_CONFLICT);
 
       if (isSerializationErr && attempts < TX_RETRIES - 1) {
         attempts++;
@@ -111,14 +116,28 @@ async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
   throw new ApiError(500, PaymentErrorCode.CONCURRENCY_CONFLICT);
 }
 
+/**
+ * Create (or reuse) the Razorpay order for a pending order.
+ *
+ * Split into claim → gateway call → record, so the external HTTP call does not run
+ * inside a transaction holding `FOR UPDATE` locks on Order and Payment. Under load
+ * that shape converts Razorpay latency straight into connection-pool exhaustion.
+ *
+ * The single-Razorpay-order guarantee is preserved by the claim: the first
+ * transaction writes an INITIATED Payment row with `razorpayOrderId: null`, which is
+ * the marker for "a gateway call is in flight". A concurrent request that sees it
+ * backs off as a conflict (and `withRetry` retries it) rather than opening a second
+ * checkout for the same order. If the gateway call fails the claim is released to
+ * FAILED, so the customer can try again.
+ */
 export async function createPaymentService(
   userId: string,
   data: CreatePaymentBody,
   req?: Request
 ) {
-  return withRetry(async () => {
+  // ── 1. Claim, under lock. No external calls inside this transaction. ──────────
+  const claim = await withRetry(async () => {
     return prisma.$transaction(async (tx) => {
-
       const orders = await tx.$queryRaw<Array<{
         id: string; userId: string; total: unknown;
         status: string; paymentMethod: string;
@@ -143,6 +162,16 @@ export async function createPaymentService(
       // through with it, and is now paying online; that must work, because the order
       // is replayed under the same idempotency key. The method is corrected below.
 
+      const totalAmount = Number(order.total);
+
+      // Razorpay rejects anything below ₹1. A coupon covering the whole subtotal
+      // with free shipping produces a ₹0 total, which would leave the order stuck:
+      // unpayable online and never confirmable. Not reachable with today's coupon
+      // data, but the failure mode is a dead order, so guard it explicitly.
+      if (totalAmount < 1) {
+        throw new ApiError(400, PaymentErrorCode.AMOUNT_MISMATCH);
+      }
+
       const existingPayment = await tx.payment.findUnique({
         where: { orderId: data.orderId },
       });
@@ -155,52 +184,20 @@ export async function createPaymentService(
           throw new ApiError(429, PaymentErrorCode.PAYMENT_MAX_ATTEMPTS);
         }
         if (existingPayment.razorpayOrderId && existingPayment.status === "INITIATED") {
-          return {
-            razorpayOrderId: existingPayment.razorpayOrderId,
-            orderId:         data.orderId,
-            amount:          Number(order.total),
-            currency:        "INR",
-            keyId:           process.env.RAZORPAY_KEY_ID,
-          };
+          // Reopening the sheet reuses the same Razorpay order — no gateway call.
+          return { reuse: true as const, razorpayOrderId: existingPayment.razorpayOrderId, totalAmount };
         }
+        if (existingPayment.status === "INITIATED" && !existingPayment.razorpayOrderId) {
+          // Another request is between the claim and the gateway response.
+          throw new ApiError(500, PaymentErrorCode.CONCURRENCY_CONFLICT);
+        }
+
         await tx.payment.update({
           where: { orderId: data.orderId },
           data: {
-            attempts: { increment: 1 },
-            status:   "INITIATED",
-          },
-        });
-      }
-
-      const totalAmount = Number(order.total);
-
-      // Razorpay rejects anything below ₹1. A coupon covering the whole subtotal
-      // with free shipping produces a ₹0 total, which would leave the order stuck:
-      // unpayable online and never confirmable. Not reachable with today's coupon
-      // data, but the failure mode is a dead order, so guard it explicitly.
-      if (totalAmount < 1) {
-        throw new ApiError(400, PaymentErrorCode.AMOUNT_MISMATCH);
-      }
-
-      let razorpayOrder;
-      try {
-        razorpayOrder = await createRazorpayOrder({
-          amount:   totalAmount,
-          currency: "INR",
-          receipt:  data.orderId.substring(0, 40),
-          notes:    { orderId: data.orderId, userId },
-        });
-      } catch (err: any) {
-        throw new ApiError(502, PaymentErrorCode.RAZORPAY_ORDER_CREATE_FAILED);
-      }
-
-      if (existingPayment) {
-        await tx.payment.update({
-          where: { orderId: data.orderId },
-          data: {
-            razorpayOrderId: razorpayOrder.id,
+            attempts:        { increment: 1 },
             status:          "INITIATED",
-            gatewayResponse: razorpayOrder as any,
+            razorpayOrderId: null,
           },
         });
       } else {
@@ -209,12 +206,10 @@ export async function createPaymentService(
             orderId:         data.orderId,
             method:          "ONLINE",
             gateway:         "razorpay",
-            razorpayOrderId: razorpayOrder.id,
             amount:          new Decimal(totalAmount),
             currency:        "INR",
             status:          "INITIATED",
             attempts:        1,
-            gatewayResponse: razorpayOrder as any,
           },
         });
       }
@@ -228,24 +223,69 @@ export async function createPaymentService(
         });
       }
 
-      await createAuditLogInTx(tx, {
-        userId,
-        action:   "PAYMENT_INITIATED",
-        entity:   "Payment",
-        entityId: data.orderId,
-        newValue: { razorpayOrderId: razorpayOrder.id, amount: totalAmount },
-        req,
-      });
-
-      return {
-        razorpayOrderId: razorpayOrder.id,
-        orderId:         data.orderId,
-        amount:          totalAmount,
-        currency:        "INR",
-        keyId:           process.env.RAZORPAY_KEY_ID,
-      };
+      return { reuse: false as const, totalAmount };
     });
   });
+
+  if (claim.reuse) {
+    return {
+      razorpayOrderId: claim.razorpayOrderId,
+      orderId:         data.orderId,
+      amount:          claim.totalAmount,
+      currency:        "INR",
+      keyId:           process.env.RAZORPAY_KEY_ID,
+    };
+  }
+
+  // ── 2. Gateway call, outside any transaction. ────────────────────────────────
+  let razorpayOrder;
+  try {
+    razorpayOrder = await createRazorpayOrder({
+      amount:   claim.totalAmount,
+      currency: "INR",
+      receipt:  data.orderId.substring(0, 40),
+      notes:    { orderId: data.orderId, userId },
+    });
+  } catch {
+    // Release the claim, or the null razorpayOrderId would look like a permanently
+    // in-flight request and every retry would conflict.
+    await prisma.payment
+      .updateMany({
+        where: { orderId: data.orderId, status: "INITIATED", razorpayOrderId: null },
+        data:  { status: "FAILED" },
+      })
+      .catch(() => {});
+    throw new ApiError(502, PaymentErrorCode.RAZORPAY_ORDER_CREATE_FAILED);
+  }
+
+  // ── 3. Record the result. ────────────────────────────────────────────────────
+  await prisma.$transaction(async (tx) => {
+    await tx.payment.update({
+      where: { orderId: data.orderId },
+      data: {
+        razorpayOrderId: razorpayOrder.id,
+        status:          "INITIATED",
+        gatewayResponse: razorpayOrder as any,
+      },
+    });
+
+    await createAuditLogInTx(tx, {
+      userId,
+      action:   "PAYMENT_INITIATED",
+      entity:   "Payment",
+      entityId: data.orderId,
+      newValue: { razorpayOrderId: razorpayOrder.id, amount: claim.totalAmount },
+      req,
+    });
+  });
+
+  return {
+    razorpayOrderId: razorpayOrder.id,
+    orderId:         data.orderId,
+    amount:          claim.totalAmount,
+    currency:        "INR",
+    keyId:           process.env.RAZORPAY_KEY_ID,
+  };
 }
 
 /**
@@ -370,6 +410,18 @@ export async function verifyPaymentService(
     throw new ApiError(400, PaymentErrorCode.INVALID_SIGNATURE);
   }
 
+  // Fetched BEFORE the transaction. It is an external HTTP call that depends on
+  // nothing in the database, and running it inside meant a slow Razorpay held a
+  // row-locked Payment/Order transaction open — the shape that turns gateway
+  // latency into connection-pool exhaustion. Every check that uses the result
+  // still happens inside the transaction, under the same locks as before.
+  let razorpayPayment;
+  try {
+    razorpayPayment = await fetchRazorpayPayment(data.razorpayPaymentId);
+  } catch {
+    throw new ApiError(502, "Failed to fetch payment from Razorpay");
+  }
+
   const result = await withRetry(async () => {
     return prisma.$transaction(async (tx) => {
       const payments = await tx.$queryRaw<Array<{
@@ -391,13 +443,6 @@ export async function verifyPaymentService(
 
       if (payment.razorpayOrderId !== data.razorpayOrderId) {
         throw new ApiError(400, PaymentErrorCode.RAZORPAY_ORDER_ID_MISMATCH);
-      }
-
-      let razorpayPayment;
-      try {
-        razorpayPayment = await fetchRazorpayPayment(data.razorpayPaymentId);
-      } catch {
-        throw new ApiError(502, "Failed to fetch payment from Razorpay");
       }
 
       if (razorpayPayment.order_id !== data.razorpayOrderId) {
@@ -625,12 +670,30 @@ export async function handleRazorpayWebhookService(
       const existing = await prisma.webhookEvent.findUnique({
         where: { provider_eventId: { provider, eventId } },
       });
-      if (existing?.status === "PROCESSED") {
+      if (existing?.status === "PROCESSED" || existing?.status === "SKIPPED") {
         return { processed: false, message: "Duplicate webhook — already processed" };
       }
-      return { processed: false, message: "Duplicate webhook — in progress" };
+
+      // A previous attempt failed. Now that the controller returns a non-2xx on
+      // failure, Razorpay retries — and that retry is the only chance this event
+      // gets. Without reclaiming the FAILED row it would be dismissed as a duplicate
+      // and the payment would never be applied. Claimed atomically so two retries
+      // cannot both reprocess it.
+      if (existing?.status === "FAILED") {
+        const claimed = await prisma.webhookEvent.updateMany({
+          where: { id: existing.id, status: "FAILED" },
+          data:  { status: "PROCESSING", error: null },
+        });
+        if (claimed.count === 0) {
+          return { processed: false, message: "Duplicate webhook — in progress" };
+        }
+        webhookEvent = existing;
+      } else {
+        return { processed: false, message: "Duplicate webhook — in progress" };
+      }
+    } else {
+      throw err;
     }
-    throw err;
   }
 
   try {
@@ -1020,8 +1083,11 @@ export async function resolveReturnService(
   data:        ResolveReturnBody,
   req?:        Request
 ) {
-  return withRetry(async () => {
+  const result = await withRetry(async () => {
     return prisma.$transaction(async (tx) => {
+      // Filled inside the transaction, actioned after it commits. Returned rather
+      // than captured in a closure so a retried attempt cannot leak its intent.
+      let pendingRefund: { paymentId: string; amount: number } | null = null;
       const returns = await tx.$queryRaw<Array<{
         id: string; orderId: string; status: string; userId: string;
       }>>`
@@ -1086,25 +1152,15 @@ export async function resolveReturnService(
             },
           });
         } else if (payment.method === "ONLINE" && payment.razorpayPaymentId) {
-
+          // The gateway call is deliberately NOT made here — it runs after the
+          // commit (see below), so Razorpay latency never holds this transaction's
+          // row locks open. The intent is recorded now; the refund id lands after.
           const refundAmount = data.refundAmount ?? Number(payment.amount);
-
-          let refund;
-          try {
-            refund = await initiateRazorpayRefund({
-              paymentId: payment.razorpayPaymentId,
-              amount:    refundAmount,
-              notes:     { orderId: returnReq.orderId, reason: "Return approved" },
-            });
-          } catch (err: any) {
-            throw new ApiError(502, PaymentErrorCode.REFUND_FAILED);
-          }
 
           await tx.payment.update({
             where: { orderId: returnReq.orderId },
             data: {
               status:       "REFUND_INITIATED",
-              refundId:     refund.id,
               refundAmount: new Decimal(refundAmount),
               refundReason: data.adminNote ?? "Return approved",
             },
@@ -1117,14 +1173,7 @@ export async function resolveReturnService(
             },
           });
 
-          await createAuditLogInTx(tx, {
-            userId: adminUserId,
-            action:   "REFUND_INITIATED",
-            entity:   "Payment",
-            entityId: returnReq.orderId,
-            newValue: { refundId: refund.id, refundAmount, source: "admin" },
-            req,
-          });
+          pendingRefund = { paymentId: payment.razorpayPaymentId, amount: refundAmount };
         }
 
         await reverseAffiliateCommissionsService({ tx, orderId: returnReq.orderId, adminUserId });
@@ -1145,9 +1194,61 @@ export async function resolveReturnService(
         status:    newReturnStatus,
         orderId:   returnReq.orderId,
         refundInitiated: data.status === "APPROVED" && order.payment?.method === "ONLINE",
+        pendingRefund,
       };
     });
   });
+
+  const { pendingRefund, ...response } = result;
+
+  // Gateway call after the commit. Never throws: the return is already approved and
+  // the stock already back, so a gateway outage must not fail the whole operation —
+  // it raises a human instead, exactly as the cancellation refund path does.
+  if (pendingRefund) {
+    try {
+      const refund = await initiateRazorpayRefund({
+        paymentId: pendingRefund.paymentId,
+        amount:    pendingRefund.amount,
+        notes:     { orderId: result.orderId, reason: "Return approved" },
+      });
+
+      await prisma.payment.update({
+        where: { orderId: result.orderId },
+        data:  { refundId: refund.id },
+      });
+
+      await createAuditLog({
+        userId:   adminUserId,
+        action:   "REFUND_INITIATED",
+        entity:   "Payment",
+        entityId: result.orderId,
+        newValue: { refundId: refund.id, refundAmount: pendingRefund.amount, source: "admin" },
+        req,
+      });
+    } catch (err: any) {
+      await createAuditLog({
+        userId:   adminUserId,
+        action:   "REFUND_FAILED",
+        entity:   "Payment",
+        entityId: result.orderId,
+        newValue: {
+          refundAmount: pendingRefund.amount,
+          source: "admin",
+          error: String(err?.message ?? err).slice(0, 300),
+        },
+        req,
+      });
+
+      void notifyAdmins({
+        type:  "ADMIN_CUSTOM",
+        title: "Manual refund needed ⚠️",
+        body:  `The return for order #${orderShortRef(result.orderId)} was approved but the automatic refund of ${money(pendingRefund.amount)} failed. Refund it manually in Razorpay.`,
+        data:  { screen: "AdminOrder", orderId: result.orderId },
+      });
+    }
+  }
+
+  return response;
 }
 
 export async function trackOrderService(userId: string, orderId: string) {
