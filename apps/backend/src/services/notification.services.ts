@@ -120,6 +120,13 @@ export async function notify(input: NotifyInput): Promise<void> {
       body: input.body,
       data: input.data ?? {},
       channelId: "default",
+      // These are transactional order/payment alerts. Without high priority, FCM
+      // sends them at normal priority, which Android Doze delays or coalesces while
+      // the app is backgrounded or killed — the reported "no notifications unless
+      // the app is open". The TTL lets a doze-delayed push still land within an hour
+      // instead of being dropped (Expo's default TTL of 0 means deliver-now-or-drop).
+      priority: "high",
+      ttl: 60 * 60,
     }));
 
     const { invalidTokens } = await sendExpoPush(messages);

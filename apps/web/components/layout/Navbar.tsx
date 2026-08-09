@@ -309,7 +309,7 @@ export default function Navbar() {
       >
         {/* Drawer header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border flex-shrink-0">
-          <img src="/logo.webp" alt="Little Stepz" className="h-9 w-auto" />
+          <span className="text-base font-bold text-text">Menu</span>
           <button
             onClick={() => setMobileOpen(false)}
             className="w-8 h-8 rounded-lg bg-surface-2 flex items-center justify-center text-muted hover:bg-surface-3 transition-colors"

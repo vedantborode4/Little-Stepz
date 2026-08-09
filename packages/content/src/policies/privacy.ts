@@ -253,10 +253,10 @@ export const privacy: PolicyPage = {
         {
           type: "list",
           items: [
-            "Email: [YOUR SUPPORT EMAIL]",
-            "Website: [YOUR WEBSITE URL]",
-            "Customer Support: [YOUR CONTACT NUMBER]",
-            "Business Address: [OPTIONAL BUSINESS ADDRESS]",
+            "Email: support@littlestepz.in",
+            "Website: littlestepz.in",
+            "Customer Support: support@littlestepz.in",
+            "Business Address: H.No. 1-5-431/34/19/1, Laxmi Nagar, Old Alwal, Secunderabad, Medchal–Malkajgiri District, Hyderabad, Telangana – 500010",
           ],
         },
         {

@@ -137,6 +137,15 @@ export async function updateOrderStatusService(
         }
       }
 
+      // Give the coupon use back, otherwise a cancelled order permanently consumes
+      // a slot against the coupon's usage limit.
+      if (order.couponId) {
+        await tx.coupon.updateMany({
+          where: { id: order.couponId, usedCount: { gt: 0 } },
+          data: { usedCount: { decrement: 1 } },
+        });
+      }
+
       // Reverse unpaid commissions
       await tx.commission.updateMany({
         where: {

@@ -90,6 +90,14 @@ export default function SignInPage() {
                 {errors.password.message}
               </p>
             )}
+            <div className="text-right">
+              <span
+                onClick={() => router.push("/forgot-password")}
+                className="text-sm text-primary font-semibold cursor-pointer"
+              >
+                Forgot password?
+              </span>
+            </div>
           </div>
 
           <Button loading={isSubmitting}>Sign In</Button>

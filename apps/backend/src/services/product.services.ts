@@ -12,6 +12,16 @@ const allowedSortFields: ProductSortField[] = [
   "updatedAt",
 ];
 
+// "price" from a client means the price the customer actually pays, so it sorts on the
+// effectivePrice column (salePrice when on sale, else price) — never the struck-through
+// regular price. That column is maintained by a Postgres trigger; see its migration.
+const sortColumn: Record<ProductSortField, string> = {
+  createdAt: "createdAt",
+  updatedAt: "updatedAt",
+  name: "name",
+  price: "effectivePrice",
+};
+
 function parseSort(sort: string): { field: ProductSortField; order: SortOrder } {
   const [rawField, rawOrder] = sort.split(":");
 
@@ -110,12 +120,16 @@ export async function getProductsService({
 
   // "bestselling" ranks by how many times a product has been ordered (order-item rows),
   // falling back to newest. Everything else uses the standard field sort.
+  //
+  // Every sort ends with `id` as a tiebreaker: without one, rows with equal values come
+  // back in an arbitrary order per query, so paging through them with skip/take repeats
+  // some products and silently drops others.
   const isBestSelling = sort.startsWith("bestselling");
   const orderBy: any = isBestSelling
-    ? [{ orderItems: { _count: "desc" } }, { createdAt: "desc" }]
+    ? [{ orderItems: { _count: "desc" } }, { createdAt: "desc" }, { id: "asc" }]
     : (() => {
         const { field, order } = parseSort(sort);
-        return { [field]: order };
+        return [{ [sortColumn[field]]: order }, { id: "asc" }];
       })();
 
   const where: any = {
@@ -150,10 +164,12 @@ export async function getProductsService({
   if (inStock !== undefined) where.inStock = inStock;
   if (categoryId) where.categoryId = categoryId;
 
+  // Range filters match on what the customer actually pays, so a product discounted
+  // into the range isn't hidden by its higher regular price (and vice versa).
   if (minPrice !== undefined || maxPrice !== undefined) {
-    where.price = {};
-    if (minPrice !== undefined) where.price.gte = minPrice;
-    if (maxPrice !== undefined) where.price.lte = maxPrice;
+    where.effectivePrice = {};
+    if (minPrice !== undefined) where.effectivePrice.gte = minPrice;
+    if (maxPrice !== undefined) where.effectivePrice.lte = maxPrice;
   }
 
   const [products, total] = await Promise.all([

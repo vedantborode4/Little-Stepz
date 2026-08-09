@@ -14,7 +14,7 @@ export default function WishlistItem({ item, onRemoved }: any) {
   const addItem = useCartStore((s) => s.addItem)
   const toggle = useWishlistStore((s) => s.toggle)
 
-  const image = cldFill(item.product.images?.[0]?.url || "/placeholder.png", 200)
+  const image = cldFill(item.product.images?.[0]?.url || "/placeholder.webp", 200)
 
   const handleAddToCart = async () => {
     await addItem({ productId: item.product.id, quantity: 1 })

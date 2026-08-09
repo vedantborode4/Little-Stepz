@@ -15,7 +15,7 @@ export default function OrderReview() {
         <div key={item.id} className="flex gap-3.5 py-3 border-b border-border last:border-none">
           <div className="relative w-14 h-14 bg-surface-2 rounded-xl border border-border flex-shrink-0 overflow-hidden">
             <Image
-              src={cldFill(item.variant?.images?.[0]?.url || item.product.images?.[0]?.url || "/placeholder.png", 160)}
+              src={cldFill(item.variant?.images?.[0]?.url || item.product.images?.[0]?.url || "/placeholder.webp", 160)}
               alt={item.product.name}
               fill
               className="object-cover"

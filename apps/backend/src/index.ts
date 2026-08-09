@@ -25,6 +25,11 @@ app.use(cors({
     origin: ORIGIN,
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+    // The mobile client identifies itself and carries its guest cart session in
+    // headers; the cart session is echoed back so it can be persisted client-side.
+    // (Native requests bypass CORS entirely — this is for the Expo web build.)
+    allowedHeaders: ["Content-Type", "Authorization", "X-Client-Platform", "X-Cart-Session"],
+    exposedHeaders: ["X-Cart-Session"],
 }))
 
 app.use((_req, res, next) => {

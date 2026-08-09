@@ -6,22 +6,21 @@ import { Heart, ArrowRight } from "lucide-react"
 import { WishlistService } from "../../lib/services/wishlist.service"
 import { useWishlistStore } from "../../store/useWishlistStore"
 import { getAccessToken } from "../../lib/utils/token"
-import WishlistItem from "../../components/wishlist/WishlistItem"
+import ProductCard from "../../components/products/ProductCard"
 
 function WishlistSkeleton() {
   return (
     <div className="max-w-5xl mx-auto px-4 py-10 animate-pulse space-y-6">
       <div className="h-7 bg-surface-2 rounded-full w-32" />
-      <div className="bg-surface rounded-2xl border border-border p-6 space-y-4">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="flex gap-4 py-4 border-b border-border last:border-none">
-            <div className="w-[72px] h-[72px] bg-surface-2 rounded-xl flex-shrink-0" />
-            <div className="flex-1 space-y-2">
-              <div className="h-4 bg-surface-2 rounded-full w-2/3" />
-              <div className="h-3 bg-surface-2 rounded-full w-1/4" />
-              <div className="h-4 bg-surface-2 rounded-full w-1/5 mt-2" />
+      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="bg-surface rounded-xl border border-border overflow-hidden">
+            <div className="w-full aspect-square bg-surface-2" />
+            <div className="p-2.5 sm:p-4 space-y-2">
+              <div className="h-3.5 bg-surface-2 rounded-full w-3/4" />
+              <div className="h-4 bg-surface-2 rounded-full w-1/2" />
+              <div className="h-8 bg-surface-2 rounded-lg" />
             </div>
-            <div className="h-9 w-28 bg-surface-2 rounded-xl self-center" />
           </div>
         ))}
       </div>
@@ -32,6 +31,7 @@ function WishlistSkeleton() {
 export default function WishlistPage() {
   const [items, setItems] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const savedIds = useWishlistStore((s) => s.items)
 
   useEffect(() => {
     const load = async () => {
@@ -62,7 +62,11 @@ export default function WishlistPage() {
 
   if (loading) return <WishlistSkeleton />
 
-  if (!items.length) {
+  // ProductCard's heart toggles the store, so the grid follows the store's ids —
+  // otherwise an unsaved product would linger until a reload.
+  const visibleItems = items.filter((item) => savedIds.includes(item.product.id))
+
+  if (!visibleItems.length) {
     return (
       <div className="max-w-5xl mx-auto px-4 py-24 flex flex-col items-center gap-5">
         <div className="w-20 h-20 bg-primary/10 rounded-2xl flex items-center justify-center">
@@ -93,20 +97,14 @@ export default function WishlistPage() {
         <div>
           <h1 className="text-xl font-bold text-text">Wishlist</h1>
           <p className="text-xs text-faint mt-0.5">
-            {items.length} {items.length === 1 ? "item" : "items"} saved
+            {visibleItems.length} {visibleItems.length === 1 ? "item" : "items"} saved
           </p>
         </div>
       </div>
 
-      <div className="bg-surface border border-border rounded-2xl shadow-card px-6 py-1">
-        {items.map((item) => (
-          <WishlistItem
-            key={item.product.id}
-            item={item}
-            onRemoved={() =>
-              setItems((prev) => prev.filter((p) => p.product.id !== item.product.id))
-            }
-          />
+      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6">
+        {visibleItems.map((item) => (
+          <ProductCard key={item.product.id} product={item.product} />
         ))}
       </div>
     </div>

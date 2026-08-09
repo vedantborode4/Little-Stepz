@@ -10,6 +10,9 @@ interface CheckoutState {
   // Stable idempotency key — generated once per checkout session,
   // cleared after a successful order so a fresh one is used next time.
   _idempotencyKey: string | null
+  // Cart+address+coupon fingerprint the key was minted for; editing the cart
+  // must start a new order rather than silently replay the old one.
+  _keySignature: string | null
 
   setPaymentMethod: (method: "COD" | "ONLINE") => void
   placeOrder: (addressId: string) => Promise<string | null>
@@ -24,10 +27,11 @@ export const useCheckoutStore = create<CheckoutState>((set, get) => ({
   placingOrder: false,
   paymentMethod: "COD",
   _idempotencyKey: null,
+  _keySignature: null,
 
   setPaymentMethod: (method) => set({ paymentMethod: method }),
 
-  resetSession: () => set({ _idempotencyKey: null, placingOrder: false }),
+  resetSession: () => set({ _idempotencyKey: null, _keySignature: null, placingOrder: false }),
 
   placeOrder: async (addressId: string) => {
     // ── Guard: prevent concurrent calls ─────────────────────────────────
@@ -45,25 +49,27 @@ export const useCheckoutStore = create<CheckoutState>((set, get) => ({
       return null
     }
 
-    // ── Stable idempotency key: reuse if already set for this session ────
-    // This means repeated clicks / retries all send the SAME key, so the
-    // backend deduplicates them instead of creating multiple orders.
+    const cartItems = items.map((i) => ({
+      productId: i.productId,
+      variantId: i.variantId ?? undefined,
+      quantity: i.quantity,
+    }))
+
+    // ── Stable idempotency key: reuse while the cart is unchanged ────────
+    // Repeated clicks / retries send the SAME key, so the backend dedupes them
+    // instead of creating multiple orders. Editing the cart changes the
+    // signature and starts a genuinely new order.
+    const signature = JSON.stringify({ addressId, couponCode: couponCode || null, cartItems })
     let idempotencyKey = get()._idempotencyKey
-    if (!idempotencyKey) {
+    if (!idempotencyKey || get()._keySignature !== signature) {
       idempotencyKey = generateKey()
-      set({ _idempotencyKey: idempotencyKey })
+      set({ _idempotencyKey: idempotencyKey, _keySignature: signature })
     }
 
     set({ placingOrder: true })
 
     try {
       // ── Step 1: Create order ─────────────────────────────────────────
-      const cartItems = items.map((i) => ({
-        productId: i.productId,
-        variantId: i.variantId ?? undefined,
-        quantity: i.quantity,
-      }))
-
       const { orderId } = await CheckoutService.createOrder(
         addressId,
         cartItems,
@@ -76,7 +82,7 @@ export const useCheckoutStore = create<CheckoutState>((set, get) => ({
         await CheckoutService.confirmCod(orderId)
         toast.success("Order placed successfully 🎉")
         // Clear session so a future checkout gets a fresh key
-        set({ placingOrder: false, _idempotencyKey: null })
+        set({ placingOrder: false, _idempotencyKey: null, _keySignature: null })
         return orderId
       }
 
@@ -111,7 +117,7 @@ export const useCheckoutStore = create<CheckoutState>((set, get) => ({
                 orderId,
               })
               toast.success("Payment successful 🎉")
-              set({ placingOrder: false, _idempotencyKey: null })
+              set({ placingOrder: false, _idempotencyKey: null, _keySignature: null })
               resolve(orderId)
             } catch (err: any) {
               toast.error(friendlyError(err, "Payment verification failed"))
@@ -144,6 +150,14 @@ export const useCheckoutStore = create<CheckoutState>((set, get) => ({
         rzp.open()
       })
     } catch (err: any) {
+      // The order this key points at is no longer payable — it was reclaimed after
+      // being abandoned (see reclaimStalePendingOrders). Drop the spent key so the
+      // next attempt starts a fresh order instead of replaying a cancelled one.
+      if (err?.response?.data?.message === "ORDER_NOT_PENDING") {
+        set({ placingOrder: false, _idempotencyKey: null, _keySignature: null })
+        toast.error("That checkout expired. Please try again.")
+        return null
+      }
       toast.error(friendlyError(err, "Something went wrong. Please try again."))
       set({ placingOrder: false })
       return null
