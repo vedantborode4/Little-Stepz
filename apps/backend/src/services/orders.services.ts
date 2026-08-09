@@ -108,12 +108,12 @@ export async function createOrderService(userId: string, data: CreateOrderBody, 
 
       const products = await tx.product.findMany({
         where: { id: { in: productIds }, deletedAt: null },
-        select: { id: true, price: true, salePrice: true, isOnSale: true, quantity: true, inStock: true },
+        select: { id: true, name: true, price: true, salePrice: true, isOnSale: true, quantity: true, inStock: true },
       });
 
       const variants = await tx.variant.findMany({
         where: { id: { in: variantIds }, deletedAt: null },
-        select: { id: true, price: true, salePrice: true, isOnSale: true, stock: true, productId: true },
+        select: { id: true, name: true, price: true, salePrice: true, isOnSale: true, stock: true, productId: true },
       });
 
       const productMap = new Map(products.map(p => [p.id, p]));
@@ -126,12 +126,14 @@ export async function createOrderService(userId: string, data: CreateOrderBody, 
         let price: Decimal;
         let stock: number;
         let variantId = item.variantId;
+        let variantName: string | null = null;
 
         if (variantId) {
           const variant = variantMap.get(variantId);
           if (!variant || variant.productId !== item.productId) throw new ApiError(400, OrderErrorCode.VARIANT_DELETED);
           price = resolveChargedPrice(product, variant);
           stock = variant.stock;
+          variantName = variant.name;
         } else {
           price = resolveChargedPrice(product);
           stock = product.quantity;
@@ -162,6 +164,10 @@ export async function createOrderService(userId: string, data: CreateOrderBody, 
           variantId,
           quantity: item.quantity,
           price,
+          // Snapshot alongside the price — a later rename must not rewrite what this
+          // customer actually bought.
+          productName: product.name,
+          variantName,
         });
       }
 
@@ -213,6 +219,11 @@ export async function createOrderService(userId: string, data: CreateOrderBody, 
             total,
             affiliateId,
             idempotencyKey,
+            // Persisted at creation. It was validated by the controller and then
+            // dropped, so every order was born ONLINE (the schema default) and only
+            // became COD if /payments/cod happened to be called. Shipping rates and
+            // COD serviceability both need to know the intent before that point.
+            paymentMethod: data.paymentMethod,
           },
         });
 
@@ -338,6 +349,10 @@ export async function getOrderByIdService(userId: string, id: string) {
     items: order.items.map(item => ({
       ...item,
       price: item.price.toNumber(),
+      // Prefer what was bought over what the product is called today. Falls back to
+      // the live relation for rows placed before the snapshot column existed.
+      productName: item.productName ?? item.product.name,
+      variantName: item.variantName ?? item.variant?.name ?? null,
     })),
   };
 }
@@ -351,6 +366,8 @@ export async function getOrderInvoiceService(userId: string, id: string) {
     date: order.createdAt,
     items: order.items.map(item => ({
       productId: item.productId,
+      productName: item.productName,
+      variantName: item.variantName,
       quantity: item.quantity,
       price: item.price,
       subtotal: item.price * item.quantity,

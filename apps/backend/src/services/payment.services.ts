@@ -136,9 +136,12 @@ export async function createPaymentService(
       if (order.status !== "PENDING") {
         throw new ApiError(400, PaymentErrorCode.ORDER_NOT_PENDING);
       }
-      if (order.paymentMethod === "COD") {
-        throw new ApiError(400, PaymentErrorCode.COD_ALREADY_SET);
-      }
+      // Deliberately no COD guard here. A confirmed COD order is already rejected
+      // above — `createCodPaymentService` flips the order to CONFIRMED in the same
+      // transaction it writes the COD payment, so a PENDING order can never have a
+      // settled COD payment. What remains is a customer who chose COD, did not go
+      // through with it, and is now paying online; that must work, because the order
+      // is replayed under the same idempotency key. The method is corrected below.
 
       const existingPayment = await tx.payment.findUnique({
         where: { orderId: data.orderId },
@@ -205,6 +208,15 @@ export async function createPaymentService(
             attempts:        1,
             gatewayResponse: razorpayOrder as any,
           },
+        });
+      }
+
+      // Keep the order's method truthful — it drives the Delhivery manifest
+      // (COD vs Prepaid) and the shipping rate.
+      if (order.paymentMethod !== "ONLINE") {
+        await tx.order.update({
+          where: { id: data.orderId },
+          data:  { paymentMethod: "ONLINE" },
         });
       }
 

@@ -602,6 +602,13 @@ model OrderItem {
   quantity Int
   price    Decimal @db.Decimal(12,2)
 
+  /// Product/variant names as they were when the order was placed. `price` was
+  /// already snapshotted; names were not, so invoices and order history rendered
+  /// the live `Product.name` and silently changed whenever a product was renamed.
+  /// Nullable: rows created before this column fall back to the live relation.
+  productName String?
+  variantName String?
+
   deletedAt DateTime?
 }
 
