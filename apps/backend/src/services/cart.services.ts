@@ -97,6 +97,8 @@ async function addOrUpdateCartItem(
 
   if (!product) throw new ApiError(404, "Product not found");
 
+  // Variants are optional refinements — the base product (no variant) remains
+  // purchasable on its own product-level stock even when variants exist.
   let stock = product.quantity;
 
   if (variantId) {
@@ -105,17 +107,6 @@ async function addOrUpdateCartItem(
     });
     if (!variant) throw new ApiError(404, "Variant not found");
     stock = variant.stock;
-  } else {
-    // A product that HAS variants must be bought as one of them. Previously the
-    // base product stayed purchasable on its own `quantity`, so a shopper could
-    // add a size-and-colour product without choosing either and we had no idea
-    // what to pick and ship.
-    const activeVariants = await tx.variant.count({
-      where: { productId, deletedAt: null },
-    });
-    if (activeVariants > 0) {
-      throw new ApiError(400, "Please select an option before adding to cart");
-    }
   }
 
   if (stock === 0) throw new ApiError(400, "Out of stock");

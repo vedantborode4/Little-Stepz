@@ -96,11 +96,6 @@ export default function ProductInfo({
 
   const canPreOrder = !inStock && !!product.preOrderEnabled && product.bookingAmount != null
 
-  // A product with variants must be bought as one of them — the backend rejects a
-  // variant-less add. Surface that here so the CTA explains itself instead of
-  // failing with a toast.
-  const needsVariant = (product.variants?.length ?? 0) > 0 && !selectedVariant
-
   // A pre-order product is out of stock by definition, so capping the stepper at
   // available stock pinned it to `quantity >= 0` and disabled BOTH buttons — the
   // quantity control was dead on every pre-order product. Pre-orders are bounded
@@ -317,15 +312,15 @@ export default function ProductInfo({
             <>
               <button
                 onClick={handleAddToCart}
-                disabled={!inStock || needsVariant || isAdding || isBuyingNow}
+                disabled={!inStock || isAdding || isBuyingNow}
                 className="flex-1 border-2 border-primary text-primary py-3.5 rounded-xl font-semibold hover:bg-primary/5 transition disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {isAdding ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShoppingCart size={17} />}
-                {isAdding ? "Adding…" : needsVariant ? "Select an option" : "Add to Cart"}
+                {isAdding ? "Adding…" : "Add to Cart"}
               </button>
               <button
                 onClick={handleBuyNow}
-                disabled={!inStock || needsVariant || isAdding || isBuyingNow}
+                disabled={!inStock || isAdding || isBuyingNow}
                 className="flex-1 bg-primary text-white py-3.5 rounded-xl font-semibold hover:opacity-90 transition disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm"
               >
                 {isBuyingNow ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap size={17} />}
@@ -418,15 +413,15 @@ export default function ProductInfo({
           <>
             <button
               onClick={handleAddToCart}
-              disabled={!inStock || needsVariant || isAdding || isBuyingNow}
+              disabled={!inStock || isAdding || isBuyingNow}
               className="flex-1 border-2 border-primary text-primary py-3 rounded-xl font-semibold disabled:opacity-50 flex items-center justify-center gap-1.5 text-sm"
             >
               {isAdding && <Loader2 className="w-4 h-4 animate-spin" />}
-              {isAdding ? "Adding…" : needsVariant ? "Select an option" : "Add to Cart"}
+              {isAdding ? "Adding…" : "Add to Cart"}
             </button>
             <button
               onClick={handleBuyNow}
-              disabled={!inStock || needsVariant || isAdding || isBuyingNow}
+              disabled={!inStock || isAdding || isBuyingNow}
               className="flex-1 bg-primary text-white py-3 rounded-xl font-semibold disabled:opacity-50 flex items-center justify-center gap-1.5 text-sm shadow-sm"
             >
               {isBuyingNow ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap size={15} />}

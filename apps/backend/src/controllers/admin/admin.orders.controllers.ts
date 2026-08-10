@@ -2,7 +2,6 @@ import { Request, Response } from "express";
 import { asyncHandler, ApiError, ApiResponse } from "../../utils/api";
 import {
   getAdminOrdersService,
-  getAdminOrderByIdService,
   updateOrderStatusService,
 } from "../../services/admin/admin.orders.services";
 import { runStockSweep } from "../../services/stockSweeper.services";
@@ -79,13 +78,6 @@ async function reclaimStock(_req: Request, res: Response) {
   return new ApiResponse(200, result, "Stale holds reclaimed").send(res);
 }
 
-async function getAdminOrderById(req: Request, res: Response) {
-  const { id } = orderParamsSchema.parse(req.params);
-  const order = await getAdminOrderByIdService(id);
-  return new ApiResponse(200, order, "Order fetched").send(res);
-}
-
 export const getAdminOrdersController = asyncHandler(getAdminOrders);
-export const getAdminOrderByIdController = asyncHandler(getAdminOrderById);
 export const updateOrderStatusController = asyncHandler(updateOrderStatus);
 export const reclaimStockController = asyncHandler(reclaimStock);

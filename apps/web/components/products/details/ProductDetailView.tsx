@@ -109,7 +109,7 @@ export default function ProductDetailView({ product: initialProduct }: { product
         <ProductReviewSection productId={product.id} />
       </div>
 
-      <SimilarProducts categorySlug={product.category.slug} excludeId={product.id} />
+      <SimilarProducts categoryId={product.category.id} />
     </div>
   )
 }

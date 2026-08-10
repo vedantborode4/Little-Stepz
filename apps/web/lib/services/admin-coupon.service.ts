@@ -8,8 +8,6 @@ export interface AdminCoupon {
   minOrderValue?: number | null
   maxDiscount?: number | null
   usageLimit?: number | null
-  /** How many times ONE customer may redeem this coupon. Null = unlimited. */
-  perUserLimit?: number | null
   usedCount: number
   validFrom?: string | null
   validUntil?: string | null
@@ -25,7 +23,6 @@ export interface CreateCouponBody {
   minOrderValue?: number
   maxDiscount?: number
   usageLimit?: number
-  perUserLimit?: number
   validFrom?: string
   validUntil?: string
   isActive?: boolean
