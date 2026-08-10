@@ -38,6 +38,7 @@ export default function CouponFormModal({ mode, initialData, onClose, onSuccess 
     minOrderValue: initialData?.minOrderValue ?? undefined,
     maxDiscount: initialData?.maxDiscount ?? undefined,
     usageLimit: initialData?.usageLimit ?? undefined,
+    perUserLimit: initialData?.perUserLimit ?? undefined,
     validFrom: initialData?.validFrom ? initialData.validFrom.split("T")[0] : undefined,
     validUntil: initialData?.validUntil ? initialData.validUntil.split("T")[0] : undefined,
     isActive: initialData?.isActive ?? true,
@@ -66,6 +67,7 @@ export default function CouponFormModal({ mode, initialData, onClose, onSuccess 
         minOrderValue: form.minOrderValue !== undefined ? Number(form.minOrderValue) : undefined,
         maxDiscount: form.maxDiscount !== undefined ? Number(form.maxDiscount) : undefined,
         usageLimit: form.usageLimit !== undefined ? Number(form.usageLimit) : undefined,
+        perUserLimit: form.perUserLimit !== undefined ? Number(form.perUserLimit) : undefined,
         // Convert date strings to ISO — backend accepts ISO strings
         validFrom: form.validFrom ? new Date(form.validFrom).toISOString() : undefined,
         validUntil: form.validUntil ? new Date(form.validUntil).toISOString() : undefined,
@@ -137,6 +139,12 @@ export default function CouponFormModal({ mode, initialData, onClose, onSuccess 
             <StyledInput type="number" min={0} placeholder="Leave blank = unlimited"
               value={form.usageLimit ?? ""}
               onChange={e => setForm(p => ({ ...p, usageLimit: e.target.value === "" ? undefined : (e.target.valueAsNumber || 0) }))} />
+          </Field>
+
+          <Field label="Usage Limit Per User">
+            <StyledInput type="number" min={0} placeholder="Leave blank = unlimited"
+              value={form.perUserLimit ?? ""}
+              onChange={e => setForm(p => ({ ...p, perUserLimit: e.target.value === "" ? undefined : (e.target.valueAsNumber || 0) }))} />
           </Field>
         </div>
 

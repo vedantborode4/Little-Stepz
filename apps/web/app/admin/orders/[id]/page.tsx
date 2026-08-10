@@ -15,20 +15,12 @@ export default function AdminOrderDetailPage() {
   const [order, setOrder] = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
+  // Fetch the one order directly. This used to page through the LIST endpoint
+  // hunting for a matching id — which is why the screen only ever showed totals:
+  // that payload carries user and payment, but no items and no address.
   const load = async () => {
     try {
-      const res = await AdminOrderService.getOrders({ limit: 50 })
-      const found = (res.orders ?? []).find((o: any) => o.id === id)
-      if (found) {
-        setOrder(found)
-      } else {
-        let found2: any = null
-        for (let p = 2; p <= (res.pages ?? 1) && !found2; p++) {
-          const r2 = await AdminOrderService.getOrders({ page: p, limit: 50 })
-          found2 = (r2.orders ?? []).find((o: any) => o.id === id)
-        }
-        setOrder(found2 ?? null)
-      }
+      setOrder(await AdminOrderService.getById(id))
     } catch { router.push("/admin/orders") }
     finally { setLoading(false) }
   }
@@ -101,9 +93,11 @@ export default function AdminOrderDetailPage() {
           {order.address ? (
             <div className="text-sm text-muted space-y-1">
               <p className="font-medium text-text">{order.address.name}</p>
-              <p>{order.address.line1}</p>
-              {order.address.line2 && <p>{order.address.line2}</p>}
+              {/* The model has a single `address` line — `line1`/`line2` never
+                  existed, so these rendered empty even once data was present. */}
+              <p>{order.address.address}</p>
               <p>{order.address.city}, {order.address.state} {order.address.pincode}</p>
+              {order.address.country && <p>{order.address.country}</p>}
               <p className="text-muted">{order.address.phone}</p>
             </div>
           ) : (

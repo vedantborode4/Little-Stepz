@@ -91,7 +91,11 @@ export async function createCouponService(data: CreateCouponBody, adminId: strin
 
     return coupon;
   } catch (err: any) {
-    if (err.code === "P2002" && err.meta?.constraint === "Coupon_code_key") {
+    // `code` is the only unique column on Coupon, so P2002 here can only be a
+    // duplicate code. The previous guard also required `meta.constraint`, which
+    // Prisma does not populate for P2002 on Postgres (it sets `meta.target`), so
+    // the guard never matched and the raw error fell through to the 500 handler.
+    if (err.code === "P2002") {
       throw new ApiError(409, CouponErrorCode.DUPLICATE_COUPON_CODE);
     }
     throw err;

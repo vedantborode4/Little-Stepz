@@ -42,6 +42,12 @@ export const AdminOrderService = {
     return res.data.data
   },
 
+  /** GET /admin/orders/:id — full order incl. items, address, payment, shipments */
+  getById: async (id: string) => {
+    const res = await api.get(`/admin/orders/${id}`)
+    return res.data.data
+  },
+
   /** PUT /admin/orders/:id/status — body: { status } */
   updateStatus: async (id: string, status: OrderStatus) => {
     const res = await api.put(`/admin/orders/${id}/status`, { status })

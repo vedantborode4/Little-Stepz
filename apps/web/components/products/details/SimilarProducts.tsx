@@ -6,21 +6,32 @@ import ProductCard from "../ProductCard"
 import type { Product } from "../../../types/product"
 import { Sparkles } from "lucide-react"
 
-export default function SimilarProducts({ categoryId }: { categoryId: string }) {
+export default function SimilarProducts({
+  categorySlug,
+  excludeId,
+}: {
+  categorySlug: string
+  excludeId?: string
+}) {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const fetch = async () => {
       try {
-        const res = await ProductService.getProducts({ category: categoryId, limit: 4 })
-        setProducts(res.data)
+        // `category` is resolved server-side as a category SLUG. This used to be
+        // handed the category *id*, which matched no slug, so the filter was
+        // dropped and this section showed the newest products in the whole
+        // catalogue instead of related ones.
+        // Fetch one extra so removing the current product still leaves 4.
+        const res = await ProductService.getProducts({ category: categorySlug, limit: 5 })
+        setProducts(res.data.filter((p) => p.id !== excludeId).slice(0, 4))
       } finally {
         setLoading(false)
       }
     }
     fetch()
-  }, [categoryId])
+  }, [categorySlug, excludeId])
 
   if (!loading && !products.length) return null
 
