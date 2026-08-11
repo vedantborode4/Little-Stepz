@@ -708,6 +708,9 @@ export async function handleRazorpayWebhookService(
       case "refund.processed":
         await handleRefundProcessed(payload);
         break;
+      case "refund.failed":
+        await handleRefundFailed(payload);
+        break;
       default:
         await prisma.webhookEvent.update({
           where: { id: webhookEvent.id },
@@ -999,6 +1002,65 @@ async function handleRefundProcessed(payload: any): Promise<void> {
       data: { screen: "Order", orderId: refunded.orderId },
     });
   }
+}
+
+/**
+ * Razorpay could not complete a refund we had already initiated.
+ *
+ * This event was falling through to `default:` and being marked SKIPPED, so a
+ * refund that failed at the gateway left the payment sitting at REFUND_INITIATED
+ * forever — the customer had been told "refund on its way", and nobody was told it
+ * hadn't arrived.
+ *
+ * The status is deliberately left at REFUND_INITIATED rather than reset to SUCCESS:
+ * Razorpay refunds are not idempotent, and a `refund.failed` we've misread would
+ * let a retry pay the customer twice. A human reconciles from the audit row, which
+ * is the same policy `refundCapturedOrderPayment` follows for a failed API call.
+ */
+async function handleRefundFailed(payload: any): Promise<void> {
+  const refundEntity     = payload?.payload?.refund?.entity;
+  const razorpayRefundId = refundEntity?.id;
+  const paymentId        = refundEntity?.payment_id;
+  const amountPaise      = refundEntity?.amount;
+
+  if (!paymentId) return;
+
+  const payment = await prisma.payment.findFirst({
+    where:  { razorpayPaymentId: paymentId },
+    select: { id: true, orderId: true, status: true },
+  });
+
+  if (!payment) return;
+  // Already settled — a late failure event for a refund that went through.
+  if (payment.status === "REFUNDED" || payment.status === "PARTIALLY_REFUNDED") return;
+
+  const amount = amountPaise ? amountPaise / 100 : undefined;
+
+  await prisma.payment.update({
+    where: { id: payment.id },
+    data:  { refundId: razorpayRefundId ?? undefined },
+  });
+
+  await createAuditLog({
+    action:   "REFUND_FAILED",
+    entity:   "Payment",
+    entityId: payment.orderId,
+    newValue: {
+      refundId: razorpayRefundId,
+      amount,
+      reason: refundEntity?.error_description ?? refundEntity?.status ?? "unknown",
+      source: "webhook",
+    },
+  });
+
+  void notifyAdmins({
+    type:  "ADMIN_CUSTOM",
+    title: "Refund failed at Razorpay ⚠️",
+    body: `The refund${amount ? ` of ${money(amount)}` : ""} for order #${orderShortRef(
+      payment.orderId
+    )} failed at the gateway. Reconcile it manually in Razorpay.`,
+    data: { screen: "AdminOrder", orderId: payment.orderId },
+  });
 }
 
 export async function createReturnRequestService(
@@ -1366,7 +1428,10 @@ export async function createShipmentService(
     });
   } catch (err: any) {
     if (err instanceof ApiError) throw err;
-    throw new ApiError(502, PaymentErrorCode.DELHIVERY_ORDER_FAILED);
+    // Network/DNS/timeout — not a Delhivery rejection. Keep the cause visible
+    // instead of reporting it as an order failure.
+    console.error(`[shipment] Delhivery call threw for order ${orderId}:`, err);
+    throw new ApiError(502, `${PaymentErrorCode.DELHIVERY_ORDER_FAILED}: ${err?.message ?? "network error"}`);
   }
 
   const trackingUrl = `https://www.delhivery.com/track/package/${delhiveryResponse.waybill}`;

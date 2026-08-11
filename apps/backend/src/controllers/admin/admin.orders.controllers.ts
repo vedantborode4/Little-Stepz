@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { asyncHandler, ApiError, ApiResponse } from "../../utils/api";
 import {
   getAdminOrdersService,
+  getAdminOrderByIdService,
   updateOrderStatusService,
 } from "../../services/admin/admin.orders.services";
 import { runStockSweep } from "../../services/stockSweeper.services";
@@ -57,6 +58,12 @@ async function getAdminOrders(req: Request, res: Response) {
   return new ApiResponse(200, result, "Admin orders fetched").send(res);
 }
 
+async function getAdminOrderById(req: Request, res: Response) {
+  const { id } = orderParamsSchema.parse(req.params);
+  const result = await getAdminOrderByIdService(id);
+  return new ApiResponse(200, result, "Order fetched").send(res);
+}
+
 async function updateOrderStatus(req: Request, res: Response) {
   const adminId = req.user?.userId;
   if (!adminId) throw new ApiError(401, "Unauthorized");
@@ -79,5 +86,6 @@ async function reclaimStock(_req: Request, res: Response) {
 }
 
 export const getAdminOrdersController = asyncHandler(getAdminOrders);
+export const getAdminOrderByIdController = asyncHandler(getAdminOrderById);
 export const updateOrderStatusController = asyncHandler(updateOrderStatus);
 export const reclaimStockController = asyncHandler(reclaimStock);

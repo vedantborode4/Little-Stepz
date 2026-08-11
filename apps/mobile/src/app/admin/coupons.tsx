@@ -31,6 +31,7 @@ export default function AdminCoupons() {
   const [minOrderValue, setMinOrderValue] = useState("");
   const [maxDiscount, setMaxDiscount] = useState("");
   const [usageLimit, setUsageLimit] = useState("");
+  const [perUserLimit, setPerUserLimit] = useState("");
   const [validFrom, setValidFrom] = useState<string | null>(null);
   const [validUntil, setValidUntil] = useState<string | null>(null);
   const [isActive, setIsActive] = useState(true);
@@ -44,6 +45,7 @@ export default function AdminCoupons() {
     setMinOrderValue(c?.minOrderValue != null ? String(c.minOrderValue) : "");
     setMaxDiscount(c?.maxDiscount != null ? String(c.maxDiscount) : "");
     setUsageLimit(c?.usageLimit != null ? String(c.usageLimit) : "");
+    setPerUserLimit(c?.perUserLimit != null ? String(c.perUserLimit) : "");
     setValidFrom(c?.validFrom ?? null);
     setValidUntil(c?.validUntil ?? null);
     setIsActive(c?.isActive ?? true);
@@ -60,6 +62,7 @@ export default function AdminCoupons() {
       minOrderValue: minOrderValue ? Number(minOrderValue) : undefined,
       maxDiscount: type === "PERCENTAGE" && maxDiscount ? Number(maxDiscount) : undefined,
       usageLimit: usageLimit ? Number(usageLimit) : undefined,
+      perUserLimit: perUserLimit ? Number(perUserLimit) : undefined,
       validFrom: validFrom ?? undefined,
       validUntil: validUntil ?? undefined,
       isActive,
@@ -157,6 +160,9 @@ export default function AdminCoupons() {
               <View className="flex-1"><Input label="Max discount (₹)" keyboardType="numeric" value={maxDiscount} onChangeText={setMaxDiscount} /></View>
             ) : null}
             <View className="flex-1"><Input label="Usage limit" keyboardType="numeric" value={usageLimit} onChangeText={setUsageLimit} /></View>
+          </View>
+          <View className="flex-row gap-2">
+            <View className="flex-1"><Input label="Usage limit per user account" keyboardType="numeric" value={perUserLimit} onChangeText={setPerUserLimit} placeholder="Blank = unlimited" /></View>
           </View>
           <View className="flex-row gap-2">
             <View className="flex-1"><DateField label="Valid From" value={validFrom} onChange={setValidFrom} placeholder="Any time" /></View>

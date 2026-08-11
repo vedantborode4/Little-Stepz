@@ -6,7 +6,7 @@ import { getDisplayPrices } from "../../../lib/pricing"
 import PriceTag from "../PriceTag"
 import ProductShare from "../ProductShare"
 import { RICH_TEXT_CLASS } from "../../../lib/richText"
-import { Heart, Loader2, Zap, ShoppingCart, Star, Shield, Truck, Clock, ShieldCheck } from "lucide-react"
+import { Heart, Loader2, Zap, ShoppingCart, Star, Shield, Truck, Clock, ShieldCheck, Info } from "lucide-react"
 import { useCartStore } from "../../../store/useCartStore"
 import { useWishlistStore } from "../../../store/useWishlistStore"
 import { useReviewStore } from "../../../store/useReviewStore"
@@ -95,6 +95,14 @@ export default function ProductInfo({
   }, [selectedVariant, product.quantity])
 
   const canPreOrder = !inStock && !!product.preOrderEnabled && product.bookingAmount != null
+
+  // The base product stays purchasable on its own stock even when variants exist, so
+  // "add to cart" with nothing picked is a real purchase — it was just invisible.
+  // Say which one is going in the cart rather than leaving the customer to guess.
+  const hasVariantChoices = hasOptions || (product.variants?.length ?? 0) > 0
+  const optionAxisLabel = hasOptions
+    ? (product.options ?? []).map((o) => o.name).join(" and ")
+    : "a variant"
 
   // A pre-order product is out of stock by definition, so capping the stepper at
   // available stock pinned it to `quantity >= 0` and disabled BOTH buttons — the
@@ -271,6 +279,30 @@ export default function ProductInfo({
                 )
               })}
             </div>
+          </div>
+        )}
+
+        {/* What's actually going in the cart — the base product is a real, buyable
+            SKU, so leaving the selection empty must not look like nothing happened. */}
+        {hasVariantChoices && !canPreOrder && (
+          <div className={`flex items-start gap-2.5 rounded-xl p-3.5 border ${
+            selectedVariant
+              ? "bg-primary/5 border-primary/15"
+              : "bg-surface-2 border-border"
+          }`}>
+            <Info size={16} className={`flex-shrink-0 mt-0.5 ${selectedVariant ? "text-primary" : "text-faint"}`} />
+            <p className="text-xs text-muted">
+              {selectedVariant ? (
+                <>
+                  <span className="font-semibold text-text">{selectedVariant.name}</span> selected.
+                </>
+              ) : (
+                <>
+                  <span className="font-semibold text-text">Standard version</span> — pick {optionAxisLabel} above
+                  to choose a specific one.
+                </>
+              )}
+            </p>
           </div>
         )}
 

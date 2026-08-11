@@ -170,7 +170,36 @@ export async function createDelhiveryShipment(
     pkg?.waybill &&
     !/fail/i.test(String(pkg?.status ?? ""));
 
-  if (!ok) throw new ApiError(502, PaymentErrorCode.DELHIVERY_ORDER_FAILED);
+  if (!ok) {
+    // Delhivery puts the actual reason in packages[].remarks (e.g. "ClientWarehouse
+    // matching query does not exist", "pin not serviceable for COD"). Throwing a
+    // bare error code discarded it, leaving an operator staring at
+    // DELHIVERY_ORDER_FAILED with no way to tell a warehouse misconfiguration from
+    // an unserviceable pincode. Log the whole body and put the reason in the message.
+    const remarks = [
+      ...(Array.isArray(pkg?.remarks) ? pkg.remarks : [pkg?.remarks]),
+      data?.rmk,
+      data?.error,
+    ]
+      .filter(Boolean)
+      .map(String)
+      .join("; ");
+
+    console.error("[delhivery] create failed", {
+      httpStatus: res.status,
+      order: input.order,
+      paymentMode: input.paymentMode,
+      pin: input.pin,
+      response: data,
+    });
+
+    throw new ApiError(
+      502,
+      remarks
+        ? `${PaymentErrorCode.DELHIVERY_ORDER_FAILED}: ${remarks}`
+        : `${PaymentErrorCode.DELHIVERY_ORDER_FAILED} (HTTP ${res.status})`
+    );
+  }
 
   return {
     waybill: String(pkg.waybill),

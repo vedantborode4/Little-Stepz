@@ -1,8 +1,9 @@
 import { OrderStatus, prisma } from "@repo/db/client";
 import { ApiError } from "../../utils/api";
 import { OrderErrorCode } from "../../utils/orderErrors";
-import { notify } from "../notification.services";
-import { orderStatusNotification } from "../../utils/notificationCopy";
+import { notify, notifyAdmins } from "../notification.services";
+import { orderStatusNotification, orderShortRef } from "../../utils/notificationCopy";
+import { cancelShipmentService } from "../payment.services";
 import { syncProductStockFlags } from "../../utils/stock";
 import { reverseAffiliateCommissionsService } from "../affiliate.services";
 import { refundCapturedOrderPayment } from "../refund.services";
@@ -88,6 +89,127 @@ export async function getAdminOrdersService(
     page,
     limit,
     pages: Math.ceil(total / limit),
+  };
+}
+
+/**
+ * Pull a manifested parcel back when its order is cancelled. Never throws: the
+ * cancellation is already committed, and a courier-side failure is an operational
+ * problem for a human, not a reason to report the cancellation as failed.
+ */
+async function cancelWaybillForCancelledOrder(orderId: string, adminId: string): Promise<void> {
+  const live = await prisma.shipment.findFirst({
+    where: {
+      orderId,
+      awbCode: { not: null },
+      // A cancelled shipment is recorded as FAILED — there is no CANCELLED state.
+      status:  { notIn: ["FAILED", "DELIVERED", "RETURNED"] },
+    },
+    select: { awbCode: true },
+  });
+
+  if (!live) return;
+
+  try {
+    await cancelShipmentService(adminId, orderId);
+  } catch (err: any) {
+    console.error(`[cancel] waybill ${live.awbCode} for order ${orderId}:`, err?.message ?? err);
+
+    void notifyAdmins({
+      type:  "ADMIN_CUSTOM",
+      title: "Waybill still live ⚠️",
+      body: `Order #${orderShortRef(orderId)} was cancelled but Delhivery waybill ${live.awbCode} could not be cancelled. Cancel it manually before the parcel ships.`,
+      data:  { screen: "AdminOrder", orderId },
+    });
+  }
+}
+
+/**
+ * One order, everything an admin needs to fulfil or dispute it.
+ *
+ * There was no detail endpoint at all: both clients rebuilt the "order detail"
+ * screen out of the paginated list payload, which carries only `user` and
+ * `payment`. So the items table was always empty and the delivery address was
+ * never fetched — the admin saw an order total and nothing else.
+ *
+ * Item names come from the `productName`/`variantName` snapshots taken at order
+ * time, falling back to the live relation only for rows written before those
+ * columns existed. Reading the live name here would reintroduce exactly the
+ * history-rewriting that the snapshots were added to prevent.
+ */
+export async function getAdminOrderByIdService(id: string) {
+  const order = await prisma.order.findFirst({
+    where: { id, deletedAt: null },
+    include: {
+      user:    { select: { id: true, name: true, email: true, phone: true } },
+      address: true,
+      coupon:  { select: { code: true, type: true, value: true } },
+      // Explicit: `payment: true` would ship the Razorpay signature and the raw
+      // gateway response to the browser, neither of which the panel renders.
+      payment: {
+        select: {
+          id: true, method: true, gateway: true, status: true, amount: true,
+          currency: true, razorpayOrderId: true, razorpayPaymentId: true,
+          refundId: true, refundAmount: true, refundedAt: true, refundReason: true,
+          codCollectedAt: true, attempts: true, createdAt: true,
+        },
+      },
+      shipments: {
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true, awbCode: true, courierName: true, trackingUrl: true,
+          status: true, estimatedAt: true, deliveredAt: true, createdAt: true,
+        },
+      },
+      items: {
+        where: { deletedAt: null },
+        include: {
+          product: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              images: {
+                where: { variantId: null, deletedAt: null },
+                orderBy: { sortOrder: "asc" },
+                take: 1,
+                select: { url: true },
+              },
+            },
+          },
+          variant: { select: { id: true, name: true } },
+        },
+      },
+    },
+  });
+
+  if (!order) throw new ApiError(404, OrderErrorCode.ORDER_NOT_FOUND);
+
+  return {
+    ...order,
+    subtotal:        order.subtotal.toNumber(),
+    discount:        order.discount.toNumber(),
+    shippingCharges: order.shippingCharges.toNumber(),
+    total:           order.total.toNumber(),
+    coupon: order.coupon
+      ? { ...order.coupon, value: order.coupon.value.toNumber() }
+      : null,
+    payment: order.payment
+      ? {
+          ...order.payment,
+          amount:       order.payment.amount.toNumber(),
+          refundAmount: order.payment.refundAmount?.toNumber() ?? null,
+        }
+      : null,
+    items: order.items.map((item) => ({
+      ...item,
+      price:       item.price.toNumber(),
+      subtotal:    item.price.toNumber() * item.quantity,
+      productName: item.productName ?? item.product.name,
+      variantName: item.variantName ?? item.variant?.name ?? null,
+      image:       item.product.images[0]?.url ?? null,
+      productSlug: item.product.slug,
+    })),
   };
 }
 
@@ -183,6 +305,12 @@ export async function updateOrderStatusService(
   let refund: Awaited<ReturnType<typeof refundCapturedOrderPayment>> = { status: "none" };
 
   if (newStatus === OrderStatus.CANCELLED) {
+    // A PROCESSING order has already been manifested with Delhivery. Cancelling it
+    // in our DB without cancelling the waybill left a live parcel that would still
+    // ship — the stock was returned and the customer refunded while the goods went
+    // out. Best-effort: a courier that refuses the cancellation must not fail the
+    // cancellation itself, so the admin is told to pull it manually instead.
+    await cancelWaybillForCancelledOrder(id, adminId);
     refund = await refundCapturedOrderPayment(id, "Order cancelled by admin");
   }
 

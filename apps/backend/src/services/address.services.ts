@@ -1,6 +1,7 @@
 import { prisma } from "@repo/db/client";
 import { AddressData, UpdateAddressData } from "@repo/zod-schema/index";
 import { ApiError } from "../utils/api";
+import { assertServiceable } from "../utils/shipping";
 
 const addressSelect = {
   id: true,
@@ -23,10 +24,25 @@ export async function getAddressesService(userId: string) {
   });
 }
 
+/**
+ * Reject a pincode Delhivery cannot deliver to, at the point the customer types it.
+ *
+ * Serviceability was only ever checked at checkout, so a customer could save an
+ * address, shop, and only discover at payment that we don't deliver there.
+ * `assertServiceable` fails open on a Delhivery outage, so this can't make saving an
+ * address depend on their API being up. Checked as ONLINE: COD availability is a
+ * per-order concern and is still enforced at checkout.
+ */
+async function assertDeliverablePincode(pincode: string): Promise<void> {
+  await assertServiceable(pincode, "ONLINE");
+}
+
 export async function createAddressService(
   userId: string,
   data: AddressData
 ) {
+  await assertDeliverablePincode(data.pincode);
+
   return prisma.$transaction(async (tx) => {
     if (data.isDefault) {
       await tx.address.updateMany({
@@ -63,6 +79,10 @@ export async function updateAddressService(
   addressId: string,
   data: UpdateAddressData
 ) {
+  // Outside the transaction: this is an external HTTP call and must not hold a
+  // row-locked transaction open across Delhivery.
+  if (data.pincode) await assertDeliverablePincode(data.pincode);
+
   return prisma.$transaction(async (tx) => {
     const address = await tx.address.findFirst({
       where: { id: addressId, userId, deletedAt: null },

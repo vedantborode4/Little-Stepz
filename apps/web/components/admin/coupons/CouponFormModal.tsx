@@ -4,6 +4,7 @@ import { useState } from "react"
 import AdminModal from "../AdminModal"
 import { AdminCouponService, type AdminCoupon, type CreateCouponBody } from "../../../lib/services/admin-coupon.service"
 import { toast } from "sonner"
+import { friendlyError } from "../../../lib/errorMessages"
 
 // Defined at module level (NOT inside the component) to prevent remount on every render,
 // which would cause the input to lose focus after each keystroke.
@@ -38,6 +39,7 @@ export default function CouponFormModal({ mode, initialData, onClose, onSuccess 
     minOrderValue: initialData?.minOrderValue ?? undefined,
     maxDiscount: initialData?.maxDiscount ?? undefined,
     usageLimit: initialData?.usageLimit ?? undefined,
+    perUserLimit: initialData?.perUserLimit ?? undefined,
     validFrom: initialData?.validFrom ? initialData.validFrom.split("T")[0] : undefined,
     validUntil: initialData?.validUntil ? initialData.validUntil.split("T")[0] : undefined,
     isActive: initialData?.isActive ?? true,
@@ -66,6 +68,7 @@ export default function CouponFormModal({ mode, initialData, onClose, onSuccess 
         minOrderValue: form.minOrderValue !== undefined ? Number(form.minOrderValue) : undefined,
         maxDiscount: form.maxDiscount !== undefined ? Number(form.maxDiscount) : undefined,
         usageLimit: form.usageLimit !== undefined ? Number(form.usageLimit) : undefined,
+        perUserLimit: form.perUserLimit !== undefined ? Number(form.perUserLimit) : undefined,
         // Convert date strings to ISO — backend accepts ISO strings
         validFrom: form.validFrom ? new Date(form.validFrom).toISOString() : undefined,
         validUntil: form.validUntil ? new Date(form.validUntil).toISOString() : undefined,
@@ -80,9 +83,16 @@ export default function CouponFormModal({ mode, initialData, onClose, onSuccess 
       }
       onSuccess()
     } catch (e: any) {
-      const msg = e?.response?.data?.message
-      toast.error(msg || "Failed to save coupon")
-      if (e?.response?.data?.errors) setErrors(e.response.data.errors)
+      // Raw backend codes (DUPLICATE_COUPON_CODE, …) were toasted verbatim.
+      toast.error(friendlyError(e, "Failed to save coupon"))
+      const fieldErrors = e?.response?.data?.errors
+      if (fieldErrors) {
+        setErrors(
+          Object.fromEntries(
+            Object.entries(fieldErrors).map(([k, v]) => [k, Array.isArray(v) ? v[0] : String(v)])
+          )
+        )
+      }
     } finally { setLoading(false) }
   }
 
@@ -133,10 +143,18 @@ export default function CouponFormModal({ mode, initialData, onClose, onSuccess 
             </Field>
           )}
 
-          <Field label="Usage Limit">
+          <Field label="Usage Limit" error={errors.usageLimit}>
             <StyledInput type="number" min={0} placeholder="Leave blank = unlimited"
               value={form.usageLimit ?? ""}
               onChange={e => setForm(p => ({ ...p, usageLimit: e.target.value === "" ? undefined : (e.target.valueAsNumber || 0) }))} />
+            <p className="text-xs text-faint">Total redemptions across all customers.</p>
+          </Field>
+
+          <Field label="Usage Limit Per User Account" error={errors.perUserLimit}>
+            <StyledInput type="number" min={0} placeholder="Leave blank = unlimited"
+              value={form.perUserLimit ?? ""}
+              onChange={e => setForm(p => ({ ...p, perUserLimit: e.target.value === "" ? undefined : (e.target.valueAsNumber || 0) }))} />
+            <p className="text-xs text-faint">How many times one customer may use this code.</p>
           </Field>
         </div>
 

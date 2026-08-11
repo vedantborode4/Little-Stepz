@@ -67,17 +67,71 @@ export interface AdminOrder {
   shippingCharges: number;
   total: number;
   paymentMethod: string;
-  shippingAddress?: Record<string, any>;
   createdAt: string;
   user?: { id: string; name: string };
   payment?: { status: string; amount: number } | null;
-  items?: any[];
+}
+
+export interface AdminOrderItem {
+  id: string;
+  quantity: number;
+  price: number;
+  subtotal: number;
+  /** Snapshot taken at order time — never the live product name. */
+  productName: string;
+  variantName: string | null;
+  image: string | null;
+  productSlug: string;
+}
+
+export interface AdminOrderAddress {
+  id: string;
+  name: string;
+  phone: string;
+  address: string;
+  city: string;
+  state: string;
+  pincode: string;
+  country: string;
+}
+
+export interface AdminOrderDetail extends AdminOrder {
+  user: { id: string; name: string; email: string; phone: string | null };
+  address: AdminOrderAddress | null;
+  items: AdminOrderItem[];
+  coupon: { code: string; type: string; value: number } | null;
+  payment:
+    | {
+        id: string;
+        method: string;
+        gateway: string;
+        status: string;
+        amount: number;
+        refundId: string | null;
+        refundAmount: number | null;
+        refundReason: string | null;
+        codCollectedAt: string | null;
+      }
+    | null;
+  shipments: {
+    id: string;
+    awbCode: string | null;
+    courierName: string | null;
+    trackingUrl: string | null;
+    status: string;
+    deliveredAt: string | null;
+    createdAt: string;
+  }[];
 }
 
 export const AdminOrderService = {
   getOrders: async (params?: { page?: number; limit?: number; status?: string }) => {
     const res = await api.get("/admin/orders", { params });
     return res.data.data as { orders: AdminOrder[]; total: number; page: number; limit: number; pages: number };
+  },
+  getById: async (id: string): Promise<AdminOrderDetail> => {
+    const res = await api.get(`/admin/orders/${id}`);
+    return res.data.data;
   },
   updateStatus: async (id: string, status: string) => {
     const res = await api.put(`/admin/orders/${id}/status`, { status });
@@ -248,6 +302,7 @@ export interface AdminCoupon {
   minOrderValue?: number | null;
   maxDiscount?: number | null;
   usageLimit?: number | null;
+  perUserLimit?: number | null;
   usedCount: number;
   validFrom?: string | null;
   validUntil?: string | null;
@@ -260,6 +315,7 @@ export interface CreateCouponBody {
   minOrderValue?: number;
   maxDiscount?: number;
   usageLimit?: number;
+  perUserLimit?: number;
   validFrom?: string;
   validUntil?: string;
   isActive?: boolean;

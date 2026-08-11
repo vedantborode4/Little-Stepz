@@ -21,6 +21,62 @@ export interface AdminOrder {
   payment: { status: string; amount: number } | null
 }
 
+export interface AdminOrderItem {
+  id: string
+  quantity: number
+  price: number
+  subtotal: number
+  /** Snapshot taken at order time — never the live product name. */
+  productName: string
+  variantName: string | null
+  image: string | null
+  productSlug: string
+}
+
+export interface AdminOrderAddress {
+  id: string
+  name: string
+  phone: string
+  address: string
+  city: string
+  state: string
+  pincode: string
+  country: string
+}
+
+export interface AdminOrderDetail extends Omit<AdminOrder, "shippingAddress" | "user" | "payment"> {
+  user: { id: string; name: string; email: string; phone: string | null }
+  address: AdminOrderAddress | null
+  items: AdminOrderItem[]
+  coupon: { code: string; type: string; value: number } | null
+  payment: {
+    id: string
+    method: string
+    gateway: string
+    status: string
+    amount: number
+    currency: string
+    razorpayOrderId: string | null
+    razorpayPaymentId: string | null
+    refundId: string | null
+    refundAmount: number | null
+    refundedAt: string | null
+    refundReason: string | null
+    codCollectedAt: string | null
+    attempts: number
+  } | null
+  shipments: {
+    id: string
+    awbCode: string | null
+    courierName: string | null
+    trackingUrl: string | null
+    status: string
+    estimatedAt: string | null
+    deliveredAt: string | null
+    createdAt: string
+  }[]
+}
+
 export interface AdminOrdersResponse {
   orders: AdminOrder[]
   total: number
@@ -39,6 +95,12 @@ export const AdminOrderService = {
     toDate?: string
   }): Promise<AdminOrdersResponse> => {
     const res = await api.get("/admin/orders", { params })
+    return res.data.data
+  },
+
+  /** GET /admin/orders/:id — full order: items, address, payment, shipments. */
+  getById: async (id: string): Promise<AdminOrderDetail> => {
+    const res = await api.get(`/admin/orders/${id}`)
     return res.data.data
   },
 

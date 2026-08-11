@@ -28,7 +28,16 @@ export default function Navbar() {
   const [openMega, setOpenMega] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
-  const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
+  /**
+   * Drives the search on every screen below `lg`.
+   *
+   * The inline search bar used to appear from `md` (768px) up — exactly iPad
+   * portrait width — where it competed with the full nav, the user chip and the
+   * cart for one 16px-padded row. Below `lg` the bar is now behind a toggle: on
+   * phones it drops a row (unchanged), on tablets the nav collapses in place and
+   * the field takes the freed width, so the header never grows a second row.
+   */
+  const [searchOpen, setSearchOpen] = useState(false)
   const megaTimeout = useRef<NodeJS.Timeout | null>(null)
   const userRef = useRef<HTMLDivElement>(null)
 
@@ -56,7 +65,7 @@ export default function Navbar() {
   // Close mobile menu on route change
   useEffect(() => {
     setMobileOpen(false)
-    setMobileSearchOpen(false)
+    setSearchOpen(false)
   }, [pathname])
 
   // Lock body scroll when drawer is open
@@ -97,8 +106,11 @@ export default function Navbar() {
               <img src="/logo.webp" alt="Little Stepz" className="h-11 w-auto" />
             </Link>
 
-            {/* Desktop Nav */}
-            <nav className="hidden md:flex items-center text-sm font-bold uppercase">
+            {/* Desktop Nav — yields its width to the search field on tablets */}
+            <nav className={clsx(
+              "hidden md:flex items-center text-sm font-bold uppercase",
+              searchOpen && "md:max-lg:hidden"
+            )}>
               {/* Categories mega menu */}
               <div
                 className="relative"
@@ -163,21 +175,26 @@ export default function Navbar() {
               </Link>
             </nav>
 
-            {/* Desktop Search */}
-            <div className="flex-1 max-w-md hidden md:block">
+            {/* Search — always inline at lg+; on tablets it appears here only once
+                toggled, filling the space the nav just gave up. */}
+            <div className={clsx(
+              "flex-1 max-w-md",
+              searchOpen ? "hidden md:block" : "hidden lg:block"
+            )}>
               <SearchBar />
             </div>
 
             {/* Right actions */}
             <div className="flex items-center gap-1 ml-auto md:ml-0">
 
-              {/* Mobile: search toggle */}
+              {/* Search toggle — phone drops a row below, tablet expands in place */}
               <button
-                className="md:hidden p-2 rounded-lg text-muted hover:bg-primary/5 transition-colors"
-                onClick={() => setMobileSearchOpen((p) => !p)}
-                aria-label="Search"
+                className="lg:hidden p-2 rounded-lg text-muted hover:bg-primary/5 transition-colors"
+                onClick={() => setSearchOpen((p) => !p)}
+                aria-label={searchOpen ? "Close search" : "Search"}
+                aria-expanded={searchOpen}
               >
-                <Search size={20} />
+                {searchOpen ? <X size={20} /> : <Search size={20} />}
               </button>
 
               {/* Theme toggle */}
@@ -280,10 +297,11 @@ export default function Navbar() {
             </div>
           </div>
 
-          {/* Mobile: expandable search bar */}
+          {/* Phone only: the search drops a row. Tablets expand in place above, so
+              this stays hidden from md up and the header keeps its single row. */}
           <div className={clsx(
             "md:hidden transition-all duration-200",
-            mobileSearchOpen ? "max-h-16 pb-3 opacity-100 overflow-visible" : "max-h-0 opacity-0 overflow-hidden"
+            searchOpen ? "max-h-16 pb-3 opacity-100 overflow-visible" : "max-h-0 opacity-0 overflow-hidden"
           )}>
             <SearchBar />
           </div>

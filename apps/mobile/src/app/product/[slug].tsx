@@ -71,6 +71,10 @@ export default function ProductDetail() {
 
   const hasVariants = (product?.variants?.length ?? 0) > 0;
   const hasOptions = (product?.options?.length ?? 0) > 0;
+  // Named so the "standard version" notice can tell the customer what to pick.
+  const optionAxisLabel = hasOptions
+    ? (product?.options ?? []).map((o) => o.name).join(" and ")
+    : "a variant";
 
   // Structured products resolve the variant from the picked option values.
   const handleOptionSelect = (optionId: string, valueId: string) =>
@@ -261,6 +265,35 @@ export default function ProductDetail() {
               onSelect={(v) => setVariant((prev) => (prev?.id === v.id ? undefined : v))}
               onClear={() => setVariant(undefined)}
             />
+          ) : null}
+
+          {/* What's actually going in the cart — the base product is a real, buyable
+              SKU, so an empty selection must not look like nothing happened. */}
+          {(hasOptions || hasVariants) && !canPreOrder ? (
+            <View
+              className={`flex-row items-start gap-2.5 rounded-xl border p-3.5 ${
+                variant ? "border-primary/20 bg-primary/5" : "border-border bg-surface-2"
+              }`}
+            >
+              <Ionicons
+                name="information-circle-outline"
+                size={16}
+                color={variant ? colors.primary : colors.muted}
+                style={{ marginTop: 1 }}
+              />
+              <Text className="flex-1 text-xs text-muted">
+                {variant ? (
+                  <>
+                    <Text className="font-jakarta-semibold text-text">{variant.name}</Text> selected.
+                  </>
+                ) : (
+                  <>
+                    <Text className="font-jakarta-semibold text-text">Standard version</Text>
+                    {` — pick ${optionAxisLabel} above to choose a specific one.`}
+                  </>
+                )}
+              </Text>
+            </View>
           ) : null}
 
           {/* Quantity */}

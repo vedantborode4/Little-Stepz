@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { ArrowLeft, Package, MapPin, CreditCard, Truck } from "lucide-react"
-import { AdminOrderService } from "../../../../lib/services/admin-order.service"
+import { AdminOrderService, type AdminOrderDetail } from "../../../../lib/services/admin-order.service"
 import OrderStatusBadge from "../../../../components/admin/orders/OrderStatusBadge"
 import ShipOrderButton from "../../../../components/admin/orders/ShipOrderButton"
 import CancelShipmentButton from "../../../../components/admin/orders/CancelShipmentButton"
@@ -12,23 +12,14 @@ import OrderTimeline from "../../../../components/admin/orders/AdminOrderTimelin
 export default function AdminOrderDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
-  const [order, setOrder] = useState<any>(null)
+  const [order, setOrder] = useState<AdminOrderDetail | null>(null)
   const [loading, setLoading] = useState(true)
 
+  // Previously this paged through GET /admin/orders looking for the id, which
+  // meant the page only ever had the list payload — no items, no address.
   const load = async () => {
     try {
-      const res = await AdminOrderService.getOrders({ limit: 50 })
-      const found = (res.orders ?? []).find((o: any) => o.id === id)
-      if (found) {
-        setOrder(found)
-      } else {
-        let found2: any = null
-        for (let p = 2; p <= (res.pages ?? 1) && !found2; p++) {
-          const r2 = await AdminOrderService.getOrders({ page: p, limit: 50 })
-          found2 = (r2.orders ?? []).find((o: any) => o.id === id)
-        }
-        setOrder(found2 ?? null)
-      }
+      setOrder(await AdminOrderService.getById(id))
     } catch { router.push("/admin/orders") }
     finally { setLoading(false) }
   }
@@ -84,6 +75,8 @@ export default function AdminOrderDetailPage() {
             { label: "Total",    value: `₹${order.total}`, bold: true },
             { label: "Payment",  value: order.payment?.status || "—" },
             { label: "Method",   value: order.payment?.method || "—" },
+            { label: "Courier",  value: order.shipments[0]?.courierName || "—" },
+            { label: "AWB",      value: order.shipments[0]?.awbCode || "—" },
           ].map(({ label, value, bold }) => (
             <div key={label} className="flex justify-between text-sm gap-2">
               <span className="text-muted shrink-0">{label}</span>
@@ -101,9 +94,9 @@ export default function AdminOrderDetailPage() {
           {order.address ? (
             <div className="text-sm text-muted space-y-1">
               <p className="font-medium text-text">{order.address.name}</p>
-              <p>{order.address.line1}</p>
-              {order.address.line2 && <p>{order.address.line2}</p>}
+              <p>{order.address.address}</p>
               <p>{order.address.city}, {order.address.state} {order.address.pincode}</p>
+              <p>{order.address.country}</p>
               <p className="text-muted">{order.address.phone}</p>
             </div>
           ) : (
@@ -140,26 +133,42 @@ export default function AdminOrderDetailPage() {
               </tr>
             </thead>
             <tbody>
-              {(order.items || []).map((item: any) => (
+              {order.items.map((item) => (
                 <tr key={item.id} className="border-t border-border hover:bg-surface-2/50">
                   <td className="p-4">
                     <div className="flex items-center gap-3">
-                      <img src={item.product?.images?.[0]?.url || "/placeholder.webp"}
-                        className="w-10 h-10 rounded-lg object-cover border border-border shrink-0" alt={item.product?.name}/>
-                      <span className="font-medium text-text">{item.product?.name || "—"}</span>
+                      <img src={item.image || "/placeholder.webp"}
+                        className="w-10 h-10 rounded-lg object-cover border border-border shrink-0" alt={item.productName}/>
+                      <span className="font-medium text-text">{item.productName}</span>
                     </div>
                   </td>
-                  <td className="p-4 text-muted">{item.variant?.name || "—"}</td>
+                  <td className="p-4 text-muted">{item.variantName || "—"}</td>
                   <td className="p-4 text-muted">{item.quantity}</td>
-                  <td className="p-4 text-muted">₹{item.price}</td>
-                  <td className="p-4 font-semibold text-text text-right">₹{(item.price * item.quantity).toLocaleString()}</td>
+                  <td className="p-4 text-muted">₹{item.price.toLocaleString()}</td>
+                  <td className="p-4 font-semibold text-text text-right">₹{item.subtotal.toLocaleString()}</td>
                 </tr>
               ))}
             </tbody>
             <tfoot className="border-t-2 border-border">
+              <tr className="text-muted">
+                <td colSpan={4} className="px-4 pt-4 text-right">Subtotal</td>
+                <td className="px-4 pt-4 text-right">₹{order.subtotal.toLocaleString()}</td>
+              </tr>
+              {order.discount > 0 && (
+                <tr className="text-muted">
+                  <td colSpan={4} className="px-4 pt-1 text-right">
+                    Discount{order.coupon ? ` (${order.coupon.code})` : ""}
+                  </td>
+                  <td className="px-4 pt-1 text-right">−₹{order.discount.toLocaleString()}</td>
+                </tr>
+              )}
+              <tr className="text-muted">
+                <td colSpan={4} className="px-4 pt-1 text-right">Shipping</td>
+                <td className="px-4 pt-1 text-right">₹{order.shippingCharges.toLocaleString()}</td>
+              </tr>
               <tr>
                 <td colSpan={4} className="p-4 text-right font-semibold text-muted">Order Total</td>
-                <td className="p-4 text-right font-bold text-lg text-text">₹{order.total?.toLocaleString()}</td>
+                <td className="p-4 text-right font-bold text-lg text-text">₹{order.total.toLocaleString()}</td>
               </tr>
             </tfoot>
           </table>
@@ -167,21 +176,35 @@ export default function AdminOrderDetailPage() {
 
         {/* Mobile item cards */}
         <div className="sm:hidden divide-y divide-border">
-          {(order.items || []).map((item: any) => (
+          {order.items.map((item) => (
             <div key={item.id} className="p-4 flex items-center gap-3">
-              <img src={item.product?.images?.[0]?.url || "/placeholder.webp"}
-                className="w-12 h-12 rounded-xl object-cover border border-border shrink-0" alt={item.product?.name}/>
+              <img src={item.image || "/placeholder.webp"}
+                className="w-12 h-12 rounded-xl object-cover border border-border shrink-0" alt={item.productName}/>
               <div className="flex-1 min-w-0">
-                <p className="font-medium text-text truncate text-sm">{item.product?.name || "—"}</p>
-                {item.variant?.name && <p className="text-xs text-faint">{item.variant.name}</p>}
-                <p className="text-xs text-muted mt-0.5">Qty: {item.quantity} × ₹{item.price}</p>
+                <p className="font-medium text-text truncate text-sm">{item.productName}</p>
+                {item.variantName && <p className="text-xs text-faint">{item.variantName}</p>}
+                <p className="text-xs text-muted mt-0.5">Qty: {item.quantity} × ₹{item.price.toLocaleString()}</p>
               </div>
-              <p className="font-bold text-text text-sm shrink-0">₹{(item.price * item.quantity).toLocaleString()}</p>
+              <p className="font-bold text-text text-sm shrink-0">₹{item.subtotal.toLocaleString()}</p>
             </div>
           ))}
-          <div className="p-4 flex justify-between items-center bg-surface-2">
-            <span className="font-semibold text-muted">Order Total</span>
-            <span className="font-bold text-lg text-text">₹{order.total?.toLocaleString()}</span>
+          <div className="p-4 space-y-1 bg-surface-2 text-sm">
+            <div className="flex justify-between text-muted">
+              <span>Subtotal</span><span>₹{order.subtotal.toLocaleString()}</span>
+            </div>
+            {order.discount > 0 && (
+              <div className="flex justify-between text-muted">
+                <span>Discount{order.coupon ? ` (${order.coupon.code})` : ""}</span>
+                <span>−₹{order.discount.toLocaleString()}</span>
+              </div>
+            )}
+            <div className="flex justify-between text-muted">
+              <span>Shipping</span><span>₹{order.shippingCharges.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between items-center pt-1">
+              <span className="font-semibold text-muted">Order Total</span>
+              <span className="font-bold text-lg text-text">₹{order.total.toLocaleString()}</span>
+            </div>
           </div>
         </div>
       </div>

@@ -12,7 +12,7 @@ interface Props { data: AdminOrder[]; refresh: () => void }
 
 export default function OrdersTable({ data, refresh }: Props) {
   const router = useRouter()
-  const [selectedOrder, setSelectedOrder] = useState<AdminOrder | null>(null)
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
 
   if (!data?.length) {
     return (
@@ -47,7 +47,7 @@ export default function OrdersTable({ data, refresh }: Props) {
             </thead>
             <tbody>
               {data.map((order) => (
-                <tr key={order.id} className="border-t border-border hover:bg-surface-2/50 cursor-pointer transition" onClick={() => setSelectedOrder(order)}>
+                <tr key={order.id} className="border-t border-border hover:bg-surface-2/50 cursor-pointer transition" onClick={() => setSelectedOrderId(order.id)}>
                   <td className="p-4 font-mono text-xs font-semibold text-muted">#{order.id.slice(-8).toUpperCase()}</td>
                   <td className="p-4 font-medium text-text">{order.user?.name || "—"}</td>
                   <td className="p-4 font-semibold text-text">₹{order.total?.toLocaleString()}</td>
@@ -80,7 +80,7 @@ export default function OrdersTable({ data, refresh }: Props) {
       <div className="sm:hidden space-y-3">
         {data.map((order) => (
           <div key={order.id} className="bg-surface border border-border rounded-2xl p-4 space-y-3"
-            onClick={() => setSelectedOrder(order)}>
+            onClick={() => setSelectedOrderId(order.id)}>
             <div className="flex items-start justify-between gap-2">
               <div>
                 <p className="font-mono text-xs font-bold text-muted">#{order.id.slice(-8).toUpperCase()}</p>
@@ -108,8 +108,8 @@ export default function OrdersTable({ data, refresh }: Props) {
         ))}
       </div>
 
-      {selectedOrder && (
-        <OrderDetailsDrawer order={selectedOrder} onClose={() => setSelectedOrder(null)} />
+      {selectedOrderId && (
+        <OrderDetailsDrawer orderId={selectedOrderId} onClose={() => setSelectedOrderId(null)} />
       )}
     </>
   )

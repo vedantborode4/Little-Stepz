@@ -39,15 +39,28 @@ async function getProducts(req: Request, res: Response) {
     maxPrice = parsed;
   }
 
-  // Resolve optional category slug → categoryId
+  // Resolve the optional `category` filter, which may be either a slug or an id.
+  // Clients send both — the storefront category pages use slugs, the product page's
+  // "You may also like" has only `product.category.id` to hand. Matching on slug
+  // alone silently dropped the filter for the id callers, so related products came
+  // back as "the newest products" instead.
   let categoryId: string | undefined;
   if (req.query.category) {
     const { prisma } = await import("@repo/db/client");
-    const cat = await prisma.category.findUnique({
-      where:  { slug: String(req.query.category) },
+    const value = String(req.query.category);
+    const cat = await prisma.category.findFirst({
+      where:  { OR: [{ slug: value }, { id: value }] },
       select: { id: true },
     });
-    categoryId = cat?.id;
+    // An unknown category must return nothing, not everything.
+    if (!cat) {
+      return new ApiResponse(
+        200,
+        { products: [], total: 0, page, limit: safeLimit, pages: 0 },
+        "Products fetched"
+      ).send(res);
+    }
+    categoryId = cat.id;
   }
 
   const result = await getProductsService({

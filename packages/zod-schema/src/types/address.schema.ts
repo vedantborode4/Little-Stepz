@@ -21,9 +21,13 @@ export const createAddressSchema = z.object({
     .max(100, "State must be at most 100 characters")
     .transform((val) => val.trim()),
 
+  // Indian PIN codes are exactly six digits and never start with 0. The old
+  // `\d{4,10}` accepted anything digit-shaped, so typos like a 9-digit number
+  // reached Delhivery and failed at manifest time instead of at the form.
+  // `payment.schema.ts` already validated 6 digits at checkout; the two now agree.
   pincode: z.string()
-    .regex(/^\d{4,10}$/, "Pincode must be 4-10 digits")
-    .transform((val) => val.trim()),
+    .transform((val) => val.trim())
+    .refine((val) => /^[1-9]\d{5}$/.test(val), "Enter a valid 6-digit pincode"),
 
   country: z.string()
     .max(50, "Country must be at most 50 characters")

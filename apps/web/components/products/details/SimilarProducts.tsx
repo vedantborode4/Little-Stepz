@@ -6,21 +6,22 @@ import ProductCard from "../ProductCard"
 import type { Product } from "../../../types/product"
 import { Sparkles } from "lucide-react"
 
-export default function SimilarProducts({ categoryId }: { categoryId: string }) {
+export default function SimilarProducts({ categoryId, excludeId }: { categoryId: string; excludeId?: string }) {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const fetch = async () => {
       try {
-        const res = await ProductService.getProducts({ category: categoryId, limit: 4 })
-        setProducts(res.data)
+        // Over-fetch by one so dropping the product being viewed still leaves four.
+        const res = await ProductService.getProducts({ category: categoryId, limit: 5 })
+        setProducts(res.data.filter((p) => p.id !== excludeId).slice(0, 4))
       } finally {
         setLoading(false)
       }
     }
     fetch()
-  }, [categoryId])
+  }, [categoryId, excludeId])
 
   if (!loading && !products.length) return null
 
