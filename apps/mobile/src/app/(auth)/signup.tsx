@@ -87,7 +87,7 @@ export default function SignUp() {
           <View className="mb-6 items-center">
             <Image
               source={require("../../../assets/images/logo.webp")}
-              style={{ width: 160, height: 64 }}
+              style={{ width: 76, height: 76 }}
               contentFit="contain"
             />
           </View>

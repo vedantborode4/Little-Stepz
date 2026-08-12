@@ -10,7 +10,7 @@ type Item = {
 
 // Mirrors apps/web/components/home/WhyChooseUs.tsx
 const ITEMS: Item[] = [
-  { icon: "cube-outline", label: "Free Shipping", desc: "On orders above ₹499", color: "#16A34A" },
+  { icon: "cube-outline", label: "Free Shipping", desc: "On all orders", color: "#16A34A" },
   { icon: "refresh-outline", label: "Easy Returns", desc: "Hassle-free 7-day returns", color: "#2563EB" },
   { icon: "cash-outline", label: "Cash On Delivery", desc: "Pay when you receive", color: "#CA8A04" },
   { icon: "shield-checkmark-outline", label: "Secure Payments", desc: "100% safe & encrypted", color: "#9333EA" },

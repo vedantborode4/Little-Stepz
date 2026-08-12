@@ -1,7 +1,7 @@
 import { Truck, RotateCcw, Wallet, ShieldCheck } from "lucide-react"
 
 const items = [
-  { icon: Truck,        label: "Free Shipping",    desc: "On orders above ₹499",     color: "bg-green-50 dark:bg-green-500/15 text-green-600 dark:text-green-400" },
+  { icon: Truck,        label: "Free Shipping",    desc: "On all orders",            color: "bg-green-50 dark:bg-green-500/15 text-green-600 dark:text-green-400" },
   { icon: RotateCcw,    label: "Easy Returns",     desc: "Hassle-free 7-day returns", color: "bg-blue-50 dark:bg-blue-500/15 text-blue-600 dark:text-blue-400" },
   { icon: Wallet,       label: "Cash On Delivery", desc: "Pay when you receive",      color: "bg-yellow-50 dark:bg-yellow-500/15 text-yellow-600 dark:text-yellow-400" },
   { icon: ShieldCheck,  label: "Secure Payments",  desc: "100% safe & encrypted",     color: "bg-purple-50 dark:bg-purple-500/15 text-purple-600 dark:text-purple-400" },

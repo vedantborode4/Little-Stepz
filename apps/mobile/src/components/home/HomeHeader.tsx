@@ -52,7 +52,7 @@ export function HomeHeader() {
       <View className="flex-row items-center justify-between">
         <Image
           source={require("../../../assets/images/logo.webp")}
-          style={{ height: 38, width: 86 }}
+          style={{ height: 38, width: 38 }}
           contentFit="contain"
           contentPosition="left"
         />
