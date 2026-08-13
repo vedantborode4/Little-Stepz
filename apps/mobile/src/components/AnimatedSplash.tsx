@@ -38,7 +38,7 @@ export function AnimatedSplash({ onDone }: { onDone: () => void }) {
       <Animated.View style={{ transform: [{ scale }], opacity: logoOpacity }}>
         <Image
           source={require("../../assets/images/logo.webp")}
-          style={{ width: 132, height: 132 }}
+          style={{ width: 220, height: 90 }}
           contentFit="contain"
         />
       </Animated.View>

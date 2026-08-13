@@ -59,7 +59,7 @@ export default function SignIn() {
           <View className="mb-6 items-center">
             <Image
               source={require("../../../assets/images/logo.webp")}
-              style={{ width: 76, height: 76 }}
+              style={{ width: 160, height: 64 }}
               contentFit="contain"
             />
           </View>
