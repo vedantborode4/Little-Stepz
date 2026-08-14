@@ -16,7 +16,8 @@ export type PolicySlug =
   | "returns"
   | "cancellation"
   | "warranty"
-  | "terms";
+  | "terms"
+  | "data-deletion";
 
 export interface PolicyPage {
   slug: PolicySlug;

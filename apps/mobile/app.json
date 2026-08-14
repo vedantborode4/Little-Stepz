@@ -8,7 +8,7 @@
     "scheme": "littlestepz",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "bundleIdentifier": "in.humancapitalists.littlestepz",
+      "bundleIdentifier": "in.littlestepz",
       "icon": "./assets/images/ios-icon.png",
       "supportsTablet": false,
       "usesAppleSignIn": true,
@@ -17,7 +17,13 @@
       }
     },
     "android": {
-      "package": "in.humancapitalists.littlestepz",
+      "package": "in.littlestepz",
+      "scheme": "in.littlestepz",
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.CAMERA"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

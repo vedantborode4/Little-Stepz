@@ -8,6 +8,7 @@ import { returns } from "./policies/returns";
 import { cancellation } from "./policies/cancellation";
 import { warranty } from "./policies/warranty";
 import { terms } from "./policies/terms";
+import { dataDeletion } from "./policies/data-deletion";
 
 export const policies: Record<PolicySlug, PolicyPage> = {
   about,
@@ -17,6 +18,7 @@ export const policies: Record<PolicySlug, PolicyPage> = {
   cancellation,
   warranty,
   terms,
+  "data-deletion": dataDeletion,
 };
 
 /** Ordered list for footer / menu rendering. */
@@ -28,6 +30,7 @@ export const policyOrder: PolicySlug[] = [
   "warranty",
   "privacy",
   "terms",
+  "data-deletion",
 ];
 
 export function getPolicy(slug: PolicySlug): PolicyPage {
