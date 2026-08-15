@@ -37,7 +37,14 @@ export const shipping: PolicyPage = {
     {
       heading: "Shipping Charges",
       blocks: [
-        { type: "paragraph", text: "Shipping charges may vary depending on:" },
+        {
+          type: "paragraph",
+          text: "Little Stepz is currently offering free delivery on all orders, with no minimum order value. This is a promotional offer and we may change or withdraw it at any time.",
+        },
+        {
+          type: "paragraph",
+          text: "If the offer ends, shipping charges may vary depending on:",
+        },
         {
           type: "list",
           items: [
@@ -48,7 +55,10 @@ export const shipping: PolicyPage = {
             "Special product categories",
           ],
         },
-        { type: "paragraph", text: "Applicable shipping charges will be shown during checkout where applicable." },
+        {
+          type: "paragraph",
+          text: "The total you see at checkout is always what you pay — any applicable shipping charge is shown there before you confirm the order, and is never added afterwards.",
+        },
       ],
     },
     {

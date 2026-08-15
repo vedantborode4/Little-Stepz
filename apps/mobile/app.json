@@ -19,6 +19,21 @@
     "android": {
       "package": "in.littlestepz",
       "scheme": "in.littlestepz",
+      "allowBackup": false,
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "littlestepz.in",
+              "pathPrefix": "/ref"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ],
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO",
         "android.permission.SYSTEM_ALERT_WINDOW",
@@ -42,7 +57,9 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Little Stepz needs access to your photos so you can add pictures to a product review or set your profile picture."
+          "photosPermission": "Little Stepz needs access to your photos so you can add pictures to a product review or set your profile picture.",
+          "cameraPermission": false,
+          "microphonePermission": false
         }
       ],
       [
