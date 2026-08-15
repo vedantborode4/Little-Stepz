@@ -29,6 +29,7 @@ import { AnimatedSplash } from "../components/AnimatedSplash";
 import { useThemeStore } from "../store/theme.store";
 import { useIsDark, useThemeColors } from "../theme/useThemeColors";
 import { usePushNotifications } from "../hooks/usePushNotifications";
+import { useGoogleOAuthCallback } from "../hooks/useGoogleOAuthCallback";
 import { configureNotificationHandler } from "../lib/push";
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -37,6 +38,15 @@ configureNotificationHandler();
 /** Runs push wiring inside the QueryClientProvider (needs useQueryClient). */
 function PushBridge() {
   usePushNotifications();
+  return null;
+}
+
+/**
+ * Completes a Google sign-in whose redirect arrived as a deep link — including
+ * when Android killed the app while the user was on Google's page.
+ */
+function AuthLinkBridge() {
+  useGoogleOAuthCallback();
   return null;
 }
 
@@ -111,6 +121,7 @@ export default function RootLayout() {
         <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
           <StatusBar style={isDark ? "light" : "dark"} />
           <PushBridge />
+          <AuthLinkBridge />
           <ErrorBoundary>
             <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: themeColors.bg } }}>
               <Stack.Screen name="(tabs)" />

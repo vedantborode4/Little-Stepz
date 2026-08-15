@@ -5,7 +5,12 @@ import * as WebBrowser from "expo-web-browser";
 import * as Google from "expo-auth-session/providers/google";
 
 import { useAuth } from "./useAuth";
-import { AuthService } from "../lib/services/auth.service";
+import {
+  GOOGLE_REDIRECT_URI,
+  completeGoogleAuth,
+  platformGoogleClientId,
+  savePendingGoogleAuth,
+} from "../lib/auth/google-oauth";
 import { toast } from "../store/toast.store";
 
 // Required so the auth popup returns control to the app when it closes.
@@ -41,8 +46,12 @@ export function isGoogleConfigured(): boolean {
 
 /**
  * Google sign-in via expo-auth-session (Expo Go-safe — no native module).
- * Returns an ID token which the backend (/auth/google) verifies and exchanges
- * for our normal session, then funnels through the shared `login()` path.
+ *
+ * The code exchange lives in `lib/auth/google-oauth` rather than here, because the
+ * redirect can arrive after this component (and the whole JS context) is gone —
+ * see the notes there. This hook owns opening the browser and the warm path;
+ * `useGoogleOAuthCallback` at the root owns the cold path. Both funnel into the
+ * same single-flight `completeGoogleAuth`.
  */
 export function useGoogleAuth(redirectTo: string = "/(tabs)/home") {
   const { login } = useAuth();
@@ -52,36 +61,36 @@ export function useGoogleAuth(redirectTo: string = "/(tabs)/home") {
     clientId: WEB_CLIENT_ID,
     iosClientId: IOS_CLIENT_ID,
     androidClientId: ANDROID_CLIENT_ID,
+    // Pinned, not derived — `makeRedirectUri` varies by execution environment.
+    redirectUri: GOOGLE_REDIRECT_URI,
+    // We redeem the code ourselves so the cold-start path can do it too.
+    shouldAutoExchangeCode: false,
   });
 
   useEffect(() => {
     if (!response) return;
 
-    if (response.type === "success") {
-      const idToken = response.params?.id_token;
-      if (idToken) {
-        exchangeToken(idToken);
-        return;
-      }
-      setLoading(false);
-      toast.error("Google sign-in failed");
-    } else if (response.type === "error") {
-      setLoading(false);
-      toast.error("Google sign-in failed");
-    } else {
-      // dismiss / cancel
-      setLoading(false);
+    if (response.type === "success" && response.params?.code) {
+      void finishSignIn(response.params.code, response.params.state);
+      return;
     }
+
+    setLoading(false);
+    if (response.type === "error") toast.error("Google sign-in failed");
+    // dismiss / cancel needs no message
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [response]);
 
-  const exchangeToken = async (idToken: string) => {
+  const finishSignIn = async (code: string, state?: string) => {
     try {
-      const res = await AuthService.googleAuth(idToken);
-      await login(res);
+      const session = await completeGoogleAuth(code, state);
+      // null → the deep-link listener already redeemed this code and navigated.
+      if (!session) return;
+
+      await login(session);
       router.replace(redirectTo as never);
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Google sign-in failed");
+      toast.error(err?.message || "Google sign-in failed");
     } finally {
       setLoading(false);
     }
@@ -91,6 +100,14 @@ export function useGoogleAuth(redirectTo: string = "/(tabs)/home") {
     if (!request) return;
     setLoading(true);
     try {
+      // Must be stored BEFORE the browser opens: Android may kill the app while
+      // the user is on Google's page, and without the verifier the returned code
+      // is unusable.
+      await savePendingGoogleAuth({
+        codeVerifier: request.codeVerifier ?? "",
+        state: request.state ?? "",
+        clientId: platformGoogleClientId() ?? "",
+      });
       await promptAsync();
     } catch {
       setLoading(false);
