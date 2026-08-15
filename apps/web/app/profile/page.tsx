@@ -3,6 +3,7 @@
 import AuthGuard from "../../components/guard/AuthGuard"
 import ProfileCard from "../../components/profile/ProfileCard"
 import AddressSection from "../../components/address/AddressSection"
+import DeleteAccountSection from "../../components/profile/DeleteAccountSection"
 import { User } from "lucide-react"
 
 export default function ProfilePage() {
@@ -22,6 +23,7 @@ export default function ProfilePage() {
 
         <ProfileCard />
         <AddressSection />
+        <DeleteAccountSection />
       </div>
     </AuthGuard>
   )

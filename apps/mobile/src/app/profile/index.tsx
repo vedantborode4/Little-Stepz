@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ScrollView, Text, View } from "react-native";
+import { Alert, Linking, ScrollView, Text, View } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -8,6 +8,7 @@ import { Header } from "../../components/layout/Header";
 import { Input } from "../../components/ui/Input";
 import { Button } from "../../components/ui/Button";
 import { UserService } from "../../lib/services/user.service";
+import { useAuth } from "../../hooks/useAuth";
 import { useAuthStore } from "../../store/auth.store";
 import { setUser as persistUser } from "../../lib/api/token";
 import { toast } from "../../store/toast.store";
@@ -19,6 +20,8 @@ export default function Profile() {
   const [name, setName] = useState(user?.name ?? "");
   const [phone, setPhone] = useState(user?.phone ?? "");
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const { signOut } = useAuth();
 
   const initials = (user?.name ?? "U")
     .split(" ")
@@ -39,6 +42,45 @@ export default function Profile() {
       toast.error(e?.response?.data?.message || "Could not update profile");
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Two-step on purpose: this is irreversible, and the second prompt states the
+  // one thing people do not expect — order records survive for tax retention.
+  const onDeleteAccount = () => {
+    Alert.alert(
+      "Delete account?",
+      "This permanently closes your account and removes your profile, addresses, wishlist and reviews.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Continue",
+          style: "destructive",
+          onPress: () =>
+            Alert.alert(
+              "This cannot be undone",
+              "Your past order and invoice records are kept for up to 8 years, as Indian tax law requires. Everything else is deleted. Continue?",
+              [
+                { text: "Keep my account", style: "cancel" },
+                { text: "Delete forever", style: "destructive", onPress: confirmDelete },
+              ]
+            ),
+        },
+      ]
+    );
+  };
+
+  const confirmDelete = async () => {
+    setDeleting(true);
+    try {
+      await UserService.deleteAccount();
+      toast.success("Your account has been deleted");
+      // signOut clears the session and routes to sign-in.
+      await signOut();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || "Could not delete your account");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -74,6 +116,29 @@ export default function Profile() {
 
         <Button label="Manage Addresses" variant="outline" onPress={() => router.push("/address")} left={<Ionicons name="location-outline" size={18} color={colors.primary} />} />
         <Button label="Change Password" variant="outline" onPress={() => router.push("/profile/password")} left={<Ionicons name="lock-closed-outline" size={18} color={colors.primary} />} />
+
+        {/* Danger zone — required by Google Play / App Store for any app that
+            allows account creation. See /data-deletion for the full policy. */}
+        <View className="mt-2 gap-3 rounded-2xl border border-danger/30 bg-surface p-4">
+          <Text className="font-jakarta-semibold text-danger">Delete account</Text>
+          <Text className="text-xs leading-5 text-muted">
+            Permanently closes your account and deletes your profile, addresses, wishlist and
+            reviews. Order and invoice records are kept for up to 8 years as required by law.
+          </Text>
+          <Button
+            label="Delete my account"
+            variant="outline"
+            loading={deleting}
+            onPress={onDeleteAccount}
+            left={<Ionicons name="trash-outline" size={18} color={colors.danger} />}
+          />
+          <Text
+            className="text-xs text-muted underline"
+            onPress={() => Linking.openURL("https://littlestepz.in/data-deletion")}
+          >
+            Read what is deleted and what is kept
+          </Text>
+        </View>
       </ScrollView>
     </ScreenContainer>
   );

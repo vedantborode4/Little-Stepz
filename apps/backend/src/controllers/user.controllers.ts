@@ -1,6 +1,7 @@
 import { Request, Response } from "express"
 import { updatePasswordSchema, updateProfileSchema } from "@repo/zod-schema/index"
 import {
+  deleteMyAccountService,
   getMeService,
   updateMeService,
   updatePasswordService,
@@ -38,6 +39,13 @@ async function updatePassword(req: Request, res: Response) {
   return new ApiResponse(200, null, "Password updated successfully").send(res)
 }
 
+async function deleteMe(req: Request, res: Response) {
+  await deleteMyAccountService(req.user!.userId)
+
+  return new ApiResponse(200, null, "Account deleted successfully").send(res)
+}
+
 export const getMeController = asyncHandler(getMe)
+export const deleteMeController = asyncHandler(deleteMe)
 export const updateMeController = asyncHandler(updateMe)
 export const updatePasswordController = asyncHandler(updatePassword)

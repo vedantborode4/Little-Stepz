@@ -11,7 +11,11 @@ export const dataDeletion: PolicyPage = {
       blocks: [
         {
           type: "paragraph",
-          text: "Email support@littlestepz.in from the email address registered on your Little Stepz account, using the subject line \"Account deletion request\".",
+          text: "The quickest way is in the app or on the website: open My Profile, scroll to \"Delete account\", and confirm. Your account is closed immediately.",
+        },
+        {
+          type: "paragraph",
+          text: "If you would rather not use the app, or you no longer have access to your account, email support@littlestepz.in from the email address registered on your Little Stepz account, using the subject line \"Account deletion request\".",
         },
         {
           type: "list",
@@ -38,8 +42,8 @@ export const dataDeletion: PolicyPage = {
         {
           type: "list",
           items: [
-            "Your name, email address and mobile number",
-            "All saved delivery addresses",
+            "Your name, email address and mobile number — the email is released, so you can sign up again later with the same address",
+            "All saved delivery addresses are removed from your account. Where an address is attached to an order we are required to keep, it survives only as part of that order record",
             "Your cart and wishlist",
             "Reviews you have written and any photos you uploaded with them",
             "Your profile picture",
@@ -48,6 +52,15 @@ export const dataDeletion: PolicyPage = {
             "All saved sign-in sessions, which signs you out on every device",
             "Your affiliate profile and referral code, if you have one",
           ],
+        },
+      ],
+    },
+    {
+      heading: "When we cannot delete straight away",
+      blocks: [
+        {
+          type: "paragraph",
+          text: "If you have an order or pre-order still in progress, or an unpaid affiliate balance, deletion is held until it settles — closing the account mid-delivery would leave us unable to complete or refund it. The app tells you which one is blocking, and you can delete as soon as it is resolved.",
         },
       ],
     },
