@@ -26,7 +26,36 @@ const userSelect = {
   role: true,
 };
 
+/**
+ * Resolve an affiliate referral code to the referring affiliate's *user* id.
+ *
+ * Referral codes live on `Affiliate.referralCode`, never on `User.referralCode` —
+ * nothing in the codebase ever writes the latter to a real value, so the previous
+ * `user.findUnique({ where: { referralCode } })` lookup could not match anything.
+ * All three signup paths shared that bug: Google and Apple silently dropped the
+ * attribution, while the password path *threw*, turning every deep-linked signup
+ * into a 500.
+ *
+ * Unresolvable, unapproved and soft-deleted codes are all non-fatal: a bad referral
+ * code must never stop someone creating an account.
+ */
+async function resolveReferrerUserId(
+  code?: string | null
+): Promise<string | undefined> {
+  if (!code) return undefined;
 
+  const affiliate = await prisma.affiliate.findUnique({
+    // Codes are stored uppercase; the click-tracking paths normalise the same way.
+    where: { referralCode: code.toUpperCase() },
+    select: { userId: true, status: true, deletedAt: true },
+  });
+
+  if (!affiliate || affiliate.deletedAt || affiliate.status !== "APPROVED") {
+    return undefined;
+  }
+
+  return affiliate.userId;
+}
 
 export async function signupService(data: SignupData) {
   const { email, password, name, phone, referralCode } = data;
@@ -38,19 +67,7 @@ export async function signupService(data: SignupData) {
   }
 
 
-  let referredById: string | undefined;
-  if (referralCode) {
-    const referrer = await prisma.user.findUnique({
-      where: { referralCode },
-      select: { id: true },
-    });
-
-    if (!referrer) {
-      throw new Error("Invalid referral code");
-    }
-
-    referredById = referrer.id;
-  }
+  const referredById = await resolveReferrerUserId(referralCode);
 
   const hashedPassword = await hashPassword(password);
 
@@ -190,14 +207,7 @@ export async function googleAuthService(idToken: string, referralCode?: string) 
 
   // 3. Brand-new account (no password — Google-only).
   if (!user) {
-    let referredById: string | undefined;
-    if (referralCode) {
-      const referrer = await prisma.user.findUnique({
-        where: { referralCode },
-        select: { id: true },
-      });
-      if (referrer) referredById = referrer.id;
-    }
+    const referredById = await resolveReferrerUserId(referralCode);
 
     user = await prisma.user.create({
       data: {
@@ -287,14 +297,7 @@ export async function appleAuthService(
       );
     }
 
-    let referredById: string | undefined;
-    if (opts.referralCode) {
-      const referrer = await prisma.user.findUnique({
-        where: { referralCode: opts.referralCode },
-        select: { id: true },
-      });
-      if (referrer) referredById = referrer.id;
-    }
+    const referredById = await resolveReferrerUserId(opts.referralCode);
 
     // Apple only sends the name on the very first authorization, and the token
     // never carries it — so this is the one and only chance to record it.

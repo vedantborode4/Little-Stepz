@@ -7,8 +7,20 @@ import cors from "cors";
 import { webhookRouter } from "./routes/webhook.routes";
 import { startStockSweeper } from "./services/stockSweeper.services";
 import { startShipmentSweeper } from "./services/shipmentSweeper.services";
+import { checkDelhiveryWarehouse } from "./services/shippingPreflight.services";
 
 const app = express();
+
+// Behind a reverse proxy, req.ip is otherwise the proxy's address — which collapses
+// every IP-keyed rate limiter into a single shared bucket, records the wrong IP on
+// password-reset tokens, and makes affiliate unique-click counts wrong (ipDateKey in
+// trackReferralClickService is built from req.ip). Set to the number of proxies in
+// front of this process; 0 (the default) preserves local behaviour.
+//
+// Deliberately NOT `true` — that trusts the whole X-Forwarded-For chain, letting a
+// client spoof its own IP and bypass every rate limiter. A hop count cannot be spoofed.
+app.set("trust proxy", Number(process.env.TRUST_PROXY_HOPS ?? 0));
+
 // Allow-list of dev origins (the `||` chain only ever returned the first value).
 // Includes the Expo web ports so the mobile app's web build can call the API.
 const ORIGIN = [
@@ -61,4 +73,5 @@ app.listen(PORT, () => {
   console.log(`[Server] Environment: ${process.env.NODE_ENV || "development"}`);
   startStockSweeper();
   startShipmentSweeper();
+  void checkDelhiveryWarehouse();
 });

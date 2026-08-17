@@ -28,6 +28,138 @@ export function getOriginPincode(): string | undefined {
   return process.env.DELHIVERY_ORIGIN_PINCODE;
 }
 
+export function getPickupName(): string | undefined {
+  return process.env.DELHIVERY_PICKUP_NAME;
+}
+
+// ─── Pickup warehouse (ClientWarehouse) ──────────────────────────────────────
+//
+// `createDelhiveryShipment` references the pickup location *by name only*
+// (`pickup_location: { name }`). Delhivery resolves that against the
+// ClientWarehouse table scoped to the API token's account, and when nothing
+// matches it answers HTTP 200 with packages[].status "Fail" and the remark
+// "ClientWarehouse matching query does not exist." — which is indistinguishable
+// from a dozen other rejections unless you go looking. These two helpers make the
+// warehouse state observable and fixable without a Delhivery panel login.
+//
+// Note both endpoints take a JSON body/response, unlike /api/cmu/create.json
+// which is form-encoded.
+
+export interface DelhiveryWarehouseInput {
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+  city: string;
+  state: string;
+  pin: string;
+  country?: string;
+  /** Return address defaults to the pickup address when omitted. */
+  returnAddress?: string;
+  returnCity?: string;
+  returnState?: string;
+  returnPin?: string;
+}
+
+/**
+ * Is the configured API token accepted by Delhivery?
+ *
+ * Needed because `/api/backend/clientwarehouse/<name>/` answers **404 for a bad
+ * token as well as for a missing warehouse** — so a lookup miss on its own cannot
+ * tell "this warehouse was never registered" from "these credentials are wrong",
+ * and reporting the former for the latter sends people chasing the wrong fix.
+ * The pin-codes endpoint does distinguish them: it returns 401 for a bad token.
+ */
+export async function verifyDelhiveryAuth(): Promise<boolean> {
+  const pin = getOriginPincode() ?? "110001";
+  const url = `${DELHIVERY_API}/c/api/pin-codes/json/?filter_codes=${encodeURIComponent(pin)}`;
+  const res = await fetch(url, { headers: authHeaders() });
+
+  if (res.status === 401 || res.status === 403) return false;
+  if (!res.ok) throw new ApiError(502, "Delhivery auth check failed");
+
+  return true;
+}
+
+/**
+ * Look up a registered pickup warehouse by name.
+ *
+ * Returns `null` when Delhivery has no such warehouse, so callers can tell
+ * "not registered" apart from "the API is down" (which throws). Note a `null`
+ * here does NOT prove the warehouse is missing — pair it with
+ * `verifyDelhiveryAuth()` before telling anyone to go register one.
+ */
+export async function fetchDelhiveryWarehouse(name: string): Promise<unknown | null> {
+  const url = `${DELHIVERY_API}/api/backend/clientwarehouse/${encodeURIComponent(name)}/`;
+  const res = await fetch(url, { headers: authHeaders() });
+
+  if (res.status === 404) return null;
+  if (!res.ok) throw new ApiError(502, "Delhivery warehouse lookup failed");
+
+  const data = (await res.json().catch(() => null)) as any;
+
+  // Delhivery is inconsistent here: some accounts get a 200 with an empty list or
+  // an `error` payload rather than a 404. Treat all of those as "not registered".
+  if (!data || data.error || data.success === false) return null;
+  if (Array.isArray(data) && data.length === 0) return null;
+  if (Array.isArray(data?.data) && data.data.length === 0) return null;
+
+  return data;
+}
+
+/** Register a pickup warehouse so shipments can reference it by name. */
+export async function createDelhiveryWarehouse(
+  input: DelhiveryWarehouseInput
+): Promise<unknown> {
+  const payload = {
+    name: input.name,
+    email: input.email,
+    phone: input.phone,
+    address: input.address,
+    city: input.city,
+    state: input.state,
+    pin: input.pin,
+    country: input.country ?? "India",
+    return_address: input.returnAddress ?? input.address,
+    return_city: input.returnCity ?? input.city,
+    return_state: input.returnState ?? input.state,
+    return_pin: input.returnPin ?? input.pin,
+    return_country: input.country ?? "India",
+  };
+
+  const res = await fetch(`${DELHIVERY_API}/api/backend/clientwarehouse/create/`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(payload),
+  });
+
+  const data = (await res.json().catch(() => ({}))) as any;
+
+  // Same trap as shipment creation: a rejection can arrive as a 200 with an error
+  // body, so status alone is not enough to call this a success.
+  if (!res.ok || data?.error || data?.success === false) {
+    const reason = [data?.error, data?.rmk, data?.message]
+      .filter(Boolean)
+      .map(String)
+      .join("; ");
+
+    console.error("[delhivery] warehouse create failed", {
+      httpStatus: res.status,
+      name: input.name,
+      response: data,
+    });
+
+    throw new ApiError(
+      502,
+      reason
+        ? `DELHIVERY_WAREHOUSE_CREATE_FAILED: ${reason}`
+        : `DELHIVERY_WAREHOUSE_CREATE_FAILED (HTTP ${res.status})`
+    );
+  }
+
+  return data;
+}
+
 // ─── Serviceability / pincode check ──────────────────────────────────────────
 export interface ServiceabilityResult {
   serviceable: boolean;

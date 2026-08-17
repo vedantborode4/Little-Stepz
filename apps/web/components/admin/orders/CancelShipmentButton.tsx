@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { XCircle } from "lucide-react"
 import { AdminOrderService, type OrderStatus } from "../../../lib/services/admin-order.service"
+import { friendlyError } from "../../../lib/errorMessages"
 import { toast } from "sonner"
 
 interface Props {
@@ -30,7 +31,7 @@ export default function CancelShipmentButton({ orderId, currentStatus, onSuccess
       toast.success("Shipment cancelled")
       cb?.()
     } catch (e: any) {
-      toast.error(e?.response?.data?.message || "Failed to cancel shipment")
+      toast.error(friendlyError(e, "Failed to cancel shipment"), { duration: 10000 })
     } finally {
       setLoading(false)
     }

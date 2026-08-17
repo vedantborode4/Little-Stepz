@@ -14,6 +14,7 @@ import {
     adminBannerRouter
 } from "./admin.dashboard.routes";
 import { adminNotificationRouter } from "./admin.notification.routes";
+import { adminShippingRouter } from "./admin.shipping.routes";
 
 export const adminRouter: Router = Router();
 
@@ -40,3 +41,5 @@ adminRouter.use("/", adminDashboardRouter);
 adminRouter.use("/banners", adminBannerRouter);
 
 adminRouter.use("/notifications", adminNotificationRouter);
+
+adminRouter.use("/shipping", adminShippingRouter);

@@ -82,10 +82,40 @@ const ERROR_COPY: Record<string, string> = {
   MINIMUM_WITHDRAWAL_NOT_MET: "You haven't reached the minimum withdrawal amount.",
   PAYOUT_DETAILS_MISSING: "Please add your payout details first.",
 
+  // ── Shipping / Delhivery (admin-facing) ──────────────────────────────────
+  DELHIVERY_ORDER_FAILED: "Delhivery rejected this shipment. Check Shipping settings and the server logs for the reason.",
+  DELHIVERY_AUTH_FAILED: "Delhivery rejected our credentials. Check DELHIVERY_API_TOKEN.",
+  DELHIVERY_WAREHOUSE_CREATE_FAILED: "Delhivery wouldn't register the pickup warehouse. Check the warehouse details and the server logs.",
+  SHIPMENT_NOT_FOUND: "We couldn't find a shipment for this order.",
+  SHIPMENT_ALREADY_EXISTS: "This order has already been handed to the courier.",
+
   // ── Generic ──────────────────────────────────────────────────────────────
   RATE_LIMIT_EXCEEDED: "Too many attempts. Please wait a moment and try again.",
   INVALID_TOKEN: "This link is invalid or has expired.",
 }
+
+/**
+ * Some backend errors carry the upstream reason after the code
+ * (`DELHIVERY_ORDER_FAILED: ClientWarehouse matching query does not exist.; true`).
+ * The courier's wording is precise but unreadable, and it names the fix badly — so
+ * match on the remark and say what to actually do about it.
+ */
+const REMARK_COPY: { match: RegExp; copy: string }[] = [
+  {
+    match: /clientwarehouse matching query does not exist/i,
+    copy:
+      "The pickup warehouse isn't registered with Delhivery. Open Shipping settings and register it, " +
+      "or correct DELHIVERY_PICKUP_NAME to match the name in the Delhivery panel exactly.",
+  },
+  {
+    match: /not serviceable for cod/i,
+    copy: "Delhivery doesn't offer Cash on Delivery to this pincode.",
+  },
+  {
+    match: /not serviceable|pin(code)? not/i,
+    copy: "Delhivery doesn't deliver to this pincode.",
+  },
+]
 
 /** True when a string looks like a raw backend code (SCREAMING_SNAKE_CASE). */
 function looksLikeErrorCode(value: string): boolean {
@@ -104,6 +134,24 @@ export function friendlyError(err: unknown, fallback = "Something went wrong. Pl
 
   if (typeof raw !== "string" || !raw.trim()) return fallback
   if (ERROR_COPY[raw]) return ERROR_COPY[raw]
+
+  // Codes can arrive with the upstream reason appended — `CODE: courier remark` or
+  // `CODE (HTTP 502)`. Neither matched anything before, so the whole raw string was
+  // rendered verbatim (this is what put "ClientWarehouse matching query does not
+  // exist.; true" in front of an admin). The remark is more specific than the code,
+  // so try it first, then the code's own copy, and never fall through to raw.
+  const prefixed = raw.match(/^([A-Z][A-Z0-9_]{3,})\b([\s\S]*)$/)
+
+  if (prefixed) {
+    const code = prefixed[1]!
+    const detail = prefixed[2]!.replace(/^[:\s]+/, "").trim()
+
+    const remark = detail ? REMARK_COPY.find((r) => r.match.test(detail)) : undefined
+    if (remark) return remark.copy
+
+    return ERROR_COPY[code] ?? fallback
+  }
+
   // An unmapped code would look like gibberish to a shopper — hide it.
   if (looksLikeErrorCode(raw)) return fallback
   return raw
