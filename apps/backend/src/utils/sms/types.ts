@@ -32,6 +32,12 @@ export interface SmsSendResult {
   error?: string;
 }
 
+export interface SmsHealth {
+  ok: boolean;
+  /** Human-readable summary for the boot log. */
+  detail: string;
+}
+
 export interface SmsProvider {
   readonly name: string;
   /**
@@ -39,4 +45,10 @@ export interface SmsProvider {
    * means, because unlike email/push (side channels), an OTP send IS the request.
    */
   send(msg: SmsMessage): Promise<SmsSendResult>;
+  /**
+   * Optional boot check. The failure mode this guards against is the nasty one:
+   * credentials/sender/template misconfigured means the API accepts the call and the
+   * operator drops the SMS, so nothing looks wrong until customers can't sign in.
+   */
+  healthCheck?(): Promise<SmsHealth>;
 }

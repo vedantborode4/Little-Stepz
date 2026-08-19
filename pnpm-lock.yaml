@@ -79,6 +79,9 @@ importers:
         specifier: ^4.3.5
         version: 4.3.5
     devDependencies:
+      '@repo/content':
+        specifier: workspace:*
+        version: link:../../packages/content
       '@repo/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -10699,7 +10702,7 @@ snapshots:
 
   eslint@9.39.1(jiti@1.21.7):
     dependencies:
-      '@eslint-community/eslint-utils': 4.9.1(eslint@9.39.1(jiti@1.21.7))
+      '@eslint-community/eslint-utils': 4.9.0(eslint@9.39.1(jiti@1.21.7))
       '@eslint-community/regexpp': 4.12.2
       '@eslint/config-array': 0.21.1
       '@eslint/config-helpers': 0.4.2

@@ -1,4 +1,4 @@
-import { maskPhone, toMsg91Mobile } from "../phone";
+import { maskPhone, toIndianMobile } from "../phone";
 import type { SmsMessage, SmsProvider, SmsSendResult } from "../types";
 
 /**
@@ -38,7 +38,7 @@ export const msg91Provider: SmsProvider = {
           template_id: templateId,
           short_url: "0",
           ...(process.env.MSG91_SENDER_ID ? { sender: process.env.MSG91_SENDER_ID } : {}),
-          recipients: [{ mobiles: toMsg91Mobile(msg.to), ...msg.variables }],
+          recipients: [{ mobiles: toIndianMobile(msg.to), ...msg.variables }],
         }),
       });
 

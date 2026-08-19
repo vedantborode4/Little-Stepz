@@ -11,8 +11,8 @@ export function toE164India(phone: string): string {
   return `+91${phone}`;
 }
 
-/** MSG91 wants the country code with no plus. */
-export function toMsg91Mobile(phone: string): string {
+/** `91XXXXXXXXXX` — what MSG91 and SMSGatewayHub both expect. */
+export function toIndianMobile(phone: string): string {
   return `91${phone}`;
 }
 

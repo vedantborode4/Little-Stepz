@@ -7,7 +7,7 @@ import cors from "cors";
 import { webhookRouter } from "./routes/webhook.routes";
 import { startStockSweeper } from "./services/stockSweeper.services";
 import { startShipmentSweeper } from "./services/shipmentSweeper.services";
-import { checkDelhiveryWarehouse } from "./services/shippingPreflight.services";
+import { checkDelhiveryWarehouse, checkSmsProvider } from "./services/shippingPreflight.services";
 import { startAuthSweeper } from "./services/authSweeper.services";
 
 const app = express();
@@ -76,6 +76,7 @@ app.listen(PORT, () => {
   startShipmentSweeper();
   startAuthSweeper();
   void checkDelhiveryWarehouse();
+  void checkSmsProvider();
 
   // Signup now depends on email delivery: without a key, no OTP can ever arrive and
   // no account can be created. Better to learn that at boot than one 502 at a time.

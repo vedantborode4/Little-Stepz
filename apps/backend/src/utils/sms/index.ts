@@ -1,5 +1,6 @@
 import { consoleProvider } from "./providers/console.provider";
 import { msg91Provider } from "./providers/msg91.provider";
+import { smsGatewayHubProvider } from "./providers/smsgatewayhub.provider";
 import { twilioProvider } from "./providers/twilio.provider";
 import type { SmsMessage, SmsProvider, SmsSendResult } from "./types";
 
@@ -22,6 +23,9 @@ export function getSmsProvider(): SmsProvider {
   const name = (process.env.SMS_PROVIDER ?? "console").toLowerCase();
 
   switch (name) {
+    case "smsgatewayhub":
+      cached = smsGatewayHubProvider;
+      break;
     case "msg91":
       cached = msg91Provider;
       break;

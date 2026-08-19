@@ -3,6 +3,42 @@ import {
   getPickupName,
   verifyDelhiveryAuth,
 } from "../utils/delhivery.client";
+import { getSmsProvider } from "../utils/sms";
+
+/**
+ * Confirm the SMS provider can actually deliver.
+ *
+ * Phone verification's worst failure mode is silent: wrong credentials, an
+ * unapproved sender header or a template mismatch all let the API return success
+ * while the operator drops the message. Checking at boot turns that into one log
+ * line instead of customers who can't verify a number.
+ */
+export async function checkSmsProvider(): Promise<void> {
+  const provider = getSmsProvider();
+
+  if (provider.name === "console") {
+    console.warn(
+      "[preflight] SMS_PROVIDER=console — phone verification will log codes, not send them."
+    );
+    return;
+  }
+
+  if (!provider.healthCheck) {
+    console.log(`[preflight] SMS provider "${provider.name}" configured (no health check available).`);
+    return;
+  }
+
+  try {
+    const health = await provider.healthCheck();
+    if (health.ok) {
+      console.log(`[preflight] SMS provider "${provider.name}" ready — ${health.detail}`);
+    } else {
+      console.error(`[preflight] SMS provider "${provider.name}" NOT ready — ${health.detail}`);
+    }
+  } catch (err: any) {
+    console.warn(`[preflight] Could not verify the SMS provider: ${err?.message ?? err}`);
+  }
+}
 
 /**
  * Check at boot that the configured pickup warehouse actually resolves.
