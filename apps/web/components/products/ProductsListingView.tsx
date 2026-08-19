@@ -54,6 +54,11 @@ export default function ProductsListingView({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(false)
 
+  // Pagination scrolls back to here, so a page change lands on the new results
+  // instead of leaving the viewport parked at the old page's footer.
+  const resultsRef = useRef<HTMLDivElement>(null)
+
+
   useEffect(() => {
     if (!useCategoryStore.getState().tree.length) {
       useCategoryStore.getState().fetchTree()
@@ -179,7 +184,7 @@ export default function ProductsListingView({
           </div>
         )}
 
-        <div className="w-full">
+        <div ref={resultsRef} className="w-full scroll-mt-20">
           {!isSearchMode && (
             <div className="flex justify-between items-center mb-3 sm:mb-4 lg:hidden">
               <MobileFilterDrawer />
@@ -207,7 +212,9 @@ export default function ProductsListingView({
                 ))}
               </div>
 
-              {!isSearchMode && <Pagination totalPages={totalPages} />}
+              {!isSearchMode && (
+                <Pagination totalPages={totalPages} scrollTargetRef={resultsRef} />
+              )}
             </>
           )}
         </div>

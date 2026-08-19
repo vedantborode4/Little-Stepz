@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from "react-native";
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { Link, router, useLocalSearchParams } from "expo-router";
 import { useForm, Controller } from "react-hook-form";
@@ -19,10 +19,16 @@ export default function SignIn() {
   const { redirect } = useLocalSearchParams<{ redirect?: string }>();
   const [submitting, setSubmitting] = useState(false);
 
+  // Set when the account exists but was created through Google/Apple, so there is no
+  // password to check. Shown as a notice with a route forward rather than a field
+  // error — retyping the password can never fix it.
+  const [oauthOnly, setOauthOnly] = useState<string | null>(null);
+
   const {
     control,
     handleSubmit,
     setError,
+    getValues,
     formState: { errors },
   } = useForm<SigninData>({
     resolver: zodResolver(SigninSchema),
@@ -32,6 +38,7 @@ export default function SignIn() {
 
   const onSubmit = async (data: SigninData) => {
     setSubmitting(true);
+    setOauthOnly(null);
     try {
       const res = await AuthService.signIn(data);
       await login(res);
@@ -39,7 +46,9 @@ export default function SignIn() {
       router.replace((redirect as any) || "/(tabs)/home");
     } catch (err: any) {
       const msg: string = err?.response?.data?.message || "Invalid email or password";
-      if (/invalid|incorrect|password|credential/i.test(msg)) {
+      if (err?.response?.data?.code === "PASSWORD_NOT_SET") {
+        setOauthOnly(msg);
+      } else if (/invalid|incorrect|password|credential/i.test(msg)) {
         setError("password", { message: msg });
       } else {
         toast.error(msg);
@@ -65,6 +74,22 @@ export default function SignIn() {
           </View>
           <Text className="text-3xl font-jakarta-bold text-text">Welcome back</Text>
           <Text className="mt-1 mb-8 text-base text-muted">Sign in to continue shopping</Text>
+
+          {oauthOnly ? (
+            <View className="mb-4 gap-2 rounded-xl border border-primary/20 bg-primary/5 p-3.5">
+              <Text className="text-sm text-text">{oauthOnly}</Text>
+              <Pressable
+                onPress={() =>
+                  router.push({
+                    pathname: "/(auth)/forgot-password",
+                    params: { email: getValues("email") ?? "" },
+                  })
+                }
+              >
+                <Text className="text-sm font-jakarta-semibold text-primary">Set a password →</Text>
+              </Pressable>
+            </View>
+          ) : null}
 
           <View className="gap-4">
             <Controller

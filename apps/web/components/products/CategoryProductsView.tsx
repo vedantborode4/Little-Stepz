@@ -48,6 +48,11 @@ export default function CategoryProductsView({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(false)
 
+  // Pagination scrolls back to here, so a page change lands on the new results
+  // instead of leaving the viewport parked at the old page's footer.
+  const resultsRef = useRef<HTMLDivElement>(null)
+
+
   useEffect(() => {
     if (!useCategoryStore.getState().tree.length) {
       useCategoryStore.getState().fetchTree()
@@ -131,7 +136,7 @@ export default function CategoryProductsView({
           <DynamicPromoBanner position="PRODUCT_SIDEBAR" />
         </div>
 
-        <div className="w-full">
+        <div ref={resultsRef} className="w-full scroll-mt-20">
           <div className="flex justify-between items-center mb-4 lg:hidden">
             <MobileFilterDrawer />
           </div>
@@ -172,6 +177,7 @@ export default function CategoryProductsView({
                 totalPages={totalPages}
                 currentPage={page}
                 onPageChange={setPage}
+                scrollTargetRef={resultsRef}
               />
             </>
           )}

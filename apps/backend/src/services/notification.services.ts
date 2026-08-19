@@ -129,7 +129,12 @@ export async function notify(input: NotifyInput): Promise<void> {
       ttl: 60 * 60,
     }));
 
-    const { invalidTokens } = await sendExpoPush(messages);
+    // The receipt check lands ~15s later, so its pruning is fire-and-forget.
+    const { invalidTokens } = await sendExpoPush(messages, (stale) => {
+      void prisma.deviceToken
+        .deleteMany({ where: { token: { in: stale } } })
+        .catch((err) => console.error("[notify] pruning stale tokens failed", err));
+    });
     if (invalidTokens.length > 0) {
       await prisma.deviceToken.deleteMany({
         where: { token: { in: invalidTokens } },

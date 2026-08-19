@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import GuestGuard from "../../../components/guard/GuestGuard"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -21,11 +21,20 @@ export default function ForgotPasswordPage() {
     handleSubmit,
     clearErrors,
     getValues,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<ForgotPasswordData>({
     resolver: zodResolver(forgotPasswordSchema),
     mode: "onChange",
   })
+
+  // Sign-in sends OAuth-only accounts here to set their first password; carrying the
+  // address over saves retyping it. Read off window rather than useSearchParams, for
+  // the same reason as reset-password — it avoids needing a Suspense boundary.
+  useEffect(() => {
+    const email = new URLSearchParams(window.location.search).get("email")
+    if (email) setValue("email", email)
+  }, [setValue])
 
   const onSubmit = async (data: ForgotPasswordData) => {
     try {

@@ -16,7 +16,7 @@ export function configureNotificationHandler() {
   });
 }
 
-async function ensureAndroidChannel() {
+export async function ensureAndroidChannel() {
   if (Platform.OS !== "android") return;
   // Matches the `channelId: "default"` the backend sends with every push.
   // HIGH (not DEFAULT) so order/payment alerts pop as a heads-up banner instead of
@@ -76,6 +76,25 @@ export async function registerForPushNotifications(): Promise<string | null> {
   } catch (err) {
     console.warn("[push] registration skipped:", (err as Error)?.message);
     return null;
+  }
+}
+
+/**
+ * Registers a token the OS handed us out-of-band (FCM/APNs rotate tokens, and the
+ * rotated one arrives through `addPushTokenListener`, not through a fresh
+ * `getExpoPushTokenAsync`). Without this the `DeviceToken` row goes stale and every
+ * later push is delivered to a token nobody holds — silently, since Expo still
+ * accepts the send.
+ */
+export async function registerPushToken(token: string): Promise<void> {
+  try {
+    await NotificationService.registerDevice({
+      token,
+      platform: Platform.OS === "ios" ? "IOS" : "ANDROID",
+      deviceName: Device.deviceName ?? undefined,
+    });
+  } catch (err) {
+    console.warn("[push] token re-registration failed:", (err as Error)?.message);
   }
 }
 

@@ -25,15 +25,18 @@ import { useAuthStore } from "../store/auth.store";
 import { UserService } from "../lib/services/user.service";
 import { ToastHost } from "../components/ui/ToastHost";
 import { ErrorBoundary } from "../components/ErrorBoundary";
-import { AnimatedSplash } from "../components/AnimatedSplash";
 import { useThemeStore } from "../store/theme.store";
 import { useIsDark, useThemeColors } from "../theme/useThemeColors";
 import { usePushNotifications } from "../hooks/usePushNotifications";
 import { useGoogleOAuthCallback } from "../hooks/useGoogleOAuthCallback";
-import { configureNotificationHandler } from "../lib/push";
+import { configureNotificationHandler, ensureAndroidChannel } from "../lib/push";
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 configureNotificationHandler();
+// Create the Android channel at launch, not only inside the authenticated
+// registration path: a push that arrives for a channel the app has never declared
+// falls back to Android's default importance and shows no heads-up banner.
+void ensureAndroidChannel();
 
 /** Runs push wiring inside the QueryClientProvider (needs useQueryClient). */
 function PushBridge() {
@@ -54,7 +57,6 @@ export default function RootLayout() {
   const setHydrated = useAuthStore((s) => s.setHydrated);
   const isHydrated = useAuthStore((s) => s.isHydrated);
   const [authReady, setAuthReady] = useState(false);
-  const [splashDone, setSplashDone] = useState(false);
 
   const themeColors = useThemeColors();
   const isDark = useIsDark();
@@ -134,7 +136,6 @@ export default function RootLayout() {
           <ToastHost />
         </PersistQueryClientProvider>
       </SafeAreaProvider>
-      {!splashDone ? <AnimatedSplash onDone={() => setSplashDone(true)} /> : null}
     </GestureHandlerRootView>
   );
 }

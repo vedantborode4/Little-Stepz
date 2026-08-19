@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
+import { scrollToTopOf } from "../../../lib/utils/scroll"
 import { AdminWithdrawalService, type AdminWithdrawal } from "../../../lib/services/admin-affiliate.service"
 import AdminPageHeader from "../../../components/admin/AdminPageHeader"
 import TableSkeleton from "../../../components/admin/TableSkeleton"
@@ -25,6 +26,17 @@ export default function AdminWithdrawalsPage() {
   const [transactionRef, setTransactionRef] = useState("")
   const [adminNote, setAdminNote] = useState("")
   const [acting, setActing] = useState(false)
+
+  // Paging swaps the rows underneath a viewport that stays where it was, so the list
+  // looks unchanged until you scroll back up yourself. Put it on the new rows instead.
+  const listRef = useRef<HTMLDivElement>(null)
+
+  const goToPage = (next: number) => {
+    const clamped = Math.min(Math.max(1, next), pagination.pages)
+    if (clamped === page) return
+    scrollToTopOf(listRef.current)
+    setPage(clamped)
+  }
 
   const fetch = async () => {
     setLoading(true)
@@ -64,7 +76,7 @@ export default function AdminWithdrawalsPage() {
       </div>
 
       {loading ? <TableSkeleton rows={8} cols={6} /> : (
-        <div className="bg-surface border border-border rounded-2xl overflow-hidden">
+        <div ref={listRef} className="bg-surface border border-border rounded-2xl overflow-hidden scroll-mt-20">
           {/* Desktop */}
           <div className="hidden sm:block overflow-x-auto">
             <table className="w-full text-sm">
@@ -122,8 +134,8 @@ export default function AdminWithdrawalsPage() {
             <div className="flex items-center justify-between px-4 py-3 border-t border-border">
               <p className="text-xs sm:text-sm text-muted">Page {page} of {pagination.pages}</p>
               <div className="flex gap-2">
-                <button onClick={() => setPage(p => Math.max(1,p-1))} disabled={page===1} className="w-8 h-8 flex items-center justify-center rounded-lg border border-border disabled:opacity-40 hover:bg-surface-2">‹</button>
-                <button onClick={() => setPage(p => Math.min(pagination.pages,p+1))} disabled={page===pagination.pages} className="w-8 h-8 flex items-center justify-center rounded-lg border border-border disabled:opacity-40 hover:bg-surface-2">›</button>
+                <button onClick={() => goToPage(page - 1)} disabled={page===1} className="w-8 h-8 flex items-center justify-center rounded-lg border border-border disabled:opacity-40 hover:bg-surface-2">‹</button>
+                <button onClick={() => goToPage(page + 1)} disabled={page===pagination.pages} className="w-8 h-8 flex items-center justify-center rounded-lg border border-border disabled:opacity-40 hover:bg-surface-2">›</button>
               </div>
             </div>
           )}

@@ -154,7 +154,13 @@ export default function ProductCard({ product }: { product: Product }) {
             <span className="pointer-events-none absolute inset-0 -translate-x-full skew-x-12 bg-linear-to-r from-transparent via-white/40 to-transparent transition-transform duration-700 group-hover/btn:translate-x-full" />
             <span className="relative flex items-center justify-center gap-1.5 sm:gap-2">
               {isAdding && <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 animate-spin" />}
-              {hasVariants ? "Select Options" : isAdding ? "Adding…" : "Add to Cart"}
+              {!inStock
+                ? "Out of Stock"
+                : hasVariants
+                  ? "Select Options"
+                  : isAdding
+                    ? "Adding…"
+                    : "Add to Cart"}
             </span>
           </button>
         )}

@@ -4,7 +4,7 @@ import * as Notifications from "expo-notifications";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { useAuthStore } from "../store/auth.store";
-import { registerForPushNotifications } from "../lib/push";
+import { registerForPushNotifications, registerPushToken } from "../lib/push";
 import { notificationRoute } from "../lib/notificationRoute";
 import { qk } from "../lib/api/query-client";
 
@@ -32,6 +32,18 @@ export function usePushNotifications() {
   useEffect(() => {
     if (isAuthenticated) registerForPushNotifications();
   }, [isAuthenticated]);
+
+  // FCM and APNs rotate device tokens (app restore, data clear, long idle). The new
+  // one arrives here, never through a re-render, so without this the backend keeps
+  // pushing to a dead token and nothing ever reaches the device.
+  useEffect(() => {
+    const sub = Notifications.addPushTokenListener((token) => {
+      if (useAuthStore.getState().isAuthenticated && token?.data) {
+        void registerPushToken(token.data);
+      }
+    });
+    return () => sub.remove();
+  }, []);
 
   useEffect(() => {
     if (navReady && pending.current) {

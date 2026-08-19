@@ -384,11 +384,17 @@ export default function ProductDetail() {
               left={<Ionicons name="time-outline" size={16} color="#fff" />}
             />
           </View>
+        ) : outOfStock ? (
+          // One honest dead button. A disabled "Out of Stock" sitting next to a
+          // disabled "Buy Now" reads as a glitch rather than a stock state.
+          <View className="flex-1">
+            <Button label="Out of Stock" variant="outline" disabled onPress={() => {}} />
+          </View>
         ) : (
           <>
             <View className="flex-1">
               <Button
-                label={outOfStock ? "Out of Stock" : "Add to Cart"}
+                label="Add to Cart"
                 variant="outline"
                 className="border-primary"
                 disabled={ctaDisabled}

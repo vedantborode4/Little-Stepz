@@ -104,11 +104,6 @@ function ProductCardBase({ product }: { product: Product }) {
             <Text className="text-[9px] font-jakarta-bold uppercase tracking-wide text-white">Pre-Order</Text>
           </View>
         ) : null}
-        {!inStock && !canPreOrder ? (
-          <View className="absolute bottom-0 left-0 right-0 bg-black/60 py-1">
-            <Text className="text-center text-xs font-jakarta-medium text-white">Out of stock</Text>
-          </View>
-        ) : null}
       </View>
 
       <View className="flex-1 p-2.5">
@@ -138,8 +133,20 @@ function ProductCardBase({ product }: { product: Product }) {
           }`}
         >
           {adding ? <ActivityIndicator size="small" color="#fff" /> : null}
-          <Text className="text-xs font-jakarta-medium text-white">
-            {canPreOrder ? "Pre-Order" : hasVariants ? "Select Options" : adding ? "Adding…" : "Add to Cart"}
+          <Text
+            className={`text-xs font-jakarta-medium ${
+              !inStock && !canPreOrder ? "text-muted" : "text-white"
+            }`}
+          >
+            {!inStock && !canPreOrder
+              ? "Out of Stock"
+              : canPreOrder
+                ? "Pre-Order"
+                : hasVariants
+                  ? "Select Options"
+                  : adding
+                    ? "Adding…"
+                    : "Add to Cart"}
           </Text>
         </Pressable>
       </View>

@@ -340,6 +340,16 @@ export default function ProductInfo({
               <Clock size={17} />
               Pre-Order · ₹{Number(product.bookingAmount).toLocaleString("en-IN")}
             </Link>
+          ) : !inStock ? (
+            // Out of stock and not pre-orderable: one honest, dead button. Showing a
+            // disabled "Add to Cart" next to a disabled "Buy Now" reads as a glitch.
+            <button
+              disabled
+              className="flex-1 border-2 border-border text-faint py-3.5 rounded-xl font-semibold cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              <ShoppingCart size={17} />
+              Out of Stock
+            </button>
           ) : (
             <>
               <button
@@ -441,6 +451,13 @@ export default function ProductInfo({
             <Clock size={15} />
             Pre-Order · ₹{Number(product.bookingAmount).toLocaleString("en-IN")}
           </Link>
+        ) : !inStock ? (
+          <button
+            disabled
+            className="flex-1 border-2 border-border text-faint py-3 rounded-xl font-semibold cursor-not-allowed flex items-center justify-center gap-1.5 text-sm"
+          >
+            Out of Stock
+          </button>
         ) : (
           <>
             <button

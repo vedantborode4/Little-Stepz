@@ -27,6 +27,7 @@ import {
   refreshTokenCookieOptions,
 } from "../utils/constants";
 import { isNativeClient } from "../utils/client";
+import { PasswordNotSetError } from "../utils/auth/errors";
 
 /**
  * Native clients get the refresh token in the response body as well, because they
@@ -127,6 +128,15 @@ export async function signinController(req: Request, res: Response) {
 
     return res.status(200).json(authPayload(req, user, accessToken, refreshToken));
   } catch (err) {
+    // An OAuth-only account gets a machine-readable code so both clients can offer
+    // the set-a-password route instead of showing a dead-end message.
+    if (err instanceof PasswordNotSetError) {
+      return res.status(401).json({
+        message: err.message,
+        code: err.code,
+        providers: err.providers,
+      });
+    }
     if (err instanceof Error) {
       return res.status(401).json({ message: err.message });
     }

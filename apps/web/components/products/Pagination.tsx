@@ -1,18 +1,26 @@
 "use client"
 
+import type { RefObject } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useProductFilterStore } from "../../store/useProductFilterStore"
+import { scrollToTopOf } from "../../lib/utils/scroll"
 
 interface PaginationProps {
   totalPages: number
   currentPage?: number
   onPageChange?: (page: number) => void
+  /**
+   * Results container to scroll back to after a page change. Without it the new page
+   * renders while the viewport stays parked at the old page's footer.
+   */
+  scrollTargetRef?: RefObject<HTMLElement | null>
 }
 
 export function Pagination({
   totalPages,
   currentPage,
   onPageChange,
+  scrollTargetRef,
 }: PaginationProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -25,6 +33,13 @@ export function Pagination({
   if (totalPages <= 1) return null
 
   const changePage = (page: number) => {
+    if (page === activePage) return
+
+    // Both modes scroll: `scroll: false` below stops Next jumping to the very top of
+    // the document (past the header and filters), and we place the viewport on the
+    // results instead.
+    scrollToTopOf(scrollTargetRef?.current)
+
     if (onPageChange) {
       onPageChange(page) // ✅ category mode
       return

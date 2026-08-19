@@ -50,7 +50,7 @@ export default function SignUp() {
   } = useForm<SignupFormData>({
     resolver: zodResolver(SignupFormSchema),
     mode: "onChange",
-    defaultValues: { name: "", email: "", password: "", confirmPassword: "", phone: "", referralCode: "" },
+    defaultValues: { name: "", email: "", password: "", confirmPassword: "", referralCode: "" },
   });
 
   // Prefill referral code captured from a /ref deep link, if any.
@@ -67,7 +67,6 @@ export default function SignUp() {
       const { confirmPassword, ...rest } = data;
       const payload = {
         ...rest,
-        phone: rest.phone || undefined,
         referralCode: rest.referralCode || undefined,
       } as SignupData;
 
@@ -150,13 +149,6 @@ export default function SignUp() {
               name="email"
               render={({ field: { onChange, onBlur, value } }) => (
                 <Input label="Email" placeholder="you@example.com" autoCapitalize="none" keyboardType="email-address" value={value} onChangeText={onChange} onBlur={onBlur} error={errors.email?.message} />
-              )}
-            />
-            <Controller
-              control={control}
-              name="phone"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <Input label="Phone (optional)" placeholder="9876543210" keyboardType="phone-pad" value={value ?? ""} onChangeText={onChange} onBlur={onBlur} error={errors.phone?.message} />
               )}
             />
             <View>

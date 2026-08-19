@@ -12,7 +12,11 @@ import {
   MAX_RESET_CODE_ATTEMPTS,
   PASSWORD_RESET_TTL_MINUTES,
 } from "../utils/auth/reset-token";
-import { InvalidTokenError, TokenReuseDetectedError } from "../utils/auth/errors";
+import {
+  InvalidTokenError,
+  PasswordNotSetError,
+  TokenReuseDetectedError,
+} from "../utils/auth/errors";
 import { verifyGoogleIdToken } from "../utils/auth/google";
 import { verifyAppleIdentityToken } from "../utils/auth/apple";
 import { ApiError } from "../utils/api/ApiError";
@@ -265,9 +269,13 @@ export async function signinService(data: SigninData) {
     // Deliberately NOT collapsed into the generic message: this account genuinely
     // cannot sign in with a password, and a generic error would strand the user with
     // no route forward. Enumeration hardening that breaks a legitimate login is a bad
-    // trade.
+    // trade. Which providers the account actually has decides the copy — an Apple-only
+    // user was previously told to "continue with Google", which is a dead end.
     if (!user.password) {
-      throw new Error("This account uses Google sign-in. Continue with Google.");
+      const providers: ("GOOGLE" | "APPLE")[] = [];
+      if (user.googleId) providers.push("GOOGLE");
+      if (user.appleId) providers.push("APPLE");
+      throw new PasswordNotSetError(providers);
     }
 
     const isValidPassword = await comparePassword(password, user.password);

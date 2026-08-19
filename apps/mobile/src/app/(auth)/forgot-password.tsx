@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from "react-native";
-import { Link, router } from "expo-router";
+import { Link, router, useLocalSearchParams } from "expo-router";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { forgotPasswordSchema, type ForgotPasswordData } from "@repo/zod-schema/index";
@@ -15,6 +15,10 @@ import { toast } from "../../store/toast.store";
 export default function ForgotPassword() {
   const [submitting, setSubmitting] = useState(false);
 
+  // Sign-in sends OAuth-only accounts here to set their first password; carrying the
+  // address over saves retyping it.
+  const { email: presetEmail } = useLocalSearchParams<{ email?: string }>();
+
   const {
     control,
     handleSubmit,
@@ -22,7 +26,7 @@ export default function ForgotPassword() {
   } = useForm<ForgotPasswordData>({
     resolver: zodResolver(forgotPasswordSchema),
     mode: "onChange",
-    defaultValues: { email: "" },
+    defaultValues: { email: presetEmail ?? "" },
   });
 
   const onSubmit = async (data: ForgotPasswordData) => {
