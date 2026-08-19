@@ -3,6 +3,7 @@
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuthStore } from "../../store/auth.store"
+import { signInUrl } from "../../lib/utils/redirect"
 
 export default function AuthGuard({
   children,
@@ -16,7 +17,7 @@ export default function AuthGuard({
     if (!isHydrated) return
 
     if (!isAuthenticated) {
-      router.replace("/signin")
+      router.replace(signInUrl())
     }
   }, [isAuthenticated, isHydrated, router])
 

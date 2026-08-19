@@ -4,6 +4,7 @@ import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuthStore } from "../../store/auth.store"
 import { useAffiliateStore } from "../../store/affiliate.store"
+import { signInUrl } from "../../lib/utils/redirect"
 
 export default function AffiliateGuard({
   children,
@@ -19,7 +20,7 @@ export default function AffiliateGuard({
 
   useEffect(() => {
     if (isHydrated && !user) {
-      router.replace("/signin")
+      router.replace(signInUrl())
     }
   }, [user, isHydrated, router])
 

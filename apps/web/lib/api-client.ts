@@ -4,6 +4,7 @@ import {
   setAccessToken,
   removeAccessToken,
 } from "./utils/token"
+import { signInUrl } from "./utils/redirect"
 
 export const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL,
@@ -89,7 +90,7 @@ api.interceptors.response.use(
         try { localStorage.removeItem("auth-storage") } catch {}
       }
 
-      window.location.href = "/signin"
+      window.location.href = signInUrl()
 
       return Promise.reject(err)
     } finally {

@@ -12,6 +12,7 @@ import { Button, Input, AuthCard } from "@repo/ui/index"
 import PasswordInput from "../../../components/common/PasswordInput"
 import GoogleAuthButton from "../../../components/auth/GoogleAuthButton"
 import { friendlyError } from "../../../lib/errorMessages"
+import { safeRedirectTarget } from "../../../lib/utils/redirect"
 
 export default function SignInPage() {
   const router = useRouter()
@@ -28,12 +29,8 @@ export default function SignInPage() {
     mode: "onChange",
   })
 
-  /** Only allow same-site paths back — never an absolute URL (open-redirect guard). */
-  const safeRedirect = () => {
-    if (typeof window === "undefined") return "/"
-    const target = new URLSearchParams(window.location.search).get("redirect")
-    return target && target.startsWith("/") && !target.startsWith("//") ? target : "/"
-  }
+  /** Same-site paths only — see lib/utils/redirect.ts for the open-redirect guard. */
+  const safeRedirect = safeRedirectTarget
 
   const onSubmit = async (data: SigninData) => {
     try {

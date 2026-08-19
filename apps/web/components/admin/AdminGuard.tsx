@@ -3,6 +3,7 @@
 import { useAuthStore } from "../../store/auth.store"
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
+import { signInUrl } from "../../lib/utils/redirect"
 
 export default function AdminGuard({
   children,
@@ -16,7 +17,7 @@ export default function AdminGuard({
     if (!isHydrated) return
 
     if (!user) {
-      router.replace("/signin")
+      router.replace(signInUrl())
       return
     }
 

@@ -15,6 +15,7 @@ import { AuthCard, Button, Input } from "@repo/ui/index"
 import PasswordInput from "../../../components/common/PasswordInput"
 import GoogleAuthButton from "../../../components/auth/GoogleAuthButton"
 import { friendlyError } from "../../../lib/errorMessages"
+import { safeRedirectTarget } from "../../../lib/utils/redirect"
 
 const SignupFormSchema = SignupSchema.extend({
   confirmPassword: z.string(),
@@ -161,7 +162,7 @@ export default function SignUpPage() {
           <Button loading={isSubmitting}>Sign Up</Button>
         </form>
 
-        <GoogleAuthButton redirectTo="/" />
+        <GoogleAuthButton redirectTo={safeRedirectTarget()} />
 
         <p className="text-center text-sm text-muted">
           Already have an account?{" "}
