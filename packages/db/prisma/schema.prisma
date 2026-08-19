@@ -43,6 +43,9 @@ model User {
 
   passwordResetTokens PasswordResetToken[]
 
+  verifiedPhones     VerifiedPhone[]
+  phoneOtpChallenges PhoneOtpChallenge[]
+
   deviceTokens           DeviceToken[]
   notifications          Notification[]
   notificationPreference NotificationPreference?
@@ -97,6 +100,97 @@ model PasswordResetToken {
   createdAt DateTime @default(now())
 
   @@index([userId])
+  @@index([expiresAt])
+}
+
+/// A signup that has been submitted but whose email has not been proven yet.
+///
+/// No `User` row exists until the emailed code is redeemed, so an address that can't
+/// receive mail never reaches the User table. Rows are short-lived: a new request for
+/// the same email supersedes the outstanding one, success deletes the row inside the
+/// same transaction that creates the User, and the auth sweeper reaps the rest.
+model PendingSignup {
+  id String @id @default(uuid())
+
+  /// Unique so a repeat request is a single upsert rather than delete-and-recreate,
+  /// which also bounds row growth per address and gives resend counters a home.
+  email        String  @unique
+  name         String
+  phone        String?
+  /// bcrypt hash at the same cost as User.password — copied verbatim on create and
+  /// never re-hashed. Never returned by any endpoint.
+  passwordHash String
+  /// Raw code as typed; resolved to a referrer only at verify time.
+  referralCode String?
+
+  codeHash  String
+  expiresAt DateTime
+  attempts  Int      @default(0)
+
+  /// Cross-instance resend control. The IP rate limiters are per-process and
+  /// in-memory, so these two columns are the only guard that survives scaling.
+  sendCount  Int      @default(1)
+  lastSentAt DateTime @default(now())
+
+  ipAddress String?
+  userAgent String?
+
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
+}
+
+/// A phone number this user has proved control of.
+///
+/// Keyed on (user, phone) rather than a boolean on `Address` because
+/// `updateAddressService` retires the address row and creates a new one whenever an
+/// Order or PreOrder references it — a per-address flag would reset to false when a
+/// customer edited their *city*, charging for another SMS on an edit that never
+/// touched the phone. Users also routinely share one number across several
+/// addresses. Verification is a property of (person, number), which is what this is.
+model VerifiedPhone {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Bare 10 digits — the invariant `phoneSchema` holds on every write path, so
+  /// lookups need no normalisation.
+  phone      String
+  verifiedAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, phone])
+  @@index([phone])
+}
+
+/// An in-flight phone OTP.
+///
+/// No `tokenHash` twin of PasswordResetToken: that needs an opaque token because the
+/// reset link is redeemed unauthenticated, whereas here the caller is already behind
+/// authMiddleware and (userId, phone) identifies the challenge.
+model PhoneOtpChallenge {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  phone     String
+  codeHash  String
+  expiresAt DateTime
+  usedAt    DateTime?
+  attempts  Int       @default(0)
+
+  /// SMS costs money, unlike email — these bound the spend across instances, which
+  /// the in-memory IP limiters cannot.
+  sendCount  Int      @default(1)
+  lastSentAt DateTime @default(now())
+
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId, phone])
+  @@index([phone, createdAt])
+  @@index([userId, createdAt])
   @@index([expiresAt])
 }
 

@@ -14,7 +14,8 @@ const resend = apiKey ? new Resend(apiKey) : null;
  * payment/transaction flow. Logs and returns false on failure.
  */
 export async function sendEmail(params: {
-  to: string;
+  /** Resend accepts several recipients; used for the admin new-order alert. */
+  to: string | string[];
   subject: string;
   html: string;
 }): Promise<boolean> {
@@ -137,6 +138,106 @@ export function sendPasswordChangedEmail(to: string) {
       <p>The password for your Little Stepz account was just changed, and you've been signed out on all devices.</p>
       <p>If this was you, nothing else to do — just sign in with your new password.</p>
       <p style="font-size:13px;color:#666">If this <strong>wasn't</strong> you, reset your password immediately and contact us.</p>
+    `),
+  });
+}
+
+/**
+ * Signup verification code.
+ *
+ * The code appears in the subject line and again as a bare
+ * "NNNNNN is your ... code" sentence because that is what iOS/Android OTP autofill
+ * heuristics key off — the mobile code field already sets `textContentType`.
+ *
+ * Unlike every other template here, the caller must NOT treat this as
+ * fire-and-forget: if it fails, the account can never be created, so
+ * `requestSignupOtpService` awaits the result and fails the request.
+ */
+export function sendSignupOtpEmail(to: string, p: {
+  code: string;
+  expiresInMinutes: number;
+}) {
+  return sendEmail({
+    to,
+    subject: `${p.code} is your Little Stepz verification code`,
+    html: shell("Confirm your email ✉️", `
+      <p>Enter this code to finish creating your Little Stepz account.</p>
+      <p style="margin:0 0 24px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:32px;font-weight:700;letter-spacing:8px;color:#111">${p.code}</p>
+      <p style="font-size:13px;color:#666">${p.code} is your Little Stepz verification code.</p>
+      <p style="font-size:13px;color:#666">It expires in <strong>${p.expiresInMinutes} minutes</strong> and can only be used once.</p>
+      <p style="font-size:13px;color:#666">Didn't try to sign up? Ignore this email — no account has been created, and none will be.</p>
+    `),
+  });
+}
+
+interface OrderEmailItem {
+  name: string;
+  quantity: number;
+}
+
+function itemRows(items: OrderEmailItem[]): string {
+  if (!items.length) return "";
+  return `<ul style="padding-left:18px;margin:0 0 16px">${items
+    .map((i) => `<li style="margin-bottom:4px">${escapeHtml(i.name)} × ${i.quantity}</li>`)
+    .join("")}</ul>`;
+}
+
+/** Product names come from the DB and land in an HTML email — escape them. */
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/**
+ * Tell the store owner an order came in.
+ *
+ * The in-app `ADMIN_NEW_ORDER` notification already existed, but push needs an Expo
+ * device token that only the mobile app registers, and the web admin inbox neither
+ * polls nor badges — so an owner who works in the browser only saw new orders by
+ * opening the notifications page and reloading. Email is the channel that actually
+ * reaches them.
+ */
+export function sendNewOrderAdminEmail(to: string | string[], p: {
+  orderId: string;
+  total: number | string;
+  customerName: string;
+  paymentMethod: string;
+  items: OrderEmailItem[];
+}) {
+  const ref = p.orderId.slice(-8).toUpperCase();
+  return sendEmail({
+    to,
+    subject: `New order #${ref} — ${money(p.total)} (${p.paymentMethod})`,
+    html: shell("New order received 🛒", `
+      <p><strong>#${ref}</strong> from ${escapeHtml(p.customerName)}.</p>
+      <p style="margin:0 0 4px">Total: <strong>${money(p.total)}</strong></p>
+      <p style="margin:0 0 16px">Payment: <strong>${escapeHtml(p.paymentMethod)}</strong></p>
+      ${itemRows(p.items)}
+      <p style="font-size:13px;color:#666">Open the admin panel to fulfil it.</p>
+    `),
+  });
+}
+
+/** Order confirmation for the customer. Regular orders had no email at all before. */
+export function sendOrderConfirmationEmail(to: string, p: {
+  orderId: string;
+  total: number | string;
+  paymentMethod: string;
+  items: OrderEmailItem[];
+}) {
+  const ref = p.orderId.slice(-8).toUpperCase();
+  return sendEmail({
+    to,
+    subject: `Your Little Stepz order #${ref} is confirmed`,
+    html: shell("Order confirmed ✅", `
+      <p>Thanks for your order! We're getting it ready.</p>
+      <p style="margin:0 0 4px">Order: <strong>#${ref}</strong></p>
+      <p style="margin:0 0 16px">Total: <strong>${money(p.total)}</strong> (${escapeHtml(p.paymentMethod)})</p>
+      ${itemRows(p.items)}
+      <p style="font-size:13px;color:#666">We'll email you again as soon as it ships.</p>
     `),
   });
 }

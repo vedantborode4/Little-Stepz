@@ -64,6 +64,17 @@ export default function AdminInbox() {
 
   useEffect(() => { load(1) }, [load])
 
+  // Poll the first page. This fetched once on mount, so "New order received" only
+  // ever appeared if the admin happened to reload — the notification worked, the
+  // surfacing didn't. Only refresh page 1, so paging back through history isn't
+  // yanked out from under the reader.
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (document.visibilityState === "visible" && page === 1) load(1)
+    }, 60_000)
+    return () => clearInterval(id)
+  }, [load, page])
+
   const markRead = async (n: AdminNotification) => {
     if (n.readAt) return
     setItems((prev) => prev.map((i) => (i.id === n.id ? { ...i, readAt: new Date().toISOString() } : i)))

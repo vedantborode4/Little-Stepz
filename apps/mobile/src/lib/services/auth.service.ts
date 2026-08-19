@@ -8,6 +8,7 @@ import type {
   SigninData,
   SignupData,
   VerifyResetCodeData,
+  VerifySignupOtpData,
 } from "@repo/zod-schema/index";
 
 // Auth responses are top-level (res.data), not wrapped in { data }.
@@ -17,8 +18,20 @@ export const AuthService = {
     return res.data;
   },
 
-  signUp: async (data: SignupData): Promise<AuthResponse> => {
-    const res = await api.post<AuthResponse>("/auth/signup", data);
+  /**
+   * Step 1 of signup — emails a verification code. No account exists yet, so there
+   * is nothing to log in with until `verifySignupOtp` succeeds.
+   */
+  requestSignupOtp: async (
+    data: SignupData
+  ): Promise<{ message: string; expiresInMinutes: number; resendAfterSeconds: number }> => {
+    const res = await api.post("/auth/signup/request", data);
+    return res.data;
+  },
+
+  /** Step 2 — redeem the code; this is what creates the account. */
+  verifySignupOtp: async (data: VerifySignupOtpData): Promise<AuthResponse> => {
+    const res = await api.post<AuthResponse>("/auth/signup/verify", data);
     return res.data;
   },
 

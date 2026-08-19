@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from "react-native";
+import { BackHandler, KeyboardAvoidingView, Platform, ScrollView, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { Link, router } from "expo-router";
 import { useForm, Controller } from "react-hook-form";
@@ -15,6 +15,8 @@ import { SocialAuth } from "../../components/auth/SocialAuth";
 import { useAuth } from "../../hooks/useAuth";
 import { AuthService } from "../../lib/services/auth.service";
 import { toast } from "../../store/toast.store";
+import { getErrorMessage } from "../../lib/utils/errors";
+import { VerifyEmailStep } from "../../components/auth/VerifyEmailStep";
 
 // Client-only: add a Confirm Password field with a match check (client 5.6).
 // confirmPassword is stripped before the request — the API only sees SignupData.
@@ -28,9 +30,16 @@ type SignupFormData = z.infer<typeof SignupFormSchema>;
 
 const PASSWORD_HINT = "At least 8 characters, with an uppercase letter, a lowercase letter and a number.";
 
+interface PendingSignup {
+  payload: SignupData;
+  expiresInMinutes: number;
+  resendAfterSeconds: number;
+}
+
 export default function SignUp() {
   const { login } = useAuth();
   const [submitting, setSubmitting] = useState(false);
+  const [pending, setPending] = useState<PendingSignup | null>(null);
 
   const {
     control,
@@ -60,22 +69,56 @@ export default function SignUp() {
         ...rest,
         phone: rest.phone || undefined,
         referralCode: rest.referralCode || undefined,
-      };
-      const res = await AuthService.signUp(payload as SignupData);
-      await login(res);
-      await AsyncStorage.removeItem("pending_referral_code");
-      router.replace("/(tabs)/home");
+      } as SignupData;
+
+      // Emails a code; no account exists yet. The payload stays in component state —
+      // it holds a plaintext password, so it must never reach AsyncStorage or a route
+      // param (expo-router serialises those into navigation state).
+      const meta = await AuthService.requestSignupOtp(payload);
+      setPending({ payload, ...meta });
     } catch (err: any) {
-      const msg: string = err?.response?.data?.message || "Could not create account";
-      if (/exist|already|registered|taken/i.test(msg)) {
-        setError("email", { message: msg });
+      const code: string = err?.response?.data?.message || "";
+      if (code === "EMAIL_ALREADY_REGISTERED") {
+        setError("email", { message: getErrorMessage(err, "Could not create account") });
       } else {
-        toast.error(msg);
+        toast.error(getErrorMessage(err, "Could not create account"));
       }
     } finally {
       setSubmitting(false);
     }
   };
+
+  const onVerified = async (res: Awaited<ReturnType<typeof AuthService.verifySignupOtp>>) => {
+    await login(res);
+    // Cleared only now, not at step 1 — otherwise abandoning the OTP would lose the
+    // referral attribution for anyone who retried later.
+    await AsyncStorage.removeItem("pending_referral_code");
+    router.replace("/(tabs)/home");
+  };
+
+  // Android hardware back must return to the details step, not leave the screen.
+  useEffect(() => {
+    if (!pending) return;
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      setPending(null);
+      return true;
+    });
+    // RN 0.81 removed BackHandler.removeEventListener — use the subscription.
+    return () => sub.remove();
+  }, [pending]);
+
+  if (pending) {
+    return (
+      <VerifyEmailStep
+        email={pending.payload.email}
+        expiresInMinutes={pending.expiresInMinutes}
+        resendAfterSeconds={pending.resendAfterSeconds}
+        onResend={() => AuthService.requestSignupOtp(pending.payload)}
+        onVerified={onVerified}
+        onBack={() => setPending(null)}
+      />
+    );
+  }
 
   return (
     <ScreenContainer>

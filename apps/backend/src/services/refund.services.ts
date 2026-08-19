@@ -4,6 +4,7 @@ import { initiateRazorpayRefund } from "../utils/razorpay.client";
 import { createAuditLog } from "../utils/auditLog";
 import { notify, notifyAdmins } from "./notification.services";
 import { money, orderShortRef } from "../utils/notificationCopy";
+import { REFUND_WORKING_DAYS } from "@repo/content/index";
 
 export type RefundOutcome =
   | { status: "none" }
@@ -88,7 +89,9 @@ export async function refundCapturedOrderPayment(
       userId: payment.order.userId,
       type: "REFUND_PROCESSED",
       title: "Refund on its way 💸",
-      body: `Your refund of ${money(amount)} for the cancelled order #${orderShortRef(orderId)} has been initiated. It should reach you in 5–7 working days.`,
+      // Wording comes from @repo/content so the notification, both storefronts and
+      // the cancellation policy page cannot quote three different windows.
+      body: `Your refund of ${money(amount)} for the cancelled order #${orderShortRef(orderId)} has been initiated. It should reach you within ${REFUND_WORKING_DAYS} working days.`,
       data: { screen: "Order", orderId },
     });
 

@@ -111,7 +111,11 @@ async function cancelWaybillForCancelledOrder(orderId: string, adminId: string):
   if (!live) return;
 
   try {
-    await cancelShipmentService(adminId, orderId);
+    // revertOrderStatus: false — the order was just cancelled. Letting the shipment
+    // service put it back to CONFIRMED undid the cancellation, and the auto-ship
+    // sweeper (CONFIRMED + no non-FAILED shipment) then re-manifested an order the
+    // customer had already been refunded for.
+    await cancelShipmentService(adminId, orderId, undefined, { revertOrderStatus: false });
   } catch (err: any) {
     console.error(`[cancel] waybill ${live.awbCode} for order ${orderId}:`, err?.message ?? err);
 
@@ -243,10 +247,16 @@ export async function updateOrderStatusService(
       data: { status: newStatus },
     });
 
+    // PROCESSING belongs here too: `statusTransitions` allows PROCESSING → CANCELLED,
+    // but this gate only listed PENDING/CONFIRMED — so cancelling a manifested order
+    // refunded the customer while silently keeping their stock decremented, their
+    // coupon use consumed, a COD payment sitting at PENDING as though money were owed,
+    // and the affiliate's commission balance inflated.
     if (
       newStatus === OrderStatus.CANCELLED &&
       (order.status === OrderStatus.PENDING ||
-        order.status === OrderStatus.CONFIRMED)
+        order.status === OrderStatus.CONFIRMED ||
+        order.status === OrderStatus.PROCESSING)
     ) {
       // Restore stock
       for (const item of order.items) {

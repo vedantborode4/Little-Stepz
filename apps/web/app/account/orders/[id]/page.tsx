@@ -12,6 +12,7 @@ import {
 import Link from "next/link"
 import { toast } from "sonner"
 import { friendlyError } from "../../../../lib/errorMessages"
+import { refundMessage, REFUND_INITIATED_TEXT } from "@repo/content/index"
 
 const STATUS_STEPS = [
   "PENDING", "CONFIRMED", "PROCESSING", "SHIPPED",
@@ -52,6 +53,8 @@ function ReturnCancelModal({
 }) {
   const [reason, setReason] = useState("")
   const [loading, setLoading] = useState(false)
+  /** Set once the cancellation succeeds — holds the refund sentence to show. */
+  const [done, setDone] = useState<string | null>(null)
 
   const RETURN_REASONS = [
     "Damaged or defective item",
@@ -78,16 +81,39 @@ function ReturnCancelModal({
       if (mode === "return") {
         await OrderService.requestReturn(orderId, reason)
         toast.success("Return request submitted")
+        onDone()
       } else {
-        await OrderService.cancelOrder(orderId, reason)
+        // The API already reports what happened to the money ("initiated" | "none" |
+        // "failed"); this was being discarded, so a cancelling customer was told
+        // nothing about their refund and had to ask support.
+        const res = await OrderService.cancelOrder(orderId, reason)
+        setDone(refundMessage(res?.refund))
         toast.success("Order cancelled")
       }
-      onDone()
     } catch (e: any) {
       toast.error(friendlyError(e, `Failed to ${mode} order`))
     } finally {
       setLoading(false)
     }
+  }
+
+  // Money information does not belong in a toast that vanishes after 4 seconds.
+  if (done) {
+    return (
+      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="bg-surface rounded-2xl w-full max-w-md shadow-2xl p-6 text-center">
+          <CheckCircle size={40} className="mx-auto text-green-500 mb-3" />
+          <h2 className="text-base font-semibold text-text mb-2">Order cancelled</h2>
+          <p className="text-sm text-muted mb-6">{done}</p>
+          <button
+            onClick={onDone}
+            className="w-full py-2.5 rounded-xl text-sm font-medium text-white bg-primary hover:opacity-90 transition"
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -207,6 +233,15 @@ export default function OrderDetailsPage() {
             {status.replace(/_/g, " ")}
           </span>
         </div>
+
+        {/* A cancelled prepaid order still owes the customer money — say so where
+            they can find it again, not only in a toast they've already dismissed. */}
+        {status === "CANCELLED" && o.paymentMethod !== "COD" && (
+          <div className="mt-4 flex items-start gap-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 px-4 py-3">
+            <CreditCard size={16} className="text-indigo-600 dark:text-indigo-300 mt-0.5 shrink-0" />
+            <p className="text-xs text-indigo-800 dark:text-indigo-200">{REFUND_INITIATED_TEXT}</p>
+          </div>
+        )}
 
         {/* Progress bar (only for normal fulfilment flow) */}
         {isActive && (

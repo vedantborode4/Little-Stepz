@@ -18,6 +18,8 @@ import {
 import { processAffiliateCommissionService, reverseAffiliateCommissionsService } from "./affiliate.services";
 import { reconcilePreOrderByRazorpayOrderId } from "./preorder.services";
 import { notify, notifyAdmins } from "./notification.services";
+import { REFUND_WORKING_DAYS } from "@repo/content/index";
+import { sendNewOrderAdminEmail, sendOrderConfirmationEmail } from "../utils/email";
 import { orderShortRef, money, orderStatusNotification } from "../utils/notificationCopy";
 import { Decimal } from "decimal.js";
 import type {
@@ -70,6 +72,83 @@ function emitOrderConfirmed(
     body: `Order #${orderShortRef(orderId)} — ${money(total)} — was just confirmed.`,
     data: { screen: "AdminOrder", orderId },
   });
+
+  void emitOrderEmails(orderId);
+}
+
+/**
+ * Order-confirmation emails: one to the customer, one to whoever runs the store.
+ *
+ * Separate from the notifications above because it needs to read the order back for
+ * item names and the customer's address. Fire-and-forget and fail-soft like
+ * `notify()` — `sendEmail` never throws, and a mail problem must not affect a
+ * payment flow that has already committed.
+ */
+async function emitOrderEmails(orderId: string): Promise<void> {
+  try {
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      select: {
+        id: true,
+        total: true,
+        paymentMethod: true,
+        user: { select: { name: true, email: true } },
+        items: { select: { productName: true, variantName: true, quantity: true } },
+      },
+    });
+
+    if (!order) return;
+
+    const items = order.items.map((i) => {
+      // Snapshot names, so a later rename doesn't rewrite what the customer bought.
+      // They're nullable on older rows, hence the fallback.
+      const base = i.productName ?? "Item";
+      return {
+        name: i.variantName ? `${base} (${i.variantName})` : base,
+        quantity: i.quantity,
+      };
+    });
+
+    const payload = {
+      orderId: order.id,
+      total: order.total.toString(),
+      paymentMethod: order.paymentMethod,
+      items,
+    };
+
+    if (order.user?.email) {
+      void sendOrderConfirmationEmail(order.user.email, payload);
+    }
+
+    const recipients = await resolveAdminOrderEmails();
+    if (recipients.length) {
+      void sendNewOrderAdminEmail(recipients, {
+        ...payload,
+        customerName: order.user?.name ?? "a customer",
+      });
+    }
+  } catch (err) {
+    console.error(`[order-email] failed for order ${orderId}:`, err);
+  }
+}
+
+/**
+ * Who gets the new-order email. `ADMIN_ORDER_EMAIL` (comma-separated) wins so alerts
+ * can go to an ops inbox; otherwise every active ADMIN account, which matches who
+ * `notifyAdmins` already reaches.
+ */
+async function resolveAdminOrderEmails(): Promise<string[]> {
+  const configured = process.env.ADMIN_ORDER_EMAIL;
+  if (configured) {
+    return configured.split(",").map((e) => e.trim()).filter(Boolean);
+  }
+
+  const admins = await prisma.user.findMany({
+    where: { role: "ADMIN", deletedAt: null },
+    select: { email: true },
+  });
+
+  return admins.map((a) => a.email).filter(Boolean);
 }
 
 /** Fire-and-forget commission-earned notification to the affiliate. Fail-soft. */
@@ -368,7 +447,7 @@ function emitOrphanedCaptureNotice(userId: string, orderId: string, refunded: bo
     type:  refunded ? "REFUND_PROCESSED" : "PAYMENT_FAILED",
     title: refunded ? "Payment refunded 💸" : "Payment could not be applied",
     body:  refunded
-      ? `Order #${orderShortRef(orderId)} had already been cancelled, so your payment has been refunded. It should reach you in 5–7 working days.`
+      ? `Order #${orderShortRef(orderId)} had already been cancelled, so your payment has been refunded. It should reach you within ${REFUND_WORKING_DAYS} working days.`
       : `Order #${orderShortRef(orderId)} had already been cancelled and we couldn't apply your payment. Our team is on it and will refund you shortly.`,
     data: { screen: "Order", orderId },
   });
@@ -1376,6 +1455,16 @@ export async function trackOrderService(userId: string, orderId: string) {
   };
 }
 
+/**
+ * The order stopped being shippable while we were talking to Delhivery. Carries the
+ * waybill so the caller can pull it back — the parcel is already booked at this point.
+ */
+class OrderNoLongerShippableError extends Error {
+  constructor(public readonly waybill: string) {
+    super("Order is no longer in a shippable state");
+  }
+}
+
 export async function createShipmentService(
   adminUserId: string,
   orderId:     string,
@@ -1436,7 +1525,9 @@ export async function createShipmentService(
 
   const trackingUrl = `https://www.delhivery.com/track/package/${delhiveryResponse.waybill}`;
 
-  const result = await prisma.$transaction(async (tx) => {
+  let result;
+  try {
+    result = await prisma.$transaction(async (tx) => {
     const shipment = await tx.shipment.create({
       data: {
         orderId,
@@ -1450,8 +1541,15 @@ export async function createShipmentService(
       },
     });
 
-    await tx.order.update({
-      where: { id: orderId },
+    // Re-assert the order is STILL shippable. The status was read before the
+    // Delhivery round-trip, which is slow enough for a cancellation to land in
+    // between — and a blind update would resurrect a cancelled, already-refunded
+    // order into PROCESSING with a live waybill against it.
+    const claimed = await tx.order.updateMany({
+      where: {
+        id:     orderId,
+        status: { in: ["CONFIRMED", "PROCESSING"] },
+      },
       data: {
         status:             "PROCESSING",
         providerRefId:      delhiveryResponse.refnum,
@@ -1460,6 +1558,12 @@ export async function createShipmentService(
         trackingUrl,
       },
     });
+
+    if (claimed.count === 0) {
+      // Rolls the Shipment row back with the transaction; the waybill booked with
+      // Delhivery is cancelled by the caller below.
+      throw new OrderNoLongerShippableError(delhiveryResponse.waybill);
+    }
 
     await createAuditLogInTx(tx, {
       userId: adminUserId,
@@ -1480,7 +1584,27 @@ export async function createShipmentService(
       courierName: "Delhivery",
       trackingUrl,
     };
-  });
+    });
+  } catch (err) {
+    if (err instanceof OrderNoLongerShippableError) {
+      // The DB rolled back, but Delhivery is still holding a booked waybill for an
+      // order nobody intends to ship. Pull it back; if the courier refuses, a human
+      // has to, so make sure one is told.
+      try {
+        await cancelDelhiveryShipment(err.waybill);
+      } catch (cancelErr: any) {
+        console.error(`[shipment] orphaned waybill ${err.waybill} for order ${orderId}:`, cancelErr?.message ?? cancelErr);
+        void notifyAdmins({
+          type:  "ADMIN_CUSTOM",
+          title: "Waybill booked for a cancelled order ⚠️",
+          body: `Order #${orderShortRef(orderId)} changed status while it was being manifested. Delhivery waybill ${err.waybill} could not be cancelled automatically — cancel it manually before the parcel ships.`,
+          data:  { screen: "AdminOrder", orderId },
+        });
+      }
+      throw new ApiError(409, "Order is no longer in a shippable state");
+    }
+    throw err;
+  }
 
   void notify({
     userId: order.userId,
@@ -1496,8 +1620,20 @@ export async function createShipmentService(
 export async function cancelShipmentService(
   adminUserId: string,
   orderId:     string,
-  req?:        Request
+  req?:        Request,
+  /**
+   * Whether to put the order back into a shippable state.
+   *
+   * True for the standalone "Cancel Shipment" action, whose whole purpose is to
+   * free the order up for a re-ship. **False when the caller has just cancelled the
+   * order**: reverting to CONFIRMED there silently un-cancelled an order that had
+   * already been refunded, and left it matching the auto-ship sweeper's query
+   * (CONFIRMED + no non-FAILED shipment), which then booked a fresh waybill and
+   * shipped goods the customer had been refunded for.
+   */
+  opts: { revertOrderStatus?: boolean } = {}
 ) {
+  const { revertOrderStatus = true } = opts;
   const order = await prisma.order.findUnique({
     where:   { id: orderId, deletedAt: null },
     include: { shipments: { orderBy: { createdAt: "desc" }, take: 1 } },
@@ -1522,11 +1658,18 @@ export async function cancelShipmentService(
       data:  { status: "FAILED" },
     });
 
-    // Revert to a shippable state so the admin can re-ship.
-    await tx.order.update({
-      where: { id: orderId },
-      data:  { status: "CONFIRMED" },
-    });
+    if (revertOrderStatus) {
+      // Revert to a shippable state so the admin can re-ship. Scoped to the statuses
+      // a live shipment can legitimately be in — never CANCELLED, so a concurrent
+      // cancellation cannot be undone by this write.
+      await tx.order.updateMany({
+        where: {
+          id:     orderId,
+          status: { in: ["PROCESSING", "SHIPPED", "OUT_FOR_DELIVERY"] },
+        },
+        data: { status: "CONFIRMED" },
+      });
+    }
 
     await createAuditLogInTx(tx, {
       userId: adminUserId,

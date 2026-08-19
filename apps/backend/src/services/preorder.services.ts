@@ -5,6 +5,7 @@ import { syncProductStockFlag } from "../utils/stock";
 import { PENDING_ORDER_TTL_MS } from "../utils/pendingRelease";
 import { PreOrderErrorCode } from "../utils/preorderErrors";
 import { resolveChargedPrice } from "../utils/pricing";
+import { assertPhoneVerified } from "./phoneVerification.services";
 import {
   createRazorpayOrder,
   verifyRazorpaySignature,
@@ -84,6 +85,12 @@ export async function createPreOrderService(
         where: { id: data.addressId, userId, deletedAt: null },
       });
       if (!address) throw new ApiError(400, PreOrderErrorCode.INVALID_ADDRESS);
+
+      // Mirrors the gate in createOrderService — a pre-order ships to an Address and
+      // becomes a real Order, so leaving it out would only half-enforce the flag.
+      if (process.env.REQUIRE_VERIFIED_PHONE_AT_CHECKOUT === "true") {
+        await assertPhoneVerified(userId, address.phone);
+      }
 
       const product = await tx.product.findFirst({
         where: { id: data.productId, deletedAt: null },

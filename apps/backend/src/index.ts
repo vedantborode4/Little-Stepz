@@ -8,6 +8,7 @@ import { webhookRouter } from "./routes/webhook.routes";
 import { startStockSweeper } from "./services/stockSweeper.services";
 import { startShipmentSweeper } from "./services/shipmentSweeper.services";
 import { checkDelhiveryWarehouse } from "./services/shippingPreflight.services";
+import { startAuthSweeper } from "./services/authSweeper.services";
 
 const app = express();
 
@@ -73,5 +74,14 @@ app.listen(PORT, () => {
   console.log(`[Server] Environment: ${process.env.NODE_ENV || "development"}`);
   startStockSweeper();
   startShipmentSweeper();
+  startAuthSweeper();
   void checkDelhiveryWarehouse();
+
+  // Signup now depends on email delivery: without a key, no OTP can ever arrive and
+  // no account can be created. Better to learn that at boot than one 502 at a time.
+  if (!process.env.RESEND_API_KEY) {
+    console.error(
+      "[boot] RESEND_API_KEY is not set — email signup is DISABLED (no OTP can be delivered)."
+    );
+  }
 });

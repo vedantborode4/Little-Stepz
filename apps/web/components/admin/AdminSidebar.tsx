@@ -2,7 +2,9 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { useEffect, useState } from "react"
 import clsx from "clsx"
+import { AdminNotificationService } from "../../lib/services/admin-notification.service"
 import ThemeToggle from "../common/ThemeToggle"
 import {
   LayoutDashboard, ShoppingCart, Package, Users, Ticket,
@@ -59,6 +61,23 @@ interface Props { onClose?: () => void }
 
 export default function AdminSidebar({ onClose }: Props) {
   const pathname = usePathname()
+  const [unread, setUnread] = useState(0)
+
+  // Poll so a new order becomes visible from anywhere in the panel, not just on the
+  // notifications page. Fail-soft: a hiccup leaves the badge stale, never breaks nav.
+  useEffect(() => {
+    let cancelled = false
+    const tick = async () => {
+      if (document.visibilityState !== "visible") return
+      try {
+        const n = await AdminNotificationService.unreadCount()
+        if (!cancelled) setUnread(n)
+      } catch { /* keep the last known value */ }
+    }
+    tick()
+    const id = setInterval(tick, 60_000)
+    return () => { cancelled = true; clearInterval(id) }
+  }, [pathname])
 
   const isActive = (href: string) => {
     if (href === "/admin") return pathname === "/admin"
@@ -128,7 +147,21 @@ export default function AdminSidebar({ onClose }: Props) {
                     )}
                   >
                     <Icon size={17} className={active ? "text-white" : "text-faint"} />
-                    {item.label}
+                    <span className="flex-1">{item.label}</span>
+                    {/* New orders arrive as an ADMIN_NEW_ORDER notification. Without a
+                        badge here, nothing on screen changed and the only way to find
+                        out was to open the page and reload. */}
+                    {item.href === "/admin/notifications" && unread > 0 && (
+                      <span
+                        aria-label={`${unread} unread notifications`}
+                        className={clsx(
+                          "min-w-5 px-1.5 py-0.5 rounded-full text-[10px] font-bold text-center",
+                          active ? "bg-white text-primary" : "bg-primary text-white"
+                        )}
+                      >
+                        {unread > 99 ? "99+" : unread}
+                      </span>
+                    )}
                   </Link>
                 )
               })}

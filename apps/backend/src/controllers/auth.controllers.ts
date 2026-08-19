@@ -7,6 +7,7 @@ import {
   SigninSchema,
   SignupSchema,
   verifyResetCodeSchema,
+  verifySignupOtpSchema,
 } from "@repo/zod-schema/index";
 import {
   appleAuthService,
@@ -14,10 +15,11 @@ import {
   logoutService,
   refreshService,
   requestPasswordResetService,
+  requestSignupOtpService,
   resetPasswordService,
   signinService,
-  signupService,
   verifyResetCodeService,
+  verifySignupOtpService,
 } from "../services/auth.services";
 import { ApiError, ApiResponse, asyncHandler } from "../utils/api";
 import {
@@ -43,31 +45,60 @@ function authPayload(
 }
 
 
-export async function signupController(req: Request, res: Response) {
-  try {
-    const parsed = SignupSchema.safeParse(req.body);
+/**
+ * Step 1 — validate the signup and email a code. No account exists yet.
+ *
+ * Uses asyncHandler + ApiError like the password-reset controllers rather than the
+ * try/catch-to-500 style the old signup used, so business errors keep their real
+ * status (409 for a taken email, 429 for a resend cooldown) instead of all becoming
+ * "Internal Server Error".
+ */
+async function requestSignupOtp(req: Request, res: Response) {
+  const parsed = SignupSchema.safeParse(req.body);
 
-    if (!parsed.success) {
-      return res.status(400).json({
-        message: "Invalid request data",
-        errors: parsed.error.flatten().fieldErrors,
-      });
-    }
-
-    const { user, accessToken, refreshToken } =
-      await signupService(parsed.data);
-
-    res.cookie("accessToken", accessToken, accessTokenCookieOptions);
-    res.cookie("refreshToken", refreshToken, refreshTokenCookieOptions);
-
-    return res.status(201).json(authPayload(req, user, accessToken, refreshToken));
-  } catch (err) {
-    if (err instanceof Error) {
-      return res.status(500).json({ message: err.message });
-    }
-    return res.status(500).json({ message: "Internal server error" });
+  if (!parsed.success) {
+    throw new ApiError(400, "Invalid request data", parsed.error.flatten().fieldErrors);
   }
+
+  const meta = await requestSignupOtpService(parsed.data, {
+    ipAddress: req.ip,
+    userAgent: req.get("user-agent") ?? undefined,
+  });
+
+  // Top-level, matching signin/signup — `authPayload` and both clients' `login(res)`
+  // read res.data, not res.data.data.
+  return res.status(200).json({ message: "Verification code sent", ...meta });
 }
+
+/** Step 2 — redeem the code, create the account, sign the user in. */
+async function verifySignupOtp(req: Request, res: Response) {
+  const parsed = verifySignupOtpSchema.safeParse(req.body);
+
+  if (!parsed.success) {
+    throw new ApiError(400, "Invalid request data", parsed.error.flatten().fieldErrors);
+  }
+
+  const { user, accessToken, refreshToken } =
+    await verifySignupOtpService(parsed.data.email, parsed.data.code);
+
+  res.cookie("accessToken", accessToken, accessTokenCookieOptions);
+  res.cookie("refreshToken", refreshToken, refreshTokenCookieOptions);
+
+  return res.status(201).json(authPayload(req, user, accessToken, refreshToken));
+}
+
+/**
+ * The old direct-signup route. Shipped mobile builds still call it, so it must not
+ * 404. 426 is semantically right and — importantly — is NOT 401, which would trip
+ * both clients' refresh interceptor and bounce the user to sign-in.
+ */
+async function legacySignup(_req: Request, _res: Response) {
+  throw new ApiError(426, "APP_UPDATE_REQUIRED");
+}
+
+export const requestSignupOtpController = asyncHandler(requestSignupOtp);
+export const verifySignupOtpController = asyncHandler(verifySignupOtp);
+export const signupController = asyncHandler(legacySignup);
 
 export async function signinController(req: Request, res: Response) {
   try {

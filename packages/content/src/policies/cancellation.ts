@@ -1,4 +1,5 @@
 import type { PolicyPage } from "../types";
+import { REFUND_WORKING_DAYS } from "../refunds";
 
 export const cancellation: PolicyPage = {
   slug: "cancellation",
@@ -78,8 +79,9 @@ export const cancellation: PolicyPage = {
         {
           type: "list",
           items: [
-            "Prepaid orders will be refunded to the original payment method",
-            "Refund timelines depend on banking/payment provider processing",
+            `Prepaid orders will be refunded to the original payment method, and the refund will be initiated within ${REFUND_WORKING_DAYS} working days`,
+            "Once initiated, the time it takes to appear on your statement depends on your bank or payment provider",
+            "Cash on Delivery orders are not charged before delivery, so a cancelled COD order has nothing to refund",
           ],
         },
       ],

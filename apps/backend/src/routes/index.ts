@@ -18,6 +18,7 @@ import { handleReferralClickController } from "../controllers/affiliate.controll
 import { referralClickRateLimiter } from "../middlewares/affiliateRateLimiter.middleware";
 import { bannerRouter }  from "./banner.routes";
 import { notificationRouter } from "./notification.routes";
+import { phoneVerificationRouter } from "./phoneVerification.routes";
 
 
 export const appRouter:Router = Router()
@@ -60,6 +61,8 @@ appRouter.use("/affiliate",  affiliateRouter);
 appRouter.use("/banners",    bannerRouter);
 
 appRouter.use("/notifications", notificationRouter);
+
+appRouter.use("/phone", phoneVerificationRouter);
 
 
 //  /ref/:referralCode

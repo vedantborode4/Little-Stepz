@@ -56,6 +56,20 @@ export const resetPasswordSchema = z.object({
   newPassword: passwordSchema,
 });
 
+/**
+ * Step 1 of signup. Identical payload to the old direct signup — which is exactly
+ * what lets both clients keep their existing forms — but it parks on a PendingSignup
+ * row instead of creating a User. Aliased rather than redefined so the two can never
+ * drift apart.
+ */
+export const signupRequestOtpSchema = SignupSchema;
+
+/** Step 2 — redeem the emailed code and create the account. */
+export const verifySignupOtpSchema = z.object({
+  email: emailSchema,
+  code: z.string().regex(/^\d{6}$/, "Enter the 6-digit code from your email"),
+});
+
 export type SignupData = z.infer<typeof SignupSchema>;
 export type SigninData = z.infer<typeof SigninSchema>;
 export type LogoutData = z.infer<typeof logoutSchema>;
@@ -64,3 +78,5 @@ export type AppleAuthData = z.infer<typeof AppleAuthSchema>;
 export type ForgotPasswordData = z.infer<typeof forgotPasswordSchema>;
 export type VerifyResetCodeData = z.infer<typeof verifyResetCodeSchema>;
 export type ResetPasswordData = z.infer<typeof resetPasswordSchema>;
+export type SignupRequestOtpData = z.infer<typeof signupRequestOtpSchema>;
+export type VerifySignupOtpData = z.infer<typeof verifySignupOtpSchema>;

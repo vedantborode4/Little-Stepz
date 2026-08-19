@@ -6,6 +6,7 @@ import { createAddressSchema } from "@repo/zod-schema/index"
 import { toast } from "sonner"
 import { X, Plus, Loader2 } from "lucide-react"
 import { friendlyError } from "../../lib/errorMessages"
+import PhoneVerifyField from "./PhoneVerifyField"
 
 const FIELDS: { key: string; label: string; placeholder: string }[] = [
   { key: "name", label: "Full Name", placeholder: "Recipient's full name" },
@@ -26,6 +27,7 @@ export default function AddressFormDialog({ onCreated }: any) {
   })
 
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [phoneVerified, setPhoneVerified] = useState(false)
 
   const handleChange = (key: keyof typeof form, value: any) => {
     setForm((p) => ({ ...p, [key]: value }))
@@ -33,6 +35,13 @@ export default function AddressFormDialog({ onCreated }: any) {
   }
 
   const handleSubmit = async () => {
+    // Gate in the UI as well as on the server, so the user gets inline guidance
+    // rather than a 400 after filling the whole form.
+    if (!phoneVerified) {
+      setErrors((p) => ({ ...p, phone: "Please verify this phone number first" }))
+      return
+    }
+
     const parsed = createAddressSchema.safeParse(form)
 
     if (!parsed.success) {
@@ -89,15 +98,32 @@ export default function AddressFormDialog({ onCreated }: any) {
 
             <div className="grid grid-cols-2 gap-3">
               {FIELDS.map(({ key, label, placeholder }) => (
-                <div key={key} className={key === "address" ? "col-span-2" : ""}>
+                <div key={key} className={key === "address" || key === "phone" ? "col-span-2" : ""}>
                   <label className="text-xs font-semibold text-muted mb-1.5 block">{label}</label>
-                  <input
-                    placeholder={placeholder}
-                    className="w-full border border-border rounded-xl px-3 py-2.5 text-sm text-text placeholder:text-faint focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition"
-                    value={(form as any)[key]}
-                    onChange={(e) => handleChange(key as any, e.target.value)}
-                  />
-                  {errors[key] && <p className="text-red-500 dark:text-red-400 text-xs mt-1">{errors[key]}</p>}
+                  {key === "phone" ? (
+                    // A new address always needs its delivery number proven — this is
+                    // the number Delhivery calls, and it has never been checked before.
+                    <PhoneVerifyField
+                      value={form.phone}
+                      onChange={(v) => {
+                        handleChange("phone", v)
+                        setPhoneVerified(false)
+                      }}
+                      verified={phoneVerified}
+                      onVerified={() => setPhoneVerified(true)}
+                      error={errors.phone}
+                    />
+                  ) : (
+                    <input
+                      placeholder={placeholder}
+                      className="w-full border border-border rounded-xl px-3 py-2.5 text-sm text-text placeholder:text-faint focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition"
+                      value={(form as any)[key]}
+                      onChange={(e) => handleChange(key as any, e.target.value)}
+                    />
+                  )}
+                  {key !== "phone" && errors[key] && (
+                    <p className="text-red-500 dark:text-red-400 text-xs mt-1">{errors[key]}</p>
+                  )}
                 </div>
               ))}
             </div>

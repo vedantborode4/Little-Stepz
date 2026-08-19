@@ -19,6 +19,7 @@ import { qk } from "../../lib/api/query-client";
 import { formatPrice, formatDate, shortId } from "../../lib/utils/format";
 import { toast } from "../../store/toast.store";
 import { colors } from "../../theme/tokens";
+import { refundMessage, REFUND_INITIATED_TEXT } from "@repo/content/index";
 
 // Aligned with web (apps/web/app/account/orders/[id]/page.tsx)
 const CANCELLABLE = ["PENDING", "CONFIRMED"];
@@ -85,6 +86,8 @@ export default function OrderDetail() {
   const [actionMode, setActionMode] = useState<"cancel" | "return" | null>(null);
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  /** Refund sentence to show after a successful cancellation. */
+  const [cancelResult, setCancelResult] = useState<string | null>(null);
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: qk.order(id) });
@@ -106,11 +109,15 @@ export default function OrderDetail() {
       if (actionMode === "return") {
         await OrderService.requestReturn(id, reason);
         toast.success("Return requested");
+        setActionMode(null);
       } else {
-        await OrderService.cancelOrder(id, reason);
+        // The API reports what happened to the money ("initiated" | "none" |
+        // "failed") and this was being thrown away, so the customer learned nothing
+        // about their refund. COD in particular must NOT be promised one.
+        const res: any = await OrderService.cancelOrder(id, reason);
+        setCancelResult(refundMessage(res?.refund));
         toast.success("Order cancelled");
       }
-      setActionMode(null);
       refresh();
     } catch (e: any) {
       toast.error(e?.response?.data?.message || "Something went wrong");
@@ -168,6 +175,14 @@ export default function OrderDetail() {
           </View>
           <OrderProgress status={order.status} />
         </Card>
+
+        {/* A cancelled prepaid order still owes money — findable after the sheet closes. */}
+        {order.status === "CANCELLED" && order.paymentMethod !== "COD" ? (
+          <Card className="flex-row items-start gap-2">
+            <Ionicons name="card-outline" size={18} color={colors.primary} />
+            <Text className="flex-1 text-sm text-muted">{REFUND_INITIATED_TEXT}</Text>
+          </Card>
+        ) : null}
 
         {/* Items */}
         <Card className="gap-3">
@@ -234,9 +249,32 @@ export default function OrderDetail() {
 
       <Sheet
         visible={actionMode !== null}
-        onClose={() => (submitting ? null : setActionMode(null))}
-        title={actionMode === "return" ? "Request a return" : "Cancel order"}
+        onClose={() => (submitting ? null : (setActionMode(null), setCancelResult(null)))}
+        title={
+          cancelResult
+            ? "Order cancelled"
+            : actionMode === "return"
+              ? "Request a return"
+              : "Cancel order"
+        }
       >
+        {/* Money information must outlive a toast — keep the sheet open and state it. */}
+        {cancelResult ? (
+          <View>
+            <View className="mb-4 flex-row items-start gap-2">
+              <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
+              <Text className="flex-1 text-sm text-muted">{cancelResult}</Text>
+            </View>
+            <Button
+              label="Done"
+              onPress={() => {
+                setCancelResult(null);
+                setActionMode(null);
+              }}
+            />
+          </View>
+        ) : (
+        <>
         <Text className="mb-2 text-sm text-muted">
           {actionMode === "return"
             ? "Tell us why you'd like to return this order."
@@ -268,6 +306,8 @@ export default function OrderDetail() {
             onPress={submitAction}
           />
         </View>
+        </>
+        )}
       </Sheet>
     </ScreenContainer>
   );

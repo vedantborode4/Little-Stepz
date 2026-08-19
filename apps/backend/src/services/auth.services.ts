@@ -16,7 +16,14 @@ import { InvalidTokenError, TokenReuseDetectedError } from "../utils/auth/errors
 import { verifyGoogleIdToken } from "../utils/auth/google";
 import { verifyAppleIdentityToken } from "../utils/auth/apple";
 import { ApiError } from "../utils/api/ApiError";
-import { sendPasswordChangedEmail, sendPasswordResetEmail } from "../utils/email";
+import { sendPasswordChangedEmail, sendPasswordResetEmail, sendSignupOtpEmail } from "../utils/email";
+import {
+  generateSignupOtp,
+  MAX_SIGNUP_OTP_ATTEMPTS,
+  MAX_SIGNUP_OTP_SENDS,
+  SIGNUP_OTP_RESEND_COOLDOWN_SECONDS,
+  SIGNUP_OTP_TTL_MINUTES,
+} from "../utils/auth/signup-otp";
 import { notify } from "./notification.services";
 
 const userSelect = {
@@ -57,62 +64,186 @@ async function resolveReferrerUserId(
   return affiliate.userId;
 }
 
-export async function signupService(data: SignupData) {
+/**
+ * Step 1 of signup — park the payload and email a code. **No User row is created.**
+ *
+ * That ordering is the whole point: an address that can't receive mail never reaches
+ * the User table, so mistyped and throwaway addresses can't accumulate there.
+ */
+export async function requestSignupOtpService(
+  data: SignupData,
+  meta?: { ipAddress?: string; userAgent?: string }
+): Promise<{ expiresInMinutes: number; resendAfterSeconds: number }> {
   const { email, password, name, phone, referralCode } = data;
 
-
-  const existingUser = await prisma.user.findUnique({ where: { email } });
+  const existingUser = await prisma.user.findUnique({
+    where: { email },
+    select: { id: true },
+  });
   if (existingUser) {
-    throw new Error("User already exists");
+    throw new ApiError(409, "EMAIL_ALREADY_REGISTERED");
   }
 
+  const existing = await prisma.pendingSignup.findUnique({ where: { email } });
+  const now = new Date();
 
-  const referredById = await resolveReferrerUserId(referralCode);
+  if (existing) {
+    const sinceLastSend = (now.getTime() - existing.lastSentAt.getTime()) / 1000;
+    if (sinceLastSend < SIGNUP_OTP_RESEND_COOLDOWN_SECONDS) {
+      throw new ApiError(429, "OTP_RESEND_TOO_SOON");
+    }
+    if (existing.sendCount >= MAX_SIGNUP_OTP_SENDS && existing.expiresAt > now) {
+      throw new ApiError(429, "OTP_SEND_LIMIT");
+    }
+  }
 
-  const hashedPassword = await hashPassword(password);
+  // Outside any transaction: bcrypt at cost 12 would blow an interactive-transaction
+  // budget on Neon.
+  const passwordHash = await hashPassword(password);
+  const otp = generateSignupOtp();
 
-  const user = await prisma.user.create({
-    data: {
+  // Write before sending, so there is never an "email arrived but no row exists"
+  // window. A repeat request supersedes the outstanding code rather than issuing a
+  // second live one.
+  await prisma.pendingSignup.upsert({
+    where: { email },
+    create: {
       email,
       name,
       phone,
-      password: hashedPassword,
-      referredById,
+      passwordHash,
+      referralCode,
+      codeHash: otp.codeHash,
+      expiresAt: otp.expiresAt,
+      ipAddress: meta?.ipAddress,
+      userAgent: meta?.userAgent,
     },
-    select: userSelect,
+    update: {
+      name,
+      phone,
+      passwordHash,
+      referralCode,
+      codeHash: otp.codeHash,
+      expiresAt: otp.expiresAt,
+      // New secret, so the old guess count no longer applies. The abuse ceiling is
+      // still MAX_SENDS × MAX_ATTEMPTS guesses out of 1,000,000.
+      attempts: 0,
+      sendCount: { increment: 1 },
+      lastSentAt: now,
+      ipAddress: meta?.ipAddress,
+      userAgent: meta?.userAgent,
+    },
   });
+
+  // NOT fire-and-forget. `sendEmail` is fail-soft and returns false; for password
+  // reset that's survivable because the account still exists, but here a silent
+  // failure strands the user on a code screen for an account that can never be
+  // created. So: await it, and on failure drop the row so the cooldown doesn't also
+  // block the retry they're about to make.
+  const sent = await sendSignupOtpEmail(email, {
+    code: otp.code,
+    expiresInMinutes: SIGNUP_OTP_TTL_MINUTES,
+  });
+
+  if (!sent) {
+    if (process.env.NODE_ENV !== "production" && !process.env.RESEND_API_KEY) {
+      // Local dev has no Resend key. Both conditions matter: a production instance
+      // whose key was revoked must 502, never print codes to the log.
+      console.warn(`[signup-otp] DEV ONLY — code for ${email}: ${otp.code}`);
+    } else {
+      await prisma.pendingSignup.deleteMany({ where: { email } });
+      throw new ApiError(502, "EMAIL_SEND_FAILED");
+    }
+  }
+
+  return {
+    expiresInMinutes: SIGNUP_OTP_TTL_MINUTES,
+    resendAfterSeconds: SIGNUP_OTP_RESEND_COOLDOWN_SECONDS,
+  };
+}
+
+/** Step 2 — redeem the code and create the account. */
+export async function verifySignupOtpService(email: string, code: string) {
+  // One message for "no pending signup" and "wrong code" — otherwise this endpoint
+  // reveals which signups are in flight.
+  const invalid = () => new ApiError(400, "This code is invalid or has expired");
+
+  const pending = await prisma.pendingSignup.findFirst({
+    where: { email, expiresAt: { gte: new Date() } },
+  });
+  if (!pending) throw invalid();
+
+  if (pending.attempts >= MAX_SIGNUP_OTP_ATTEMPTS) {
+    throw new ApiError(400, "Too many incorrect attempts. Request a new code.");
+  }
+
+  if (!timingSafeEqualHex(pending.codeHash, hashToken(code))) {
+    await prisma.pendingSignup.update({
+      where: { id: pending.id },
+      data: { attempts: { increment: 1 } },
+    });
+    throw invalid();
+  }
+
+  // Resolved fresh: the affiliate could have been removed during the OTP window.
+  const referredById = await resolveReferrerUserId(pending.referralCode);
+  const refresh = await generateRefreshToken();
+
+  let user;
+  try {
+    user = await prisma.$transaction(async (tx) => {
+      // Claim the row atomically. Two concurrent verifies (double-tap, retry) would
+      // otherwise both create an account; the second DELETE matches 0 rows.
+      const claimed = await tx.pendingSignup.deleteMany({
+        where: { id: pending.id, expiresAt: { gte: new Date() } },
+      });
+      if (claimed.count !== 1) throw invalid();
+
+      const created = await tx.user.create({
+        data: {
+          email: pending.email,
+          name: pending.name,
+          phone: pending.phone,
+          password: pending.passwordHash, // already hashed — never re-hash
+          emailVerified: true,
+          referredById,
+        },
+        select: userSelect,
+      });
+
+      await tx.refreshToken.create({
+        data: {
+          tokenHash: refresh.tokenHash,
+          userId: created.id,
+          expiresAt: refresh.expiresAt,
+        },
+      });
+
+      return created;
+    }, { maxWait: 5000, timeout: 15000 });
+  } catch (err: any) {
+    // The email was registered between request and verify (Google/Apple sign-in, or
+    // an admin). The unique constraint is the real guard — a pre-check can't close
+    // this race — and without mapping it the raw Prisma error becomes a 500.
+    if (err?.code === "P2002") {
+      throw new ApiError(409, "EMAIL_ALREADY_REGISTERED");
+    }
+    throw err;
+  }
 
   if (referredById) {
     void notify({
       userId: referredById,
       type: "REFERRAL_SIGNUP",
       title: "New referral joined 🎉",
-      body: `${name} signed up using your referral link.`,
+      body: `${pending.name} signed up using your referral link.`,
       data: { screen: "AffiliateDashboard" },
     });
   }
 
-  // Tokens
-  const accessToken = generateAccessToken({
-    userId: user.id,
-    role: user.role,
-  });
+  const accessToken = generateAccessToken({ userId: user.id, role: user.role });
 
-  const refresh = await generateRefreshToken();
-
-  await prisma.refreshToken.create({
-    data: {
-      tokenHash: refresh.tokenHash,
-      userId: user.id,
-      expiresAt: refresh.expiresAt,
-    },
-  });
-
-  return {
-    user,
-    accessToken,
-    refreshToken: refresh.token,
-  };
+  return { user, accessToken, refreshToken: refresh.token };
 }
 
 
@@ -124,17 +255,24 @@ export async function signinService(data: SigninData) {
       where: { email },
     });
 
+    // "Invalid email" vs "Invalid password" told anyone who asked whether an address
+    // was registered. One message for both closes that without costing a real user
+    // anything — the web sign-in page already matches on /invalid/i.
     if (!user) {
-      throw new Error("Invalid email");
+      throw new Error("Invalid email or password");
     }
 
+    // Deliberately NOT collapsed into the generic message: this account genuinely
+    // cannot sign in with a password, and a generic error would strand the user with
+    // no route forward. Enumeration hardening that breaks a legitimate login is a bad
+    // trade.
     if (!user.password) {
       throw new Error("This account uses Google sign-in. Continue with Google.");
     }
 
     const isValidPassword = await comparePassword(password, user.password);
     if (!isValidPassword) {
-      throw new Error("Invalid password");
+      throw new Error("Invalid email or password");
     }
 
     const accessToken = generateAccessToken({
@@ -232,6 +370,11 @@ export async function googleAuthService(idToken: string, referralCode?: string) 
     }
   }
 
+  // Any pending email signup for this address can never complete now — the address
+  // belongs to a real account. Dropping it turns a mystifying "invalid code" into a
+  // clean "already registered".
+  void prisma.pendingSignup.deleteMany({ where: { email: profile.email } });
+
   const accessToken = generateAccessToken({
     userId: user.id,
     role: user.role,
@@ -325,6 +468,11 @@ export async function appleAuthService(
         data: { screen: "AffiliateDashboard" },
       });
     }
+  }
+
+  // As with Google: a pending email signup for this address is now unusable.
+  if (profile.email) {
+    void prisma.pendingSignup.deleteMany({ where: { email: profile.email } });
   }
 
   const accessToken = generateAccessToken({

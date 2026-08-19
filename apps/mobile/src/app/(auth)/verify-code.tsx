@@ -78,7 +78,9 @@ export default function VerifyResetCode() {
                 placeholder="123456"
                 keyboardType="number-pad"
                 maxLength={6}
-                autoComplete="one-time-code"
+                // "one-time-code" is the iOS-only value; Android needs "sms-otp",
+                // so OTP autofill was silently dead there.
+                autoComplete={Platform.select({ ios: "one-time-code", android: "sms-otp" })}
                 textContentType="oneTimeCode"
                 value={value}
                 onChangeText={(t) => onChange(t.replace(/\D/g, ""))}

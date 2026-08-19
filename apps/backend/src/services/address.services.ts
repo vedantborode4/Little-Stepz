@@ -2,6 +2,7 @@ import { prisma } from "@repo/db/client";
 import { AddressData, UpdateAddressData } from "@repo/zod-schema/index";
 import { ApiError } from "../utils/api";
 import { assertServiceable } from "../utils/shipping";
+import { assertPhoneVerified } from "./phoneVerification.services";
 
 const addressSelect = {
   id: true,
@@ -17,11 +18,24 @@ const addressSelect = {
 };
 
 export async function getAddressesService(userId: string) {
-  return prisma.address.findMany({
+  const addresses = await prisma.address.findMany({
     where: { userId, deletedAt: null },
     orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
     select: addressSelect,
   });
+
+  if (!addresses.length) return [];
+
+  // Prisma can't compute this in `addressSelect`, so it's one extra query rather
+  // than an N+1. Surfaced so the UI can nudge without blocking: addresses that
+  // predate phone verification stay usable.
+  const verified = await prisma.verifiedPhone.findMany({
+    where: { userId, phone: { in: addresses.map((a) => a.phone) } },
+    select: { phone: true },
+  });
+  const verifiedSet = new Set(verified.map((v) => v.phone));
+
+  return addresses.map((a) => ({ ...a, phoneVerified: verifiedSet.has(a.phone) }));
 }
 
 /**
@@ -42,6 +56,8 @@ export async function createAddressService(
   data: AddressData
 ) {
   await assertDeliverablePincode(data.pincode);
+  // Same "validate before write, outside the transaction" shape as the pincode check.
+  await assertPhoneVerified(userId, data.phone);
 
   return prisma.$transaction(async (tx) => {
     if (data.isDefault) {
@@ -82,6 +98,21 @@ export async function updateAddressService(
   // Outside the transaction: this is an external HTTP call and must not hold a
   // row-locked transaction open across Delhivery.
   if (data.pincode) await assertDeliverablePincode(data.pincode);
+
+  // Verification is required ONLY when the phone actually changes.
+  //
+  // This is the detail that decides whether existing customers keep working: both
+  // clients submit the whole address object on edit, so a naive "is `phone` present"
+  // check would demand an OTP from a legacy customer fixing a typo in their city.
+  if (data.phone) {
+    const current = await prisma.address.findFirst({
+      where: { id: addressId, userId, deletedAt: null },
+      select: { phone: true },
+    });
+    if (current && data.phone !== current.phone) {
+      await assertPhoneVerified(userId, data.phone);
+    }
+  }
 
   return prisma.$transaction(async (tx) => {
     const address = await tx.address.findFirst({

@@ -10,6 +10,7 @@ import { notify } from './notification.services';
 import { orderShortRef } from '../utils/notificationCopy';
 import { syncProductStockFlag, syncProductStockFlags } from '../utils/stock';
 import { releasePendingOrderStock, stalePendingOrderWhere } from '../utils/pendingRelease';
+import { assertPhoneVerified } from "./phoneVerification.services";
 import { refundCapturedOrderPayment } from './refund.services';
 import { reverseAffiliateCommissionsService } from './affiliate.services';
 
@@ -75,6 +76,14 @@ export async function createOrderService(userId: string, data: CreateOrderBody, 
   });
   if (!shippingAddress) throw new ApiError(400, OrderErrorCode.INVALID_ADDRESS);
   await assertServiceable(shippingAddress.pincode, data.paymentMethod);
+
+  // Off by default, and it must stay that way until the base has converted: every
+  // address that predates phone verification has an unverified number, so enabling
+  // this blocks checkout for the entire existing customer base. New and edited
+  // addresses go through OTP at save time, so the base converts on its own.
+  if (process.env.REQUIRE_VERIFIED_PHONE_AT_CHECKOUT === "true") {
+    await assertPhoneVerified(userId, shippingAddress.phone);
+  }
   const precomputedShipping = await resolveShippingCharge(shippingAddress.pincode, data.paymentMethod);
 
   const result = await runWithRetry(async () => {

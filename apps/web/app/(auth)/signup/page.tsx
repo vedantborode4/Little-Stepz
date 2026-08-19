@@ -1,10 +1,12 @@
 "use client"
 
 import GuestGuard from "../../../components/guard/GuestGuard"
+import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
-import { SignupSchema } from "@repo/zod-schema/index"
+import { SignupSchema, type SignupData } from "@repo/zod-schema/index"
+import VerifyEmailStep from "./VerifyEmailStep"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { useAuth } from "../../../hooks/use-auth"
@@ -23,9 +25,16 @@ const SignupFormSchema = SignupSchema.extend({
 
 type SignupFormData = z.infer<typeof SignupFormSchema>
 
+interface PendingSignup {
+  payload: SignupData
+  expiresInMinutes: number
+  resendAfterSeconds: number
+}
+
 export default function SignUpPage() {
   const router = useRouter()
   const { login } = useAuth()
+  const [pending, setPending] = useState<PendingSignup | null>(null)
 
   const {
     register,
@@ -41,22 +50,42 @@ export default function SignUpPage() {
   const onSubmit = async (data: SignupFormData) => {
     try {
       const { confirmPassword: _confirmPassword, ...signupData } = data
-      const res = await AuthService.signUp(signupData)
-      await login(res)
-      router.push("/")
+      // No account is created here — this only emails a code. The payload stays in
+      // component state (never localStorage: it contains a plaintext password), so a
+      // reload correctly drops back to step 1 rather than stranding a half-signup.
+      const meta = await AuthService.requestSignupOtp(signupData)
+      setPending({ payload: signupData, ...meta })
     } catch (error: any) {
       const message = friendlyError(error, "Signup failed")
 
-      if (message.toLowerCase().includes("user already exists")) {
-        setError("email", {
-          type: "server",
-          message,
-        })
+      // The backend now returns a code, not prose — the old substring sniff for
+      // "user already exists" would never match again.
+      if (error?.response?.data?.message === "EMAIL_ALREADY_REGISTERED") {
+        setError("email", { type: "server", message })
         return
       }
 
       toast.error(message)
     }
+  }
+
+  if (pending) {
+    return (
+      <GuestGuard>
+        <AuthCard>
+          <VerifyEmailStep
+            payload={pending.payload}
+            expiresInMinutes={pending.expiresInMinutes}
+            resendAfterSeconds={pending.resendAfterSeconds}
+            onVerified={async (res) => {
+              await login(res)
+              router.push("/")
+            }}
+            onBack={() => setPending(null)}
+          />
+        </AuthCard>
+      </GuestGuard>
+    )
   }
 
   return (

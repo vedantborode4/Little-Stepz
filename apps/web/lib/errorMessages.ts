@@ -89,6 +89,25 @@ const ERROR_COPY: Record<string, string> = {
   SHIPMENT_NOT_FOUND: "We couldn't find a shipment for this order.",
   SHIPMENT_ALREADY_EXISTS: "This order has already been handed to the courier.",
 
+  // ── Phone verification ───────────────────────────────────────────────────
+  PHONE_NOT_VERIFIED: "Please verify this phone number before saving.",
+  PHONE_ALREADY_VERIFIED: "This number is already verified.",
+  OTP_INVALID: "That code isn't right. Check it and try again.",
+  OTP_EXPIRED: "That code has expired. Request a new one.",
+  OTP_MAX_ATTEMPTS: "Too many incorrect attempts. Request a new code.",
+  OTP_COOLDOWN: "We just sent a code — check your messages, or wait a moment to resend.",
+  // Shared by the email-signup and phone flows — keep the wording channel-neutral.
+  OTP_SEND_LIMIT: "Too many codes requested. Please try again later.",
+  OTP_DAILY_LIMIT: "Daily verification limit reached. Please try again tomorrow.",
+  OTP_RATE_LIMITED: "Too many attempts. Please wait a moment and try again.",
+  SMS_SEND_FAILED: "We couldn't send the code. Check the number and try again.",
+
+  // ── Signup / email verification ──────────────────────────────────────────
+  EMAIL_ALREADY_REGISTERED: "An account with this email already exists. Sign in instead.",
+  EMAIL_SEND_FAILED: "We couldn't send the verification email. Check the address and try again.",
+  OTP_RESEND_TOO_SOON: "We just sent a code — check your inbox, or wait a moment to resend.",
+  APP_UPDATE_REQUIRED: "Please update the app to create an account.",
+
   // ── Generic ──────────────────────────────────────────────────────────────
   RATE_LIMIT_EXCEEDED: "Too many attempts. Please wait a moment and try again.",
   INVALID_TOKEN: "This link is invalid or has expired.",

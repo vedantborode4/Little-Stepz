@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Pressable, ScrollView, Text, View } from "react-native";
@@ -8,6 +9,7 @@ import { Input } from "../ui/Input";
 import { Button } from "../ui/Button";
 import { colors } from "../../theme/tokens";
 import type { Address } from "../../lib/services/address.service";
+import { PhoneVerifyField } from "./PhoneVerifyField";
 
 interface AddressFormProps {
   initial?: Partial<Address>;
@@ -39,6 +41,11 @@ export function AddressForm({ initial, submitting, onSubmit }: AddressFormProps)
   });
 
   const isDefault = watch("isDefault");
+  const phone = watch("phone");
+  const [phoneVerified, setPhoneVerified] = useState(false);
+
+  // `initial` is undefined when adding, so a new address always needs verification.
+  const phoneChanged = phone !== initial?.phone;
 
   const field = (
     name: keyof AddressData,
@@ -64,7 +71,26 @@ export function AddressForm({ initial, submitting, onSubmit }: AddressFormProps)
   return (
     <ScrollView contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
       {field("name", "Full name", { placeholder: "Recipient's full name" })}
-      {field("phone", "Phone", { keyboardType: "phone-pad", placeholder: "10-digit phone number" })}
+
+      <Controller
+        control={control}
+        name="phone"
+        render={({ field: { onChange, value } }) => (
+          <PhoneVerifyField
+            value={value ?? ""}
+            onChange={(v) => {
+              onChange(v);
+              setPhoneVerified(false);
+            }}
+            // An unchanged number on an existing address is already trusted — only a
+            // new or changed one has to be proven, mirroring the server rule.
+            verified={!phoneChanged || phoneVerified}
+            required={phoneChanged}
+            onVerified={() => setPhoneVerified(true)}
+            error={errors.phone?.message}
+          />
+        )}
+      />
       {field("address", "Address", { multiline: true, placeholder: "House no., Street, Area" })}
       {field("city", "City", { placeholder: "City" })}
       {field("state", "State", { placeholder: "State" })}
@@ -76,7 +102,14 @@ export function AddressForm({ initial, submitting, onSubmit }: AddressFormProps)
         <Text className="text-text">Set as default address</Text>
       </Pressable>
 
-      <Button label="Save Address" loading={submitting} onPress={handleSubmit(onSubmit)} />
+      <Button
+        label="Save Address"
+        loading={submitting}
+        // Blocked in the UI as well as on the server, so the user gets inline
+        // guidance instead of a 400 after filling the whole form.
+        disabled={phoneChanged && !phoneVerified}
+        onPress={handleSubmit(onSubmit)}
+      />
     </ScrollView>
   );
 }
