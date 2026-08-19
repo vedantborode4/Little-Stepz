@@ -84,10 +84,17 @@ export async function verifyDelhiveryAuth(): Promise<boolean> {
 /**
  * Look up a registered pickup warehouse by name.
  *
- * Returns `null` when Delhivery has no such warehouse, so callers can tell
- * "not registered" apart from "the API is down" (which throws). Note a `null`
- * here does NOT prove the warehouse is missing — pair it with
- * `verifyDelhiveryAuth()` before telling anyone to go register one.
+ * ⚠️ UNRELIABLE — DO NOT use this to decide whether a warehouse exists.
+ *
+ * `/api/backend/clientwarehouse/<name>/` is a web-panel route, not part of the API:
+ * with a Token header it answers 404 for warehouses that demonstrably DO exist and
+ * serves an HTML login page for the list form. Verified against a live account whose
+ * warehouse manifests successfully while this endpoint still returns 404.
+ *
+ * Kept only because `createDelhiveryWarehouse` uses it as a best-effort "did I
+ * already make this?" hint, where a false negative is harmless (the create call
+ * itself reports a duplicate). Delhivery exposes no dependable read-back, so the only
+ * true test of a pickup name is attempting a manifest.
  */
 export async function fetchDelhiveryWarehouse(name: string): Promise<unknown | null> {
   const url = `${DELHIVERY_API}/api/backend/clientwarehouse/${encodeURIComponent(name)}/`;
@@ -98,8 +105,6 @@ export async function fetchDelhiveryWarehouse(name: string): Promise<unknown | n
 
   const data = (await res.json().catch(() => null)) as any;
 
-  // Delhivery is inconsistent here: some accounts get a 200 with an empty list or
-  // an `error` payload rather than a 404. Treat all of those as "not registered".
   if (!data || data.error || data.success === false) return null;
   if (Array.isArray(data) && data.length === 0) return null;
   if (Array.isArray(data?.data) && data.data.length === 0) return null;

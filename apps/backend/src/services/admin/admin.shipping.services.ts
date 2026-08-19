@@ -58,40 +58,57 @@ function warehouseInputFromEnv(): DelhiveryWarehouseInput {
 export async function getWarehouseStatusService() {
   const configuredName = getPickupName();
 
-  if (!configuredName) {
+  const missing = Object.entries({
+    DELHIVERY_API_TOKEN: process.env.DELHIVERY_API_TOKEN,
+    DELHIVERY_PICKUP_NAME: configuredName,
+  })
+    .filter(([, v]) => !v)
+    .map(([k]) => k);
+
+  if (missing.length) {
     return {
-      configuredName: null,
-      registered: false,
+      configuredName: configuredName ?? null,
+      authenticated: false,
+      /** null, not false — see below. */
+      registered: null as boolean | null,
       warehouse: null,
-      message:
-        "DELHIVERY_PICKUP_NAME is not set. Shipment creation will fail until it is configured.",
+      message: `Missing shipping configuration: ${missing.join(", ")}`,
     };
   }
 
-  const warehouse = await fetchDelhiveryWarehouse(configuredName);
-
-  if (warehouse !== null) {
-    return {
-      configuredName,
-      registered: true,
-      authenticated: true,
-      warehouse,
-      message: "Pickup warehouse is registered with Delhivery.",
-    };
-  }
-
-  // The lookup 404s for a bad token just as it does for a missing warehouse, so
-  // confirm the credentials before blaming the warehouse.
   const authenticated = await verifyDelhiveryAuth();
 
+  if (!authenticated) {
+    return {
+      configuredName: configuredName!,
+      authenticated: false,
+      registered: null as boolean | null,
+      warehouse: null,
+      message:
+        "Delhivery rejected our API token. Fix DELHIVERY_API_TOKEN before anything else.",
+    };
+  }
+
+  // `registered` is deliberately NULL, never false.
+  //
+  // Delhivery exposes no dependable way to read a pickup location back:
+  // /api/backend/clientwarehouse/<name>/ answers 404 even for warehouses that
+  // manifest successfully. An earlier version of this reported `registered: false`
+  // for a working warehouse — a confidently wrong answer, which is precisely the
+  // failure this endpoint exists to eliminate. The only real test is a manifest.
+  const warehouse = await fetchDelhiveryWarehouse(configuredName!).catch(() => null);
+
   return {
-    configuredName,
-    registered: false,
-    authenticated,
-    warehouse: null,
-    message: authenticated
-      ? `No warehouse named "${configuredName}" exists on this Delhivery account. Register it before shipping.`
-      : "Delhivery rejected our API token. Fix DELHIVERY_API_TOKEN — the warehouse cannot be checked until it is valid.",
+    configuredName: configuredName!,
+    authenticated: true,
+    registered: warehouse !== null ? true : null,
+    warehouse,
+    message:
+      warehouse !== null
+        ? `Pickup warehouse "${configuredName}" is registered.`
+        : `Credentials are valid and "${configuredName}" is configured. Delhivery has no reliable ` +
+          `read-back for pickup locations, so registration can only be confirmed by shipping an ` +
+          `order — a wrong name fails with "ClientWarehouse matching query does not exist".`,
   };
 }
 

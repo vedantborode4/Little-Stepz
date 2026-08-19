@@ -1,5 +1,4 @@
 import {
-  fetchDelhiveryWarehouse,
   getPickupName,
   verifyDelhiveryAuth,
 } from "../utils/delhivery.client";
@@ -41,13 +40,14 @@ export async function checkSmsProvider(): Promise<void> {
 }
 
 /**
- * Check at boot that the configured pickup warehouse actually resolves.
+ * Check at boot that Delhivery credentials work.
  *
- * Shipment creation references the warehouse by name only, so a name Delhivery
- * doesn't know fails every single manifest with "ClientWarehouse matching query
- * does not exist." — discovered one order at a time, three auto-ship attempts deep,
- * long after the orders started piling up. One call at startup turns that into a
- * line in the boot log.
+ * Deliberately does NOT assert that the pickup warehouse exists. Delhivery's
+ * `/api/backend/clientwarehouse/<name>/` endpoint returns 404 even for pickup
+ * locations that manifest successfully — it is a web-panel route, not an API — so an
+ * earlier version of this check reported a missing warehouse on a working
+ * configuration. That is the same class of confidently-wrong diagnosis this preflight
+ * exists to eliminate, so it now only asserts what is actually knowable.
  *
  * Fail-soft by design: never block startup on Delhivery being reachable, mirroring
  * how `assertServiceable` fails open on a courier outage.
@@ -68,33 +68,19 @@ export async function checkDelhiveryWarehouse(): Promise<void> {
   }
 
   try {
-    const warehouse = await fetchDelhiveryWarehouse(name);
-
-    if (warehouse === null) {
-      // The warehouse endpoint 404s for a bad token exactly as it does for a missing
-      // warehouse. Check the credentials before telling anyone to register one.
-      if (!(await verifyDelhiveryAuth())) {
-        console.error(
-          "[preflight] Delhivery rejected DELHIVERY_API_TOKEN. Shipping is broken and the " +
-            "pickup warehouse cannot be checked until the token is valid."
-        );
-        return;
-      }
-
+    if (!(await verifyDelhiveryAuth())) {
       console.error(
-        `[preflight] Delhivery has no pickup warehouse named "${name}" on this account. ` +
-          `Every shipment will fail with "ClientWarehouse matching query does not exist". ` +
-          `Register it via POST /api/v1/admin/shipping/warehouse, or correct ` +
-          `DELHIVERY_PICKUP_NAME to match the name in the Delhivery panel exactly.`
+        "[preflight] Delhivery rejected DELHIVERY_API_TOKEN. Shipping is broken until it is valid."
       );
       return;
     }
 
-    console.log(`[preflight] Delhivery pickup warehouse "${name}" is registered.`);
-  } catch (err: any) {
-    // A courier outage at boot says nothing about our configuration.
-    console.warn(
-      `[preflight] Could not verify the Delhivery warehouse: ${err?.message ?? err}`
+    console.log(
+      `[preflight] Delhivery credentials OK, pickup name "${name}". Registration is not ` +
+        `machine-verifiable — a wrong name fails at manifest time with ` +
+        `"ClientWarehouse matching query does not exist".`
     );
+  } catch (err: any) {
+    console.warn(`[preflight] Could not verify Delhivery: ${err?.message ?? err}`);
   }
 }

@@ -91,9 +91,17 @@ async function verifySignupOtp(req: Request, res: Response) {
  * The old direct-signup route. Shipped mobile builds still call it, so it must not
  * 404. 426 is semantically right and — importantly — is NOT 401, which would trip
  * both clients' refresh interceptor and bounce the user to sign-in.
+ *
+ * The message is PROSE, not an error code, on purpose: the only callers are builds
+ * that predate this change, so they have no copy mapping for a new code and would
+ * render it raw (or swallow it behind a generic "Signup failed"). Current clients
+ * never hit this route — both services call /signup/request instead.
  */
 async function legacySignup(_req: Request, _res: Response) {
-  throw new ApiError(426, "APP_UPDATE_REQUIRED");
+  throw new ApiError(
+    426,
+    "Please update the Little Stepz app to create an account. You can still sign in normally."
+  );
 }
 
 export const requestSignupOtpController = asyncHandler(requestSignupOtp);

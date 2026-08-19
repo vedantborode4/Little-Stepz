@@ -309,6 +309,15 @@ export async function updateOrderStatusService(
       shippingCharges: updated.shippingCharges.toNumber(),
       total: updated.total.toNumber(),
     };
+  }, {
+    // The cancellation unwind is a lot of round-trips — per-item stock updates,
+    // stock-flag resync, coupon, payment and the affiliate commission reversal —
+    // and it now also runs for PROCESSING orders. Prisma's 5s default is not
+    // enough on a remote database: it aborts mid-unwind and rolls the whole
+    // cancellation back. Matches the explicit budgets used by refreshService and
+    // deleteAccountService.
+    maxWait: 5000,
+    timeout: 20000,
   });
 
   // Both of these make their own external/DB calls and so run after the commit.
