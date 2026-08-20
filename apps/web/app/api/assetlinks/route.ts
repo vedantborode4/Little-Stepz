@@ -17,11 +17,24 @@
  * Unset -> 404, which is the honest failure: a malformed assetlinks.json makes
  * Android silently stop verifying, which is far harder to debug than a missing one.
  */
-const SHA256_FINGERPRINT = process.env.ANDROID_APP_CERT_SHA256
+/**
+ * Read at request time, not build time: a GET handler with no dynamic input can be
+ * pre-rendered, which would bake in whatever the value was when `next build` ran.
+ */
+export const dynamic = "force-dynamic"
+
 const PACKAGE_NAME = "in.littlestepz"
 
 export function GET() {
-  if (!SHA256_FINGERPRINT) {
+  // Comma-separated. An app installed from Play carries Google's App Signing
+  // certificate; a sideloaded EAS APK carries the upload key. Listing both means
+  // App Links verify either way, which matters while testing.
+  const fingerprints = (process.env.ANDROID_APP_CERT_SHA256 ?? "")
+    .split(",")
+    .map((f) => f.trim().toUpperCase())
+    .filter(Boolean)
+
+  if (fingerprints.length === 0) {
     return new Response("assetlinks not configured", { status: 404 })
   }
 
@@ -31,7 +44,7 @@ export function GET() {
       target: {
         namespace: "android_app",
         package_name: PACKAGE_NAME,
-        sha256_cert_fingerprints: [SHA256_FINGERPRINT],
+        sha256_cert_fingerprints: fingerprints,
       },
     },
   ]
