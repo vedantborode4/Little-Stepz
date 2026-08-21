@@ -1,5 +1,11 @@
 import Link from "next/link"
 import { Mail, Phone, MapPin, Instagram, Facebook, Twitter, Youtube } from "lucide-react"
+import {
+  BUSINESS_CITY,
+  SUPPORT_EMAIL,
+  SUPPORT_PHONE_DISPLAY,
+  SUPPORT_PHONE_E164,
+} from "@repo/content/index"
 import PaymentBadges from "../common/PaymentBadges"
 
 function ThreadsIcon({ size = 14 }: { size?: number }) {
@@ -87,6 +93,7 @@ export default function Footer() {
             <ul className="space-y-2 text-sm">
               {[
                 { label: "About Us", href: "/about" },
+                { label: "Support & Contact", href: "/support" },
                 { label: "FAQ", href: "/faq" },
                 { label: "Track Order", href: "/account/orders" },
                 { label: "Unboxing Policy", href: "/unboxing-policy" },
@@ -110,15 +117,15 @@ export default function Footer() {
             <div className="space-y-2 text-xs sm:text-sm text-gray-400">
               <div className="flex items-center gap-2">
                 <Phone size={13} className="text-gray-500 shrink-0" />
-                <a href="tel:+919920634567" className="hover:text-white transition-colors">+91 99206 34567</a>
+                <a href={`tel:${SUPPORT_PHONE_E164}`} className="hover:text-white transition-colors">{SUPPORT_PHONE_DISPLAY}</a>
               </div>
               <div className="flex items-center gap-2">
                 <Mail size={13} className="text-gray-500 shrink-0" />
-                <a href="mailto:Support@littlestepz.in" className="hover:text-white transition-colors">Support@littlestepz.in</a>
+                <a href={`mailto:${SUPPORT_EMAIL}`} className="hover:text-white transition-colors">{SUPPORT_EMAIL}</a>
               </div>
               <div className="flex items-center gap-2">
                 <MapPin size={13} className="text-gray-500 shrink-0" />
-                <span>Hyderabad, India</span>
+                <span>{BUSINESS_CITY}</span>
               </div>
             </div>
           </div>

@@ -193,3 +193,48 @@ export function faqSchema(qa: { question: string; answer: string }[]): Json {
     })),
   }
 }
+
+/**
+ * ContactPage for /support. `mainEntity` points back at the Organization node so
+ * crawlers attach the opening hours and contact point to the existing entity
+ * rather than inventing a second one.
+ */
+export function contactPageSchema(opts: {
+  path: string
+  name: string
+  description: string
+  hoursSpec: {
+    dayOfWeek: string[]
+    opens: string
+    closes: string
+  }
+}): Json {
+  return {
+    "@context": "https://schema.org",
+    "@type": "ContactPage",
+    name: opts.name,
+    description: opts.description,
+    url: absolute(opts.path),
+    isPartOf: { "@id": SITE_ID },
+    mainEntity: {
+      "@type": "Organization",
+      "@id": ORG_ID,
+      name: BRAND,
+      url: SITE_URL,
+      contactPoint: {
+        "@type": "ContactPoint",
+        contactType: "customer support",
+        telephone: CONTACT.phone,
+        email: CONTACT.email,
+        areaServed: "IN",
+        availableLanguage: ["en", "hi", "te"],
+        hoursAvailable: {
+          "@type": "OpeningHoursSpecification",
+          dayOfWeek: opts.hoursSpec.dayOfWeek,
+          opens: opts.hoursSpec.opens,
+          closes: opts.hoursSpec.closes,
+        },
+      },
+    },
+  }
+}

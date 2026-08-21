@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { CheckCircle2, AlertTriangle, KeyRound, Truck, RefreshCw } from "lucide-react"
+import { CheckCircle2, AlertTriangle, KeyRound, Truck, RefreshCw, Info } from "lucide-react"
 import { toast } from "sonner"
 import {
   AdminShippingService,
@@ -60,6 +60,10 @@ export default function AdminShippingPage() {
   // original failure so hard to diagnose.
   const authFailed = status?.authenticated === false
   const ok = status?.registered === true
+  // registered === null means "Delhivery gives us no way to read this back", NOT
+  // "missing". Rendering null as a failure told the operator their working warehouse
+  // was unregistered — the exact false alarm this screen exists to prevent.
+  const unverifiable = !authFailed && status?.registered === null
 
   return (
     <div className="p-6 max-w-3xl">
@@ -93,6 +97,8 @@ export default function AdminShippingPage() {
               <CheckCircle2 size={20} className="text-green-500 shrink-0 mt-0.5" />
             ) : authFailed ? (
               <KeyRound size={20} className="text-red-500 shrink-0 mt-0.5" />
+            ) : unverifiable ? (
+              <Info size={20} className="text-blue-500 shrink-0 mt-0.5" />
             ) : (
               <AlertTriangle size={20} className="text-amber-500 shrink-0 mt-0.5" />
             )}
@@ -102,7 +108,9 @@ export default function AdminShippingPage() {
                   ? "Pickup warehouse is registered"
                   : authFailed
                     ? "Delhivery rejected our API token"
-                    : "Pickup warehouse is not registered"}
+                    : unverifiable
+                      ? "Shipping is configured"
+                      : "Pickup warehouse is not registered"}
               </p>
               <p className="text-sm text-muted mt-1">{status.message}</p>
             </div>
@@ -133,11 +141,9 @@ export default function AdminShippingPage() {
               ) : (
                 <>
                   <p className="text-sm text-muted mb-4">
-                    Register it using the warehouse address configured on the server
-                    (<code className="text-text">DELHIVERY_WAREHOUSE_*</code>). If the warehouse
-                    already exists in the Delhivery panel under a different name, correct{" "}
-                    <code className="text-text">DELHIVERY_PICKUP_NAME</code> to match it exactly
-                    instead.
+                    {unverifiable
+                      ? "If shipping fails with \"ClientWarehouse matching query does not exist\", this pickup name is wrong or unregistered — register it below, or correct DELHIVERY_PICKUP_NAME to match the Delhivery panel exactly. Note a B2B pickup location is invisible to this (B2C) API."
+                      : "Register it using the warehouse address configured on the server (DELHIVERY_WAREHOUSE_*). If the warehouse already exists in the Delhivery panel under a different name, correct DELHIVERY_PICKUP_NAME to match it exactly instead."}
                   </p>
                   <button
                     onClick={register}

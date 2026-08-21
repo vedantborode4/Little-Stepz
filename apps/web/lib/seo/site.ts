@@ -10,6 +10,12 @@
  * tasks/seo-geo-implementation.md §7. Change them here and the whole site follows.
  */
 
+import {
+  SUPPORT_EMAIL,
+  SUPPORT_PHONE_DISPLAY,
+  SUPPORT_PHONE_E164,
+} from "@repo/content/index"
+
 export const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "https://littlestepz.in"
 
@@ -29,11 +35,11 @@ export const DESCRIPTION =
   "premium sets, building blocks and Stanley tumblers. Delivered across India."
 
 export const CONTACT = {
-  phone: "+91 99206 34567",
-  phoneHref: "+919920634567",
+  phone: SUPPORT_PHONE_DISPLAY,
+  phoneHref: SUPPORT_PHONE_E164,
   /** TODO(client): production footer says this; the SEO pack says littlestepzpvtltd@gmail.com. Confirm one. */
-  email: "Support@littlestepz.in",
-  /** No street address is published anywhere. LocalBusiness schema stays off until we have one. */
+  email: SUPPORT_EMAIL,
+  /** Street address is published on /support and in the Privacy Policy. */
   locality: "Hyderabad",
   region: "Telangana",
   country: "IN",
