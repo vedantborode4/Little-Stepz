@@ -66,8 +66,7 @@ export default function DeliveryCheck() {
           <div className="mt-2.5 flex items-start gap-2 text-xs">
             <Check size={14} className="text-secondary flex-shrink-0 mt-0.5" />
             <span className="text-muted">
-              Delivery available to {pincode}.{" "}
-              {result.cod ? "Cash on Delivery available." : "Prepaid only (COD not available)."}
+              Delivery available to {pincode}.
             </span>
           </div>
         ) : (

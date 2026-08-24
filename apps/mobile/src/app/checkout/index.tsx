@@ -53,7 +53,7 @@ export default function Checkout() {
   } = useCartStore();
   const { addresses, selectedAddressId, fetchAddresses, setSelectedAddress, loadError: addressError } =
     useAddressStore();
-  const { paymentMethod, setPaymentMethod, placeOrder, placingOrder, step, setStep } =
+  const { placeOrder, placingOrder, step, setStep } =
     useCheckoutStore();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
@@ -138,7 +138,7 @@ export default function Checkout() {
           variantId: i.variantId ?? undefined,
           quantity: i.quantity,
         }));
-        const res: any = await CheckoutService.calculate(cartItems, selectedAddressId, couponCode || null, paymentMethod);
+        const res: any = await CheckoutService.calculate(cartItems, selectedAddressId, couponCode || null);
         if (cancelled) return;
         const next: ServerTotals = {
           subtotal: Number(res.subtotal),
@@ -163,9 +163,7 @@ export default function Checkout() {
     return () => {
       cancelled = true;
     };
-    // paymentMethod included: COD is quoted at a different shipping rate and some
-    // pincodes are prepaid-only, so switching it must re-quote.
-  }, [selectedAddressId, couponCode, cartSignature, paymentMethod]);
+  }, [selectedAddressId, couponCode, cartSignature]);
 
   const selectedAddress = addresses.find((a) => a.id === selectedAddressId);
 
@@ -192,20 +190,16 @@ export default function Checkout() {
     // The order now exists and the server has cleared the cart — the empty-cart
     // guard must not yank this screen out from under the payment flow.
     orderPlacedRef.current = true;
-    if (result.kind === "cod") {
-      router.replace({ pathname: "/checkout/success", params: { orderId: result.orderId } });
-    } else {
-      router.push({
-        pathname: "/checkout/payment",
-        params: {
-          orderId: result.orderId,
-          razorpayOrderId: result.rzp.razorpayOrderId,
-          amount: String(result.rzp.amount),
-          currency: result.rzp.currency,
-          keyId: result.rzp.keyId,
-        },
-      });
-    }
+    router.push({
+      pathname: "/checkout/payment",
+      params: {
+        orderId: result.orderId,
+        razorpayOrderId: result.rzp.razorpayOrderId,
+        amount: String(result.rzp.amount),
+        currency: result.rzp.currency,
+        keyId: result.rzp.keyId,
+      },
+    });
   };
 
   // Nothing to check out yet: either the first cart fetch is still in flight or the
@@ -401,38 +395,26 @@ export default function Checkout() {
 
         {step === 2 ? (
           <>
-            {(["COD", "ONLINE"] as const).map((m) => {
-              const active = paymentMethod === m;
-              return (
-                <Pressable key={m} onPress={() => setPaymentMethod(m)}>
-                  <Card className={active ? "border border-primary" : ""}>
-                    <View className="flex-row items-center gap-3">
-                      <Ionicons name={active ? "radio-button-on" : "radio-button-off"} size={20} color={active ? colors.primary : colors.muted} />
-                      <View className="h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-                        <Ionicons name={m === "COD" ? "cash-outline" : "card-outline"} size={18} color={colors.primary} />
-                      </View>
-                      <View className="flex-1">
-                        <View className="flex-row items-center gap-2">
-                          <Text className="font-jakarta-semibold text-text">
-                            {m === "COD" ? "Cash on Delivery" : "Pay Online"}
-                          </Text>
-                          {m === "ONLINE" ? (
-                            <View className="rounded-full bg-success/10 px-2 py-0.5">
-                              <Text className="text-[10px] font-jakarta-semibold text-success">Instant</Text>
-                            </View>
-                          ) : null}
-                        </View>
-                        <Text className="text-xs text-muted">
-                          {m === "COD"
-                            ? "Pay when your order arrives at your doorstep"
-                            : "Credit/Debit card, UPI & Net Banking via Razorpay"}
-                        </Text>
-                      </View>
+            {/* Online payment is the only method — a one-option radio group is noise,
+                so this states what will happen instead of asking a question. */}
+            <Card className="border border-primary">
+              <View className="flex-row items-center gap-3">
+                <View className="h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+                  <Ionicons name="card-outline" size={18} color={colors.primary} />
+                </View>
+                <View className="flex-1">
+                  <View className="flex-row items-center gap-2">
+                    <Text className="font-jakarta-semibold text-text">Pay Online</Text>
+                    <View className="rounded-full bg-success/10 px-2 py-0.5">
+                      <Text className="text-[10px] font-jakarta-semibold text-success">Secure</Text>
                     </View>
-                  </Card>
-                </Pressable>
-              );
-            })}
+                  </View>
+                  <Text className="text-xs text-muted">
+                    Credit/Debit card, UPI &amp; Net Banking via Razorpay
+                  </Text>
+                </View>
+              </View>
+            </Card>
             <View className="flex-row items-center gap-1.5 px-1">
               <Ionicons name="shield-checkmark-outline" size={14} color={colors.muted} />
               <Text className="text-xs text-muted">Secure & encrypted checkout powered by Razorpay</Text>
@@ -509,9 +491,7 @@ export default function Checkout() {
             {step === 2 ? (
               <View className="mt-1 flex-row items-center justify-between rounded-lg bg-bg px-2.5 py-1.5">
                 <Text className="text-xs text-muted">Payment</Text>
-                <Text className="text-xs font-jakarta-semibold text-text">
-                  {paymentMethod === "COD" ? "Cash on Delivery" : "Online (Razorpay)"}
-                </Text>
+                <Text className="text-xs font-jakarta-semibold text-text">Online (Razorpay)</Text>
               </View>
             ) : null}
           </Card>
@@ -547,7 +527,7 @@ export default function Checkout() {
           />
         ) : (
           <Button
-            label={paymentMethod === "COD" ? "Place Order" : "Proceed to Pay"}
+            label="Proceed to Pay"
             loading={placingOrder}
             onPress={onPlaceOrder}
           />

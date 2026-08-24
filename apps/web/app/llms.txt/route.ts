@@ -48,7 +48,7 @@ export async function GET() {
 > kits, Stanley tumblers and collectible toys, shipped across India.
 
 ${BRAND} sells ${products.length} products across ${live.length} categories, priced ${range}.
-Orders are placed on the website with card, UPI, net-banking or cash on delivery.
+Orders are placed on the website and paid up front with card, UPI, net-banking or wallet.
 
 ## Categories
 

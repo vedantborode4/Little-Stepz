@@ -7,7 +7,7 @@ import { colors } from "../../theme/tokens";
 
 /**
  * Pincode serviceability check on the PDP — mirrors the web DeliveryCheck.
- * Tells the user whether we deliver to their pincode and if COD is available.
+ * Tells the user whether we deliver to their pincode.
  */
 export function DeliveryCheck() {
   const [pincode, setPincode] = useState("");
@@ -72,14 +72,9 @@ export function DeliveryCheck() {
 
       {result ? (
         result.serviceable ? (
-          <View className="gap-1">
-            <View className="flex-row items-center gap-1.5">
-              <Ionicons name="checkmark-circle" size={15} color={colors.success} />
-              <Text className="text-sm font-jakarta-medium text-success">Delivery available to {pincode}</Text>
-            </View>
-            <Text className="text-xs text-muted">
-              {result.cod ? "Cash on Delivery available" : "Prepaid only (COD not available)"}
-            </Text>
+          <View className="flex-row items-center gap-1.5">
+            <Ionicons name="checkmark-circle" size={15} color={colors.success} />
+            <Text className="text-sm font-jakarta-medium text-success">Delivery available to {pincode}</Text>
           </View>
         ) : (
           <View className="flex-row items-center gap-1.5">

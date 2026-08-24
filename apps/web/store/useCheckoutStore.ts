@@ -6,7 +6,6 @@ import { friendlyError } from "../lib/errorMessages"
 
 interface CheckoutState {
   placingOrder: boolean
-  paymentMethod: "COD" | "ONLINE"
   // Stable idempotency key — generated once per checkout session,
   // cleared after a successful order so a fresh one is used next time.
   _idempotencyKey: string | null
@@ -14,7 +13,6 @@ interface CheckoutState {
   // must start a new order rather than silently replay the old one.
   _keySignature: string | null
 
-  setPaymentMethod: (method: "COD" | "ONLINE") => void
   placeOrder: (addressId: string) => Promise<string | null>
   resetSession: () => void
 }
@@ -36,11 +34,8 @@ function releaseAbandonedOrder(orderId: string): void {
 
 export const useCheckoutStore = create<CheckoutState>((set, get) => ({
   placingOrder: false,
-  paymentMethod: "COD",
   _idempotencyKey: null,
   _keySignature: null,
-
-  setPaymentMethod: (method) => set({ paymentMethod: method }),
 
   resetSession: () => set({ _idempotencyKey: null, _keySignature: null, placingOrder: false }),
 
@@ -48,7 +43,6 @@ export const useCheckoutStore = create<CheckoutState>((set, get) => ({
     // ── Guard: prevent concurrent calls ─────────────────────────────────
     if (get().placingOrder) return null
 
-    const { paymentMethod } = get()
     const { items, couponCode } = useCartStore.getState()
 
     if (!addressId) {
@@ -85,20 +79,10 @@ export const useCheckoutStore = create<CheckoutState>((set, get) => ({
         addressId,
         cartItems,
         couponCode || null,
-        idempotencyKey,
-        paymentMethod
+        idempotencyKey
       )
 
-      // ── Step 2a: COD ─────────────────────────────────────────────────
-      if (paymentMethod === "COD") {
-        await CheckoutService.confirmCod(orderId)
-        toast.success("Order placed successfully 🎉")
-        // Clear session so a future checkout gets a fresh key
-        set({ placingOrder: false, _idempotencyKey: null, _keySignature: null })
-        return orderId
-      }
-
-      // ── Step 2b: Online — open Razorpay ──────────────────────────────
+      // ── Step 2: Open Razorpay ────────────────────────────────────────
       const rzpData = await CheckoutService.createRazorpayOrder(orderId)
 
       return new Promise<string | null>((resolve) => {

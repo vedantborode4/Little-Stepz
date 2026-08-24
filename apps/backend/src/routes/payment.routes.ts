@@ -3,12 +3,11 @@ import { authMiddleware } from "../middlewares/auth.middleware";
 import {
   createPaymentController,
   verifyPaymentController,
-  createCodPaymentController,
+  codRetiredController,
 } from "../controllers/payment.controllers";
 import {
   paymentCreateRateLimiter,
   paymentVerifyRateLimiter,
-  codPaymentRateLimiter,
 } from "../middlewares/paymentRateLimiter.middleware";
 
 export const paymentRouter: Router = Router();
@@ -30,8 +29,7 @@ paymentRouter.post(
 );
 
 
-paymentRouter.post(
-  "/cod",
-  codPaymentRateLimiter,
-  createCodPaymentController
-);
+// Cash on Delivery has been withdrawn. The route stays mounted so the mobile
+// builds already published to the stores fail with a mapped error code they can
+// show the customer, rather than a bare 404 they render as "Something went wrong".
+paymentRouter.post("/cod", codRetiredController);

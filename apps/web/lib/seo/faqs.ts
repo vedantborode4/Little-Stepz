@@ -20,11 +20,7 @@ export interface Faq {
 export const FAQS: Faq[] = [
   {
     q: "Do you offer Cash on Delivery (COD)?",
-    a: "Little Stepz offers Cash on Delivery on selected products and locations. Some COD orders may require an advance confirmation fee before dispatch.",
-  },
-  {
-    q: "Why do you ask for advance payment for COD?",
-    a: "Little Stepz asks for a COD advance to prevent fake or abandoned orders and to confirm the order is genuine. The advance is adjusted against the order total.",
+    a: "No. Little Stepz orders are prepaid — pay securely at checkout by UPI, debit or credit card, net banking or wallet. Cash on Delivery is no longer offered.",
   },
   {
     q: "How long does shipping take?",
@@ -48,7 +44,7 @@ export const FAQS: Faq[] = [
   },
   {
     q: "What payment methods do you accept?",
-    a: "Little Stepz accepts UPI, debit and credit cards, net banking, wallets, and Cash on Delivery where available.",
+    a: "Little Stepz accepts UPI, debit and credit cards, net banking and wallets, processed securely through Razorpay. All orders are prepaid.",
   },
   {
     q: "Do you offer international shipping?",

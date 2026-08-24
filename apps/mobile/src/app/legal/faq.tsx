@@ -21,7 +21,7 @@ const FAQS: { q: string; a: string }[] = [
   },
   {
     q: "What payment methods do you accept?",
-    a: "We accept UPI, Visa, Mastercard and RuPay cards, net banking and Cash on Delivery, all handled securely through Razorpay.",
+    a: "We accept UPI, Visa, Mastercard and RuPay cards, net banking and wallets, all handled securely through Razorpay. Every order is paid for at checkout.",
   },
   {
     q: "Can I cancel or return my order?",
@@ -37,7 +37,7 @@ const FAQS: { q: string; a: string }[] = [
   },
   {
     q: "Do you offer Cash on Delivery?",
-    a: "Yes, Cash on Delivery is available on eligible orders. The option appears at checkout when your order qualifies.",
+    a: "No. Cash on Delivery is no longer offered — orders are paid for securely at checkout by UPI, card, net banking or wallet.",
   },
 ];
 

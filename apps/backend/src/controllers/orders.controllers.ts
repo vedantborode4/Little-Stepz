@@ -46,8 +46,11 @@ async function createOrder(req: Request, res: Response) {
       ? body.couponCode.trim()
       : undefined;
 
-  const paymentMethod: 'ONLINE' | 'COD' =
-    body.paymentMethod === 'COD' ? 'COD' : 'ONLINE';
+  // Cash on Delivery has been withdrawn. Published mobile builds still send
+  // paymentMethod: 'COD', so coerce rather than reject — the order is created as a
+  // normal prepaid order and the client's follow-up call to /payments/cod is what
+  // tells it (via 410 COD_NOT_AVAILABLE) that the method is gone.
+  const paymentMethod: 'ONLINE' = 'ONLINE';
 
   const customerNote: string | undefined =
     typeof body.customerNote === 'string' && body.customerNote.trim()

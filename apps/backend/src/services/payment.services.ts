@@ -25,7 +25,6 @@ import { Decimal } from "decimal.js";
 import type {
   CreatePaymentBody,
   VerifyPaymentBody,
-  CreateCodPaymentBody,
   CreateReturnBody,
   ResolveReturnBody,
 } from "@repo/zod-schema/index";
@@ -234,12 +233,13 @@ export async function createPaymentService(
       if (order.status !== "PENDING") {
         throw new ApiError(400, PaymentErrorCode.ORDER_NOT_PENDING);
       }
-      // Deliberately no COD guard here. A confirmed COD order is already rejected
-      // above — `createCodPaymentService` flips the order to CONFIRMED in the same
-      // transaction it writes the COD payment, so a PENDING order can never have a
-      // settled COD payment. What remains is a customer who chose COD, did not go
-      // through with it, and is now paying online; that must work, because the order
-      // is replayed under the same idempotency key. The method is corrected below.
+      // Deliberately no COD guard here. COD confirmation always flipped the order to
+      // CONFIRMED in the same transaction that wrote the COD payment, so a PENDING
+      // order can never carry a settled COD payment — and the status check above
+      // already rejects a confirmed one. Since COD was withdrawn this also covers an
+      // order created by a legacy client that intended COD: paying online must work,
+      // because the order is replayed under the same idempotency key. The method is
+      // corrected below.
 
       const totalAmount = Number(order.total);
 
@@ -625,105 +625,13 @@ export async function verifyPaymentService(
   return { success: result.success, orderId: result.orderId, alreadyProcessed: result.alreadyProcessed };
 }
 
-export async function createCodPaymentService(
-  userId: string,
-  data: CreateCodPaymentBody,
-  req?: Request
-) {
-  const result = await withRetry(async () => {
-    return prisma.$transaction(async (tx) => {
-      const orders = await tx.$queryRaw<Array<{
-        id: string; userId: string; total: unknown; status: string;
-        paymentMethod: string;
-      }>>`
-        SELECT id, "userId", total, status, "paymentMethod"
-        FROM "Order"
-        WHERE id = ${data.orderId}
-        FOR UPDATE
-      `;
-
-      const order = orders[0];
-      if (!order) throw new ApiError(404, PaymentErrorCode.ORDER_NOT_FOUND);
-      if (order.userId !== userId) throw new ApiError(403, PaymentErrorCode.UNAUTHORIZED_ACCESS);
-      if (order.status !== "PENDING") throw new ApiError(400, PaymentErrorCode.ORDER_NOT_PENDING);
-
-      const existingPayment = await tx.payment.findUnique({
-        where: { orderId: data.orderId },
-      });
-      if (existingPayment) {
-        if (existingPayment.status === "SUCCESS" || existingPayment.method === "COD") {
-          throw new ApiError(409, PaymentErrorCode.COD_ALREADY_SET);
-        }
-      }
-
-      const totalAmount = Number(order.total);
-
-      const maxCodAmount = Number(process.env.COD_MAX_AMOUNT ?? "10000");
-      if (totalAmount > maxCodAmount) {
-        throw new ApiError(400, PaymentErrorCode.COD_NOT_AVAILABLE);
-      }
-
-      if (existingPayment) {
-        await tx.payment.update({
-          where: { orderId: data.orderId },
-          data: {
-            method:  "COD",
-            gateway: "cod",
-            status:  "PENDING", // Pending until delivered
-          },
-        });
-      } else {
-        await tx.payment.create({
-          data: {
-            orderId: data.orderId,
-            method:  "COD",
-            gateway: "cod",
-            amount:  new Decimal(totalAmount),
-            currency: "INR",
-            status:  "PENDING",
-          },
-        });
-      }
-
-      await tx.order.update({
-        where: { id: data.orderId },
-        data: {
-          paymentMethod: "COD",
-          status:        "CONFIRMED",
-        },
-      });
-
-      // Clear the cart only now that the order is confirmed — see orders.services.ts.
-      await tx.cartItem.updateMany({
-        where: { userId, deletedAt: null },
-        data:  { deletedAt: new Date() },
-      });
-
-      await createAuditLogInTx(tx, {
-        userId,
-        action:   "PAYMENT_COD_CREATED",
-        entity:   "Payment",
-        entityId: data.orderId,
-        newValue: { method: "COD", amount: totalAmount },
-        req,
-      });
-
-      return {
-        success:       true,
-        orderId:       data.orderId,
-        paymentMethod: "COD",
-        message:       "Cash on Delivery confirmed. Pay on delivery.",
-        total:         Number(order.total),
-      };
-    });
-  });
-
-  emitOrderConfirmed(userId, result.orderId, result.total, { paid: false });
-
-  const { total, ...response } = result;
-  return response;
-}
-
+/**
+ * Cash on Delivery was withdrawn — `createCodPaymentService` is gone and
+ * `POST /payments/cod` now answers 410. Everything downstream of a COD order that
+ * already exists is deliberately untouched: settleCodOnDelivery(), the COD branches
+ * in refunds and admin cancellation, and the Delhivery "COD" paymentMode all still
+ * run for parcels that are already in the field.
+ */
 export async function handleRazorpayWebhookService(
   rawBody:   Buffer,
   signature: string,

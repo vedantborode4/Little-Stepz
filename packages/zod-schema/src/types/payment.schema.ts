@@ -16,12 +16,6 @@ export const verifyPaymentBodySchema = z
   })
   .strict();
 
-export const createCodPaymentBodySchema = z
-  .object({
-    orderId: uuidSchema,
-  })
-  .strict();
-
 export const createReturnBodySchema = z
   .object({
     reason: z
@@ -87,7 +81,6 @@ export const razorpayWebhookBodySchema = z.object({
 
 export type CreatePaymentBody      = z.infer<typeof createPaymentBodySchema>;
 export type VerifyPaymentBody      = z.infer<typeof verifyPaymentBodySchema>;
-export type CreateCodPaymentBody   = z.infer<typeof createCodPaymentBodySchema>;
 export type CreateReturnBody       = z.infer<typeof createReturnBodySchema>;
 export type ResolveReturnBody      = z.infer<typeof resolveReturnBodySchema>;
 export type TrackOrderParams       = z.infer<typeof trackOrderParamsSchema>;

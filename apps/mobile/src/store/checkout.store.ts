@@ -13,13 +13,11 @@ export interface RazorpayInit {
 }
 
 export type PlaceOrderResult =
-  | { kind: "cod"; orderId: string }
   | { kind: "online"; orderId: string; rzp: RazorpayInit }
   | null;
 
 interface CheckoutState {
   placingOrder: boolean;
-  paymentMethod: "COD" | "ONLINE";
   /** Address → Review → Payment. Held here so returning from the Razorpay screen
    *  doesn't drop the user back at step 1. */
   step: number;
@@ -27,7 +25,6 @@ interface CheckoutState {
   _keySignature: string | null;
 
   setStep: (step: number) => void;
-  setPaymentMethod: (m: "COD" | "ONLINE") => void;
   placeOrder: (addressId: string) => Promise<PlaceOrderResult>;
   abandonOrder: (orderId: string) => void;
   resetSession: () => void;
@@ -37,13 +34,11 @@ const generateKey = () => `${Date.now()}-${Math.random().toString(36).slice(2, 1
 
 export const useCheckoutStore = create<CheckoutState>((set, get) => ({
   placingOrder: false,
-  paymentMethod: "COD",
   step: 0,
   _idempotencyKey: null,
   _keySignature: null,
 
   setStep: (step) => set({ step }),
-  setPaymentMethod: (m) => set({ paymentMethod: m }),
   resetSession: () =>
     set({ _idempotencyKey: null, _keySignature: null, placingOrder: false, step: 0 }),
 
@@ -66,7 +61,6 @@ export const useCheckoutStore = create<CheckoutState>((set, get) => ({
   placeOrder: async (addressId) => {
     if (get().placingOrder) return null;
 
-    const { paymentMethod } = get();
     const { items, couponCode } = useCartStore.getState();
 
     if (!addressId) {
@@ -101,17 +95,10 @@ export const useCheckoutStore = create<CheckoutState>((set, get) => ({
         addressId,
         cartItems,
         couponCode || null,
-        idempotencyKey,
-        paymentMethod
+        idempotencyKey
       );
 
-      if (paymentMethod === "COD") {
-        await CheckoutService.confirmCod(orderId);
-        set({ placingOrder: false, _idempotencyKey: null, _keySignature: null });
-        return { kind: "cod", orderId };
-      }
-
-      // ONLINE: create Razorpay order; the WebView screen handles payment + verify.
+      // Create the Razorpay order; the WebView screen handles payment + verify.
       const rzp = await CheckoutService.createRazorpayOrder(orderId);
       set({ placingOrder: false });
       return { kind: "online", orderId, rzp };

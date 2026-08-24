@@ -4,9 +4,9 @@ import { pageMetadata } from "../../lib/seo/metadata"
 import { breadcrumbSchema, faqSchema } from "../../lib/seo/schema"
 
 export const metadata = pageMetadata({
-  title: "FAQ — Shipping, Returns, COD & Warranty",
+  title: "FAQ — Shipping, Returns & Warranty",
   description:
-    "Answers to common Little Stepz questions: Cash on Delivery, delivery times across India, the unboxing-video requirement, returns eligibility, warranty and payment methods.",
+    "Answers to common Little Stepz questions: accepted payment methods, delivery times across India, the unboxing-video requirement, returns eligibility and warranty.",
   path: "/faq",
 })
 

@@ -13,7 +13,6 @@ export const shipping: PolicyPage = {
           type: "list",
           items: [
             "Orders are typically processed within 1–3 business days after successful order confirmation",
-            "COD orders may require manual verification before dispatch",
             "Orders placed on weekends, public holidays, or during peak sale periods may require additional processing time",
           ],
         },
@@ -58,20 +57,6 @@ export const shipping: PolicyPage = {
         {
           type: "paragraph",
           text: "The total you see at checkout is always what you pay — any applicable shipping charge is shown there before you confirm the order, and is never added afterwards.",
-        },
-      ],
-    },
-    {
-      heading: "Cash on Delivery (COD) Shipping",
-      blocks: [
-        { type: "paragraph", text: "For selected COD orders:" },
-        {
-          type: "list",
-          items: [
-            "Partial advance confirmation fee may be required",
-            "COD availability depends on serviceable locations",
-            "Little Stepz reserves the right to disable COD for certain locations, products, or customers",
-          ],
         },
       ],
     },

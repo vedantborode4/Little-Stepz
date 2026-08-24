@@ -39,8 +39,8 @@ const ERROR_COPY: Record<string, string> = {
   CONCURRENCY_CONFLICT: "Something changed while you were checking out. Please try again.",
   IDEMPOTENCY_KEY_CONFLICT: "This request was already processed.",
   IDEMPOTENCY_KEY_REQUIRED: "Something went wrong. Please try again.",
-  COD_NOT_AVAILABLE: "Cash on Delivery isn't available for this order.",
-  COD_ALREADY_SET: "Cash on Delivery is already selected for this order.",
+  COD_NOT_AVAILABLE: "Cash on Delivery is no longer offered. Please pay online to complete your order.",
+  COD_ALREADY_SET: "Cash on Delivery is no longer offered. Please pay online to complete your order.",
 
   // ── Payments ─────────────────────────────────────────────────────────────
   PAYMENT_METHOD_INVALID: "Please choose a valid payment method.",
@@ -128,7 +128,7 @@ const REMARK_COPY: { match: RegExp; copy: string }[] = [
   },
   {
     match: /not serviceable for cod/i,
-    copy: "Delhivery doesn't offer Cash on Delivery to this pincode.",
+    copy: "Delhivery doesn't deliver to this pincode.",
   },
   {
     match: /not serviceable|pin(code)? not/i,

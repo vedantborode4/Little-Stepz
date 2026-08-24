@@ -138,7 +138,7 @@ export default function CheckoutStepper({ onStepChange }: Props) {
               <span className="w-5 h-5 sm:w-6 sm:h-6 rounded-full text-[10px] sm:text-[11px] flex items-center justify-center font-bold bg-primary text-white shrink-0">
                 3
               </span>
-              Payment Method
+              Payment
             </h2>
           </div>
           <div className="p-4 sm:p-6">

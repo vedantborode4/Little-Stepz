@@ -55,7 +55,7 @@ export const terms: PolicyPage = {
     {
       heading: "Payment Policy",
       blocks: [
-        { type: "paragraph", text: "We may accept payment through approved payment channels including UPI, Debit Cards, Credit Cards, Net Banking, Digital Wallets, Cash on Delivery (where eligible), and partial advance payment options where applicable. Available payment methods may vary depending on product, location, order type, or operational policies." },
+        { type: "paragraph", text: "All orders are prepaid. We may accept payment through approved payment channels including UPI, Debit Cards, Credit Cards, Net Banking and Digital Wallets. Cash on Delivery is not offered. Available payment methods may vary depending on product, location, order type, or operational policies." },
         {
           type: "paragraph",
           text: "By making a purchase, customers confirm they are authorized to use the selected payment method, that payment information provided is accurate, and that transactions are lawful and genuine. Little Stepz reserves the right to review, verify, delay, hold, or cancel suspicious transactions for fraud prevention or payment security purposes.",
@@ -63,20 +63,6 @@ export const terms: PolicyPage = {
         {
           type: "paragraph",
           text: "Payments may be processed through third-party payment providers. Little Stepz is not responsible for bank outages, payment gateway downtime, failed payment processing, delayed transaction confirmations, or third-party technical issues beyond our control. All prices displayed are in Indian Rupees (INR) unless otherwise stated.",
-        },
-      ],
-    },
-    {
-      heading: "Cash on Delivery (COD) Policy",
-      blocks: [
-        {
-          type: "paragraph",
-          text: "To ensure genuine orders and reduce fraudulent or unconfirmed COD bookings, Little Stepz may require a small non-refundable advance confirmation fee for selected COD orders. Depending on product category, location, order value, or shipping zone, customers may be required to pay a partial advance amount (for example ₹99 / ₹149 / ₹199 / or applicable amount) before dispatch.",
-        },
-        { type: "paragraph", text: "COD orders may require manual confirmation by our support team and may be dispatched only after successful confirmation. Remaining payment is payable at delivery." },
-        {
-          type: "paragraph",
-          text: "If a confirmed COD customer refuses delivery without valid reason, is unavailable repeatedly, provides incorrect delivery details, or rejects the order after dispatch due to personal reasons, the advance confirmation amount will not be refunded. Little Stepz reserves the right to disable COD for selected customers, refuse COD for high-risk orders, request prepaid payment instead, or cancel suspicious COD bookings.",
         },
       ],
     },
@@ -89,7 +75,7 @@ export const terms: PolicyPage = {
         },
         {
           type: "paragraph",
-          text: "Customers involved in fraudulent or abusive payment disputes may face account suspension, future order restrictions, COD access removal, refund denial where legally permitted, internal risk flagging, and legal escalation where required. Little Stepz reserves the right to submit evidence in dispute cases, including order records, payment confirmation, shipping/delivery proof, communication records, tracking data, and account activity.",
+          text: "Customers involved in fraudulent or abusive payment disputes may face account suspension, future order restrictions, refund denial where legally permitted, internal risk flagging, and legal escalation where required. Little Stepz reserves the right to submit evidence in dispute cases, including order records, payment confirmation, shipping/delivery proof, communication records, tracking data, and account activity.",
         },
       ],
     },
@@ -103,7 +89,7 @@ export const terms: PolicyPage = {
         },
         {
           type: "paragraph",
-          text: "Promotions may not apply to special sourcing products, limited edition items, pre-order products, already discounted items, clearance products, selected premium categories, shipping charges, or COD confirmation fees. Little Stepz reserves the right to cancel offers, reject orders, or disable customer access in cases of fraudulent coupon use, repeated abuse, fake account creation, system exploitation, or duplicate account usage.",
+          text: "Promotions may not apply to special sourcing products, limited edition items, pre-order products, already discounted items, clearance products, selected premium categories, or shipping charges. Little Stepz reserves the right to cancel offers, reject orders, or disable customer access in cases of fraudulent coupon use, repeated abuse, fake account creation, system exploitation, or duplicate account usage.",
         },
       ],
     },
@@ -133,7 +119,7 @@ export const terms: PolicyPage = {
         },
         {
           type: "paragraph",
-          text: "Little Stepz reserves the right to suspend, restrict, block, or permanently terminate accounts in cases including fraud suspicion, fake order activity, COD abuse, return abuse, payment disputes, chargeback abuse, promotional misuse, false claim submissions, policy violations, or threatening/abusive behavior toward staff. Creating multiple accounts to misuse offers may result in account restriction and order cancellation.",
+          text: "Little Stepz reserves the right to suspend, restrict, block, or permanently terminate accounts in cases including fraud suspicion, fake order activity, return abuse, payment disputes, chargeback abuse, promotional misuse, false claim submissions, policy violations, or threatening/abusive behavior toward staff. Creating multiple accounts to misuse offers may result in account restriction and order cancellation.",
         },
       ],
     },
@@ -146,7 +132,6 @@ export const terms: PolicyPage = {
           type: "list",
           items: [
             "Place fake or fraudulent orders",
-            "Abuse Cash on Delivery (COD) services",
             "Submit false claims or attempt payment fraud",
             "Misuse return/refund systems or exploit coupons and promotional offers",
             "Impersonate another individual or provide false customer information",
@@ -242,7 +227,7 @@ export const terms: PolicyPage = {
         },
         {
           type: "paragraph",
-          text: "Bulk / wholesale orders may require full advance payment, partial advance payment, or custom commercial payment terms. Cash on Delivery is generally not available for bulk / wholesale orders unless specifically approved. Once bulk sourcing, procurement, packaging, supplier commitment, or dispatch preparation has begun, cancellation may not be possible and restocking deductions may apply.",
+          text: "Bulk / wholesale orders may require full advance payment, partial advance payment, or custom commercial payment terms. Once bulk sourcing, procurement, packaging, supplier commitment, or dispatch preparation has begun, cancellation may not be possible and restocking deductions may apply.",
         },
         {
           type: "paragraph",
@@ -254,7 +239,7 @@ export const terms: PolicyPage = {
       heading: "Frequently Asked Questions (FAQ)",
       blocks: [
         { type: "subheading", text: "Do you offer Cash on Delivery (COD)?" },
-        { type: "paragraph", text: "Yes, COD may be available for selected products and locations. Some COD orders may require an advance confirmation fee to prevent fake or abandoned orders." },
+        { type: "paragraph", text: "No. Cash on Delivery is not offered. Every order is paid for at checkout." },
         { type: "subheading", text: "How long does shipping take?" },
         { type: "paragraph", text: "Delivery usually takes 2–7 business days depending on location." },
         { type: "subheading", text: "Can I cancel my order?" },
@@ -264,7 +249,7 @@ export const terms: PolicyPage = {
         { type: "subheading", text: "Do you provide warranty?" },
         { type: "paragraph", text: "Eligible electronics may have limited warranty against manufacturing defects." },
         { type: "subheading", text: "What payment methods do you accept?" },
-        { type: "paragraph", text: "UPI, Debit/Credit Cards, Net Banking, Wallets, and COD (where available)." },
+        { type: "paragraph", text: "UPI, Debit/Credit Cards, Net Banking and Wallets." },
         { type: "subheading", text: "Do you offer international shipping?" },
         { type: "paragraph", text: "Currently depends on operational availability." },
         { type: "subheading", text: "What if my product arrives damaged?" },

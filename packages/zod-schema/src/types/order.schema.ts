@@ -12,6 +12,20 @@ export const cartItemSchema = z
   .strict();
 
   
+/**
+ * Payment method after the Cash on Delivery withdrawal.
+ *
+ * Kept permissive on input and narrow on output: a legacy client may still POST
+ * "COD", and answering that with a 400 would strand it on an unusable checkout
+ * screen. Parsing always yields "ONLINE", so nothing downstream can create a new
+ * COD order. Existing COD orders are untouched — this only governs new intent.
+ */
+export const retiredCodPaymentMethod = z
+  .enum(["ONLINE", "COD"])
+  .default("ONLINE")
+  .transform(() => "ONLINE" as const);
+
+
 export const checkoutCalculateBodySchema = z
   .object({
     cartItems: z
@@ -20,10 +34,11 @@ export const checkoutCalculateBodySchema = z
     addressId: uuidSchema,
     couponCode: z.string().trim().min(1).optional(),
 
-    // Shipping is quoted per payment mode (COD carries a collection fee) and some
-    // pincodes are prepaid-only, so the quote must know which one is being asked
-    // about. Defaulted, so existing callers keep working unchanged.
-    paymentMethod: z.enum(["ONLINE", "COD"]).default("ONLINE"),
+    // Cash on Delivery has been withdrawn: every quote is prepaid. "COD" is still
+    // *accepted* — mobile builds already on the stores send it — but collapsed to
+    // ONLINE so a legacy client cannot be quoted a COD collection fee or rejected
+    // by the prepaid-only pincode check for an order that will be paid online.
+    paymentMethod: retiredCodPaymentMethod,
   })
   .strict();
 
@@ -36,8 +51,8 @@ export const createOrderBodySchema = z
     addressId: uuidSchema,
     couponCode: z.string().trim().min(1).optional(),
 
-    // Payment method chosen at order creation time
-    paymentMethod: z.enum(["ONLINE", "COD"]).default("ONLINE"),
+    // Always ONLINE — see retiredCodPaymentMethod.
+    paymentMethod: retiredCodPaymentMethod,
     customerNote: z.string().max(500).optional(),
   })
   .strict();

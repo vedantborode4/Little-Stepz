@@ -26,7 +26,7 @@ export interface ServiceabilityResult {
 
 export const CheckoutService = {
   /**
-   * Check whether Delhivery delivers to a pincode (+ COD/prepaid availability).
+   * Check whether Delhivery delivers to a pincode.
    * GET /checkout/serviceability?pincode=
    */
   checkServiceability: async (pincode: string): Promise<ServiceabilityResult> => {
@@ -42,8 +42,7 @@ export const CheckoutService = {
   calculate: async (
     cartItems: CartItemPayload[],
     addressId: string,
-    couponCode?: string | null,
-    paymentMethod: "ONLINE" | "COD" = "ONLINE"
+    couponCode?: string | null
   ) => {
     const res = await api.post("/checkout/calculate", {
       cartItems: cartItems.map((i) => ({
@@ -52,7 +51,6 @@ export const CheckoutService = {
         quantity: i.quantity,
       })),
       addressId,
-      paymentMethod,
       ...(couponCode ? { couponCode } : {}),
     })
     return res.data.data as {
@@ -72,8 +70,7 @@ export const CheckoutService = {
     addressId: string,
     cartItems: CartItemPayload[],
     couponCode?: string | null,
-    idempotencyKey?: string,
-    paymentMethod: "ONLINE" | "COD" = "ONLINE"
+    idempotencyKey?: string
   ) => {
     const affiliateId = getAffiliateId()
     const headers: Record<string, string> = {}
@@ -90,9 +87,6 @@ export const CheckoutService = {
           variantId: i.variantId || undefined,
           quantity: i.quantity,
         })),
-        // Sent so the backend can reject COD to prepaid-only pincodes and quote the
-        // COD shipping rate. It was never transmitted, so every order looked ONLINE.
-        paymentMethod,
         ...(couponCode ? { couponCode } : {}),
       },
       { headers }
@@ -101,15 +95,7 @@ export const CheckoutService = {
   },
 
   /**
-   * Step 2a — COD: confirm COD payment for an order.
-   */
-  confirmCod: async (orderId: string) => {
-    const res = await api.post("/payments/cod", { orderId })
-    return res.data.data as { orderId: string; status: string }
-  },
-
-  /**
-   * Step 2b — ONLINE: create Razorpay order for payment.
+   * Step 2 — create the Razorpay order to pay against.
    */
   createRazorpayOrder: async (orderId: string) => {
     const res = await api.post("/payments/create", { orderId })

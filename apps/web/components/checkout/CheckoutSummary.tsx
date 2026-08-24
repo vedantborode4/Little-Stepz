@@ -23,7 +23,7 @@ export default function CheckoutSummary({
   const isGuest = !user
 
   const { subtotal, total, discount, couponCode, items } = useCartStore()
-  const { placeOrder, placingOrder, paymentMethod } = useCheckoutStore()
+  const { placeOrder, placingOrder } = useCheckoutStore()
 
   const storeAddressId = useAddressStore((s) => s.selectedAddressId)
   const resolvedAddressId = addressId || storeAddressId || ""
@@ -50,13 +50,12 @@ export default function CheckoutSummary({
         quantity: i.quantity,
       })),
       resolvedAddressId,
-      couponCode || null,
-      paymentMethod
+      couponCode || null
     )
       .then((res) => { if (!cancelled) setQuote(res) })
       .catch(() => { if (!cancelled) setQuote(null) })
     return () => { cancelled = true }
-  }, [isGuest, resolvedAddressId, items, couponCode, paymentMethod])
+  }, [isGuest, resolvedAddressId, items, couponCode])
 
   const shownSubtotal = quote?.subtotal ?? subtotal
   const shownDiscount = quote?.discount ?? discount
@@ -132,9 +131,7 @@ export default function CheckoutSummary({
           <CreditCard size={13} />
           Payment
         </span>
-        <span className="text-xs font-semibold text-muted">
-          {paymentMethod === "COD" ? "Cash on Delivery" : "Online (Razorpay)"}
-        </span>
+        <span className="text-xs font-semibold text-muted">Online (Razorpay)</span>
       </div>
 
       {/* CTA */}
@@ -146,12 +143,12 @@ export default function CheckoutSummary({
         {placingOrder ? (
           <>
             <Loader2 className="w-4 h-4 animate-spin" />
-            {paymentMethod === "COD" ? "Placing order…" : "Preparing payment…"}
+            Preparing payment…
           </>
         ) : isGuest ? (
           "Place Order"
         ) : (
-          paymentMethod === "COD" ? "Place Order" : "Proceed to Pay"
+          "Proceed to Pay"
         )}
       </button>
 

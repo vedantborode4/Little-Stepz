@@ -274,7 +274,7 @@ export const privacy: PolicyPage = {
         },
         {
           type: "paragraph",
-          text: "Communications may include order confirmation, COD verification, payment confirmation, shipping updates, delivery notifications, customer support, return/refund communication, warranty support, service-related alerts, and promotional offers (where permitted). Customers may request opt-out from promotional communications where applicable.",
+          text: "Communications may include order confirmation, payment confirmation, shipping updates, delivery notifications, customer support, return/refund communication, warranty support, service-related alerts, and promotional offers (where permitted). Customers may request opt-out from promotional communications where applicable.",
         },
         {
           type: "paragraph",
