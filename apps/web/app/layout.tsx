@@ -9,7 +9,9 @@ import Footer from "../components/layout/Footer"
 import NumberInputWheelGuard from "../components/common/NumberInputWheelGuard"
 import ThemedToaster from "../components/common/ThemedToaster"
 import LoadingScreen from "../components/common/LoadingScreen"
-import TawkWidget from "../components/common/TawkWidget"
+// Temporarily replaced by WhatsApp — uncomment both lines to restore tawk.to.
+// import TawkWidget from "../components/common/TawkWidget"
+import WhatsAppButton from "../components/common/WhatsAppButton"
 import GoogleAnalytics from "../components/analytics/GoogleAnalytics"
 import GoogleTagManager, { GoogleTagManagerNoScript } from "../components/analytics/GoogleTagManager"
 import JsonLd from "../components/seo/JsonLd"
@@ -83,7 +85,8 @@ export default function RootLayout({
           strategy="afterInteractive"
         />
 
-        <TawkWidget />
+        {/* <TawkWidget /> */}
+        <WhatsAppButton />
       </body>
     </html>
   )

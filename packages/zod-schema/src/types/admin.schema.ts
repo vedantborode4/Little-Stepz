@@ -89,6 +89,25 @@ export const publicBannersQuerySchema = z.object({
   position: z.enum(bannerPositions).optional(),
 });
 
+/** GET /admin/customers — list, search, segment and sort the customer base. */
+export const adminCustomersQuerySchema = z.object({
+  page:    z.coerce.number().int().min(1).default(1),
+  limit:   z.coerce.number().int().min(1).max(100).default(20),
+  /** Matched against name, email and phone. */
+  search:  z.string().trim().max(200).optional(),
+  segment: z.enum(["all", "with-orders", "without-orders", "affiliates"]).default("all"),
+  sort:    z.enum(["recent", "oldest", "name", "spend", "orders"]).default("recent"),
+});
+
+export const adminCustomerParamSchema = z.object({ id: uuidSchema });
+
+/** GET /admin/customers/activity — recent add-to-cart events with IP. */
+export const adminCartActivityQuerySchema = z.object({
+  page:   z.coerce.number().int().min(1).default(1),
+  limit:  z.coerce.number().int().min(1).max(100).default(50),
+  userId: uuidSchema.optional(),
+});
+
 export type AdminCommissionsQuery       = z.infer<typeof adminCommissionsQuerySchema>;
 export type AdminApproveCommissionBody  = z.infer<typeof adminApproveCommissionSchema>;
 export type AdminPayCommissionBody      = z.infer<typeof adminPayCommissionSchema>;
@@ -98,3 +117,6 @@ export type CreateBannerBody            = z.infer<typeof createBannerSchema>;
 export type UpdateBannerBody            = z.infer<typeof updateBannerSchema>;
 export type BannerParam                 = z.infer<typeof bannerParamSchema>;
 export type PublicBannersQuery          = z.infer<typeof publicBannersQuerySchema>;
+export type AdminCustomersQuery         = z.infer<typeof adminCustomersQuerySchema>;
+export type AdminCustomerParam          = z.infer<typeof adminCustomerParamSchema>;
+export type AdminCartActivityQuery      = z.infer<typeof adminCartActivityQuerySchema>;

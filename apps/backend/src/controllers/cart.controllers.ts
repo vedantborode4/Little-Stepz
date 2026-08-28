@@ -16,6 +16,7 @@ import {
   syncCartBodySchema,
 } from "@repo/zod-schema/index";
 import { randomUUID } from "crypto";
+import { createAuditLog } from "../utils/auditLog";
 import { setCartSession } from "../middlewares/cart.middleware";
 
 async function getCart(req: Request, res: Response) {
@@ -48,6 +49,26 @@ async function addCartItem(req: Request, res: Response) {
   if (!identifier) throw new ApiError(500, "Internal error");
   const validated = addCartItemBodySchema.parse(req.body);
   await addCartItemService(identifier, validated);
+
+  // Fire-and-forget: an audit write must never turn a successful add into an error.
+  // Logged after the add succeeds, so the trail contains only real events.
+  // Guests are captured too (userId null, sessionId in metadata) — the cart accepts
+  // a session identifier, so restricting this to signed-in users would miss exactly
+  // the traffic worth investigating. `req` supplies ip + user-agent.
+  void createAuditLog({
+    userId: req.user?.userId,
+    action: "CART_ITEM_ADDED",
+    entity: "CartItem",
+    entityId: validated.productId,
+    newValue: {
+      productId: validated.productId,
+      variantId: validated.variantId ?? null,
+      quantity: validated.quantity,
+    },
+    metadata: identifier.type === "session" ? { sessionId: identifier.id } : {},
+    req,
+  });
+
   const updatedCart = await getCartService(identifier);
   return new ApiResponse(201, updatedCart, "Item added to cart").send(res);
 }
