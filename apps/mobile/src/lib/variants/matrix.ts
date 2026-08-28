@@ -27,20 +27,34 @@ export function findVariant(product: Product, selection: Selection): Variant | u
  * Whether choosing this value — combined with the other currently-selected axes —
  * still leads to at least one in-stock variant. Drives disabling impossible/OOS combos.
  */
+/**
+ * Which variants count as selectable. Mirrors apps/web/lib/variants/matrix.ts.
+ *
+ * - `in-stock` (default): normal buying.
+ * - `any`: the product screen in pre-order mode — a pre-order product has no stock,
+ *   so the stock test would disable every option and make the axes unusable.
+ * - `out-of-stock`: the pre-order screen, which can only book something unavailable;
+ *   the server rejects an in-stock variant with PRODUCT_AVAILABLE.
+ */
+export type StockMode = "in-stock" | "any" | "out-of-stock";
+
+export function isVariantSelectable(variant: Variant, mode: StockMode = "in-stock"): boolean {
+  if (mode === "any") return true;
+  return mode === "out-of-stock" ? stockOf(variant) <= 0 : stockOf(variant) > 0;
+}
+
 export function isValueAvailable(
   product: Product,
   selection: Selection,
   optionId: string,
   valueId: string,
-  opts?: { ignoreStock?: boolean }
+  opts?: { mode?: StockMode }
 ): boolean {
   const trial = { ...selection, [optionId]: valueId };
   const selectedIds = Object.values(trial);
   return (product.variants ?? []).some((v) => {
     const ids = variantValueIds(v);
     const exists = selectedIds.every((id) => ids.has(id));
-    // ignoreStock is for pre-orders: the product is out of stock by definition, so
-    // the stock test would disable every option and make the axes unusable.
-    return exists && (opts?.ignoreStock || stockOf(v) > 0);
+    return exists && isVariantSelectable(v, opts?.mode);
   });
 }

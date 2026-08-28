@@ -7,9 +7,9 @@ import { Clock, Loader2, MapPin, Info } from "lucide-react"
 import { PreOrderService } from "../../lib/services/preorder.service"
 import CheckoutAddressSection from "../address/CheckoutAddressSection"
 import { useAddressStore } from "../../store/useAddressStore"
-import { getChargedPrice } from "../../lib/pricing"
+import { getChargedPrice, getPreOrderTerms } from "../../lib/pricing"
 import OptionSelector from "../products/details/OptionSelector"
-import { findVariant, type Selection } from "../../lib/variants/matrix"
+import { findVariant, isVariantSelectable, type Selection } from "../../lib/variants/matrix"
 import type { Variant } from "../../types/product"
 import { cldFill } from "../../lib/utils/cloudinaryUrl"
 import { openRazorpay } from "../../lib/openRazorpay"
@@ -100,12 +100,33 @@ export default function PreOrderCheckoutView({ product }: { product: Product }) 
   if (qty !== quantity) setQuantity(qty)
 
   const unit = getChargedPrice(product, variant)
-  const booking = product.bookingAmount != null ? Number(product.bookingAmount) : 0
+
+  // Terms resolve against the selected variant: it may carry its own booking amount
+  // and may have been opted out of pre-orders by the admin.
+  const terms = getPreOrderTerms(product, variant)
+  const booking = terms.bookingAmount ?? 0
+
+  // A pre-order can only book something unavailable — createPreOrderService rejects
+  // an in-stock selection with PRODUCT_AVAILABLE, which the customer would only ever
+  // see as a bare "Pre-order failed". The base product can be back in stock too, so
+  // this guards the button, not just the picker.
+  const selectionAvailable = variant
+    ? variant.stock > 0
+    : (product.inStock ?? false) && (product.quantity ?? 0) > 0
+  const canBook = !selectionAvailable && terms.enabled && booking > 0
   const total = unit * quantity + SHIPPING
   const balance = Math.max(0, total - booking)
 
   const confirm = async () => {
     if (!addressId) { toast.error("Select a delivery address"); return }
+    if (!canBook) {
+      toast.error(
+        selectionAvailable
+          ? "This item is in stock — please buy it now instead of pre-ordering."
+          : "Pre-orders aren't available for this option.",
+      )
+      return
+    }
     setPlacing(true)
     try {
       const init = await PreOrderService.create({
@@ -185,8 +206,9 @@ export default function PreOrderCheckoutView({ product }: { product: Product }) 
       </div>
 
       {/* Variant picker — the PDP passes ?variant=, but this page is also reachable
-          directly, and a booking must be able to name a specific variant. Stock is
-          ignored throughout: a pre-order product has none by definition. */}
+          directly, and a booking must be able to name a specific variant. Only
+          out-of-stock, pre-order-enabled variants are offered: those are the only
+          ones the server will accept a booking for. */}
       {(hasOptions || variants.length > 0) && (
         <div className="bg-surface border border-border rounded-2xl p-4 space-y-3">
           {hasOptions ? (
@@ -195,7 +217,7 @@ export default function PreOrderCheckoutView({ product }: { product: Product }) 
               selection={selection}
               onSelect={handleOptionSelect}
               disabled={placing}
-              ignoreStock
+              stockMode="out-of-stock"
             />
           ) : (
             <div className="space-y-2.5">
@@ -214,19 +236,35 @@ export default function PreOrderCheckoutView({ product }: { product: Product }) 
               <div className="flex flex-wrap gap-2">
                 {variants.map((v) => {
                   const active = variant?.id === v.id
+                  // In stock means buyable now, not bookable — the server rejects a
+                  // pre-order for it. A variant can also be opted out by the admin.
+                  const vTerms = getPreOrderTerms(product, v)
+                  const inStock = !isVariantSelectable(v, "out-of-stock")
+                  const bookable = !inStock && vTerms.enabled
+                  const reason = inStock
+                    ? "In stock — buy it now instead of pre-ordering"
+                    : "Pre-orders are turned off for this option"
                   return (
                     <button
                       key={v.id}
                       type="button"
-                      disabled={placing}
+                      disabled={placing || !bookable}
+                      title={bookable ? undefined : reason}
                       onClick={() => setVariant(active ? null : v)}
                       className={`px-4 py-2 border rounded-xl text-sm font-medium transition-all disabled:opacity-50 ${
-                        active
+                        !bookable
+                          ? "border-border text-faint cursor-not-allowed"
+                          : active
                           ? "border-primary bg-primary/10 text-primary shadow-sm"
                           : "border-border text-muted hover:border-primary hover:text-primary"
                       }`}
                     >
                       {v.name}
+                      {bookable && vTerms.bookingAmount != null && (
+                        <span className="ml-1.5 text-xs font-normal opacity-80">
+                          · {inr(vTerms.bookingAmount)}
+                        </span>
+                      )}
                     </button>
                   )
                 })}
@@ -242,6 +280,12 @@ export default function PreOrderCheckoutView({ product }: { product: Product }) 
               {staleVariantLink ? (
                 <>That link pointed at a variant we no longer offer. Pick another below — otherwise the{" "}
                 <span className="font-semibold text-text">standard version</span> is reserved.</>
+              ) : selectionAvailable ? (
+                <>This one is <span className="font-semibold text-text">back in stock</span> — no need to
+                pre-order. Pick an unavailable option, or buy it now from the product page.</>
+              ) : !terms.enabled ? (
+                <>Pre-orders are <span className="font-semibold text-text">turned off</span> for this
+                option. Pick another to continue.</>
               ) : variant ? (
                 <><span className="font-semibold text-text">{variant.name}</span> will be reserved at {inr(unit)} each.</>
               ) : (
@@ -271,7 +315,7 @@ export default function PreOrderCheckoutView({ product }: { product: Product }) 
 
       <button
         onClick={confirm}
-        disabled={placing || !addressId}
+        disabled={placing || !addressId || !canBook}
         className="w-full bg-primary text-white py-3.5 rounded-xl font-semibold hover:opacity-90 transition disabled:opacity-50 flex items-center justify-center gap-2"
       >
         {placing && <Loader2 size={16} className="animate-spin" />}

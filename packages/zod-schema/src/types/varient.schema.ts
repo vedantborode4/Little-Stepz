@@ -1,5 +1,5 @@
 import z from "zod";
-import { optionalPriceSchema, priceSchema, stockSchema, uuidSchema } from "./common";
+import { priceSchema, stockSchema, uuidSchema } from "./common";
 
 const variantBaseSchema = z.object({
     productId:uuidSchema,
@@ -7,14 +7,23 @@ const variantBaseSchema = z.object({
     sku: z.string().trim().max(64).nullish(),
     sortOrder: z.coerce.number().int().min(0).optional(),
     isDefault: z.boolean().optional(),
-    price: priceSchema.optional(),
-    salePrice: optionalPriceSchema,
+    // Nullish, not just optional: the admin editor sends null for a cleared field,
+    // and `undefined` means "leave unchanged". Rejecting null made a blank price or
+    // sale price unsaveable — the very thing the controller comment flagged.
+    price: priceSchema.nullish(),
+    salePrice: priceSchema.nullish(),
     isOnSale: z.boolean().optional().default(false),
     stock: stockSchema.optional(),
+
+    // Per-variant pre-order terms. The product switch is the master — this can only
+    // opt a variant out — and a null bookingAmount inherits the product's.
+    preOrderEnabled: z.boolean().optional(),
+    bookingAmount: priceSchema.nullish(),
+    preOrderLimit: z.coerce.number().int().min(1).nullish(),
 });
 
 const refineVariantSalePrice = (
-    data: { price?: number; salePrice?: number; isOnSale?: boolean },
+    data: { price?: number | null; salePrice?: number | null; isOnSale?: boolean },
     ctx: z.RefinementCtx
 ) => {
     if (data.salePrice != null && data.price != null && data.salePrice >= data.price) {

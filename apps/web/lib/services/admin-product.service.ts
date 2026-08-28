@@ -17,6 +17,10 @@ export interface ProductVariant {
   salePrice?: number | null
   isOnSale?: boolean
   stock: number
+  preOrderEnabled?: boolean
+  bookingAmount?: number | null
+  preOrderLimit?: number | null
+  preOrderCount?: number
   images?: ProductImage[]
   optionValues?: { optionValueId: string }[]
 }
@@ -49,6 +53,10 @@ export interface VariantBody {
   salePrice?: number | null
   isOnSale?: boolean
   stock?: number
+  /** Per-variant pre-order terms. null bookingAmount inherits the product's. */
+  preOrderEnabled?: boolean
+  bookingAmount?: number | null
+  preOrderLimit?: number | null
 }
 
 export type PriceDisplay = "BOTH" | "REGULAR" | "SALE"

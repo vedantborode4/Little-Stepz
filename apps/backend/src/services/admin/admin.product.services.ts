@@ -54,6 +54,8 @@ const baseProductSelect = {
     select: {
       id: true, name: true, sku: true, sortOrder: true, isDefault: true,
       price: true, salePrice: true, isOnSale: true, stock: true,
+      // Per-variant pre-order terms, so the admin editor round-trips them.
+      preOrderEnabled: true, bookingAmount: true, preOrderLimit: true, preOrderCount: true,
       optionValues: { select: { optionValueId: true } },
       images: {
         where: { deletedAt: null },

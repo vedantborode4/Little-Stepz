@@ -10,14 +10,21 @@ type CreateVariantInput = {
   sku?: string | null;
   sortOrder?: number;
   isDefault?: boolean;
-  price?: number;
-  salePrice?: number;
+  price?: number | null;
+  salePrice?: number | null;
   isOnSale?: boolean;
   stock?: number;
+  /** Per-variant pre-order terms; see utils/preOrderTerms.ts for the rules. */
+  preOrderEnabled?: boolean;
+  bookingAmount?: number | null;
+  preOrderLimit?: number | null;
 };
 
 export async function createVariantService(data: CreateVariantInput) {
-  const { productId, name, sku, sortOrder, isDefault = false, price, salePrice, isOnSale = false, stock = 0 } = data;
+  const {
+    productId, name, sku, sortOrder, isDefault = false, price, salePrice,
+    isOnSale = false, stock = 0, preOrderEnabled, bookingAmount, preOrderLimit,
+  } = data;
   // Store the name exactly as the admin typed it (trimmed) — only the duplicate
   // check below is case-insensitive.
   const displayName = name.trim();
@@ -26,7 +33,7 @@ export async function createVariantService(data: CreateVariantInput) {
   if (displayName.length < 1 || displayName.length > 200) {
     throw new ApiError(400, "Variant name must be 1-200 characters");
   }
-  if (price !== undefined && price < 0) {
+  if (price != null && price < 0) {
     throw new ApiError(400, "Price cannot be negative");
   }
   if (stock < 0) {
@@ -80,6 +87,10 @@ export async function createVariantService(data: CreateVariantInput) {
         salePrice: salePrice ?? null,
         isOnSale,
         stock,
+        // Defaults to true (inherit the product's setting) when not supplied.
+        preOrderEnabled: preOrderEnabled ?? true,
+        bookingAmount: bookingAmount ?? null,
+        preOrderLimit: preOrderLimit ?? null,
       },
     });
 
@@ -98,13 +109,19 @@ type UpdateVariantInput = Partial<{
   salePrice: number | null;
   isOnSale: boolean;
   stock: number;
+  preOrderEnabled: boolean;
+  bookingAmount: number | null;
+  preOrderLimit: number | null;
 }>;
 
 export async function updateVariantService(
   variantId: string,
   data: UpdateVariantInput
 ) {
-  const { name, sku, sortOrder, isDefault, price, salePrice, isOnSale, stock } = data;
+  const {
+    name, sku, sortOrder, isDefault, price, salePrice, isOnSale, stock,
+    preOrderEnabled, bookingAmount, preOrderLimit,
+  } = data;
 
   if (
     name === undefined &&
@@ -114,7 +131,10 @@ export async function updateVariantService(
     price === undefined &&
     salePrice === undefined &&
     isOnSale === undefined &&
-    stock === undefined
+    stock === undefined &&
+    preOrderEnabled === undefined &&
+    bookingAmount === undefined &&
+    preOrderLimit === undefined
   ) {
     throw new ApiError(400, "No fields provided to update");
   }
@@ -192,6 +212,11 @@ export async function updateVariantService(
         salePrice: salePrice !== undefined ? salePrice : undefined,
         isOnSale: isOnSale !== undefined ? isOnSale : undefined,
         stock: stock !== undefined ? stock : undefined,
+        preOrderEnabled: preOrderEnabled !== undefined ? preOrderEnabled : undefined,
+        // null is meaningful here — it clears the override so the variant inherits
+        // the product's amount again, so it must not be collapsed to "unchanged".
+        bookingAmount: bookingAmount !== undefined ? bookingAmount : undefined,
+        preOrderLimit: preOrderLimit !== undefined ? preOrderLimit : undefined,
       },
       select: {
         id: true,

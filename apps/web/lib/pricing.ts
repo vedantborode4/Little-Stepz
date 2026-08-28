@@ -1,4 +1,4 @@
-import type { PriceDisplay } from "../types/product"
+import type { PriceDisplay, Product, Variant } from "../types/product"
 
 export interface DisplayPrices {
   regular: number
@@ -80,3 +80,30 @@ export function getPriceRange(
 }
 
 export const formatINR = (n: number) => `₹${n.toLocaleString("en-IN")}`
+
+/**
+ * Pre-order terms for a product/variant pairing. Client mirror of the backend's
+ * utils/preOrderTerms.ts — keep the two in sync.
+ *
+ * The product switch is the master: a variant can only opt OUT. A null variant
+ * bookingAmount inherits the product's, exactly like `price` overrides do.
+ */
+export function getPreOrderTerms(
+  product: Pick<Product, "preOrderEnabled" | "bookingAmount" | "inStock" | "quantity">,
+  variant?: Pick<Variant, "preOrderEnabled" | "bookingAmount" | "stock"> | null,
+): { enabled: boolean; bookingAmount: number | null; canPreOrder: boolean } {
+  const enabled = !!product.preOrderEnabled && (variant ? variant.preOrderEnabled !== false : true)
+
+  const raw = variant?.bookingAmount ?? product.bookingAmount
+  const bookingAmount = raw == null || raw === "" ? null : Number(raw)
+
+  // Pre-order is for what you cannot buy right now: the chosen variant's stock when
+  // one is selected, otherwise the base product's own availability.
+  const outOfStock = variant ? variant.stock <= 0 : !product.inStock || (product.quantity ?? 0) <= 0
+
+  return {
+    enabled,
+    bookingAmount,
+    canPreOrder: enabled && outOfStock && bookingAmount != null && bookingAmount > 0,
+  }
+}

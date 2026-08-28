@@ -4,6 +4,7 @@ import { ApiError } from "../../utils/api";
 import { PreOrderErrorCode } from "../../utils/preorderErrors";
 import { initiateRazorpayRefund } from "../../utils/razorpay.client";
 import { sendBackInStockEmail } from "../../utils/email";
+import { releasePreOrderSlots } from "../../utils/preOrderTerms";
 
 const ACTIVE: PreOrderStatus[] = ["PENDING_BOOKING", "BOOKED", "AWAITING_BALANCE"];
 
@@ -98,7 +99,7 @@ export async function refundBookingService(id: string) {
   await prisma.$transaction(async (tx) => {
     await tx.preOrder.update({ where: { id }, data: { refundId: refund.id } });
     if (ACTIVE.includes(po.status)) {
-      await tx.product.update({ where: { id: po.productId }, data: { preOrderCount: { decrement: po.quantity } } });
+      await releasePreOrderSlots(tx, [{ productId: po.productId, variantId: po.variantId, quantity: po.quantity }]);
     }
   });
 
@@ -113,7 +114,7 @@ export async function cancelPreOrderService(id: string) {
   await prisma.$transaction(async (tx) => {
     await tx.preOrder.update({ where: { id: po.id }, data: { status: "CANCELLED" } });
     if (ACTIVE.includes(po.status)) {
-      await tx.product.update({ where: { id: po.productId }, data: { preOrderCount: { decrement: po.quantity } } });
+      await releasePreOrderSlots(tx, [{ productId: po.productId, variantId: po.variantId, quantity: po.quantity }]);
     }
   });
 

@@ -84,6 +84,9 @@ const baseProductSelect = {
     orderBy: { sortOrder: "asc" },
     select: {
       id: true, name: true, price: true, salePrice: true, isOnSale: true, stock: true,
+      // Per-variant pre-order terms, so the storefront can show the right booking
+      // amount per chip and hide variants that are opted out.
+      preOrderEnabled: true, bookingAmount: true, preOrderLimit: true, preOrderCount: true,
       optionValues: { select: { optionValueId: true } },
       images: {
         where: { deletedAt: null },
@@ -380,4 +383,4 @@ export async function getProductsByCategorySlugService(
     minPrice,
     maxPrice,
   });
-}
+}

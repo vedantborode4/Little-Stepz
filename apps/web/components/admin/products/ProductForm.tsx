@@ -418,7 +418,13 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
 
             <div className="border-t border-border pt-5">
               <h2 className="font-semibold text-text text-sm sm:text-base mb-4">Variants</h2>
-              <VariantManager key={variantsVersion} productId={productId} initialVariants={variants} />
+              <VariantManager
+                key={variantsVersion}
+                productId={productId}
+                initialVariants={variants}
+                productPreOrderEnabled={form.preOrderEnabled}
+                productBookingAmount={form.bookingAmount}
+              />
             </div>
           </div>
 

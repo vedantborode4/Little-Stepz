@@ -344,6 +344,17 @@ model Variant {
   isOnSale  Boolean  @default(false)
   stock     Int      @default(0)
 
+  /// Per-variant pre-order terms. The product-level switch is the master: a variant
+  /// can only opt OUT of pre-orders, never opt in while the product has them off.
+  /// Defaults to true so existing variants keep inheriting the product's setting.
+  preOrderEnabled Boolean  @default(true)
+  /// Null inherits Product.bookingAmount — mirrors how `price` overrides work.
+  bookingAmount   Decimal? @db.Decimal(12,2)
+  /// Optional cap for this variant alone. The product cap still applies as the
+  /// total across every variant, so both are checked.
+  preOrderLimit   Int?
+  preOrderCount   Int      @default(0)
+
   cartItems    CartItem[]
   orderItems   OrderItem[]
   images       ProductImage[]

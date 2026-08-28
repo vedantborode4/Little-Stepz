@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react"
 import { Product, Variant } from "../../../types/product"
-import { getDisplayPrices } from "../../../lib/pricing"
+import { getDisplayPrices, getPreOrderTerms } from "../../../lib/pricing"
 import PriceTag from "../PriceTag"
 import ProductShare from "../ProductShare"
 import { RICH_TEXT_CLASS } from "../../../lib/richText"
@@ -94,7 +94,14 @@ export default function ProductInfo({
     return selectedVariant.stock
   }, [selectedVariant, product.quantity])
 
-  const canPreOrder = !inStock && !!product.preOrderEnabled && product.bookingAmount != null
+  // Resolved against the selected variant: a variant can opt out of pre-orders and
+  // can carry its own booking amount, so the product fields alone are not enough.
+  const preOrderTerms = useMemo(
+    () => getPreOrderTerms(product, selectedVariant),
+    [product, selectedVariant],
+  )
+  const canPreOrder = preOrderTerms.canPreOrder
+  const bookingAmount = preOrderTerms.bookingAmount ?? 0
 
   // The base product stays purchasable on its own stock even when variants exist, so
   // "add to cart" with nothing picked is a real purchase — it was just invisible.
@@ -199,7 +206,7 @@ export default function ProductInfo({
             <Clock size={16} className="text-primary flex-shrink-0 mt-0.5" />
             <div className="text-sm">
               <p className="font-semibold text-primary">
-                Pre-order now · Pay ₹{Number(product.bookingAmount).toLocaleString("en-IN")} booking
+                Pre-order now · Pay ₹{bookingAmount.toLocaleString("en-IN")} booking
               </p>
               <p className="text-primary/70 text-xs mt-0.5">
                 Pay the balance via a secure link when it's back in stock.
@@ -239,7 +246,7 @@ export default function ProductInfo({
               selection={selection}
               onSelect={handleOptionSelect}
               disabled={isAdding || isBuyingNow}
-              ignoreStock={canPreOrder}
+              stockMode={canPreOrder ? "any" : "in-stock"}
             />
           </div>
         )}
@@ -261,8 +268,11 @@ export default function ProductInfo({
             <div className="flex flex-wrap gap-2">
               {product.variants.map((variant) => {
                 const active = selectedVariant?.id === variant.id
+                // Each chip resolves its own terms: one variant may be pre-orderable
+                // while another is in stock, and they can carry different amounts.
+                const terms = getPreOrderTerms(product, variant)
                 // Pre-order books future stock, so zero stock must not disable the chip.
-                const out = !canPreOrder && variant.stock <= 0
+                const out = !terms.canPreOrder && variant.stock <= 0
                 return (
                   <button
                     key={variant.id}
@@ -277,6 +287,11 @@ export default function ProductInfo({
                     }`}
                   >
                     {variant.name}
+                    {terms.canPreOrder && terms.bookingAmount != null && (
+                      <span className="ml-1.5 text-xs font-normal opacity-80">
+                        · ₹{terms.bookingAmount.toLocaleString("en-IN")}
+                      </span>
+                    )}
                   </button>
                 )
               })}
@@ -341,7 +356,7 @@ export default function ProductInfo({
               className="flex-1 bg-primary text-white py-3.5 rounded-xl font-semibold hover:opacity-90 transition flex items-center justify-center gap-2 shadow-sm"
             >
               <Clock size={17} />
-              Pre-Order · ₹{Number(product.bookingAmount).toLocaleString("en-IN")}
+              Pre-Order · ₹{bookingAmount.toLocaleString("en-IN")}
             </Link>
           ) : !inStock ? (
             // Out of stock and not pre-orderable: one honest, dead button. Showing a
@@ -452,7 +467,7 @@ export default function ProductInfo({
             className="flex-1 bg-primary text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-1.5 text-sm shadow-sm"
           >
             <Clock size={15} />
-            Pre-Order · ₹{Number(product.bookingAmount).toLocaleString("en-IN")}
+            Pre-Order · ₹{bookingAmount.toLocaleString("en-IN")}
           </Link>
         ) : !inStock ? (
           <button

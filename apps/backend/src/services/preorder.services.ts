@@ -5,6 +5,11 @@ import { syncProductStockFlag } from "../utils/stock";
 import { PENDING_ORDER_TTL_MS } from "../utils/pendingRelease";
 import { PreOrderErrorCode } from "../utils/preorderErrors";
 import { resolveChargedPrice } from "../utils/pricing";
+import {
+  resolvePreOrderTerms,
+  releasePreOrderSlots,
+  reservePreOrderSlots,
+} from "../utils/preOrderTerms";
 import { assertPhoneVerified } from "./phoneVerification.services";
 import {
   createRazorpayOrder,
@@ -51,6 +56,8 @@ const preOrderSelect = {
   id: true,
   status: true,
   quantity: true,
+  // Needed to release the per-variant pre-order counter, not just the product's.
+  variantId: true,
   unitPrice: true,
   bookingAmount: true,
   shippingCharges: true,
@@ -101,17 +108,30 @@ export async function createPreOrderService(
         },
       });
       if (!product) throw new ApiError(404, PreOrderErrorCode.PRODUCT_NOT_FOUND);
-      if (!product.preOrderEnabled || product.bookingAmount == null) {
-        throw new ApiError(400, PreOrderErrorCode.PREORDER_NOT_ENABLED);
-      }
 
-      let variant: { id: string; price: Decimal | null; salePrice: Decimal | null; isOnSale: boolean; stock: number } | null = null;
+      let variant: {
+        id: string; price: Decimal | null; salePrice: Decimal | null; isOnSale: boolean; stock: number;
+        preOrderEnabled: boolean; bookingAmount: Decimal | null;
+        preOrderLimit: number | null; preOrderCount: number;
+      } | null = null;
       if (data.variantId) {
         variant = await tx.variant.findFirst({
           where: { id: data.variantId, productId: product.id, deletedAt: null },
-          select: { id: true, price: true, salePrice: true, isOnSale: true, stock: true },
+          select: {
+            id: true, price: true, salePrice: true, isOnSale: true, stock: true,
+            preOrderEnabled: true, bookingAmount: true,
+            preOrderLimit: true, preOrderCount: true,
+          },
         });
         if (!variant) throw new ApiError(400, PreOrderErrorCode.VARIANT_INVALID);
+      }
+
+      // Checked after the variant is loaded: the product switch is the master, but a
+      // variant may opt out of pre-orders or override the booking amount, so the
+      // decision needs both. Was product-only, which ignored the variant entirely.
+      const terms = resolvePreOrderTerms(product, variant);
+      if (!terms.enabled || terms.bookingAmount == null) {
+        throw new ApiError(400, PreOrderErrorCode.PREORDER_NOT_ENABLED);
       }
 
       // Pre-orders are only for currently-unavailable items.
@@ -122,7 +142,7 @@ export async function createPreOrderService(
       const unitPrice = resolveChargedPrice(product as any, variant as any);
       const shipping = isFreeShippingEnabled() ? new Decimal(0) : FLAT_SHIPPING;
       const total = unitPrice.mul(data.quantity).add(shipping).toDecimalPlaces(2, Decimal.ROUND_HALF_EVEN);
-      const booking = new Decimal(product.bookingAmount.toString()).toDecimalPlaces(2, Decimal.ROUND_HALF_EVEN);
+      const booking = terms.bookingAmount.toDecimalPlaces(2, Decimal.ROUND_HALF_EVEN);
       // Guard: a booking can never meet/exceed the order total (would make the balance ≤ 0).
       if (booking.gte(total)) throw new ApiError(400, PreOrderErrorCode.BOOKING_EXCEEDS_TOTAL);
       const balance = Decimal.max(total.sub(booking), new Decimal(0)).toDecimalPlaces(2, Decimal.ROUND_HALF_EVEN);
@@ -133,27 +153,26 @@ export async function createPreOrderService(
       const staleBefore = new Date(Date.now() - PENDING_ORDER_TTL_MS);
       const stale = await tx.preOrder.findMany({
         where: { productId: product.id, status: "PENDING_BOOKING", createdAt: { lt: staleBefore } },
-        select: { id: true, quantity: true },
+        select: { id: true, quantity: true, productId: true, variantId: true },
       });
       if (stale.length) {
-        const reclaimQty = stale.reduce((s, p) => s + p.quantity, 0);
         await tx.preOrder.updateMany({ where: { id: { in: stale.map((s) => s.id) } }, data: { status: "CANCELLED" } });
-        await tx.product.update({ where: { id: product.id }, data: { preOrderCount: { decrement: reclaimQty } } });
+        // Releases the variant counters as well — otherwise a variant cap would fill
+        // permanently after a few abandoned bookings.
+        await releasePreOrderSlots(tx, stale);
       }
 
-      // Atomic cap guard (constant threshold computed from the just-read limit; WHERE sees reclaimed count).
-      if (product.preOrderLimit != null) {
-        const upd = await tx.product.updateMany({
-          where: { id: product.id, preOrderCount: { lte: product.preOrderLimit - data.quantity } },
-          data: { preOrderCount: { increment: data.quantity } },
-        });
-        if (upd.count === 0) throw new ApiError(400, PreOrderErrorCode.PREORDER_FULL);
-      } else {
-        await tx.product.update({
-          where: { id: product.id },
-          data: { preOrderCount: { increment: data.quantity } },
-        });
-      }
+      // Atomic cap guard on both counters. The product cap is the total across every
+      // variant; a variant cap bounds that one variant. The WHERE clause carries the
+      // threshold, so a concurrent booking cannot slip through a check-then-write gap.
+      const reserved = await reservePreOrderSlots(tx, {
+        productId: product.id,
+        productLimit: product.preOrderLimit,
+        variantId: variant?.id ?? null,
+        variantLimit: variant?.preOrderLimit ?? null,
+        quantity: data.quantity,
+      });
+      if (!reserved) throw new ApiError(400, PreOrderErrorCode.PREORDER_FULL);
 
       const preOrder = await tx.preOrder.create({
         data: {
@@ -314,13 +333,13 @@ export async function getPreOrderByIdService(userId: string, id: string) {
 
 /* ───────────────────────── Balance (token-gated) ───────────────────────── */
 
-async function expireIfOverdue(po: { id: string; status: string; balanceDueAt: Date | null; quantity: number; productId: string }) {
+async function expireIfOverdue(po: { id: string; status: string; balanceDueAt: Date | null; quantity: number; productId: string; variantId: string | null }) {
   if (po.status === "AWAITING_BALANCE" && po.balanceDueAt && po.balanceDueAt.getTime() < Date.now()) {
     await prisma.$transaction(async (tx) => {
       const fresh = await tx.preOrder.findUnique({ where: { id: po.id }, select: { status: true } });
       if (fresh?.status !== "AWAITING_BALANCE") return;
       await tx.preOrder.update({ where: { id: po.id }, data: { status: "EXPIRED" } });
-      await tx.product.update({ where: { id: po.productId }, data: { preOrderCount: { decrement: po.quantity } } });
+      await releasePreOrderSlots(tx, [po]);
     });
     return "EXPIRED" as const;
   }
@@ -340,7 +359,7 @@ export async function getPreOrderByTokenService(token: string) {
 export async function createBalancePaymentService(token: string) {
   const po = await prisma.preOrder.findUnique({
     where: { balanceToken: token },
-    select: { id: true, status: true, balanceAmount: true, balanceDueAt: true, balanceRazorpayOrderId: true, quantity: true, productId: true },
+    select: { id: true, status: true, balanceAmount: true, balanceDueAt: true, balanceRazorpayOrderId: true, quantity: true, productId: true, variantId: true },
   });
   if (!po) throw new ApiError(404, PreOrderErrorCode.PREORDER_NOT_FOUND);
   const status = await expireIfOverdue(po);
@@ -457,8 +476,8 @@ export async function completePreOrderBalance(
         },
       });
 
-      // free the reservation slot
-      await tx.product.update({ where: { id: po.productId }, data: { preOrderCount: { decrement: po.quantity } } });
+      // free the reservation slot on both counters
+      await releasePreOrderSlots(tx, [{ productId: po.productId, variantId: po.variantId, quantity: po.quantity }]);
 
       void sendBalancePaidEmail(po.user.email, { productName: po.product.name, orderId: order.id });
 
@@ -470,7 +489,7 @@ export async function completePreOrderBalance(
 export async function verifyBalancePaymentService(token: string, data: VerifyPreOrderPaymentData) {
   const po = await prisma.preOrder.findUnique({
     where: { balanceToken: token },
-    select: { id: true, status: true, balanceRazorpayOrderId: true, balanceAmount: true, balanceDueAt: true, quantity: true, productId: true },
+    select: { id: true, status: true, balanceRazorpayOrderId: true, balanceAmount: true, balanceDueAt: true, quantity: true, productId: true, variantId: true },
   });
   if (!po) throw new ApiError(404, PreOrderErrorCode.PREORDER_NOT_FOUND);
   if (po.status === "COMPLETED") return { success: true, alreadyProcessed: true };

@@ -4,6 +4,7 @@ import {
   releasePendingOrderStock,
   stalePendingOrderWhere,
 } from "../utils/pendingRelease";
+import { releasePreOrderSlots } from "../utils/preOrderTerms";
 
 /**
  * Time-based release of inventory held by checkouts that were never paid for.
@@ -70,7 +71,7 @@ export async function sweepStalePreOrders(): Promise<number> {
       deletedAt: null,
       createdAt: { lt: new Date(now.getTime() - PENDING_ORDER_TTL_MS) },
     },
-    select: { id: true, productId: true, quantity: true },
+    select: { id: true, productId: true, variantId: true, quantity: true },
     take: BATCH_SIZE,
     orderBy: { createdAt: "asc" },
   });
@@ -81,7 +82,7 @@ export async function sweepStalePreOrders(): Promise<number> {
       deletedAt: null,
       balanceDueAt: { lt: now },
     },
-    select: { id: true, productId: true, quantity: true },
+    select: { id: true, productId: true, variantId: true, quantity: true },
     take: BATCH_SIZE,
     orderBy: { balanceDueAt: "asc" },
   });
@@ -102,10 +103,9 @@ export async function sweepStalePreOrders(): Promise<number> {
         });
         if (claimed.count === 0) return false;
 
-        await tx.product.updateMany({
-          where: { id: po.productId, preOrderCount: { gte: po.quantity } },
-          data: { preOrderCount: { decrement: po.quantity } },
-        });
+        await releasePreOrderSlots(tx, [
+          { productId: po.productId, variantId: po.variantId ?? null, quantity: po.quantity },
+        ]);
         return true;
       });
       if (didRelease) released++;

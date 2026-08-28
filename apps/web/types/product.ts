@@ -38,6 +38,11 @@ export interface Variant {
   salePrice?: string | null
   isOnSale?: boolean
   stock: number
+  /** Per-variant pre-order terms; null bookingAmount inherits the product's. */
+  preOrderEnabled?: boolean
+  bookingAmount?: string | number | null
+  preOrderLimit?: number | null
+  preOrderCount?: number
   images?: ProductImage[]
   optionValues?: { optionValueId: string }[]
 }

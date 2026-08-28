@@ -1,16 +1,19 @@
 import { Pressable, Text, View } from "react-native";
 import type { Variant } from "../../types/product";
+import { isVariantSelectable, type StockMode } from "../../lib/variants/matrix";
 
 interface VariantPickerProps {
   variants: Variant[];
   selectedId?: string;
   onSelect: (variant: Variant) => void;
   onClear?: () => void;
-  /** Pre-order books future stock, so zero stock must not disable the chip. */
-  ignoreStock?: boolean;
+  /** Which variants count as selectable — see StockMode. */
+  stockMode?: StockMode;
+  /** Booking amount per variant, keyed by id — rendered on the chip when present. */
+  bookingAmounts?: Record<string, number | null>;
 }
 
-export function VariantPicker({ variants, selectedId, onSelect, onClear, ignoreStock }: VariantPickerProps) {
+export function VariantPicker({ variants, selectedId, onSelect, onClear, stockMode, bookingAmounts }: VariantPickerProps) {
   if (!variants?.length) return null;
   return (
     <View>
@@ -25,7 +28,8 @@ export function VariantPicker({ variants, selectedId, onSelect, onClear, ignoreS
       <View className="flex-row flex-wrap gap-2">
         {variants.map((v) => {
           const active = v.id === selectedId;
-          const out = !ignoreStock && (v.inStock === false || v.stock === 0);
+          const out = !isVariantSelectable(v, stockMode);
+          const booking = bookingAmounts?.[v.id];
           return (
             <Pressable
               key={v.id}
@@ -37,7 +41,12 @@ export function VariantPicker({ variants, selectedId, onSelect, onClear, ignoreS
                 out ? "opacity-40" : "",
               ].join(" ")}
             >
-              <Text className={active ? "font-jakarta-semibold text-primary" : "text-text"}>{v.name}</Text>
+              <Text className={active ? "font-jakarta-semibold text-primary" : "text-text"}>
+                {v.name}
+                {!out && booking != null ? (
+                  <Text className="text-xs text-muted">{`  ₹${booking.toLocaleString("en-IN")}`}</Text>
+                ) : null}
+              </Text>
             </Pressable>
           );
         })}

@@ -13,7 +13,7 @@ import { ProductService } from "../../lib/services/product.service";
 import { AddressService, type Address } from "../../lib/services/address.service";
 import { AddressFormSheet } from "../../components/address/AddressFormSheet";
 import { PreOrderService } from "../../lib/services/preorder.service";
-import { getChargedPrice } from "../../lib/pricing";
+import { getChargedPrice, getPreOrderTerms } from "../../lib/pricing";
 import { OptionSelector } from "../../components/product/OptionSelector";
 import { VariantPicker } from "../../components/product/VariantPicker";
 import { findVariant, type Selection } from "../../lib/variants/matrix";
@@ -107,11 +107,30 @@ export default function PreOrderCheckout() {
     : 99;
 
   const unit = product ? getChargedPrice(product, variant) : 0;
-  const booking = product?.bookingAmount != null ? Number(product.bookingAmount) : 0;
+  // Terms resolve against the selected variant: it may carry its own booking amount
+  // and may have been opted out of pre-orders by the admin.
+  const terms = product ? getPreOrderTerms(product, variant) : null;
+  const booking = terms?.bookingAmount ?? 0;
+
+  // A pre-order can only book something unavailable — createPreOrderService rejects
+  // an in-stock selection with PRODUCT_AVAILABLE, which would reach the customer as
+  // a bare "Pre-order failed". Guards the button, not just the picker.
+  const selectionAvailable = variant
+    ? (variant.stock ?? 0) > 0
+    : !!product?.inStock && (product?.quantity ?? 0) > 0;
+  const canBook = !!product && !selectionAvailable && !!terms?.enabled && booking > 0;
   const total = unit * quantity + SHIPPING;
   const balance = Math.max(0, total - booking);
 
   const confirm = async () => {
+    if (!canBook) {
+      toast.error(
+        selectionAvailable
+          ? "This item is in stock — please buy it now instead of pre-ordering."
+          : "Pre-orders aren't available for this option.",
+      );
+      return;
+    }
     if (!product) return;
     if (!addressId) { toast.error("Select a delivery address"); return; }
     setPlacing(true);
@@ -190,7 +209,7 @@ export default function PreOrderCheckout() {
                 product={product}
                 selection={selection}
                 onSelect={handleOptionSelect}
-                ignoreStock
+                stockMode="out-of-stock"
               />
             ) : (
               <VariantPicker
@@ -198,7 +217,10 @@ export default function PreOrderCheckout() {
                 selectedId={variant?.id}
                 onSelect={(v) => setVariant((prev) => (prev?.id === v.id ? null : v))}
                 onClear={() => setVariant(null)}
-                ignoreStock
+                stockMode="out-of-stock"
+                bookingAmounts={Object.fromEntries(
+                  variants.map((v) => [v.id, getPreOrderTerms(product, v).bookingAmount]),
+                )}
               />
             )}
             <View
@@ -214,7 +236,11 @@ export default function PreOrderCheckout() {
               <Text className="flex-1 text-xs text-muted">
                 {staleVariantLink
                   ? "That link pointed at a variant we no longer offer. Pick another, or the standard version will be reserved."
-                  : variant
+                  : selectionAvailable
+                    ? "This one is back in stock — no need to pre-order. Pick an unavailable option, or buy it now from the product page."
+                    : !terms?.enabled
+                      ? "Pre-orders are turned off for this option. Pick another to continue."
+                      : variant
                     ? `${variant.name} will be reserved at ${formatPrice(unit)} each.`
                     : "The standard version will be reserved."}
               </Text>
@@ -272,7 +298,7 @@ export default function PreOrderCheckout() {
             label={placing ? "Processing…" : `Pay ${formatPrice(booking)} & Pre-Order`}
             className="bg-primary"
             loading={placing}
-            disabled={placing || !addressId}
+            disabled={placing || !addressId || !canBook}
             onPress={confirm}
           />
         ) : (

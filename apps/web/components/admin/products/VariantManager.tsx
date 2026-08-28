@@ -21,6 +21,9 @@ interface Props {
   productId: string
   initialVariants?: ProductVariant[]
   onChange?: () => void
+  /** Pre-order fields are hidden unless the product allows pre-orders at all. */
+  productPreOrderEnabled?: boolean
+  productBookingAmount?: string
 }
 
 interface EditableVariant extends VariantFormValue {
@@ -31,6 +34,8 @@ interface EditableVariant extends VariantFormValue {
 
 const emptyForm = (): VariantFormValue => ({
   name: "", sku: "", price: "", salePrice: "", isOnSale: false, stock: "",
+  // Defaults to inheriting the product: allowed, with the product's booking amount.
+  preOrderEnabled: true, bookingAmount: "", preOrderLimit: "",
 })
 
 const toEditable = (v: ProductVariant, index: number): EditableVariant => ({
@@ -41,6 +46,9 @@ const toEditable = (v: ProductVariant, index: number): EditableVariant => ({
   salePrice: v.salePrice != null ? String(v.salePrice) : "",
   isOnSale: v.isOnSale ?? false,
   stock: v.stock != null ? String(v.stock) : "",
+  preOrderEnabled: v.preOrderEnabled ?? true,
+  bookingAmount: v.bookingAmount != null ? String(v.bookingAmount) : "",
+  preOrderLimit: v.preOrderLimit != null ? String(v.preOrderLimit) : "",
   sortOrder: v.sortOrder ?? index,
   images: v.images ?? [],
 })
@@ -52,9 +60,13 @@ const buildBody = (v: VariantFormValue): VariantBody => ({
   salePrice: v.salePrice === "" ? null : Number(v.salePrice),
   isOnSale: v.isOnSale,
   stock: v.stock === "" ? 0 : Number(v.stock),
+  preOrderEnabled: v.preOrderEnabled,
+  // null clears the override so the variant inherits the product's amount again.
+  bookingAmount: v.bookingAmount === "" ? null : Number(v.bookingAmount),
+  preOrderLimit: v.preOrderLimit === "" ? null : Number(v.preOrderLimit),
 })
 
-export default function VariantManager({ productId, initialVariants = [], onChange }: Props) {
+export default function VariantManager({ productId, initialVariants = [], onChange, productPreOrderEnabled, productBookingAmount }: Props) {
   const [variants, setVariants] = useState<EditableVariant[]>([])
   const [drafts, setDrafts] = useState<VariantFormValue[]>([])
   const [dirtyIds, setDirtyIds] = useState<Set<string>>(new Set())
@@ -195,7 +207,13 @@ export default function VariantManager({ productId, initialVariants = [], onChan
                 </button>
               </div>
               <div className="flex-1">
-                <VariantRow value={v} onChange={(patch) => editVariant(v.id, patch)} disabled={savingId === v.id} />
+                <VariantRow
+                  value={v}
+                  onChange={(patch) => editVariant(v.id, patch)}
+                  disabled={savingId === v.id}
+                  productPreOrderEnabled={productPreOrderEnabled}
+                  productBookingAmount={productBookingAmount}
+                />
               </div>
             </div>
 
@@ -255,7 +273,13 @@ export default function VariantManager({ productId, initialVariants = [], onChan
           {drafts.map((d, i) => (
             <div key={i} className="flex items-start gap-2">
               <div className="flex-1">
-                <VariantRow value={d} onChange={(patch) => updateDraft(i, patch)} disabled={savingAll} />
+                <VariantRow
+                  value={d}
+                  onChange={(patch) => updateDraft(i, patch)}
+                  disabled={savingAll}
+                  productPreOrderEnabled={productPreOrderEnabled}
+                  productBookingAmount={productBookingAmount}
+                />
               </div>
               <button type="button" onClick={() => removeDraft(i)} disabled={savingAll}
                 className="p-2 text-faint hover:text-red-500" aria-label="Remove row">

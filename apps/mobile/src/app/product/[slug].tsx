@@ -20,7 +20,7 @@ import { Price } from "../../components/ui/Price";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { RichTextView } from "../../components/ui/RichTextView";
 import { ProductService } from "../../lib/services/product.service";
-import { getDisplayPrices } from "../../lib/pricing";
+import { getDisplayPrices, getPreOrderTerms } from "../../lib/pricing";
 import { qk } from "../../lib/api/query-client";
 import { useCartStore } from "../../store/cart.store";
 import { useBottomInset } from "../../hooks/useBottomInset";
@@ -112,7 +112,11 @@ export default function ProductDetail() {
   }, [maxQty]);
 
   const ctaDisabled = outOfStock || adding || buying;
-  const canPreOrder = outOfStock && !!product?.preOrderEnabled && product?.bookingAmount != null;
+  // Resolved against the selected variant: a variant can opt out of pre-orders and
+  // can carry its own booking amount, so the product fields alone are not enough.
+  const preOrderTerms = product ? getPreOrderTerms(product, variant) : null;
+  const canPreOrder = !!preOrderTerms?.canPreOrder;
+  const bookingAmount = preOrderTerms?.bookingAmount ?? 0;
 
   const onAdd = async () => {
     if (!product) return;
@@ -236,7 +240,7 @@ export default function ProductDetail() {
                 <Text className="text-sm font-jakarta-semibold text-warning">Available for Pre-Order</Text>
               </View>
               <Text className="text-xs text-muted">
-                {`Reserve now by paying a booking amount of ₹${Number(product.bookingAmount).toLocaleString("en-IN")}. Pay the balance when it's back in stock.`}
+                {`Reserve now by paying a booking amount of ₹${bookingAmount.toLocaleString("en-IN")}. Pay the balance when it's back in stock.`}
               </Text>
               {product.preOrderNote ? (
                 <Text className="text-xs text-muted">{product.preOrderNote}</Text>
@@ -260,7 +264,7 @@ export default function ProductDetail() {
                 product={product}
                 selection={selection}
                 onSelect={handleOptionSelect}
-                ignoreStock={canPreOrder}
+                stockMode={canPreOrder ? "any" : "in-stock"}
               />
             </View>
           ) : hasVariants ? (
@@ -269,7 +273,10 @@ export default function ProductDetail() {
               selectedId={variant?.id}
               onSelect={(v) => setVariant((prev) => (prev?.id === v.id ? undefined : v))}
               onClear={() => setVariant(undefined)}
-              ignoreStock={canPreOrder}
+              stockMode={canPreOrder ? "any" : "in-stock"}
+              bookingAmounts={Object.fromEntries(
+                (product.variants ?? []).map((v) => [v.id, getPreOrderTerms(product, v).bookingAmount]),
+              )}
             />
           ) : null}
 
@@ -379,7 +386,7 @@ export default function ProductDetail() {
         {canPreOrder ? (
           <View className="flex-1">
             <Button
-              label={`Pre-Order · ₹${Number(product!.bookingAmount).toLocaleString("en-IN")}`}
+              label={`Pre-Order · ₹${bookingAmount.toLocaleString("en-IN")}`}
               className="bg-primary"
               onPress={() =>
                 router.push({
