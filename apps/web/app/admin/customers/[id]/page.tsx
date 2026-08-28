@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import {
   ArrowLeft, Mail, Phone, MapPin, ShoppingBag, Wallet, TrendingUp,
-  Calendar, Star, Globe, BadgeCheck,
+  Calendar, Star, Globe, BadgeCheck, type LucideIcon,
 } from "lucide-react"
 import {
   AdminCustomerService,
@@ -30,7 +30,7 @@ const STATUS_TONE: Record<string, string> = {
   CANCELLED: "bg-red-50 dark:bg-red-500/15 text-red-600 dark:text-red-400",
 }
 
-function Stat({ icon: Icon, label, value }: { icon: any; label: string; value: string }) {
+function Stat({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: string }) {
   return (
     <div className="bg-surface border border-border rounded-2xl p-4">
       <div className="flex items-center gap-2 text-faint">

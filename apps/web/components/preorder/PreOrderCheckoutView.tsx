@@ -44,7 +44,9 @@ export default function PreOrderCheckoutView({ product }: { product: Product }) 
   const idemKey = useRef(`${Date.now()}-${Math.random().toString(36).slice(2, 10)}`)
 
   const hasOptions = (product.options?.length ?? 0) > 0
-  const variants = product.variants ?? []
+  // Memoised so the fallback [] is not a fresh array on every render, which would
+  // re-run the variant lookup below each time.
+  const variants = useMemo(() => product.variants ?? [], [product.variants])
 
   // The ?variant= from the PDP is a hint, not a contract: the link may be old, may
   // have been shared, or may name a variant that has since been deleted. Resolve it

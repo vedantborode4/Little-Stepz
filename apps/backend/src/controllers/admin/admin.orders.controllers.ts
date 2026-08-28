@@ -11,6 +11,7 @@ import {
   orderParamsSchema,
 } from "@repo/zod-schema/index";
 import { OrderStatus } from "@repo/db/client";
+import { getInvoicePdfService, invoiceFileName } from "../../services/invoice.services";
 
 async function getAdminOrders(req: Request, res: Response) {
   const { page = 1, limit = 20, status, fromDate, toDate } = req.query;
@@ -89,3 +90,16 @@ export const getAdminOrdersController = asyncHandler(getAdminOrders);
 export const getAdminOrderByIdController = asyncHandler(getAdminOrderById);
 export const updateOrderStatusController = asyncHandler(updateOrderStatus);
 export const reclaimStockController = asyncHandler(reclaimStock);
+
+/** Admin copy of a customer's tax invoice. Same document, no user scoping. */
+async function getAdminOrderInvoice(req: Request, res: Response) {
+  const { id } = req.params as { id: string };
+  const { pdf, number } = await getInvoicePdfService(id);
+
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", `attachment; filename="${invoiceFileName(number)}"`);
+  res.setHeader("Content-Length", String(pdf.length));
+  return res.send(pdf);
+}
+
+export const getAdminOrderInvoiceController = asyncHandler(getAdminOrderInvoice);

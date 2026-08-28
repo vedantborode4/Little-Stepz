@@ -17,6 +17,32 @@ import {
 } from "@repo/zod-schema/index";
 import { randomUUID } from "crypto";
 import { createAuditLog } from "../utils/auditLog";
+import { verifyAccessToken } from "../utils/auth/access-token";
+
+/**
+ * Who is adding to the cart, for the audit trail only.
+ *
+ * The cart router deliberately does NOT run authMiddleware — carts work for signed-out
+ * visitors, and the session-to-user merge happens on POST /cart/sync. That leaves
+ * `req.user` unset even when the caller sent a valid token, so an audit row keyed on
+ * it would label every signed-in customer a guest.
+ *
+ * Reading the token here restores the identity for logging without touching
+ * `req.cartIdentifier`, so cart behaviour is unchanged. Failure is silent: an
+ * expired or malformed token simply means the event is recorded as a guest, which
+ * is exactly what it is from the cart's point of view.
+ */
+function auditUserId(req: Request): string | undefined {
+  if (req.user?.userId) return req.user.userId;
+  const token =
+    req.cookies?.accessToken || req.header("Authorization")?.replace(/^Bearer\s+/i, "");
+  if (!token) return undefined;
+  try {
+    return verifyAccessToken(token).userId;
+  } catch {
+    return undefined;
+  }
+}
 import { setCartSession } from "../middlewares/cart.middleware";
 
 async function getCart(req: Request, res: Response) {
@@ -56,7 +82,7 @@ async function addCartItem(req: Request, res: Response) {
   // a session identifier, so restricting this to signed-in users would miss exactly
   // the traffic worth investigating. `req` supplies ip + user-agent.
   void createAuditLog({
-    userId: req.user?.userId,
+    userId: auditUserId(req),
     action: "CART_ITEM_ADDED",
     entity: "CartItem",
     entityId: validated.productId,

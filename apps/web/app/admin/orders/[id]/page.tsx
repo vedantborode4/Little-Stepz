@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { ArrowLeft, Package, MapPin, CreditCard, Truck } from "lucide-react"
+import { ArrowLeft, Package, MapPin, CreditCard, Truck, FileText, Loader2 } from "lucide-react"
 import { AdminOrderService, type AdminOrderDetail } from "../../../../lib/services/admin-order.service"
 import OrderStatusBadge from "../../../../components/admin/orders/OrderStatusBadge"
 import ShipOrderButton from "../../../../components/admin/orders/ShipOrderButton"
@@ -14,6 +14,7 @@ export default function AdminOrderDetailPage() {
   const router = useRouter()
   const [order, setOrder] = useState<AdminOrderDetail | null>(null)
   const [loading, setLoading] = useState(true)
+  const [downloading, setDownloading] = useState(false)
 
   // Previously this paged through GET /admin/orders looking for the id, which
   // meant the page only ever had the list payload — no items, no address.
@@ -58,6 +59,23 @@ export default function AdminOrderDetailPage() {
           <OrderStatusBadge status={order.status} />
           <ShipOrderButton orderId={order.id} currentStatus={order.status} onSuccess={load} />
           <CancelShipmentButton orderId={order.id} currentStatus={order.status} onSuccess={load} />
+          {/* Only a paid order has an invoice to hand over. */}
+          {order.payment?.status === "SUCCESS" && (
+            <button
+              onClick={async () => {
+                if (downloading) return
+                setDownloading(true)
+                try { await AdminOrderService.downloadInvoice(order.id) }
+                catch { /* surfaced by the interceptor's toast */ }
+                finally { setDownloading(false) }
+              }}
+              disabled={downloading}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border text-sm font-medium text-muted hover:border-primary hover:text-primary transition disabled:opacity-50"
+            >
+              {downloading ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
+              Invoice
+            </button>
+          )}
         </div>
       </div>
 

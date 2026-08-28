@@ -20,6 +20,7 @@ import { reconcilePreOrderByRazorpayOrderId } from "./preorder.services";
 import { notify, notifyAdmins } from "./notification.services";
 import { REFUND_WORKING_DAYS } from "@repo/content/index";
 import { sendNewOrderAdminEmail, sendOrderConfirmationEmail } from "../utils/email";
+import { issueInvoiceForOrder, getInvoicePdfService, invoiceFileName } from "./invoice.services";
 import { orderShortRef, money, orderStatusNotification } from "../utils/notificationCopy";
 import { Decimal } from "decimal.js";
 import type {
@@ -116,7 +117,22 @@ async function emitOrderEmails(orderId: string): Promise<void> {
     };
 
     if (order.user?.email) {
-      void sendOrderConfirmationEmail(order.user.email, payload);
+      // The invoice rides along with the confirmation. Generated inside its own
+      // try/catch because a PDF or numbering failure must still leave the customer
+      // with a confirmation email — the invoice is recoverable from the download
+      // endpoint, a missing confirmation is not.
+      let invoice: { filename: string; pdf: Buffer; number: string } | undefined;
+      try {
+        const issued = await issueInvoiceForOrder(orderId);
+        if (issued) {
+          const { pdf, number } = await getInvoicePdfService(orderId);
+          invoice = { filename: invoiceFileName(number), pdf, number };
+        }
+      } catch (err) {
+        console.error(`[invoice] generation failed for order ${orderId}:`, err);
+      }
+
+      void sendOrderConfirmationEmail(order.user.email, { ...payload, ...(invoice ? { invoice } : {}) });
     }
 
     const recipients = await resolveAdminOrderEmails();

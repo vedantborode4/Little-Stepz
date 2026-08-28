@@ -4,10 +4,10 @@ import {
   createOrderService,
   getOrdersService,
   getOrderByIdService,
-  getOrderInvoiceService,
   cancelOrderService,
   abandonOrderService,
 } from '../services/orders.services';
+import { getInvoicePdfService, invoiceFileName } from '../services/invoice.services';
 import { orderParamsSchema } from '@repo/zod-schema/index';
 import { OrderErrorCode } from '../utils/orderErrors';
 
@@ -108,14 +108,24 @@ async function getOrderById(req: Request, res: Response) {
   return new ApiResponse(200, order, 'Order fetched').send(res);
 }
 
+/**
+ * The customer's own tax invoice, as a PDF.
+ *
+ * Scoped by userId inside the service, so one customer cannot read another's
+ * invoice by guessing an order id. Responds with the binary rather than an
+ * ApiResponse envelope — this endpoint is consumed by a download, not by JSON.
+ */
 async function getOrderInvoice(req: Request, res: Response) {
   const userId = req.user?.userId;
   if (!userId) throw new ApiError(401, 'Unauthorized');
   const { id } = orderParamsSchema.parse(req.params);
 
-  const invoice = await getOrderInvoiceService(userId, id);
+  const { pdf, number } = await getInvoicePdfService(id, userId);
 
-  return new ApiResponse(200, invoice, 'Invoice fetched').send(res);
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="${invoiceFileName(number)}"`);
+  res.setHeader('Content-Length', String(pdf.length));
+  return res.send(pdf);
 }
 
 

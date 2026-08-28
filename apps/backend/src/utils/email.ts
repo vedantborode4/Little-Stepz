@@ -13,11 +13,18 @@ const resend = apiKey ? new Resend(apiKey) : null;
  * Fail-soft email sender. Never throws — email problems must not break a
  * payment/transaction flow. Logs and returns false on failure.
  */
+export interface EmailAttachment {
+  filename: string;
+  content: Buffer;
+}
+
 export async function sendEmail(params: {
   /** Resend accepts several recipients; used for the admin new-order alert. */
   to: string | string[];
   subject: string;
   html: string;
+  /** Resend takes base64 content; the invoice PDF is the only user today. */
+  attachments?: EmailAttachment[];
 }): Promise<boolean> {
   if (!resend) {
     console.warn("[email] RESEND_API_KEY not set — skipping email:", params.subject);
@@ -30,6 +37,14 @@ export async function sendEmail(params: {
       subject: params.subject,
       html: params.html,
       ...(REPLY_TO ? { replyTo: REPLY_TO } : {}),
+      ...(params.attachments?.length
+        ? {
+            attachments: params.attachments.map((a) => ({
+              filename: a.filename,
+              content: a.content.toString("base64"),
+            })),
+          }
+        : {}),
     });
     if (error) {
       console.error("[email] send failed:", error);
@@ -227,6 +242,8 @@ export function sendOrderConfirmationEmail(to: string, p: {
   total: number | string;
   paymentMethod: string;
   items: OrderEmailItem[];
+  /** Tax invoice, when one could be generated. Absent is not an error. */
+  invoice?: { filename: string; pdf: Buffer; number: string };
 }) {
   const ref = p.orderId.slice(-8).toUpperCase();
   return sendEmail({
@@ -237,8 +254,14 @@ export function sendOrderConfirmationEmail(to: string, p: {
       <p style="margin:0 0 4px">Order: <strong>#${ref}</strong></p>
       <p style="margin:0 0 16px">Total: <strong>${money(p.total)}</strong> (${escapeHtml(p.paymentMethod)})</p>
       ${itemRows(p.items)}
+      ${p.invoice
+        ? `<p style="font-size:13px;color:#666">Your tax invoice (<strong>${escapeHtml(p.invoice.number)}</strong>) is attached to this email.</p>`
+        : ""}
       <p style="font-size:13px;color:#666">We'll email you again as soon as it ships.</p>
     `),
+    ...(p.invoice
+      ? { attachments: [{ filename: p.invoice.filename, content: p.invoice.pdf }] }
+      : {}),
   });
 }
 

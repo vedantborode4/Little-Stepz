@@ -373,30 +373,11 @@ export async function getOrderByIdService(userId: string, id: string) {
   };
 }
 
-export async function getOrderInvoiceService(userId: string, id: string) {
-  const order = await getOrderByIdService(userId, id);
-
-  // Generate invoice data; use PDF lib in prod, here return JSON structure
-  return {
-    orderId: order.id,
-    date: order.createdAt,
-    items: order.items.map(item => ({
-      productId: item.productId,
-      productName: item.productName,
-      variantName: item.variantName,
-      quantity: item.quantity,
-      price: item.price,
-      subtotal: item.price * item.quantity,
-    })),
-    subtotal: order.subtotal,
-    discount: order.discount,
-    shipping: order.shippingCharges,
-    total: order.total,
-    status: order.status,
-    address: order.address,
-    coupon: order.coupon?.code,
-  };
-}
+/**
+ * Invoices now live in invoice.services.ts, which issues a numbered, immutable
+ * snapshot and renders a real PDF. The placeholder that used to sit here returned
+ * unnumbered JSON and was never consumed by either client.
+ */
 
 export async function cancelOrderService(userId: string, orderId: string, reason?: string) {
   await runWithRetry(async () => {

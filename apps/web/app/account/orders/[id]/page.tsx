@@ -7,7 +7,7 @@ import { OrderService } from "../../../../lib/services/order.service"
 import { cldFill } from "../../../../lib/utils/cloudinaryUrl"
 import {
   Package, MapPin, CreditCard, ArrowLeft,
-  RotateCcw, XCircle, ChevronRight, Truck, CheckCircle, Clock
+  RotateCcw, XCircle, ChevronRight, Truck, CheckCircle, Clock, FileText, Loader2
 } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
@@ -178,6 +178,7 @@ export default function OrderDetailsPage() {
   const router = useRouter()
   const { currentOrder, fetchOrderById, loading } = useOrderStore()
   const [modal, setModal] = useState<"return" | "cancel" | null>(null)
+  const [downloading, setDownloading] = useState(false)
 
   useEffect(() => {
     fetchOrderById(id)
@@ -368,6 +369,34 @@ export default function OrderDetailsPage() {
           </div>
         </div>
       </div>
+
+      {/* Invoice — only a paid order has one to download. */}
+      {o.payment?.status === "SUCCESS" && (
+        <div className="bg-surface border border-border rounded-2xl p-5 shadow-card">
+          <h2 className="font-semibold text-text text-sm mb-3">Invoice</h2>
+          <button
+            onClick={async () => {
+              if (downloading) return
+              setDownloading(true)
+              try {
+                await OrderService.downloadInvoice(o.id)
+              } catch (err: any) {
+                toast.error(friendlyError(err, "Couldn't download the invoice"))
+              } finally {
+                setDownloading(false)
+              }
+            }}
+            disabled={downloading}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border text-sm font-medium text-text hover:border-primary hover:text-primary transition disabled:opacity-50"
+          >
+            {downloading ? <Loader2 size={15} className="animate-spin" /> : <FileText size={15} />}
+            {downloading ? "Preparing…" : "Download Invoice"}
+          </button>
+          <p className="text-xs text-muted mt-2">
+            A copy was also emailed to you when the order was confirmed.
+          </p>
+        </div>
+      )}
 
       {/* Actions */}
       {(canCancel || canReturn) && (

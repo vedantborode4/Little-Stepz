@@ -599,6 +599,8 @@ model Order {
 
   idempotencyKey String @unique
 
+  invoice Invoice?
+
   deletedAt DateTime?
 
   createdAt DateTime @default(now())
@@ -1136,4 +1138,56 @@ model NotificationBroadcast {
   createdAt DateTime @default(now())
 
   @@index([createdAt])
+}
+
+/// A tax invoice, snapshotted at issue time.
+///
+/// Deliberately not derived from Order on the fly: a GST invoice is a legal record
+/// of what was charged on a given date. Renaming a product, editing an address or
+/// changing the GST rate must not silently rewrite an invoice that has already been
+/// sent to a customer and filed against a return — so the seller block, the buyer
+/// block, the line items and the tax split are all frozen into JSON here.
+model Invoice {
+  id      String @id @default(uuid())
+  orderId String @unique
+  order   Order  @relation(fields: [orderId], references: [id])
+
+  /// Sequential per financial year, e.g. LS/2026-27/00001.
+  number        String @unique
+  financialYear String
+
+  /// Buyer's state at issue time, which decides CGST+SGST vs IGST.
+  placeOfSupply String?
+  isIntraState  Boolean @default(true)
+
+  /// Prices are GST-inclusive, so these are back-computed from the order total.
+  taxableValue Decimal @db.Decimal(12,2)
+  cgst         Decimal @default(0) @db.Decimal(12,2)
+  sgst         Decimal @default(0) @db.Decimal(12,2)
+  igst         Decimal @default(0) @db.Decimal(12,2)
+  gstRate      Decimal @db.Decimal(5,2)
+  grandTotal   Decimal @db.Decimal(12,2)
+
+  /// Frozen copies of everything the PDF renders.
+  seller Json
+  buyer  Json
+  items  Json
+
+  issuedAt  DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([financialYear])
+  @@index([issuedAt])
+}
+
+/// One row per financial year, holding the last invoice number issued.
+///
+/// A separate counter rather than counting Invoice rows: concurrent checkouts would
+/// otherwise read the same count and mint duplicate numbers. The increment runs
+/// inside the issuing transaction, so the sequence has no gaps and no collisions.
+model InvoiceCounter {
+  financialYear String   @id
+  lastNumber    Int      @default(0)
+  updatedAt     DateTime @updatedAt
 }

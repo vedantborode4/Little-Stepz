@@ -86,6 +86,7 @@ export default function OrderDetail() {
   const [actionMode, setActionMode] = useState<"cancel" | "return" | null>(null);
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [downloadingInvoice, setDownloadingInvoice] = useState(false);
   /** Refund sentence to show after a successful cancellation. */
   const [cancelResult, setCancelResult] = useState<string | null>(null);
 
@@ -229,6 +230,25 @@ export default function OrderDetail() {
 
         {/* Actions */}
         <View className="gap-2">
+          {/* Only a paid order has an invoice to hand over. */}
+          {order.payment?.status === "SUCCESS" ? (
+            <Button
+              label={downloadingInvoice ? "Preparing invoice…" : "Download Invoice"}
+              variant="outline"
+              loading={downloadingInvoice}
+              onPress={async () => {
+                if (downloadingInvoice) return;
+                setDownloadingInvoice(true);
+                try {
+                  await OrderService.downloadInvoice(order.id);
+                } catch {
+                  toast.error("Couldn't download the invoice. Please try again.");
+                } finally {
+                  setDownloadingInvoice(false);
+                }
+              }}
+            />
+          ) : null}
           {order.trackingUrl ? (
             <Button label="Track Shipment" variant="outline" onPress={() => Linking.openURL(order.trackingUrl!)} />
           ) : null}
