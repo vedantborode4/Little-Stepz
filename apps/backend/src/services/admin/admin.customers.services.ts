@@ -151,6 +151,8 @@ export async function getCustomerService(id: string) {
           state: true, pincode: true, country: true, isDefault: true,
         },
       },
+      // A preview for the table only — the lifetime stats below are aggregated
+      // separately so they are never limited by this take.
       orders: {
         where: { deletedAt: null },
         orderBy: { createdAt: "desc" },
@@ -175,8 +177,29 @@ export async function getCustomerService(id: string) {
 
   if (!user) throw new ApiError(404, "CUSTOMER_NOT_FOUND");
 
-  const paid = user.orders.filter((o) => o.payment?.status === "SUCCESS");
-  const totalSpend = paid.reduce((sum, o) => sum + Number(o.total), 0);
+  // Aggregated over ALL of this customer's paid orders, not over the 50 fetched for
+  // the table. Deriving the stats from that capped list made the detail page
+  // contradict the list page for anyone with more than 50 orders.
+  const paidWhere = {
+    userId: id,
+    deletedAt: null,
+    payment: { is: { status: "SUCCESS" as const } },
+  };
+  const [paidAgg, lastPaid] = await Promise.all([
+    prisma.order.aggregate({
+      where: paidWhere,
+      _count: { _all: true },
+      _sum: { total: true },
+    }),
+    prisma.order.findFirst({
+      where: paidWhere,
+      orderBy: { createdAt: "desc" },
+      select: { createdAt: true },
+    }),
+  ]);
+
+  const paidCount = paidAgg._count._all;
+  const totalSpend = Number(paidAgg._sum.total ?? 0);
 
   // Add-to-cart trail for this customer — the same events the activity list shows,
   // scoped to one person so an investigation starts here rather than in a global log.
@@ -190,10 +213,10 @@ export async function getCustomerService(id: string) {
   return {
     ...user,
     stats: {
-      orders: paid.length,
+      orders: paidCount,
       totalSpend,
-      aov: paid.length > 0 ? Number((totalSpend / paid.length).toFixed(2)) : 0,
-      lastOrderAt: paid[0]?.createdAt ?? null,
+      aov: paidCount > 0 ? Number((totalSpend / paidCount).toFixed(2)) : 0,
+      lastOrderAt: lastPaid?.createdAt ?? null,
     },
     cartActivity: await attachProducts(cartActivity),
   };

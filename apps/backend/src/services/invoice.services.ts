@@ -59,17 +59,20 @@ async function nextInvoiceNumber(
   tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
   financialYear: string
 ): Promise<string> {
-  await tx.invoiceCounter.upsert({
-    where: { financialYear },
-    create: { financialYear, lastNumber: 0 },
-    update: {},
-  });
-  const counter = await tx.invoiceCounter.update({
-    where: { financialYear },
-    data: { lastNumber: { increment: 1 } },
-    select: { lastNumber: true },
-  });
-  return formatInvoiceNumber(financialYear, counter.lastNumber);
+  // One atomic INSERT ... ON CONFLICT DO UPDATE rather than upsert-then-update: on
+  // the first invoice of a new financial year, two confirmations arriving together
+  // would both find no counter row, and the loser got a unique-constraint error
+  // instead of a number.
+  const rows = await tx.$queryRaw<Array<{ lastNumber: number }>>`
+    INSERT INTO "InvoiceCounter" ("financialYear", "lastNumber", "updatedAt")
+    VALUES (${financialYear}, 1, NOW())
+    ON CONFLICT ("financialYear")
+    DO UPDATE SET "lastNumber" = "InvoiceCounter"."lastNumber" + 1, "updatedAt" = NOW()
+    RETURNING "lastNumber"
+  `;
+  const lastNumber = rows[0]?.lastNumber;
+  if (lastNumber == null) throw new ApiError(500, "INVOICE_NUMBER_FAILED");
+  return formatInvoiceNumber(financialYear, lastNumber);
 }
 
 /**
@@ -145,9 +148,15 @@ export async function issueInvoiceForOrder(orderId: string) {
       });
     });
   } catch (err: any) {
-    // Lost a race with a concurrent issue for the same order — the unique index on
-    // orderId did its job. Return the winner rather than failing the caller.
-    if (err?.code === "P2002") {
+    // Only an orderId collision means "someone else already issued this invoice" —
+    // return the winner. Any other unique violation is a different bug, and
+    // swallowing it here would hand back a null the callers read as "no invoice".
+    const target = err?.meta?.target;
+    const conflictedOnOrderId =
+      err?.code === "P2002" &&
+      (Array.isArray(target) ? target.includes("orderId") : String(target ?? "").includes("orderId"));
+
+    if (conflictedOnOrderId) {
       return prisma.invoice.findUnique({ where: { orderId } });
     }
     throw err;

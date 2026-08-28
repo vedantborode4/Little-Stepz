@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { ArrowLeft, Package, MapPin, CreditCard, Truck, FileText, Loader2 } from "lucide-react"
+import { toast } from "sonner"
 import { AdminOrderService, type AdminOrderDetail } from "../../../../lib/services/admin-order.service"
+import { friendlyError } from "../../../../lib/errorMessages"
 import OrderStatusBadge from "../../../../components/admin/orders/OrderStatusBadge"
 import ShipOrderButton from "../../../../components/admin/orders/ShipOrderButton"
 import CancelShipmentButton from "../../../../components/admin/orders/CancelShipmentButton"
@@ -66,7 +68,11 @@ export default function AdminOrderDetailPage() {
                 if (downloading) return
                 setDownloading(true)
                 try { await AdminOrderService.downloadInvoice(order.id) }
-                catch { /* surfaced by the interceptor's toast */ }
+                catch (err) {
+                  // The api-client interceptor only handles the 401 refresh, so
+                  // nothing else surfaces this — say it here or it fails silently.
+                  toast.error(friendlyError(err, "Couldn't download the invoice"))
+                }
                 finally { setDownloading(false) }
               }}
               disabled={downloading}

@@ -123,26 +123,36 @@ export function computeTax(input: InvoiceInput): TaxBreakup {
   // Discounts and shipping are folded in proportionally so the lines reconcile.
   const scale = itemsGross.gt(0) ? chargeable.div(itemsGross) : new Decimal(0);
 
+  const { taxable: taxableValue, tax: totalTax } = splitInclusive(chargeable, rate);
+
   const lines: TaxLine[] = [];
-  let allocated = new Decimal(0);
+  let allocatedGross = new Decimal(0);
+  let allocatedTaxable = new Decimal(0);
 
   input.items.forEach((item, index) => {
     const isLast = index === input.items.length - 1;
-    // The last line absorbs the rounding remainder, so the column sums exactly.
-    const gross = isLast ? chargeable.minus(allocated) : round(item.lineTotal.mul(scale));
-    allocated = allocated.plus(gross);
-    const { taxable, tax } = splitInclusive(gross, rate);
+
+    // The last line absorbs every rounding remainder — gross AND taxable. Splitting
+    // each line independently and rounding it left the printed columns adding up to
+    // a paisa either side of the footer totals, which on a tax invoice reads as an
+    // arithmetic error. Deriving the final line by subtraction makes the columns sum
+    // to exactly the values printed underneath them.
+    const gross = isLast ? chargeable.minus(allocatedGross) : round(item.lineTotal.mul(scale));
+    const taxable = isLast ? taxableValue.minus(allocatedTaxable) : splitInclusive(gross, rate).taxable;
+
+    allocatedGross = allocatedGross.plus(gross);
+    allocatedTaxable = allocatedTaxable.plus(taxable);
+
     lines.push({
       name: item.name,
       variantName: item.variantName,
       quantity: item.quantity,
       gross,
       taxable,
-      tax,
+      // Per line, tax is always the difference — never an independent rounding.
+      tax: gross.minus(taxable),
     });
   });
-
-  const { taxable: taxableValue, tax: totalTax } = splitInclusive(chargeable, rate);
 
   // Place of supply decides the split: same state as the seller means the tax is
   // shared between centre and state; anywhere else it is a single integrated tax.

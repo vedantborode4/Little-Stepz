@@ -380,7 +380,7 @@ export default function OrderDetailsPage() {
               setDownloading(true)
               try {
                 await OrderService.downloadInvoice(o.id)
-              } catch (err: any) {
+              } catch (err) {
                 toast.error(friendlyError(err, "Couldn't download the invoice"))
               } finally {
                 setDownloading(false)

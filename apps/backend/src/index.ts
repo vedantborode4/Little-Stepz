@@ -44,7 +44,9 @@ app.use(cors({
     // headers; the cart session is echoed back so it can be persisted client-side.
     // (Native requests bypass CORS entirely — this is for the Expo web build.)
     allowedHeaders: ["Content-Type", "Authorization", "X-Client-Platform", "X-Cart-Session"],
-    exposedHeaders: ["X-Cart-Session"],
+    // Content-Disposition carries the invoice filename. Without exposing it the
+    // browser hides the header, and every download falls back to a generic name.
+    exposedHeaders: ["X-Cart-Session", "Content-Disposition"],
 }))
 
 app.use((_req, res, next) => {
@@ -80,6 +82,15 @@ app.listen(PORT, () => {
 
   // Signup now depends on email delivery: without a key, no OTP can ever arrive and
   // no account can be created. Better to learn that at boot than one 502 at a time.
+  // A tax invoice without a GSTIN is not a valid tax invoice, and invoices are
+  // numbered permanently and emailed automatically — so a missed env var is not
+  // recoverable by fixing it later. Say so at boot, once.
+  if (!process.env.INVOICE_GSTIN) {
+    console.error(
+      "[boot] INVOICE_GSTIN is not set — invoices will print \"GSTIN: NOT CONFIGURED\" and are NOT valid tax invoices."
+    );
+  }
+
   if (!process.env.RESEND_API_KEY) {
     console.error(
       "[boot] RESEND_API_KEY is not set — email signup is DISABLED (no OTP can be delivered)."
