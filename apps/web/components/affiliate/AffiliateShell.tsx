@@ -1,9 +1,39 @@
 "use client"
 
-import { useState } from "react"
+import { usePathname } from "next/navigation"
+
+import { useCallback, useEffect, useState } from "react"
 import AffiliateSidebar from "./AffiliateSidebar"
 import AffiliateMobileNav from "./AffiliateMobileNav"
 import { Menu, X } from "lucide-react"
+
+/**
+ * Drawer plumbing shared by both panels.
+ *
+ * Locking body scroll is the half that matters: without it the page behind the
+ * open drawer keeps scrolling under the finger, which is what made the panel feel
+ * broken on a phone. Escape and route changes close it so the drawer can never be
+ * left open over content the user has already navigated away from.
+ */
+function useDrawer(open: boolean, close: () => void) {
+  const pathname = usePathname()
+
+  useEffect(() => {
+    if (!open) return
+    const previous = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") close() }
+    window.addEventListener("keydown", onKey)
+    return () => {
+      document.body.style.overflow = previous
+      window.removeEventListener("keydown", onKey)
+    }
+  }, [open, close])
+
+  // Close on navigation — the sidebar links do call onClose, but a browser back
+  // button or any programmatic push would otherwise leave it hanging open.
+  useEffect(() => { close() }, [pathname, close])
+}
 
 export default function AffiliateShell({
   children,
@@ -11,6 +41,8 @@ export default function AffiliateShell({
   children: React.ReactNode
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const closeSidebar = useCallback(() => setSidebarOpen(false), [])
+  useDrawer(sidebarOpen, closeSidebar)
 
   return (
     <div className="flex min-h-screen bg-surface-2">
@@ -25,11 +57,11 @@ export default function AffiliateShell({
           {/* Backdrop */}
           <div
             className="fixed inset-0 bg-black/40 backdrop-blur-sm"
-            onClick={() => setSidebarOpen(false)}
+            onClick={closeSidebar}
           />
           {/* Drawer */}
           <div className="relative z-50 flex">
-            <AffiliateSidebar onClose={() => setSidebarOpen(false)} />
+            <AffiliateSidebar onClose={closeSidebar} />
           </div>
         </div>
       )}

@@ -35,8 +35,12 @@ export default function AffiliateSidebar({ onClose }: Props) {
     return pathname.startsWith(href)
   }
 
+  // h-dvh + min-h-0 on the nav is what makes the panel scroll internally. It was
+  // min-h-screen, so the aside grew taller than the viewport: the panel never
+  // scrolled, the page behind it did, and "Back to Store" — the last child — was
+  // only reachable by scrolling the whole document.
   return (
-    <aside className="w-60 bg-surface border-r border-border min-h-screen flex flex-col">
+    <aside className="w-60 shrink-0 bg-surface border-r border-border h-dvh sticky top-0 flex flex-col">
       {/* Logo */}
       <div className="px-5 py-5 border-b border-border flex items-center justify-between">
         <div>
@@ -60,7 +64,7 @@ export default function AffiliateSidebar({ onClose }: Props) {
         )}
       </div>
 
-      <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
+      <nav className="flex-1 min-h-0 p-3 space-y-0.5 overflow-y-auto overscroll-contain">
         {items.map((item) => {
           const Icon = item.icon
           const active = isActive(item.href)
@@ -83,8 +87,8 @@ export default function AffiliateSidebar({ onClose }: Props) {
         })}
       </nav>
 
-      {/* Back to store */}
-      <div className="p-3 border-t border-border">
+      {/* Back to store — pinned; never scrolls out of reach */}
+      <div className="shrink-0 p-3 border-t border-border">
         <Link
           href="/"
           onClick={onClose}

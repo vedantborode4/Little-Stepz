@@ -41,8 +41,10 @@ export default function Footer() {
 
           {/* Brand — full width on mobile */}
           <div className="col-span-2 md:col-span-1 space-y-4">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.webp" alt="Little Stepz" className="h-10 w-auto" />
+            <Link href="/" aria-label="Little Stepz — go to homepage" className="inline-block">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/logo.webp" alt="Little Stepz" className="h-10 w-auto" />
+            </Link>
             <p className="text-sm text-gray-400 leading-relaxed">
               Safe, fun, and thoughtfully designed toys that help children learn through play.
             </p>

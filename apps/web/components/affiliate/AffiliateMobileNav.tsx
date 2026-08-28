@@ -7,18 +7,16 @@ import {
   LayoutDashboard,
   MousePointerClick,
   ShoppingBag,
-  DollarSign,
-  ArrowLeftRight,
   Wallet,
 } from "lucide-react"
 
+// Four only, so they fit the bar without horizontal scrolling. Conversions and
+// Commissions stay in the sidebar (hamburger) — see AffiliateSidebar.
 const items = [
-  { label: "Overview",    href: "/affiliate",             icon: LayoutDashboard },
-  { label: "Clicks",      href: "/affiliate/clicks",      icon: MousePointerClick },
-  { label: "Conversions", href: "/affiliate/conversions", icon: ArrowLeftRight },
-  { label: "Commissions", href: "/affiliate/commissions", icon: DollarSign },
-  { label: "Orders",      href: "/affiliate/orders",      icon: ShoppingBag },
-  { label: "Payout",      href: "/affiliate/payout",      icon: Wallet },
+  { label: "Overview", href: "/affiliate",         icon: LayoutDashboard },
+  { label: "Clicks",   href: "/affiliate/clicks",  icon: MousePointerClick },
+  { label: "Orders",   href: "/affiliate/orders",  icon: ShoppingBag },
+  { label: "Payout",   href: "/affiliate/payout",  icon: Wallet },
 ]
 
 export default function AffiliateMobileNav() {
@@ -31,7 +29,7 @@ export default function AffiliateMobileNav() {
 
   return (
     <nav className="lg:hidden sticky bottom-0 z-40 bg-surface border-t border-border safe-area-pb">
-      <div className="flex overflow-x-auto scrollbar-none">
+      <div className="flex">
         {items.map((item) => {
           const Icon = item.icon
           const active = isActive(item.href)
@@ -40,7 +38,7 @@ export default function AffiliateMobileNav() {
               key={item.href}
               href={item.href}
               className={clsx(
-                "flex flex-col items-center justify-center gap-0.5 px-3 py-2.5 min-w-[60px] flex-1 text-[10px] font-medium transition-colors",
+                "flex flex-col items-center justify-center gap-0.5 px-2 py-2.5 flex-1 text-[10px] font-medium transition-colors",
                 active
                   ? "text-primary"
                   : "text-faint hover:text-muted"
