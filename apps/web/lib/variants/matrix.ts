@@ -25,17 +25,25 @@ export function findVariant(product: Product, selection: Selection): Variant | n
 /**
  * Whether choosing this value — combined with the other currently-selected axes —
  * still leads to at least one in-stock variant. Drives disabling impossible/OOS combos.
+ *
+ * `ignoreStock` exists for pre-orders. A pre-order product is out of stock by
+ * definition, so the stock test disabled every option value on it: the customer
+ * could never pick a size or colour, and the Pre-Order link never carried a
+ * variant. Booking is a claim on future stock, so availability there is only about
+ * whether the combination exists at all.
  */
 export function isValueAvailable(
   product: Product,
   selection: Selection,
   optionId: string,
-  valueId: string
+  valueId: string,
+  opts?: { ignoreStock?: boolean }
 ): boolean {
   const trial = { ...selection, [optionId]: valueId }
   const selectedIds = Object.values(trial)
   return product.variants.some((v) => {
     const ids = variantValueIds(v)
-    return selectedIds.every((id) => ids.has(id)) && v.stock > 0
+    const exists = selectedIds.every((id) => ids.has(id))
+    return exists && (opts?.ignoreStock || v.stock > 0)
   })
 }

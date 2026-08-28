@@ -31,12 +31,16 @@ export function isValueAvailable(
   product: Product,
   selection: Selection,
   optionId: string,
-  valueId: string
+  valueId: string,
+  opts?: { ignoreStock?: boolean }
 ): boolean {
   const trial = { ...selection, [optionId]: valueId };
   const selectedIds = Object.values(trial);
   return (product.variants ?? []).some((v) => {
     const ids = variantValueIds(v);
-    return selectedIds.every((id) => ids.has(id)) && stockOf(v) > 0;
+    const exists = selectedIds.every((id) => ids.has(id));
+    // ignoreStock is for pre-orders: the product is out of stock by definition, so
+    // the stock test would disable every option and make the axes unusable.
+    return exists && (opts?.ignoreStock || stockOf(v) > 0);
   });
 }

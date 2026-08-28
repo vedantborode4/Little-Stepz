@@ -239,6 +239,7 @@ export default function ProductInfo({
               selection={selection}
               onSelect={handleOptionSelect}
               disabled={isAdding || isBuyingNow}
+              ignoreStock={canPreOrder}
             />
           </div>
         )}
@@ -260,7 +261,8 @@ export default function ProductInfo({
             <div className="flex flex-wrap gap-2">
               {product.variants.map((variant) => {
                 const active = selectedVariant?.id === variant.id
-                const out = variant.stock <= 0
+                // Pre-order books future stock, so zero stock must not disable the chip.
+                const out = !canPreOrder && variant.stock <= 0
                 return (
                   <button
                     key={variant.id}
@@ -284,7 +286,7 @@ export default function ProductInfo({
 
         {/* What's actually going in the cart — the base product is a real, buyable
             SKU, so leaving the selection empty must not look like nothing happened. */}
-        {hasVariantChoices && !canPreOrder && (
+        {hasVariantChoices && (
           <div className={`flex items-start gap-2.5 rounded-xl p-3.5 border ${
             selectedVariant
               ? "bg-primary/5 border-primary/15"
@@ -294,12 +296,13 @@ export default function ProductInfo({
             <p className="text-xs text-muted">
               {selectedVariant ? (
                 <>
-                  <span className="font-semibold text-text">{selectedVariant.name}</span> selected.
+                  <span className="font-semibold text-text">{selectedVariant.name}</span>{" "}
+                  {canPreOrder ? "will be reserved." : "selected."}
                 </>
               ) : (
                 <>
                   <span className="font-semibold text-text">Standard version</span> — pick {optionAxisLabel} above
-                  to choose a specific one.
+                  to {canPreOrder ? "reserve" : "choose"} a specific one.
                 </>
               )}
             </p>

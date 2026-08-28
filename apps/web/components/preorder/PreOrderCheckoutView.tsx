@@ -1,13 +1,16 @@
 "use client"
 
-import { useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { Clock, Loader2, MapPin } from "lucide-react"
+import { Clock, Loader2, MapPin, Info } from "lucide-react"
 import { PreOrderService } from "../../lib/services/preorder.service"
 import CheckoutAddressSection from "../address/CheckoutAddressSection"
 import { useAddressStore } from "../../store/useAddressStore"
 import { getChargedPrice } from "../../lib/pricing"
+import OptionSelector from "../products/details/OptionSelector"
+import { findVariant, type Selection } from "../../lib/variants/matrix"
+import type { Variant } from "../../types/product"
 import { cldFill } from "../../lib/utils/cloudinaryUrl"
 import { openRazorpay } from "../../lib/openRazorpay"
 import type { Product } from "../../types/product"
@@ -40,10 +43,50 @@ export default function PreOrderCheckoutView({ product }: { product: Product }) 
   // Stable per-attempt key so retries de-duplicate server-side.
   const idemKey = useRef(`${Date.now()}-${Math.random().toString(36).slice(2, 10)}`)
 
-  const variant = useMemo(
-    () => product.variants?.find((v) => v.id === variantId) || null,
-    [product, variantId],
+  const hasOptions = (product.options?.length ?? 0) > 0
+  const variants = product.variants ?? []
+
+  // The ?variant= from the PDP is a hint, not a contract: the link may be old, may
+  // have been shared, or may name a variant that has since been deleted. Resolve it
+  // against the product actually loaded and fall back to the base product.
+  const initialVariant = useMemo(
+    () => variants.find((v) => v.id === variantId) ?? null,
+    [variants, variantId],
   )
+  const [variant, setVariant] = useState<Variant | null>(initialVariant)
+
+  // Seed the option axes from that variant so the picker opens on the customer's
+  // PDP choice rather than blank.
+  const [selection, setSelection] = useState<Selection>(() => {
+    const seed: Selection = {}
+    if (!initialVariant) return seed
+    // A variant only stores optionValueIds, so the owning axis is looked up from
+    // the product's option list.
+    const picked = new Set(initialVariant.optionValues?.map((o) => o.optionValueId) ?? [])
+    for (const opt of product.options ?? []) {
+      const match = opt.values.find((v) => picked.has(v.id))
+      if (match) seed[opt.id] = match.id
+    }
+    return seed
+  })
+
+  const handleOptionSelect = (optionId: string, valueId: string) =>
+    setSelection((prev) => {
+      const next = { ...prev }
+      if (next[optionId] === valueId) delete next[optionId]
+      else next[optionId] = valueId
+      return next
+    })
+
+  useEffect(() => {
+    if (!hasOptions) return
+    setVariant(findVariant(product, selection))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selection])
+
+  // A link naming a variant this product does not have would otherwise book the base
+  // product silently at a different price. Say so instead.
+  const staleVariantLink = !!variantId && !initialVariant
 
   const maxQty = product.preOrderLimit
     ? Math.max(1, product.preOrderLimit - (product.preOrderCount ?? 0))
@@ -138,6 +181,74 @@ export default function PreOrderCheckoutView({ product }: { product: Product }) 
           )}
         </div>
       </div>
+
+      {/* Variant picker — the PDP passes ?variant=, but this page is also reachable
+          directly, and a booking must be able to name a specific variant. Stock is
+          ignored throughout: a pre-order product has none by definition. */}
+      {(hasOptions || variants.length > 0) && (
+        <div className="bg-surface border border-border rounded-2xl p-4 space-y-3">
+          {hasOptions ? (
+            <OptionSelector
+              product={product}
+              selection={selection}
+              onSelect={handleOptionSelect}
+              disabled={placing}
+              ignoreStock
+            />
+          ) : (
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-muted">Select Variant</p>
+                {variant && (
+                  <button
+                    type="button"
+                    onClick={() => setVariant(null)}
+                    className="text-xs font-medium text-primary hover:opacity-80"
+                  >
+                    Clear · show base
+                  </button>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {variants.map((v) => {
+                  const active = variant?.id === v.id
+                  return (
+                    <button
+                      key={v.id}
+                      type="button"
+                      disabled={placing}
+                      onClick={() => setVariant(active ? null : v)}
+                      className={`px-4 py-2 border rounded-xl text-sm font-medium transition-all disabled:opacity-50 ${
+                        active
+                          ? "border-primary bg-primary/10 text-primary shadow-sm"
+                          : "border-border text-muted hover:border-primary hover:text-primary"
+                      }`}
+                    >
+                      {v.name}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          <div className={`flex items-start gap-2.5 rounded-xl p-3 border ${
+            variant ? "bg-primary/5 border-primary/15" : "bg-surface-2 border-border"
+          }`}>
+            <Info size={15} className={`shrink-0 mt-0.5 ${variant ? "text-primary" : "text-faint"}`} />
+            <p className="text-xs text-muted">
+              {staleVariantLink ? (
+                <>That link pointed at a variant we no longer offer. Pick another below — otherwise the{" "}
+                <span className="font-semibold text-text">standard version</span> is reserved.</>
+              ) : variant ? (
+                <><span className="font-semibold text-text">{variant.name}</span> will be reserved at {inr(unit)} each.</>
+              ) : (
+                <>The <span className="font-semibold text-text">standard version</span> will be reserved.</>
+              )}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Address */}
       <div className="bg-surface border border-border rounded-2xl p-4 space-y-3">

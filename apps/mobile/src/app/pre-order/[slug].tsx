@@ -14,11 +14,14 @@ import { AddressService, type Address } from "../../lib/services/address.service
 import { AddressFormSheet } from "../../components/address/AddressFormSheet";
 import { PreOrderService } from "../../lib/services/preorder.service";
 import { getChargedPrice } from "../../lib/pricing";
+import { OptionSelector } from "../../components/product/OptionSelector";
+import { VariantPicker } from "../../components/product/VariantPicker";
+import { findVariant, type Selection } from "../../lib/variants/matrix";
 import { formatPrice } from "../../lib/utils/format";
 import { toast } from "../../store/toast.store";
 import { useAuthStore } from "../../store/auth.store";
 import { colors } from "../../theme/tokens";
-import type { Product } from "../../types/product";
+import type { Product, Variant } from "../../types/product";
 
 // Mirrors the backend's customer shipping charge (FREE_SHIPPING) — delivery is on us.
 const SHIPPING = 0;
@@ -57,10 +60,47 @@ export default function PreOrderCheckout() {
     })();
   }, [params.slug, isAuthenticated]);
 
-  const variant = useMemo(
-    () => product?.variants?.find((v) => v.id === variantId) || null,
+  // The ?variant= handed over by the PDP is a hint, not a contract — the screen is
+  // also reachable from a deep link whose variant may no longer exist.
+  const initialVariant = useMemo(
+    () => product?.variants?.find((v) => v.id === variantId) ?? null,
     [product, variantId]
   );
+
+  const [variant, setVariant] = useState<Variant | null>(null);
+  const [selection, setSelection] = useState<Selection>({});
+  const hasOptions = (product?.options?.length ?? 0) > 0;
+  const variants = product?.variants ?? [];
+
+  // Seeded once the product has loaded: a variant carries only optionValueIds, so
+  // the owning axis is looked up from the product's option list.
+  useEffect(() => {
+    if (!product || !initialVariant) return;
+    setVariant(initialVariant);
+    const picked = new Set(initialVariant.optionValues?.map((o) => o.optionValueId) ?? []);
+    const seed: Selection = {};
+    for (const opt of product.options ?? []) {
+      const match = opt.values.find((v) => picked.has(v.id));
+      if (match) seed[opt.id] = match.id;
+    }
+    setSelection(seed);
+  }, [product, initialVariant]);
+
+  const handleOptionSelect = (optionId: string, valueId: string) =>
+    setSelection((prev) => {
+      const next = { ...prev };
+      if (next[optionId] === valueId) delete next[optionId];
+      else next[optionId] = valueId;
+      return next;
+    });
+
+  useEffect(() => {
+    if (!product || !hasOptions) return;
+    setVariant(findVariant(product, selection) ?? null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selection]);
+
+  const staleVariantLink = !!variantId && !!product && !initialVariant;
 
   const maxQty = product?.preOrderLimit
     ? Math.max(1, product.preOrderLimit - (product.preOrderCount ?? 0))
@@ -142,6 +182,45 @@ export default function PreOrderCheckout() {
             <Pressable onPress={() => setQuantity((q) => Math.min(maxQty, q + 1))} className="px-3 py-1.5"><Text className="text-muted">+</Text></Pressable>
           </View>
         </Card>
+
+        {hasOptions || variants.length > 0 ? (
+          <Card className="gap-3">
+            {hasOptions ? (
+              <OptionSelector
+                product={product}
+                selection={selection}
+                onSelect={handleOptionSelect}
+                ignoreStock
+              />
+            ) : (
+              <VariantPicker
+                variants={variants}
+                selectedId={variant?.id}
+                onSelect={(v) => setVariant((prev) => (prev?.id === v.id ? null : v))}
+                onClear={() => setVariant(null)}
+                ignoreStock
+              />
+            )}
+            <View
+              className={`flex-row items-start gap-2 rounded-xl border p-3 ${
+                variant ? "border-primary/20 bg-primary/5" : "border-border bg-bg"
+              }`}
+            >
+              <Ionicons
+                name="information-circle-outline"
+                size={15}
+                color={variant ? colors.primary : colors.muted}
+              />
+              <Text className="flex-1 text-xs text-muted">
+                {staleVariantLink
+                  ? "That link pointed at a variant we no longer offer. Pick another, or the standard version will be reserved."
+                  : variant
+                    ? `${variant.name} will be reserved at ${formatPrice(unit)} each.`
+                    : "The standard version will be reserved."}
+              </Text>
+            </View>
+          </Card>
+        ) : null}
 
         <Card className="gap-2">
           <View className="flex-row items-center justify-between">

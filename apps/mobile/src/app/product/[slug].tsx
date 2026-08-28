@@ -256,7 +256,12 @@ export default function ProductDetail() {
                   <Text className="text-xs font-jakarta-semibold text-primary">Clear · show base</Text>
                 </Pressable>
               ) : null}
-              <OptionSelector product={product} selection={selection} onSelect={handleOptionSelect} />
+              <OptionSelector
+                product={product}
+                selection={selection}
+                onSelect={handleOptionSelect}
+                ignoreStock={canPreOrder}
+              />
             </View>
           ) : hasVariants ? (
             <VariantPicker
@@ -264,12 +269,13 @@ export default function ProductDetail() {
               selectedId={variant?.id}
               onSelect={(v) => setVariant((prev) => (prev?.id === v.id ? undefined : v))}
               onClear={() => setVariant(undefined)}
+              ignoreStock={canPreOrder}
             />
           ) : null}
 
           {/* What's actually going in the cart — the base product is a real, buyable
               SKU, so an empty selection must not look like nothing happened. */}
-          {(hasOptions || hasVariants) && !canPreOrder ? (
+          {(hasOptions || hasVariants) ? (
             <View
               className={`flex-row items-start gap-2.5 rounded-xl border p-3.5 ${
                 variant ? "border-primary/20 bg-primary/5" : "border-border bg-surface-2"

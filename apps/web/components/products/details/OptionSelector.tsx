@@ -11,11 +11,14 @@ export default function OptionSelector({
   selection,
   onSelect,
   disabled,
+  ignoreStock,
 }: {
   product: Product
   selection: Selection
   onSelect: (optionId: string, valueId: string) => void
   disabled?: boolean
+  /** Pre-order mode: every variant is out of stock, so don't grey them all out. */
+  ignoreStock?: boolean
 }) {
   const options = product.options ?? []
   if (!options.length) return null
@@ -37,7 +40,8 @@ export default function OptionSelector({
             <div className="flex flex-wrap gap-2">
               {opt.values.map((val) => {
                 const active = selection[opt.id] === val.id
-                const available = active || isValueAvailable(product, selection, opt.id, val.id)
+                const available =
+                  active || isValueAvailable(product, selection, opt.id, val.id, { ignoreStock })
 
                 if (color && val.swatchHex) {
                   return (

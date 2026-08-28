@@ -6,9 +6,11 @@ interface VariantPickerProps {
   selectedId?: string;
   onSelect: (variant: Variant) => void;
   onClear?: () => void;
+  /** Pre-order books future stock, so zero stock must not disable the chip. */
+  ignoreStock?: boolean;
 }
 
-export function VariantPicker({ variants, selectedId, onSelect, onClear }: VariantPickerProps) {
+export function VariantPicker({ variants, selectedId, onSelect, onClear, ignoreStock }: VariantPickerProps) {
   if (!variants?.length) return null;
   return (
     <View>
@@ -23,7 +25,7 @@ export function VariantPicker({ variants, selectedId, onSelect, onClear }: Varia
       <View className="flex-row flex-wrap gap-2">
         {variants.map((v) => {
           const active = v.id === selectedId;
-          const out = v.inStock === false || v.stock === 0;
+          const out = !ignoreStock && (v.inStock === false || v.stock === 0);
           return (
             <Pressable
               key={v.id}
