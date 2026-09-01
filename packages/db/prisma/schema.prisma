@@ -289,6 +289,12 @@ model Product {
   preOrderCount   Int      @default(0)
   preOrderNote    String?
 
+  /// Partial payment (20% deposit / balance at delivery). Default false: a new payment
+  /// term is opted into per product, never applied to the whole catalogue by a migration.
+  /// `depositPercent` null inherits PARTIAL_PAYMENT_PERCENT.
+  partialPaymentEnabled Boolean  @default(false)
+  depositPercent        Decimal? @db.Decimal(5,2)
+
   category     Category      @relation(fields: [categoryId], references: [id])
   images       ProductImage[]
   variants     Variant[]
@@ -354,6 +360,12 @@ model Variant {
   /// total across every variant, so both are checked.
   preOrderLimit   Int?
   preOrderCount   Int      @default(0)
+
+  /// Per-variant partial-payment terms, following the pre-order rule exactly: the product
+  /// switch is master, so a variant can only opt OUT. Defaults true to inherit.
+  partialPaymentEnabled Boolean  @default(true)
+  /// Null inherits Product.depositPercent, which in turn inherits the env default.
+  depositPercent        Decimal? @db.Decimal(5,2)
 
   cartItems    CartItem[]
   orderItems   OrderItem[]
@@ -569,6 +581,34 @@ enum PaymentMethod {
   COD
 }
 
+/// How the customer agreed to pay for an order.
+///
+/// FULL is the historical behaviour and the default, so every pre-existing row reads
+/// correctly with no backfill. PARTIAL means a deposit was charged online at checkout
+/// and the remainder is collected later — at the door by the courier, online before
+/// dispatch, or by hand from the admin panel.
+///
+/// This is deliberately NOT folded into `PaymentMethod`. A partial order's deposit is a
+/// genuine online Razorpay capture, so `paymentMethod` stays ONLINE; the courier-collection
+/// half is expressed by `balanceMethod` on Payment. Reusing PaymentMethod would flip
+/// `paymentMethod` to COD mid-life, and both clients branch on `paymentMethod !== "COD"`
+/// to decide whether to show refund copy — a cancelled partial order would silently stop
+/// telling the customer about their money.
+enum PaymentPlan {
+  FULL
+  PARTIAL
+}
+
+/// How the outstanding balance on a PARTIAL order actually arrived.
+///
+/// Written only at settlement, so there is no intent-vs-actual pair to keep in sync — the
+/// courier manifest mode is derived from `paymentPlan` + `balanceSettledAt` at dispatch time.
+enum BalanceMethod {
+  ONLINE
+  COD
+  MANUAL
+}
+
 model Order {
   id        String @id @default(uuid())
   userId    String
@@ -587,6 +627,41 @@ model Order {
 
   status        OrderStatus   @default(PENDING)
   paymentMethod PaymentMethod @default(ONLINE)
+
+  /// ── Partial payment (20% deposit now / balance at delivery) ──────────────────
+  ///
+  /// `paymentPlan` is the discriminator; every column below is NULL on a FULL order.
+  ///
+  /// The split is frozen at creation and NEVER recomputed: the configured percentage
+  /// (env default, per-product/variant override) can change while orders are live, and a
+  /// live order's obligation must not move under it.
+  ///
+  /// `depositAmount + balanceAmount = total` exactly, enforced by the
+  /// `order_partial_split_sums` CHECK constraint added in the migration. The balance is a
+  /// whole number of rupees because a courier collects it as cash and cannot make paise;
+  /// the deposit absorbs the remainder, being charged by a gateway that handles paise fine.
+  paymentPlan   PaymentPlan @default(FULL)
+  depositAmount Decimal?    @db.Decimal(12,2)
+  balanceAmount Decimal?    @db.Decimal(12,2)
+
+  /// Written once, when the deposit captures. Anchors the pay-before-dispatch hold —
+  /// `updatedAt` cannot, because any write bumps it (an admin editing `adminNote` would
+  /// silently re-arm the hold; the same trap that once broke the return window).
+  depositPaidAt DateTime?
+
+  /// Addresses the public balance-payment link. Nulled at dispatch, which kills the link.
+  balanceToken String? @unique
+
+  /// Set the instant the order is claimed for a waybill while the balance is still
+  /// outstanding. Non-null means a COD parcel is committed for that amount: the link is
+  /// dead, and a late online balance capture must be refunded rather than applied.
+  dispatchLockedAt DateTime?
+
+  /// A retained deposit. Timestamp rather than boolean: null-as-false needs no backfill,
+  /// "when" is what ops asks, and the reason separates an RTO from a customer cancellation
+  /// for the P&L (only one of the two got its goods back).
+  depositForfeitedAt   DateTime?
+  depositForfeitReason String?
 
   providerRefId        String?
   providerShipmentId   String?
@@ -623,6 +698,7 @@ model Order {
   @@index([deletedAt])
   @@index([idempotencyKey])
   @@index([paymentMethod])
+  @@index([paymentPlan])
   @@index([affiliateId])
   /// Backs the per-user coupon cap — Order already records both, so counting a
   /// customer's redemptions needs no separate redemption table.
@@ -633,6 +709,18 @@ model Order {
 enum PaymentStatus {
   PENDING
   INITIATED
+  /// Deposit captured on a PARTIAL order, balance still outstanding.
+  ///
+  /// A distinct member rather than SUCCESS-with-a-flag, because it makes most existing
+  /// `status !== "SUCCESS"` guards do the right thing untouched: no GST invoice is issued
+  /// at deposit time, the stale-order sweeper won't reclaim a deposit-paid order,
+  /// `abandonOrderService` refuses to release it, and both clients already hide the invoice
+  /// button — including published binaries we cannot update.
+  ///
+  /// It is also not PENDING: refund paths (`refundOrderMoney`, `resolveReturnService`,
+  /// `handleRefundProcessed`) must be able to return a captured deposit, and a PENDING
+  /// payment reads as "no money moved".
+  PARTIALLY_PAID
   SUCCESS
   FAILED
   REFUND_INITIATED
@@ -663,6 +751,43 @@ model Payment {
 
   codCollectedAt DateTime?
 
+  /// ── Balance leg (PARTIAL orders, and the pre-order booking/balance pair) ─────
+  ///
+  /// `amount` above records what the FIRST capture actually took — the deposit on a
+  /// partial order. Recording the true captured amount is what keeps the webhook amount
+  /// checks and refunds correct; the columns here carry the second leg.
+  ///
+  /// The two @unique gateway ids are the whole reason webhook leg-routing is cheap: a
+  /// capture is matched by *which column it matched*, never by comparing amounts. Amount
+  /// comparison would misclassify every pre-order-converted order.
+  balanceAmount            Decimal?  @db.Decimal(12,2)
+  balanceRazorpayOrderId   String?   @unique
+  /// Set-once capture marker. A different second id raises P2002 rather than double-booking.
+  balanceRazorpayPaymentId String?   @unique
+  balancePaidAt            DateTime?
+  balanceMethod            BalanceMethod?
+  /// The single "balance is in" flag, whichever channel delivered it.
+  balanceSettledAt         DateTime?
+  balanceReference         String?
+  /// Separate from `attempts`: sharing one counter would lock a customer who retried the
+  /// deposit twice out of paying their balance online.
+  balanceAttempts          Int       @default(0)
+
+  balanceRefundId     String?
+  balanceRefundAmount Decimal?  @db.Decimal(12,2)
+  balanceRefundedAt   DateTime?
+
+  /// Set ONLY by remittance reconciliation, never by a courier scan. DELIVERED means the
+  /// parcel moved; only the remittance file means the money moved. Keeping the two apart
+  /// is what makes "delivered but never paid" visible at all.
+  codRemittedAt     DateTime?
+  codRemittedAmount Decimal? @db.Decimal(12,2)
+
+  /// Money owed back to the customer that no gateway can return — a returned order whose
+  /// balance was collected as cash. Non-null and unsettled IS the admin payout queue.
+  manualRefundAmount    Decimal?  @db.Decimal(12,2)
+  manualRefundSettledAt DateTime?
+
   gatewayResponse Json?
 
   attempts Int @default(0)
@@ -676,6 +801,7 @@ model Payment {
 
   @@index([gateway, razorpayOrderId])
   @@index([razorpayPaymentId])
+  @@index([balanceRazorpayOrderId])
   @@index([status])
   @@index([paymentIdempotencyKey])
 }
