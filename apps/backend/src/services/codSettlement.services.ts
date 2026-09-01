@@ -1,8 +1,8 @@
 import { prisma } from "@repo/db/client";
 import { processAffiliateCommissionService } from "./affiliate.services";
-import { createAuditLogInTx } from "../utils/auditLog";
-import { notify } from "./notification.services";
-import { money } from "../utils/notificationCopy";
+import { createAuditLog, createAuditLogInTx } from "../utils/auditLog";
+import { notify, notifyAdmins } from "./notification.services";
+import { money, orderShortRef } from "../utils/notificationCopy";
 
 /**
  * Book the money for a COD order at the moment it is delivered.
@@ -72,6 +72,163 @@ export async function settleCodOnDelivery(orderId: string): Promise<void> {
       title: "Commission earned 🎉",
       body: `You earned ${money(commission.amount)} commission on a referred order.`,
       data: { screen: "AffiliateEarnings", orderId },
+    });
+  }
+}
+
+/**
+ * Book a partial-payment order once every rupee of it is in.
+ *
+ * THE single accrual point. `Payment.status = SUCCESS` and the affiliate commission are
+ * written here and nowhere else for a partial order, so neither can happen twice however
+ * many channels report the money (the courier webhook, the admin marking it paid, an
+ * online balance payment, or a replay of any of them).
+ *
+ * Settlement waits for DELIVERED even when the balance arrived earlier. That preserves the
+ * rule the COD path already established — booking at confirmation pays commission on
+ * parcels that later come back — which under partial payment stops being theoretical:
+ * a customer who pays their balance online can still refuse the parcel.
+ *
+ * The GST invoice is NOT issued here. It is raised at dispatch, because a tax invoice must
+ * accompany the goods (CGST §31(1)); settlement can be days later on a COD balance.
+ */
+export async function settleOrderIfFullyPaid(
+  orderId: string,
+  trigger: "delivery" | "balance-online" | "balance-manual"
+): Promise<void> {
+  const commission = await prisma.$transaction(async (tx) => {
+    const order = await tx.order.findUnique({
+      where: { id: orderId },
+      select: {
+        userId: true,
+        total: true,
+        status: true,
+        affiliateId: true,
+        paymentPlan: true,
+        balanceAmount: true,
+        payment: {
+          select: { id: true, status: true, balanceSettledAt: true, balanceMethod: true },
+        },
+      },
+    });
+
+    const payment = order?.payment;
+    if (!order || !payment) return null;
+    if (order.paymentPlan !== "PARTIAL") return null;
+
+    // The goods must actually be with the customer before any of this is earned.
+    if (order.status !== "DELIVERED") return null;
+    // Already settled, or the deposit never landed.
+    if (payment.status !== "PARTIALLY_PAID") return null;
+
+    // Delivered with the balance still outstanding means the courier collected it as cash
+    // at the door — that is what a COD manifest is for. Record how it arrived.
+    //
+    // `codCollectedAt` is set here because the parcel was handed over. `codRemittedAt` is
+    // deliberately NOT: delivery proves the parcel moved, only the remittance statement
+    // proves the money did, and keeping the two apart is what makes an unremitted COD
+    // visible instead of silently counted.
+    if (!payment.balanceSettledAt) {
+      const claimedBalance = await tx.payment.updateMany({
+        where: { id: payment.id, status: "PARTIALLY_PAID", balanceSettledAt: null },
+        data: {
+          balanceMethod: "COD",
+          balanceSettledAt: new Date(),
+          balancePaidAt: new Date(),
+          codCollectedAt: new Date(),
+        },
+      });
+      if (claimedBalance.count === 0) return null;
+
+      await createAuditLogInTx(tx, {
+        action: "BALANCE_COLLECTED_COD",
+        entity: "Payment",
+        entityId: orderId,
+        newValue: { amount: Number(order.balanceAmount ?? 0), trigger },
+      });
+    }
+
+    // The accrual claim. Exactly one caller can win this transition, which is what makes
+    // the commission below fire at most once.
+    const settled = await tx.payment.updateMany({
+      where: { id: payment.id, status: "PARTIALLY_PAID" },
+      data: { status: "SUCCESS" },
+    });
+    if (settled.count === 0) return null;
+
+    await createAuditLogInTx(tx, {
+      action: "ORDER_SETTLED",
+      entity: "Payment",
+      entityId: orderId,
+      oldValue: { status: "PARTIALLY_PAID" },
+      newValue: {
+        status: "SUCCESS",
+        trigger,
+        balanceMethod: payment.balanceMethod ?? "COD",
+        total: Number(order.total),
+      },
+    });
+
+    if (!order.affiliateId) return null;
+
+    // Commission is on the sale, so the base is the order total — not the balance leg.
+    return processAffiliateCommissionService({
+      tx,
+      orderId,
+      affiliateId: order.affiliateId,
+      orderTotal: Number(order.total),
+      userId: order.userId,
+    });
+  });
+
+  if (commission) {
+    void notify({
+      userId: commission.affiliateUserId,
+      type: "COMMISSION_EARNED",
+      title: "Commission earned 🎉",
+      body: `You earned ${money(commission.amount)} commission on a referred order.`,
+      data: { screen: "AffiliateEarnings", orderId },
+    });
+  }
+}
+
+/**
+ * Settle on delivery without ever failing the caller.
+ *
+ * The two call sites disagreed: the Delhivery webhook swallowed failures with
+ * `.catch(console.error)` — so the event was still marked PROCESSED, the courier never
+ * retried, and the money was silently never booked — while the admin status update left
+ * it uncaught, 500-ing the admin *after* the status change had already committed.
+ *
+ * Neither is acceptable once settlement carries real weight (it books the payment, the
+ * affiliate commission, and on partial orders the outstanding balance). Failing loudly to
+ * the caller is wrong — the delivery genuinely happened — so the failure is recorded and
+ * escalated instead, and surfaces in the "delivered but unsettled" report.
+ */
+export async function settleOnDeliverySafe(
+  orderId: string,
+  source: "webhook" | "admin"
+): Promise<void> {
+  try {
+    // Legacy full-COD parcels still in the field, then partial-payment orders. Each is a
+    // no-op for the other's shape, so both can run unconditionally.
+    await settleCodOnDelivery(orderId);
+    await settleOrderIfFullyPaid(orderId, "delivery");
+  } catch (err: any) {
+    console.error(`[settlement] failed for order ${orderId} (${source}):`, err);
+
+    await createAuditLog({
+      action: "SETTLEMENT_FAILED",
+      entity: "Payment",
+      entityId: orderId,
+      newValue: { source, error: String(err?.message ?? err).slice(0, 300) },
+    }).catch(() => {});
+
+    void notifyAdmins({
+      type: "ADMIN_CUSTOM",
+      title: "Settlement failed on delivery ⚠️",
+      body: `Order #${orderShortRef(orderId)} was delivered but could not be settled. Its payment, invoice and any affiliate commission are unbooked — settle it from the admin panel.`,
+      data: { screen: "AdminOrder", orderId },
     });
   }
 }

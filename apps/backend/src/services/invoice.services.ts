@@ -29,6 +29,8 @@ async function loadInvoiceableOrder(orderId: string) {
       shippingCharges: true,
       discount: true,
       paymentMethod: true,
+      status: true,
+      paymentPlan: true,
       createdAt: true,
       user: { select: { name: true, email: true, phone: true } },
       address: {
@@ -76,6 +78,29 @@ async function nextInvoiceNumber(
 }
 
 /**
+ * Whether a tax invoice may be raised for this order yet.
+ *
+ * A fully-paid order qualifies on payment. A partial-payment order qualifies once it has
+ * been DISPATCHED, even though its balance is still outstanding: CGST §31(1) requires the
+ * tax invoice to be issued before or at the removal of goods, and on a COD balance the
+ * money does not arrive until days after the parcel leaves. Waiting for settlement would
+ * put every such invoice after removal.
+ *
+ * Before dispatch a partial order gets a non-GST advance receipt instead, which must never
+ * consume an InvoiceCounter number — that series is legally required to be gap-free.
+ */
+function isInvoiceable(order: {
+  status: string;
+  paymentPlan?: string;
+  payment?: { status: string } | null;
+}): boolean {
+  if (order.payment?.status === "SUCCESS") return true;
+  if (order.paymentPlan !== "PARTIAL") return false;
+  if (order.payment?.status !== "PARTIALLY_PAID") return false;
+  return ["PROCESSING", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED"].includes(order.status);
+}
+
+/**
  * Create the invoice for an order, or return the one that already exists.
  *
  * Returns null when the order cannot be invoiced (missing, unpaid) rather than
@@ -88,7 +113,7 @@ export async function issueInvoiceForOrder(orderId: string) {
 
   const order = await loadInvoiceableOrder(orderId);
   if (!order) return null;
-  if (order.payment?.status !== "SUCCESS") return null;
+  if (!isInvoiceable(order)) return null;
 
   const seller = getSeller();
   const issuedAt = new Date();
@@ -197,12 +222,14 @@ export async function getInvoicePdfService(orderId: string, userId?: string) {
       id: true,
       createdAt: true,
       paymentMethod: true,
+      status: true,
+      paymentPlan: true,
       payment: { select: { status: true } },
     },
   });
   if (!order) throw new ApiError(404, "ORDER_NOT_FOUND");
 
-  if (order.payment?.status !== "SUCCESS") {
+  if (!isInvoiceable(order)) {
     throw new ApiError(409, "INVOICE_NOT_AVAILABLE");
   }
 

@@ -8,7 +8,7 @@ import {
   abandonOrderService,
 } from '../services/orders.services';
 import { getInvoicePdfService, invoiceFileName } from '../services/invoice.services';
-import { orderParamsSchema } from '@repo/zod-schema/index';
+import { orderParamsSchema, createOrderBodySchema } from '@repo/zod-schema/index';
 import { OrderErrorCode } from '../utils/orderErrors';
 
 async function createOrder(req: Request, res: Response) {
@@ -18,52 +18,32 @@ async function createOrder(req: Request, res: Response) {
   const idempotencyKey = req.get('Idempotency-Key');
   if (!idempotencyKey) throw new ApiError(400, OrderErrorCode.IDEMPOTENCY_KEY_REQUIRED);
 
-  // Bypass schema.parse() entirely — the workspace zod-schema may not include
-  // cartItems/couponCode, silently stripping them and causing CART_EMPTY/Validation failed errors.
-  // Manually validate what we need instead.
-  const body = req.body ?? {};
-
-  const addressId = typeof body.addressId === 'string' ? body.addressId.trim() : null;
-  if (!addressId) throw new ApiError(400, 'addressId is required');
-
-  const rawCartItems: Array<{ productId: string; variantId?: string; quantity: number }> = body.cartItems;
-  if (!Array.isArray(rawCartItems) || rawCartItems.length === 0) {
-    throw new ApiError(400, OrderErrorCode.CART_EMPTY);
+  // Validated by the shared schema, which is the single source of truth for request
+  // shapes (CLAUDE.md). This used to hand-roll the checks and bypass `.parse()` entirely,
+  // blaming a stale `@repo/zod-schema` build for stripping `cartItems`/`couponCode` — but
+  // the stale build was the actual bug, and the workaround meant `paymentMethod` was
+  // hardcoded here and every new field had to be added in two places.
+  //
+  // `paymentMethod` still collapses to ONLINE inside the schema (see
+  // retiredCodPaymentMethod), so published builds that send 'COD' keep working.
+  let validated;
+  try {
+    validated = createOrderBodySchema.parse(req.body ?? {});
+  } catch (err: any) {
+    // Preserve the typed codes both clients already map to friendly copy; a raw Zod
+    // message would surface to the customer verbatim.
+    const first = err?.issues?.[0];
+    const path = Array.isArray(first?.path) ? first.path.join('.') : '';
+    if (path.startsWith('cartItems')) throw new ApiError(400, OrderErrorCode.CART_EMPTY);
+    if (path.startsWith('addressId')) throw new ApiError(400, OrderErrorCode.INVALID_ADDRESS);
+    throw new ApiError(400, first?.message ?? 'Validation failed');
   }
 
-  // Validate each cart item has required fields
-  for (const item of rawCartItems) {
-    if (typeof item.productId !== 'string' || !item.productId) {
-      throw new ApiError(400, 'Each cart item must have a productId');
-    }
-    if (typeof item.quantity !== 'number' || item.quantity < 1) {
-      throw new ApiError(400, 'Each cart item must have a valid quantity');
-    }
+  // The forfeiture term is the contractual basis for keeping a deposit, so the
+  // acknowledgement is required server-side rather than trusted to the UI.
+  if (validated.paymentPlan === 'PARTIAL' && !validated.acceptForfeitTerms) {
+    throw new ApiError(400, OrderErrorCode.FORFEIT_TERMS_NOT_ACCEPTED);
   }
-
-  const couponCode: string | undefined =
-    typeof body.couponCode === 'string' && body.couponCode.trim()
-      ? body.couponCode.trim()
-      : undefined;
-
-  // Cash on Delivery has been withdrawn. Published mobile builds still send
-  // paymentMethod: 'COD', so coerce rather than reject — the order is created as a
-  // normal prepaid order and the client's follow-up call to /payments/cod is what
-  // tells it (via 410 COD_NOT_AVAILABLE) that the method is gone.
-  const paymentMethod: 'ONLINE' = 'ONLINE';
-
-  const customerNote: string | undefined =
-    typeof body.customerNote === 'string' && body.customerNote.trim()
-      ? body.customerNote.trim().slice(0, 500)
-      : undefined;
-
-  const validated = {
-    addressId,
-    cartItems: rawCartItems,
-    paymentMethod,
-    ...(couponCode ? { couponCode } : {}),
-    ...(customerNote ? { customerNote } : {}),
-  };
 
   let affiliateId: string | undefined;
   const rawAffiliateId = req.cookies?.ref || req.get('X-Affiliate-Id');
@@ -134,7 +114,10 @@ async function cancelOrder(req: Request, res: Response) {
   if (!userId) throw new ApiError(401, 'Unauthorized');
   const { id } = orderParamsSchema.parse(req.params);
   const reason = req.body?.reason as string | undefined;
-  const result = await cancelOrderService(userId, id, reason);
+  // Explicit acknowledgement that a partial order's deposit is forfeited. The service
+  // rejects the cancellation without it, so the client must have shown the amount.
+  const confirmForfeit = req.body?.confirmForfeit === true;
+  const result = await cancelOrderService(userId, id, reason, { confirmForfeit });
   return new ApiResponse(200, result, 'Order cancelled').send(res);
 }
 

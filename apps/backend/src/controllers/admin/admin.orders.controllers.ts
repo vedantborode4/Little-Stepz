@@ -75,7 +75,8 @@ async function updateOrderStatus(req: Request, res: Response) {
   const updatedOrder = await updateOrderStatusService(
     id,
     validated.status as OrderStatus,
-    adminId
+    adminId,
+    validated.cancellationParty
   );
 
   return new ApiResponse(200, updatedOrder, "Order status updated").send(res);

@@ -6,8 +6,8 @@ import { orderStatusNotification, orderShortRef } from "../../utils/notification
 import { cancelShipmentService } from "../payment.services";
 import { syncProductStockFlags } from "../../utils/stock";
 import { reverseAffiliateCommissionsService } from "../affiliate.services";
-import { refundCapturedOrderPayment } from "../refund.services";
-import { settleCodOnDelivery } from "../codSettlement.services";
+import { refundOrderMoney, type RefundScope } from "../refund.services";
+import { settleOnDeliverySafe } from "../codSettlement.services";
 
 
 const statusTransitions: Record<OrderStatus, OrderStatus[]> = {
@@ -66,18 +66,25 @@ export async function getAdminOrdersService(
       include: {
         user: { select: { id: true, name: true } },
         payment: { select: { status: true, amount: true } },
+        // The admin "Resolve Return" action addresses the Return, not the Order —
+        // `PUT /admin/returns/:id/resolve`. The row was never sent one, so the button
+        // posted `undefined` as the id and the flow could not work at all.
+        // Return.orderId is @unique, so there is at most one.
+        returns: { select: { id: true, status: true }, take: 1 },
       },
     }),
     prisma.order.count({ where }),
   ]);
 
   return {
-    orders: orders.map((order) => ({
+    orders: orders.map(({ returns, ...order }) => ({
       ...order,
       subtotal: order.subtotal.toNumber(),
       discount: order.discount.toNumber(),
       shippingCharges: order.shippingCharges.toNumber(),
       total: order.total.toNumber(),
+      returnId: returns[0]?.id ?? null,
+      returnStatus: returns[0]?.status ?? null,
       payment: order.payment
         ? {
             ...order.payment,
@@ -184,6 +191,11 @@ export async function getAdminOrderByIdService(id: string) {
           variant: { select: { id: true, name: true } },
         },
       },
+      // The "Resolve Return" action addresses the Return, not the Order.
+      returns: {
+        select: { id: true, status: true, reason: true, refundAmount: true, createdAt: true },
+        take: 1,
+      },
     },
   });
 
@@ -191,6 +203,12 @@ export async function getAdminOrderByIdService(id: string) {
 
   return {
     ...order,
+    returnId:     order.returns[0]?.id ?? null,
+    returnStatus: order.returns[0]?.status ?? null,
+    returns: order.returns.map((r) => ({
+      ...r,
+      refundAmount: r.refundAmount?.toNumber() ?? null,
+    })),
     subtotal:        order.subtotal.toNumber(),
     discount:        order.discount.toNumber(),
     shippingCharges: order.shippingCharges.toNumber(),
@@ -220,8 +238,40 @@ export async function getAdminOrderByIdService(id: string) {
 export async function updateOrderStatusService(
   id: string,
   newStatus: OrderStatus,
-  adminId: string
+  adminId: string,
+  /**
+   * Who the cancellation is on behalf of. Required when cancelling a partial-payment
+   * order, because the two cases have opposite money outcomes and this is the only
+   * admin cancel there is:
+   *
+   *  - MERCHANT — we cannot fulfil. The deposit is returned in full.
+   *  - CUSTOMER — cancelled on the customer's behalf. The deposit is forfeited, exactly
+   *               as if they had cancelled it themselves.
+   *
+   * Without it an admin doing a customer a favour would silently refund a deposit that
+   * policy says is retained, with no way to tell afterwards which was meant.
+   */
+  cancellationParty?: "MERCHANT" | "CUSTOMER"
 ) {
+  // Read before the unwind, so the refund policy is decided from the state being cancelled.
+  const preState =
+    newStatus === OrderStatus.CANCELLED
+      ? await prisma.order.findUnique({
+          where: { id },
+          select: {
+            paymentPlan: true,
+            payment: { select: { status: true, balanceSettledAt: true } },
+          },
+        })
+      : null;
+
+  const depositAtRisk =
+    preState?.paymentPlan === "PARTIAL" && preState.payment?.status === "PARTIALLY_PAID";
+
+  if (depositAtRisk && !cancellationParty) {
+    throw new ApiError(400, OrderErrorCode.CANCELLATION_PARTY_REQUIRED);
+  }
+
   const result = await prisma.$transaction(async (tx) => {
     const order = await tx.order.findUnique({
       where: { id },
@@ -321,7 +371,7 @@ export async function updateOrderStatusService(
   });
 
   // Both of these make their own external/DB calls and so run after the commit.
-  let refund: Awaited<ReturnType<typeof refundCapturedOrderPayment>> = { status: "none" };
+  let refund: Awaited<ReturnType<typeof refundOrderMoney>> = { status: "none" };
 
   if (newStatus === OrderStatus.CANCELLED) {
     // A PROCESSING order has already been manifested with Delhivery. Cancelling it
@@ -330,11 +380,28 @@ export async function updateOrderStatusService(
     // out. Best-effort: a courier that refuses the cancellation must not fail the
     // cancellation itself, so the admin is told to pull it manually instead.
     await cancelWaybillForCancelledOrder(id, adminId);
-    refund = await refundCapturedOrderPayment(id, "Order cancelled by admin");
+
+    // A merchant-side cancellation returns everything: the customer did nothing wrong,
+    // so there is nothing to forfeit. A customer-side one follows the deposit policy.
+    const scope: RefundScope = !depositAtRisk || cancellationParty === "MERCHANT"
+      ? "ALL"
+      : preState?.payment?.balanceSettledAt
+        ? "BALANCE_ONLY"
+        : "NONE";
+
+    refund = await refundOrderMoney(
+      id,
+      cancellationParty === "CUSTOMER"
+        ? "Order cancelled by admin on the customer's behalf"
+        : "Order cancelled by admin",
+      { scope }
+    );
   }
 
   if (newStatus === OrderStatus.DELIVERED) {
-    await settleCodOnDelivery(id);
+    // Safe wrapper: the status change has already committed, so a settlement failure
+    // must be escalated rather than 500-ing the admin over work that did succeed.
+    await settleOnDeliverySafe(id, "admin");
   }
 
   const copy = orderStatusNotification(newStatus, result.id);

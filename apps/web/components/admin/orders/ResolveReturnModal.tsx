@@ -16,10 +16,18 @@ export default function ResolveReturnModal({ returnId, refresh }: Props) {
   const [loading, setLoading] = useState(false)
 
   const submit = async () => {
+    if (!returnId) {
+      toast.error("No return request found for this order.")
+      return
+    }
     setLoading(true)
     try {
-      // PUT /admin/returns/:id/resolve
-      await AdminOrderService.resolveReturn(returnId, { action, reason: reason || undefined })
+      // PUT /admin/returns/:id/resolve — the schema is `.strict()` and expects
+      // { status, adminNote?, refundAmount? }, not { action, reason }.
+      await AdminOrderService.resolveReturn(returnId, {
+        status: action === "APPROVE" ? "APPROVED" : "REJECTED",
+        adminNote: reason || undefined,
+      })
       toast.success(`Return ${action.toLowerCase()}d`)
       setOpen(false)
       refresh()

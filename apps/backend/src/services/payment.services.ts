@@ -31,8 +31,8 @@ import type {
 } from "@repo/zod-schema/index";
 import { Request } from "express";
 import { releasePendingOrderStock } from "../utils/pendingRelease";
-import { settleCodOnDelivery } from "./codSettlement.services";
-import { refundCapturedOrderPayment } from "./refund.services";
+import { settleOnDeliverySafe } from "./codSettlement.services";
+import { refundOrderMoney, type RefundScope } from "./refund.services";
 import { restoreOrderStock } from "../utils/stock";
 
 const MAX_PAYMENT_ATTEMPTS = 3;
@@ -48,14 +48,22 @@ function emitOrderConfirmed(
   userId: string,
   orderId: string,
   total: number | string,
-  opts: { paid: boolean }
+  opts: {
+    paid: boolean;
+    /** Present when only a deposit was captured — the copy must say so. */
+    partial?: { deposit: number; balanceDue: number };
+  }
 ) {
   if (opts.paid) {
     void notify({
       userId,
       type: "PAYMENT_SUCCESS",
-      title: "Payment received 💳",
-      body: `We've received your payment of ${money(total)} for order #${orderShortRef(orderId)}.`,
+      title: opts.partial ? "Deposit received 💳" : "Payment received 💳",
+      // Never quote the order total as "received" on a partial order — 20% was taken and
+      // the rest is still owed at the door.
+      body: opts.partial
+        ? `We've received your deposit of ${money(opts.partial.deposit)} for order #${orderShortRef(orderId)}. ${money(opts.partial.balanceDue)} is due when your order is delivered.`
+        : `We've received your payment of ${money(total)} for order #${orderShortRef(orderId)}.`,
       data: { screen: "Order", orderId },
     });
   }
@@ -235,8 +243,10 @@ export async function createPaymentService(
       const orders = await tx.$queryRaw<Array<{
         id: string; userId: string; total: unknown;
         status: string; paymentMethod: string;
+        paymentPlan: string; depositAmount: unknown; balanceAmount: unknown;
       }>>`
-        SELECT id, "userId", total, status, "paymentMethod"
+        SELECT id, "userId", total, status, "paymentMethod",
+               "paymentPlan", "depositAmount", "balanceAmount"
         FROM "Order"
         WHERE id = ${data.orderId}
         FOR UPDATE
@@ -257,13 +267,18 @@ export async function createPaymentService(
       // because the order is replayed under the same idempotency key. The method is
       // corrected below.
 
-      const totalAmount = Number(order.total);
+      const isPartial = order.paymentPlan === "PARTIAL";
+
+      // On a partial order this checkout charges only the deposit. The balance is a
+      // separate leg, collected at the door or through its own payment later.
+      const totalAmount = isPartial ? Number(order.depositAmount) : Number(order.total);
+      const legBalance = isPartial ? new Decimal(String(order.balanceAmount ?? 0)) : null;
 
       // Razorpay rejects anything below ₹1. A coupon covering the whole subtotal
       // with free shipping produces a ₹0 total, which would leave the order stuck:
       // unpayable online and never confirmable. Not reachable with today's coupon
       // data, but the failure mode is a dead order, so guard it explicitly.
-      if (totalAmount < 1) {
+      if (!Number.isFinite(totalAmount) || totalAmount < 1) {
         throw new ApiError(400, PaymentErrorCode.AMOUNT_MISMATCH);
       }
 
@@ -272,7 +287,10 @@ export async function createPaymentService(
       });
 
       if (existingPayment) {
-        if (existingPayment.status === "SUCCESS") {
+        // PARTIALLY_PAID counts as succeeded for this purpose: the deposit is already
+        // captured, and without this a second /payments/create would open a whole second
+        // Razorpay order for the same deposit.
+        if (existingPayment.status === "SUCCESS" || existingPayment.status === "PARTIALLY_PAID") {
           throw new ApiError(409, PaymentErrorCode.PAYMENT_ALREADY_SUCCEEDED);
         }
         if (existingPayment.attempts >= MAX_PAYMENT_ATTEMPTS) {
@@ -280,7 +298,13 @@ export async function createPaymentService(
         }
         if (existingPayment.razorpayOrderId && existingPayment.status === "INITIATED") {
           // Reopening the sheet reuses the same Razorpay order — no gateway call.
-          return { reuse: true as const, razorpayOrderId: existingPayment.razorpayOrderId, totalAmount };
+            return {
+            reuse: true as const,
+            razorpayOrderId: existingPayment.razorpayOrderId,
+            totalAmount,
+            isPartial,
+            balanceDue: Number(order.balanceAmount ?? 0),
+          };
         }
         if (existingPayment.status === "INITIATED" && !existingPayment.razorpayOrderId) {
           // Another request is between the claim and the gateway response.
@@ -293,6 +317,10 @@ export async function createPaymentService(
             attempts:        { increment: 1 },
             status:          "INITIATED",
             razorpayOrderId: null,
+            // Re-assert the leg amounts: the order may have been created before the
+            // payment row, and `amount` must always equal what this capture will take.
+            amount:          new Decimal(totalAmount),
+            balanceAmount:   legBalance,
           },
         });
       } else {
@@ -301,7 +329,11 @@ export async function createPaymentService(
             orderId:         data.orderId,
             method:          "ONLINE",
             gateway:         "razorpay",
+            // The deposit on a partial order, the whole total otherwise. Every downstream
+            // amount check compares against this, never against `order.total`, which is
+            // what lets a partial capture verify correctly with no other change.
             amount:          new Decimal(totalAmount),
+            balanceAmount:   legBalance,
             currency:        "INR",
             status:          "INITIATED",
             attempts:        1,
@@ -318,9 +350,13 @@ export async function createPaymentService(
         });
       }
 
-      return { reuse: false as const, totalAmount };
+      return { reuse: false as const, totalAmount, isPartial, balanceDue: Number(order.balanceAmount ?? 0) };
     });
   });
+
+  // `purpose` tells the client what it is about to charge, so the Razorpay sheet and the
+  // verifying screen can say "20% deposit" rather than "Order Payment".
+  const purpose = claim.isPartial ? ("DEPOSIT" as const) : ("FULL" as const);
 
   if (claim.reuse) {
     return {
@@ -329,6 +365,8 @@ export async function createPaymentService(
       amount:          claim.totalAmount,
       currency:        "INR",
       keyId:           process.env.RAZORPAY_KEY_ID,
+      purpose,
+      balanceDue:      claim.balanceDue,
     };
   }
 
@@ -339,7 +377,7 @@ export async function createPaymentService(
       amount:   claim.totalAmount,
       currency: "INR",
       receipt:  data.orderId.substring(0, 40),
-      notes:    { orderId: data.orderId, userId },
+      notes:    { orderId: data.orderId, userId, leg: claim.isPartial ? "deposit" : "full" },
     });
   } catch {
     // Release the claim, or the null razorpayOrderId would look like a permanently
@@ -380,6 +418,8 @@ export async function createPaymentService(
     amount:          claim.totalAmount,
     currency:        "INR",
     keyId:           process.env.RAZORPAY_KEY_ID,
+    purpose,
+    balanceDue:      claim.balanceDue,
   };
 }
 
@@ -407,36 +447,58 @@ async function refundOrphanedCapture(
     orderStatus:       string;
     gatewayResponse:   unknown;
     source:            "verify" | "webhook";
+    /**
+     * Which capture this was. The primary leg owns `Payment.status`; the balance leg
+     * must NOT touch it — overwriting a PARTIALLY_PAID payment here would erase the
+     * record that a deposit is still held, and with it the ability to refund it.
+     */
+    leg?:              "primary" | "balance";
+    reason?:           string;
   }
 ): Promise<{ refunded: boolean }> {
+  const leg = params.leg ?? "primary";
+  const reason = params.reason ?? "Order no longer active";
+
   let refundId: string | null = null;
   try {
     const refund = await initiateRazorpayRefund({
       paymentId: params.razorpayPaymentId,
       amount:    params.amount,
-      notes:     { orderId: params.orderId, reason: "Order no longer active" },
+      notes:     { orderId: params.orderId, reason, leg },
     });
     refundId = refund.id;
   } catch {
     refundId = null;
   }
 
-  await tx.payment.update({
-    where: { id: params.paymentId },
-    data: refundId
+  // Record the capture either way. The money has already left the customer's account, so
+  // the link between it and us matters more than the refund call succeeding.
+  const captureData =
+    leg === "primary"
+      ? { razorpayPaymentId: params.razorpayPaymentId, gatewayResponse: params.gatewayResponse as any }
+      : { balanceRazorpayPaymentId: params.razorpayPaymentId };
+
+  const refundData = refundId
+    ? leg === "primary"
       ? {
-          status:            "REFUND_INITIATED",
-          razorpayPaymentId: params.razorpayPaymentId,
-          gatewayResponse:   params.gatewayResponse as any,
+          status:       "REFUND_INITIATED" as const,
           refundId,
-          refundAmount:      new Decimal(params.amount),
-          refundReason:      "Order cancelled before payment completed",
+          refundAmount: new Decimal(params.amount),
+          refundReason: reason,
         }
       : {
-          status:            "SUCCESS",
-          razorpayPaymentId: params.razorpayPaymentId,
-          gatewayResponse:   params.gatewayResponse as any,
-        },
+          balanceRefundId:     refundId,
+          balanceRefundAmount: new Decimal(params.amount),
+          balanceRefundedAt:   new Date(),
+        }
+    : leg === "primary"
+      // No refund placed: leave the primary leg SUCCESS so an admin can settle it by hand.
+      ? { status: "SUCCESS" as const }
+      : {};
+
+  await tx.payment.update({
+    where: { id: params.paymentId },
+    data: { ...captureData, ...refundData },
   });
 
   await createAuditLogInTx(tx, {
@@ -447,6 +509,7 @@ async function refundOrphanedCapture(
       reason:      "ORDER_NOT_PENDING",
       orderStatus: params.orderStatus,
       source:      params.source,
+      leg,
       razorpayPaymentId: params.razorpayPaymentId,
       refundId,
       amount:      params.amount,
@@ -532,7 +595,10 @@ export async function verifyPaymentService(
       const payment = payments[0];
       if (!payment) throw new ApiError(404, PaymentErrorCode.PAYMENT_NOT_FOUND);
 
-      if (payment.status === "SUCCESS") {
+      // Already verified. PARTIALLY_PAID counts: on a partial order the deposit capture
+      // lands here and leaves the payment in that state, so recognising only SUCCESS made
+      // a replayed verify fall through and fail on RAZORPAY_ORDER_ID_MISMATCH below.
+      if (payment.status === "SUCCESS" || payment.status === "PARTIALLY_PAID") {
         return { success: true, orderId: data.orderId, alreadyProcessed: true, total: 0, commission: null, orphaned: false, refunded: false };
       }
 
@@ -551,9 +617,9 @@ export async function verifyPaymentService(
 
       const orders = await tx.$queryRaw<Array<{
         id: string; userId: string; status: string; affiliateId: string | null;
-        total: unknown;
+        total: unknown; paymentPlan: string; balanceAmount: unknown;
       }>>`
-        SELECT id, "userId", status, "affiliateId", total
+        SELECT id, "userId", status, "affiliateId", total, "paymentPlan", "balanceAmount"
         FROM "Order"
         WHERE id = ${data.orderId}
         FOR UPDATE
@@ -579,10 +645,16 @@ export async function verifyPaymentService(
         return { success: false, orderId: data.orderId, alreadyProcessed: false, total: 0, commission: null, orphaned: true, refunded };
       }
 
+      // A partial order's deposit does not settle the order — the balance is still out,
+      // so the payment stops at PARTIALLY_PAID. That single distinction is what keeps the
+      // GST invoice, the affiliate commission and the revenue figures correct with no
+      // further changes to their existing SUCCESS-only guards.
+      const isPartial = order.paymentPlan === "PARTIAL";
+
       await tx.payment.update({
         where: { orderId: data.orderId },
         data: {
-          status:            "SUCCESS",
+          status:            isPartial ? "PARTIALLY_PAID" : "SUCCESS",
           razorpayPaymentId: data.razorpayPaymentId,
           razorpaySignature: data.razorpaySignature,
           gatewayResponse:   razorpayPayment as any,
@@ -591,7 +663,12 @@ export async function verifyPaymentService(
 
       await tx.order.update({
         where: { id: data.orderId },
-        data:  { status: "CONFIRMED" },
+        data: {
+          status: "CONFIRMED",
+          // Written once. Anchors the pay-before-dispatch hold, which `updatedAt` cannot
+          // because any later write to the order would silently re-arm it.
+          ...(isPartial ? { depositPaidAt: new Date() } : {}),
+        },
       });
 
       // Clear the cart only now that payment is confirmed — see orders.services.ts.
@@ -600,8 +677,11 @@ export async function verifyPaymentService(
         data:  { deletedAt: new Date() },
       });
 
+      // Commission accrues on settlement, never on a deposit: an order whose balance is
+      // refused at the door earns nothing, and paying out on it would mean clawing the
+      // commission back later. `settleOrderIfFullyPaid` books it when the money is in.
       let commission = null;
-      if (order.affiliateId) {
+      if (order.affiliateId && !isPartial) {
         commission = await processAffiliateCommissionService({
           tx,
           orderId:     data.orderId,
@@ -613,15 +693,26 @@ export async function verifyPaymentService(
 
       await createAuditLogInTx(tx, {
         userId,
-        action:   "PAYMENT_SUCCESS",
+        action:   isPartial ? "DEPOSIT_CAPTURED" : "PAYMENT_SUCCESS",
         entity:   "Payment",
         entityId: data.orderId,
         oldValue: { status: payment.status },
-        newValue: { status: "SUCCESS", razorpayPaymentId: data.razorpayPaymentId },
+        newValue: {
+          status: isPartial ? "PARTIALLY_PAID" : "SUCCESS",
+          razorpayPaymentId: data.razorpayPaymentId,
+          ...(isPartial
+            ? { deposit: Number(payment.amount), balanceDue: Number(order.balanceAmount ?? 0) }
+            : {}),
+        },
         req,
       });
 
-      return { success: true, orderId: data.orderId, alreadyProcessed: false, total: Number(order.total), commission, orphaned: false, refunded: false };
+      return {
+        success: true, orderId: data.orderId, alreadyProcessed: false,
+        total: Number(order.total), commission, orphaned: false, refunded: false,
+        isPartial, capturedAmount: Number(payment.amount),
+        balanceDue: Number(order.balanceAmount ?? 0),
+      };
     });
   });
 
@@ -634,7 +725,14 @@ export async function verifyPaymentService(
   }
 
   if (!result.alreadyProcessed) {
-    emitOrderConfirmed(userId, result.orderId, result.total, { paid: true });
+    // Report the amount actually captured, not the order value — telling a customer
+    // "we received your payment of the full total" when 20% was taken is wrong.
+    emitOrderConfirmed(userId, result.orderId, result.total, {
+      paid: true,
+      partial: result.isPartial
+        ? { deposit: result.capturedAmount, balanceDue: result.balanceDue }
+        : undefined,
+    });
     emitCommissionEarned(result.commission, result.orderId);
   }
 
@@ -764,7 +862,8 @@ async function handlePaymentCaptured(payload: any): Promise<void> {
       const payment = payments[0];
       if (!payment) { foundPayment = false; return null; } // not a normal order payment — maybe a pre-order leg
 
-      if (payment.status === "SUCCESS") return null;
+      // PARTIALLY_PAID means this deposit was already booked by the verify call.
+      if (payment.status === "SUCCESS" || payment.status === "PARTIALLY_PAID") return null;
 
       const expectedPaise = Math.round(Number(payment.amount) * 100);
       if (amountPaise && amountPaise !== expectedPaise) {
@@ -802,10 +901,18 @@ async function handlePaymentCaptured(payload: any): Promise<void> {
         };
       }
 
+      // Mirrors verify: a deposit stops at PARTIALLY_PAID, and only a settled balance
+      // takes the payment to SUCCESS.
+      const planRow = await tx.order.findUnique({
+        where:  { id: payment.orderId },
+        select: { paymentPlan: true, balanceAmount: true },
+      });
+      const isPartial = planRow?.paymentPlan === "PARTIAL";
+
       await tx.payment.update({
         where: { id: payment.id },
         data: {
-          status:            "SUCCESS",
+          status:            isPartial ? "PARTIALLY_PAID" : "SUCCESS",
           razorpayPaymentId,
           gatewayResponse:   entity as any,
         },
@@ -813,7 +920,10 @@ async function handlePaymentCaptured(payload: any): Promise<void> {
 
       await tx.order.update({
         where: { id: payment.orderId },
-        data:  { status: "CONFIRMED" },
+        data: {
+          status: "CONFIRMED",
+          ...(isPartial ? { depositPaidAt: new Date() } : {}),
+        },
       });
 
       const order = await tx.order.findUnique({
@@ -833,8 +943,9 @@ async function handlePaymentCaptured(payload: any): Promise<void> {
         });
       }
 
+      // Commission accrues on settlement, not on a deposit — see verifyPaymentService.
       let commission = null;
-      if (order?.affiliateId) {
+      if (order?.affiliateId && !isPartial) {
         commission = await processAffiliateCommissionService({
           tx,
           orderId:     payment.orderId,
@@ -845,15 +956,24 @@ async function handlePaymentCaptured(payload: any): Promise<void> {
       }
 
       await createAuditLogInTx(tx, {
-        action:   "PAYMENT_SUCCESS",
+        action:   isPartial ? "DEPOSIT_CAPTURED" : "PAYMENT_SUCCESS",
         entity:   "Payment",
         entityId: payment.orderId,
         oldValue: { status: payment.status },
-        newValue: { status: "SUCCESS", source: "webhook", razorpayPaymentId },
+        newValue: {
+          status: isPartial ? "PARTIALLY_PAID" : "SUCCESS",
+          source: "webhook",
+          razorpayPaymentId,
+        },
       });
 
       return order
-        ? { orphaned: false as const, refunded: false, userId: order.userId, orderId: payment.orderId, total: Number(order.total), commission }
+        ? {
+            orphaned: false as const, refunded: false, userId: order.userId,
+            orderId: payment.orderId, total: Number(order.total), commission,
+            isPartial, capturedAmount: Number(payment.amount),
+            balanceDue: Number(planRow?.balanceAmount ?? 0),
+          }
         : null;
     });
   });
@@ -861,7 +981,12 @@ async function handlePaymentCaptured(payload: any): Promise<void> {
   if (confirmed?.orphaned) {
     emitOrphanedCaptureNotice(confirmed.userId, confirmed.orderId, confirmed.refunded);
   } else if (confirmed) {
-    emitOrderConfirmed(confirmed.userId, confirmed.orderId, confirmed.total, { paid: true });
+    emitOrderConfirmed(confirmed.userId, confirmed.orderId, confirmed.total, {
+      paid: true,
+      partial: confirmed.isPartial
+        ? { deposit: confirmed.capturedAmount, balanceDue: confirmed.balanceDue }
+        : undefined,
+    });
     emitCommissionEarned(confirmed.commission, confirmed.orderId);
   }
 
@@ -928,6 +1053,42 @@ async function handlePaymentFailed(payload: any): Promise<void> {
   }
 }
 
+/**
+ * The captured/refunded state of one payment, leg by leg.
+ *
+ * A Payment can carry two separate Razorpay captures: the primary leg (`amount`, a full
+ * payment or a partial order's deposit) and the balance leg (`balanceAmount`). Whether the
+ * *order* is fully refunded is a question about both, so it cannot be answered by comparing
+ * a single refund against a single `amount` — which is exactly what this used to do.
+ */
+type PaymentLegs = {
+  amount: unknown; balanceAmount: unknown;
+  razorpayPaymentId: string | null; balanceRazorpayPaymentId: string | null;
+  refundAmount: unknown; balanceRefundAmount: unknown;
+};
+
+/**
+ * True when every leg that actually took money has been refunded in full.
+ *
+ * Only that state may mark the payment REFUNDED and unwind the order. On a FULL order
+ * (no balance leg) this reduces exactly to the previous single-leg comparison.
+ */
+function allCapturedLegsRefunded(p: PaymentLegs): boolean {
+  const legs: Array<{ captured: number; refunded: number }> = [];
+  if (p.razorpayPaymentId) {
+    legs.push({ captured: Number(p.amount), refunded: Number(p.refundAmount ?? 0) });
+  }
+  if (p.balanceRazorpayPaymentId) {
+    legs.push({
+      captured: Number(p.balanceAmount ?? 0),
+      refunded: Number(p.balanceRefundAmount ?? 0),
+    });
+  }
+  if (legs.length === 0) return false;
+  // The 0.01 slack matches the existing tolerance for gateway rounding.
+  return legs.every((l) => l.refunded >= l.captured - 0.01);
+}
+
 async function handleRefundProcessed(payload: any): Promise<void> {
   const refundEntity    = payload?.payload?.refund?.entity;
   const razorpayRefundId = refundEntity?.id;
@@ -937,42 +1098,81 @@ async function handleRefundProcessed(payload: any): Promise<void> {
   if (!paymentId) return;
 
   const refunded = await prisma.$transaction(async (tx) => {
+    // Match on BOTH capture ids and let the matching column name the leg. A balance-leg
+    // refund carries its own payment id, so keying on `razorpayPaymentId` alone found no
+    // row and the refund vanished silently.
     const payments = await tx.$queryRaw<Array<{
-      id: string; orderId: string; status: string; amount: unknown;
+      id: string; orderId: string; status: string;
+      amount: unknown; balanceAmount: unknown;
+      razorpayPaymentId: string | null; balanceRazorpayPaymentId: string | null;
+      refundId: string | null; balanceRefundId: string | null;
+      refundAmount: unknown; balanceRefundAmount: unknown;
+      leg: "primary" | "balance";
     }>>`
-      SELECT id, "orderId", status, amount
+      SELECT id, "orderId", status, amount, "balanceAmount",
+             "razorpayPaymentId", "balanceRazorpayPaymentId",
+             "refundId", "balanceRefundId",
+             "refundAmount", "balanceRefundAmount",
+             CASE WHEN "razorpayPaymentId" = ${paymentId} THEN 'primary' ELSE 'balance' END AS leg
       FROM "Payment"
       WHERE "razorpayPaymentId" = ${paymentId}
+         OR "balanceRazorpayPaymentId" = ${paymentId}
       FOR UPDATE
     `;
 
     const payment = payments[0];
     if (!payment) return null;
-    if (payment.status === "REFUNDED") return null; // Idempotent
 
+    // Idempotent on the refund id, not on the payment status: with two legs the payment
+    // is still PARTIALLY_REFUNDED after the first leg settles, so a status check alone
+    // would let a replayed event re-notify.
+    const seenRefundId = payment.leg === "primary" ? payment.refundId : payment.balanceRefundId;
+    if (razorpayRefundId && seenRefundId === razorpayRefundId) return null;
+
+    const capturedOnLeg =
+      payment.leg === "primary" ? Number(payment.amount) : Number(payment.balanceAmount ?? 0);
     const refundAmount = amountPaise ? amountPaise / 100 : undefined;
 
-    // A partial refund must not mark the whole payment (and the whole order)
-    // refunded. `resolveReturnService` can refund less than the captured amount,
-    // and this previously flipped a ₹2000 order to REFUNDED over a ₹100 return.
-    // Comparing this refund against the captured amount is sufficient because the
-    // app never issues more than one refund per payment — resolveReturn refuses a
-    // second, and the cancellation path claims SUCCESS -> REFUND_INITIATED atomically.
-    const isFullRefund =
-      refundAmount === undefined || refundAmount >= Number(payment.amount) - 0.01;
+    // A partial refund must not mark the whole payment (and the whole order) refunded.
+    // `resolveReturnService` can refund less than the captured amount, and this once
+    // flipped a ₹2000 order to REFUNDED over a ₹100 return. The comparison is now against
+    // the amount captured on THIS leg.
+    const legFullyRefunded = refundAmount === undefined || refundAmount >= capturedOnLeg - 0.01;
+    // Write the leg's captured amount when the event carries none, rather than leaving a
+    // stale value behind (Prisma treats `undefined` as "don't update").
+    const recordedAmount = new Decimal(refundAmount ?? capturedOnLeg);
+
+    const legData =
+      payment.leg === "primary"
+        ? { refundId: razorpayRefundId, refundAmount: recordedAmount, refundedAt: new Date() }
+        : {
+            balanceRefundId: razorpayRefundId,
+            balanceRefundAmount: recordedAmount,
+            balanceRefundedAt: new Date(),
+          };
+
+    // Decide the overall status from the post-update picture of both legs.
+    const after: PaymentLegs = {
+      amount: payment.amount,
+      balanceAmount: payment.balanceAmount,
+      razorpayPaymentId: payment.razorpayPaymentId,
+      balanceRazorpayPaymentId: payment.balanceRazorpayPaymentId,
+      refundAmount:
+        payment.leg === "primary" && legFullyRefunded ? recordedAmount : payment.refundAmount,
+      balanceRefundAmount:
+        payment.leg === "balance" && legFullyRefunded
+          ? recordedAmount
+          : payment.balanceRefundAmount,
+    };
+    const isFullRefund = allCapturedLegsRefunded(after);
 
     await tx.payment.update({
       where: { id: payment.id },
-      data: {
-        status:      isFullRefund ? "REFUNDED" : "PARTIALLY_REFUNDED",
-        refundId:    razorpayRefundId,
-        refundAmount: refundAmount ? new Decimal(refundAmount) : undefined,
-        refundedAt:  new Date(),
-      },
+      data: { status: isFullRefund ? "REFUNDED" : "PARTIALLY_REFUNDED", ...legData },
     });
 
-    // Only a full refund unwinds the order. A partially refunded order keeps the
-    // status its return/cancellation flow gave it.
+    // Only a fully-refunded order unwinds. A partially refunded one keeps the status its
+    // return/cancellation flow gave it.
     const order = isFullRefund
       ? await tx.order.update({
           where: { id: payment.orderId },
@@ -988,7 +1188,10 @@ async function handleRefundProcessed(payload: any): Promise<void> {
       action:   "REFUND_SUCCESS",
       entity:   "Payment",
       entityId: payment.orderId,
-      newValue: { refundId: razorpayRefundId, refundAmount, partial: !isFullRefund, source: "webhook" },
+      newValue: {
+        refundId: razorpayRefundId, refundAmount, leg: payment.leg,
+        partial: !isFullRefund, source: "webhook",
+      },
     });
 
     return { userId: order.userId, orderId: payment.orderId, refundAmount };
@@ -1018,7 +1221,7 @@ async function handleRefundProcessed(payload: any): Promise<void> {
  * The status is deliberately left at REFUND_INITIATED rather than reset to SUCCESS:
  * Razorpay refunds are not idempotent, and a `refund.failed` we've misread would
  * let a retry pay the customer twice. A human reconciles from the audit row, which
- * is the same policy `refundCapturedOrderPayment` follows for a failed API call.
+ * is the same policy `refundOrderMoney` follows for a failed API call.
  */
 async function handleRefundFailed(payload: any): Promise<void> {
   const refundEntity     = payload?.payload?.refund?.entity;
@@ -1028,20 +1231,37 @@ async function handleRefundFailed(payload: any): Promise<void> {
 
   if (!paymentId) return;
 
+  // Same OR-lookup as handleRefundProcessed: a failed refund on the balance leg carries
+  // the balance capture's payment id, which `razorpayPaymentId` alone never matches.
   const payment = await prisma.payment.findFirst({
-    where:  { razorpayPaymentId: paymentId },
-    select: { id: true, orderId: true, status: true },
+    where: {
+      OR: [
+        { razorpayPaymentId: paymentId },
+        { balanceRazorpayPaymentId: paymentId },
+      ],
+    },
+    select: {
+      id: true, orderId: true, status: true,
+      razorpayPaymentId: true, balanceRazorpayPaymentId: true,
+    },
   });
 
   if (!payment) return;
   // Already settled — a late failure event for a refund that went through.
   if (payment.status === "REFUNDED" || payment.status === "PARTIALLY_REFUNDED") return;
 
+  const leg = payment.razorpayPaymentId === paymentId ? "primary" : "balance";
   const amount = amountPaise ? amountPaise / 100 : undefined;
 
+  // Record the failed refund id on its own leg so a human reconciling in Razorpay can
+  // tell which capture the failure belongs to. The status is deliberately left at
+  // REFUND_INITIATED (see the doc comment above).
   await prisma.payment.update({
     where: { id: payment.id },
-    data:  { refundId: razorpayRefundId ?? undefined },
+    data:
+      leg === "primary"
+        ? { refundId: razorpayRefundId ?? undefined }
+        : { balanceRefundId: razorpayRefundId ?? undefined },
   });
 
   await createAuditLog({
@@ -1051,6 +1271,7 @@ async function handleRefundFailed(payload: any): Promise<void> {
     newValue: {
       refundId: razorpayRefundId,
       amount,
+      leg,
       reason: refundEntity?.error_description ?? refundEntity?.status ?? "unknown",
       source: "webhook",
     },
@@ -1422,6 +1643,44 @@ export async function createShipmentService(
   const productsDesc =
     order.items.map((item) => item.product.name).join(", ").substring(0, 200) || "Order items";
 
+  // ── Decide the collection mode, and commit to it, BEFORE talking to Delhivery ──
+  //
+  // The manifest mode and the death of the online balance link are one decision, so they
+  // are made together and latched. `dispatchLockedAt` is the record that a COD parcel is
+  // committed for this amount: from here a late online balance capture must be refunded
+  // rather than applied, because the courier will still ask for cash at the door.
+  //
+  // Claimed atomically so two concurrent ship attempts (admin button racing the sweeper)
+  // cannot both decide it.
+  const balanceOutstanding =
+    order.paymentPlan === "PARTIAL" && !order.payment?.balanceSettledAt;
+
+  if (balanceOutstanding) {
+    await prisma.order.updateMany({
+      where: { id: orderId, dispatchLockedAt: null },
+      data:  { dispatchLockedAt: new Date(), balanceToken: null },
+    });
+    await prisma.payment.updateMany({
+      where: { orderId, balanceMethod: null },
+      data:  { balanceMethod: "COD" },
+    });
+    await createAuditLog({
+      action:   "BALANCE_LINK_CLOSED_AT_DISPATCH",
+      entity:   "Order",
+      entityId: orderId,
+      newValue: { codAmount: Number(order.balanceAmount ?? 0) },
+    });
+  }
+
+  // A partial order collects only its BALANCE at the door — never `order.total`, which
+  // would re-collect the deposit the customer already paid online.
+  const shipsCod = balanceOutstanding || order.paymentMethod === "COD";
+  const codAmount = balanceOutstanding
+    ? Number(order.balanceAmount ?? 0)
+    : order.paymentMethod === "COD"
+      ? Number(order.total)
+      : 0;
+
   let delhiveryResponse;
   try {
     delhiveryResponse = await createDelhiveryShipment({
@@ -1433,8 +1692,8 @@ export async function createShipmentService(
       country:     order.address.country,
       pin:         order.address.pincode,
       phone:       order.address.phone,
-      paymentMode: order.paymentMethod === "COD" ? "COD" : "Prepaid",
-      codAmount:   Number(order.total),
+      paymentMode: shipsCod ? "COD" : "Prepaid",
+      codAmount,
       totalAmount: Number(order.total),
       productsDesc,
       quantity:    totalQuantity,
@@ -1537,6 +1796,26 @@ export async function createShipmentService(
     body: `Your order #${orderShortRef(orderId)} has been handed to Delhivery. You can track it now.`,
     data: { screen: "Order", orderId, trackingUrl },
   });
+
+  // A partial order's tax invoice is raised HERE rather than on settlement, because the
+  // invoice must travel with the goods (CGST §31(1)) and its balance is not collected
+  // until delivery. Fail-soft: the parcel is already manifested, and the invoice is
+  // recoverable from the download endpoint.
+  if (balanceOutstanding) {
+    void issueInvoiceForOrder(orderId).catch((err) =>
+      console.error(`[invoice] dispatch-time issue failed for order ${orderId}:`, err)
+    );
+
+    void notify({
+      userId: order.userId,
+      type: "PAYMENT_SUCCESS",
+      title: "Balance due on delivery 💵",
+      body: `Your order #${orderShortRef(orderId)} has shipped. Please keep ${money(
+        Number(order.balanceAmount ?? 0)
+      )} ready — the delivery agent will collect it at your door.`,
+      data: { screen: "Order", orderId },
+    });
+  }
 
   return result;
 }
@@ -1873,9 +2152,56 @@ export async function handleDelhiveryWebhookService(
 
     // Undelivered goods mean the customer's money must go back.
     if (rtoClaimed) {
-      const refund = await refundCapturedOrderPayment(
+      // An RTO is a sale that never happened, so any commission it earned must be
+      // reversed — exactly as the cancel and return-approve paths already do. This was
+      // missing, so an affiliate kept their commission on every parcel that came back.
+      // Its own transaction because the refund below is an external call that must not
+      // hold row locks.
+      const rtoOrderForReversal = await prisma.order.findUnique({
+        where: { id: shipment.orderId },
+        select: { userId: true, affiliateId: true },
+      });
+      if (rtoOrderForReversal?.affiliateId) {
+        try {
+          await prisma.$transaction(async (tx) => {
+            await reverseAffiliateCommissionsService({
+              tx,
+              orderId: shipment.orderId,
+              adminUserId: rtoOrderForReversal.userId,
+            });
+          });
+        } catch (err) {
+          // Never let a commission-reversal failure abandon the refund below.
+          console.error(`[rto] commission reversal failed for order ${shipment.orderId}:`, err);
+          void notifyAdmins({
+            type: "ADMIN_CUSTOM",
+            title: "Commission reversal failed ⚠️",
+            body: `Order #${orderShortRef(shipment.orderId)} came back (RTO) but its affiliate commission could not be reversed. Reverse it manually.`,
+            data: { screen: "AdminOrder", orderId: shipment.orderId },
+          });
+        }
+      }
+
+      // A refused/undelivered parcel is exactly the case the deposit exists to cover, so
+      // a partial order forfeits it. Anything collected BEYOND the deposit still goes back
+      // — the customer only forfeits their commitment.
+      const rtoPayment = await prisma.payment.findUnique({
+        where: { orderId: shipment.orderId },
+        select: { status: true, balanceSettledAt: true },
+      });
+      const rtoOrderPlan = await prisma.order.findUnique({
+        where: { id: shipment.orderId },
+        select: { paymentPlan: true },
+      });
+      const rtoScope: RefundScope =
+        rtoOrderPlan?.paymentPlan === "PARTIAL" && rtoPayment?.status === "PARTIALLY_PAID"
+          ? (rtoPayment.balanceSettledAt ? "BALANCE_ONLY" : "NONE")
+          : "ALL";
+
+      const refund = await refundOrderMoney(
         shipment.orderId,
-        "Parcel returned to origin (RTO)"
+        "Parcel returned to origin (RTO)",
+        { scope: rtoScope }
       );
 
       // `orderStatusNotification` has no RETURNED case, and an RTO needs its own
@@ -1889,9 +2215,11 @@ export async function handleDelhiveryWebhookService(
           userId: rtoOrder.userId,
           type: refund.status === "initiated" ? "REFUND_PROCESSED" : "ORDER_CANCELLED",
           title: "Order returned to us ↩️",
-          body: refund.status === "initiated"
-            ? `Order #${orderShortRef(shipment.orderId)} couldn't be delivered and came back to us. Your refund has been initiated.`
-            : `Order #${orderShortRef(shipment.orderId)} couldn't be delivered and came back to us. Please contact support if you'd like it resent.`,
+          body: refund.status === "forfeited"
+            ? `Order #${orderShortRef(shipment.orderId)} couldn't be delivered and came back to us. As set out in our cancellation policy, the deposit is retained. Contact support if you'd like it resent.`
+            : refund.status === "initiated"
+              ? `Order #${orderShortRef(shipment.orderId)} couldn't be delivered and came back to us. Your refund has been initiated.`
+              : `Order #${orderShortRef(shipment.orderId)} couldn't be delivered and came back to us. Please contact support if you'd like it resent.`,
           data: { screen: "Order", orderId: shipment.orderId },
         });
       }
@@ -1909,9 +2237,7 @@ export async function handleDelhiveryWebhookService(
     // Delivery is when COD cash is actually collected — book the payment and the
     // affiliate commission. No-op for online orders and for replayed webhooks.
     if (delivered) {
-      await settleCodOnDelivery(shipment.orderId).catch((err) =>
-        console.error("[webhook] COD settlement failed:", err)
-      );
+      await settleOnDeliverySafe(shipment.orderId, "webhook");
     }
 
     await prisma.webhookEvent.update({

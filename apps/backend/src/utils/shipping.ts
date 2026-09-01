@@ -34,6 +34,47 @@ export async function assertServiceable(
   }
 }
 
+/**
+ * Serviceability for an order whose balance will be collected at the door.
+ *
+ * Deliberately the opposite failure policy to `assertServiceable`, which fails OPEN so a
+ * Delhivery outage never takes down checkout. Failing open is right when the only risk is
+ * a delivery we might not manage; it is wrong here, because accepting the order means
+ * taking a deposit for a pincode where the remaining 80% can never be collected — the
+ * customer is charged, the parcel cannot be manifested as COD, and someone has to unpick
+ * it by hand.
+ *
+ * The customer loses nothing by being offered full prepayment instead, so this fails CLOSED
+ * on a lookup error and the caller degrades to the full-payment plan.
+ */
+export async function assertCodCollectable(pincode: string): Promise<void> {
+  let result;
+  try {
+    result = await checkServiceability(pincode);
+  } catch {
+    throw new ApiError(503, PaymentErrorCode.COD_NOT_AVAILABLE);
+  }
+  if (!result.serviceable) {
+    throw new ApiError(400, PaymentErrorCode.PINCODE_NOT_SERVICEABLE);
+  }
+  if (!result.cod) {
+    throw new ApiError(400, PaymentErrorCode.COD_NOT_AVAILABLE);
+  }
+}
+
+/**
+ * Non-throwing form for the checkout quote, which must show or hide the partial-payment
+ * option rather than reject the whole request. Same fail-closed policy.
+ */
+export async function isCodCollectable(pincode: string): Promise<boolean> {
+  try {
+    const result = await checkServiceability(pincode);
+    return Boolean(result.serviceable && result.cod);
+  } catch {
+    return false;
+  }
+}
+
 // Delivery is free for the customer — the business absorbs the carrier cost. Set
 // FREE_SHIPPING=false to go back to billing the customer. NOTE: web's checkout summary computes
 // its displayed total as `subtotal - discount` and hardcodes "Shipping: Free"; make it read

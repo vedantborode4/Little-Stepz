@@ -12,7 +12,7 @@ export default function OrderRowActions({ order, refresh }: any) {
         <ShipOrderButton orderId={order.id} refresh={refresh} onSuccess={refresh}/>
       )}
 
-      {order.status === "RETURN_REQUESTED" && (
+      {order.status === "RETURN_REQUESTED" && order.returnId && (
         <ResolveReturnModal returnId={order.returnId} refresh={refresh} />
       )}
 

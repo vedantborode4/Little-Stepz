@@ -91,13 +91,21 @@ export default function AdminOrderDetail() {
   };
 
   const resolveReturn = (action: "APPROVE" | "REJECT") => {
+    // The route resolves a Return, so it needs the Return's id — passing `order.id` here
+    // meant the request addressed a resource that does not exist.
+    if (!order.returnId) {
+      toast.error("No return request found for this order.");
+      return;
+    }
     Alert.alert(`${action === "APPROVE" ? "Approve" : "Reject"} return`, "Confirm?", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Confirm",
         onPress: async () => {
           try {
-            await AdminOrderService.resolveReturn(order.id, { action });
+            await AdminOrderService.resolveReturn(order.returnId!, {
+              status: action === "APPROVE" ? "APPROVED" : "REJECTED",
+            });
             toast.success("Return resolved");
             invalidate();
           } catch (e: any) {

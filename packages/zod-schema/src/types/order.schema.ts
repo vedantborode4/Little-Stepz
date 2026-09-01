@@ -26,6 +26,21 @@ export const retiredCodPaymentMethod = z
   .transform(() => "ONLINE" as const);
 
 
+/**
+ * How the customer chose to pay.
+ *
+ * Deliberately a separate field from `paymentMethod` rather than a third member of it:
+ * `paymentMethod` describes the gateway (a partial order's deposit is a genuine ONLINE
+ * Razorpay capture), while this describes the schedule. Both storefronts branch on
+ * `paymentMethod !== "COD"` to decide whether to show refund copy, so overloading it would
+ * break unrelated screens — and published mobile builds would render a value they have no
+ * label for.
+ *
+ * Defaults to FULL so clients that predate partial payment keep working unchanged.
+ */
+export const paymentPlanSchema = z.enum(["FULL", "PARTIAL"]).default("FULL");
+
+
 export const checkoutCalculateBodySchema = z
   .object({
     cartItems: z
@@ -39,6 +54,10 @@ export const checkoutCalculateBodySchema = z
     // ONLINE so a legacy client cannot be quoted a COD collection fee or rejected
     // by the prepaid-only pincode check for an order that will be paid online.
     paymentMethod: retiredCodPaymentMethod,
+
+    // The quote returns partial-payment eligibility regardless of what is requested, so
+    // the checkout can render both options from a single call.
+    paymentPlan: paymentPlanSchema,
   })
   .strict();
 
@@ -53,7 +72,16 @@ export const createOrderBodySchema = z
 
     // Always ONLINE — see retiredCodPaymentMethod.
     paymentMethod: retiredCodPaymentMethod,
+    paymentPlan: paymentPlanSchema,
     customerNote: z.string().max(500).optional(),
+
+    /**
+     * Explicit acknowledgement that the deposit is forfeited if the customer cancels or
+     * refuses delivery. Required for a PARTIAL order, enforced server-side rather than
+     * trusted to the UI: it is the record that the term was shown and accepted, which is
+     * what a chargeback dispute turns on.
+     */
+    acceptForfeitTerms: z.boolean().optional(),
   })
   .strict();
 
@@ -67,6 +95,16 @@ export const updateOrderStatusBodySchema = z
       "DELIVERED",
       "CANCELLED",
     ]),
+
+    /**
+     * Who initiated a cancellation. Required when cancelling a partial-payment order,
+     * because the two cases have opposite money outcomes — a merchant cancellation
+     * refunds the deposit in full, a customer one forfeits it — and this endpoint is the
+     * only admin cancel there is. Without it an admin cancelling on a customer's behalf
+     * would silently refund a deposit that policy says is retained, with no way to tell
+     * afterwards which was meant.
+     */
+    cancellationParty: z.enum(["MERCHANT", "CUSTOMER"]).optional(),
   })
   .strict();
 
@@ -76,6 +114,7 @@ export const orderParamsSchema = z
   })
   .strict();
 
+export type PaymentPlan = z.infer<typeof paymentPlanSchema>;
 export type CartItem = z.infer<typeof cartItemSchema>;
 export type CheckoutCalculateBody = z.infer<typeof checkoutCalculateBodySchema>;
 export type CreateOrderBody = z.infer<typeof createOrderBodySchema>;
