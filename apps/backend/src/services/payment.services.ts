@@ -478,6 +478,20 @@ async function refundOrphanedCapture(
       ? { razorpayPaymentId: params.razorpayPaymentId, gatewayResponse: params.gatewayResponse as any }
       : { balanceRazorpayPaymentId: params.razorpayPaymentId };
 
+  // No refund placed on the primary leg: the capture stands and a human has to settle it,
+  // so the status must say how much of the order that capture actually covers. A partial
+  // order's deposit is NOT the full price, and marking it SUCCESS would report the order
+  // as paid in full, hide it from the outstanding-balance reporting, and let the invoice
+  // and commission gates fire on a deposit.
+  let unrefundedStatus: "SUCCESS" | "PARTIALLY_PAID" = "SUCCESS";
+  if (!refundId && leg === "primary") {
+    const ord = await tx.order.findUnique({
+      where: { id: params.orderId },
+      select: { paymentPlan: true },
+    });
+    if (ord?.paymentPlan === "PARTIAL") unrefundedStatus = "PARTIALLY_PAID";
+  }
+
   const refundData = refundId
     ? leg === "primary"
       ? {
@@ -487,13 +501,15 @@ async function refundOrphanedCapture(
           refundReason: reason,
         }
       : {
+          // No balanceRefundedAt: that column marks the refund as SETTLED and is written
+          // only by the refund webhook. Setting it here would make the webhook read its
+          // own work as a replay and drop it.
           balanceRefundId:     refundId,
           balanceRefundAmount: new Decimal(params.amount),
-          balanceRefundedAt:   new Date(),
         }
     : leg === "primary"
-      // No refund placed: leave the primary leg SUCCESS so an admin can settle it by hand.
-      ? { status: "SUCCESS" as const }
+      // No refund placed: leave the capture booked so an admin can settle it by hand.
+      ? { status: unrefundedStatus }
       : {};
 
   await tx.payment.update({
@@ -1107,12 +1123,14 @@ async function handleRefundProcessed(payload: any): Promise<void> {
       razorpayPaymentId: string | null; balanceRazorpayPaymentId: string | null;
       refundId: string | null; balanceRefundId: string | null;
       refundAmount: unknown; balanceRefundAmount: unknown;
+      refundedAt: Date | null; balanceRefundedAt: Date | null;
       leg: "primary" | "balance";
     }>>`
       SELECT id, "orderId", status, amount, "balanceAmount",
              "razorpayPaymentId", "balanceRazorpayPaymentId",
              "refundId", "balanceRefundId",
              "refundAmount", "balanceRefundAmount",
+             "refundedAt", "balanceRefundedAt",
              CASE WHEN "razorpayPaymentId" = ${paymentId} THEN 'primary' ELSE 'balance' END AS leg
       FROM "Payment"
       WHERE "razorpayPaymentId" = ${paymentId}
@@ -1123,11 +1141,17 @@ async function handleRefundProcessed(payload: any): Promise<void> {
     const payment = payments[0];
     if (!payment) return null;
 
-    // Idempotent on the refund id, not on the payment status: with two legs the payment
-    // is still PARTIALLY_REFUNDED after the first leg settles, so a status check alone
-    // would let a replayed event re-notify.
-    const seenRefundId = payment.leg === "primary" ? payment.refundId : payment.balanceRefundId;
-    if (razorpayRefundId && seenRefundId === razorpayRefundId) return null;
+    // Idempotent on the leg's SETTLED timestamp, which only this handler writes.
+    //
+    // Not on the refund id: every refund we place ourselves records its id at the moment
+    // the gateway accepts it, so matching on the id would treat the very first webhook as
+    // a replay and drop it — leaving the payment at REFUND_INITIATED forever, the order
+    // never REFUNDED, and the customer never told. Not on the payment status either: with
+    // two legs the payment sits at PARTIALLY_REFUNDED between them, which is a legitimate
+    // state for the second leg to arrive in.
+    const legSettledAt =
+      payment.leg === "primary" ? payment.refundedAt : payment.balanceRefundedAt;
+    if (legSettledAt) return null;
 
     const capturedOnLeg =
       payment.leg === "primary" ? Number(payment.amount) : Number(payment.balanceAmount ?? 0);
@@ -1243,14 +1267,21 @@ async function handleRefundFailed(payload: any): Promise<void> {
     select: {
       id: true, orderId: true, status: true,
       razorpayPaymentId: true, balanceRazorpayPaymentId: true,
+      refundedAt: true, balanceRefundedAt: true,
     },
   });
 
   if (!payment) return;
-  // Already settled — a late failure event for a refund that went through.
-  if (payment.status === "REFUNDED" || payment.status === "PARTIALLY_REFUNDED") return;
 
   const leg = payment.razorpayPaymentId === paymentId ? "primary" : "balance";
+
+  // Already settled — a late failure event for a refund that went through. Checked per
+  // leg, not on the payment status: PARTIALLY_REFUNDED is the normal state of a two-leg
+  // order once its first leg settles, so a status check discarded every balance-leg
+  // failure with no audit row and no alert.
+  const legSettledAt = leg === "primary" ? payment.refundedAt : payment.balanceRefundedAt;
+  if (legSettledAt) return;
+
   const amount = amountPaise ? amountPaise / 100 : undefined;
 
   // Record the failed refund id on its own leg so a human reconciling in Razorpay can
@@ -1373,7 +1404,7 @@ export async function resolveReturnService(
     return prisma.$transaction(async (tx) => {
       // Filled inside the transaction, actioned after it commits. Returned rather
       // than captured in a closure so a retried attempt cannot leak its intent.
-      let pendingRefund: { paymentId: string; amount: number } | null = null;
+      let pendingRefund: { amount: number; full: boolean } | null = null;
       const returns = await tx.$queryRaw<Array<{
         id: string; orderId: string; status: string; userId: string;
       }>>`
@@ -1441,13 +1472,20 @@ export async function resolveReturnService(
           // The gateway call is deliberately NOT made here — it runs after the
           // commit (see below), so Razorpay latency never holds this transaction's
           // row locks open. The intent is recorded now; the refund id lands after.
-          const refundAmount = data.refundAmount ?? Number(payment.amount);
+          //
+          // The default is everything the customer actually PAID, not `payment.amount`.
+          // On a partial order (and on a converted pre-order) that column holds only the
+          // first leg, so defaulting to it refunded ~20% of an approved return and
+          // silently kept the rest.
+          const received =
+            Number(payment.amount) +
+            (payment.balanceSettledAt ? Number(payment.balanceAmount ?? 0) : 0);
+          const refundAmount = data.refundAmount ?? received;
 
           await tx.payment.update({
             where: { orderId: returnReq.orderId },
             data: {
               status:       "REFUND_INITIATED",
-              refundAmount: new Decimal(refundAmount),
               refundReason: data.adminNote ?? "Return approved",
             },
           });
@@ -1459,7 +1497,7 @@ export async function resolveReturnService(
             },
           });
 
-          pendingRefund = { paymentId: payment.razorpayPaymentId, amount: refundAmount };
+          pendingRefund = { amount: refundAmount, full: refundAmount >= received - 0.01 };
         }
 
         await reverseAffiliateCommissionsService({ tx, orderId: returnReq.orderId, adminUserId });
@@ -1491,47 +1529,16 @@ export async function resolveReturnService(
   // the stock already back, so a gateway outage must not fail the whole operation —
   // it raises a human instead, exactly as the cancellation refund path does.
   if (pendingRefund) {
-    try {
-      const refund = await initiateRazorpayRefund({
-        paymentId: pendingRefund.paymentId,
-        amount:    pendingRefund.amount,
-        notes:     { orderId: result.orderId, reason: "Return approved" },
-      });
-
-      await prisma.payment.update({
-        where: { orderId: result.orderId },
-        data:  { refundId: refund.id },
-      });
-
-      await createAuditLog({
-        userId:   adminUserId,
-        action:   "REFUND_INITIATED",
-        entity:   "Payment",
-        entityId: result.orderId,
-        newValue: { refundId: refund.id, refundAmount: pendingRefund.amount, source: "admin" },
-        req,
-      });
-    } catch (err: any) {
-      await createAuditLog({
-        userId:   adminUserId,
-        action:   "REFUND_FAILED",
-        entity:   "Payment",
-        entityId: result.orderId,
-        newValue: {
-          refundAmount: pendingRefund.amount,
-          source: "admin",
-          error: String(err?.message ?? err).slice(0, 300),
-        },
-        req,
-      });
-
-      void notifyAdmins({
-        type:  "ADMIN_CUSTOM",
-        title: "Manual refund needed ⚠️",
-        body:  `The return for order #${orderShortRef(result.orderId)} was approved but the automatic refund of ${money(pendingRefund.amount)} failed. Refund it manually in Razorpay.`,
-        data:  { screen: "AdminOrder", orderId: result.orderId },
-      });
-    }
+    // Delegated rather than calling the gateway directly, so an approved return returns
+    // EVERY captured leg — and a balance that arrived as cash, which no gateway can
+    // reverse, lands in the manual-payout queue instead of vanishing. `alreadyClaimed`
+    // because the transaction above moved the payment to REFUND_INITIATED atomically
+    // with the approval; re-claiming here would lose to our own write and refund nothing.
+    await refundOrderMoney(result.orderId, data.adminNote ?? "Return approved", {
+      scope: "ALL",
+      limit: pendingRefund.full ? undefined : pendingRefund.amount,
+      alreadyClaimed: true,
+    });
   }
 
   return response;
@@ -1607,6 +1614,34 @@ export async function trackOrderService(userId: string, orderId: string) {
 class OrderNoLongerShippableError extends Error {
   constructor(public readonly waybill: string) {
     super("Order is no longer in a shippable state");
+  }
+}
+
+/**
+ * Undo a dispatch latch that was claimed for a shipment which then failed to book.
+ *
+ * The latch is deliberately taken before the Delhivery call, because deciding the
+ * collection mode and closing the online balance link have to be one atomic act. That
+ * makes it a claim over an external call that can fail, so every failure path has to give
+ * it back — otherwise a transient courier error permanently commits an unshipped order to
+ * cash-on-delivery and kills its payment link.
+ *
+ * Never throws: it runs inside error handling, and the caller's original failure is the
+ * one worth reporting.
+ */
+async function releaseDispatchLatch(orderId: string, wasClaimed: boolean): Promise<void> {
+  if (!wasClaimed) return;
+  try {
+    await prisma.order.updateMany({
+      where: { id: orderId, dispatchLockedAt: { not: null } },
+      data:  { dispatchLockedAt: null },
+    });
+    await prisma.payment.updateMany({
+      where: { orderId, balanceSettledAt: null, balanceMethod: "COD" },
+      data:  { balanceMethod: null },
+    });
+  } catch (err) {
+    console.error(`[shipment] could not release dispatch latch for order ${orderId}:`, err);
   }
 }
 
@@ -1699,6 +1734,11 @@ export async function createShipmentService(
       quantity:    totalQuantity,
     });
   } catch (err: any) {
+    // The parcel was never booked, so the collection decision must not stand. Leaving the
+    // latch set would keep the balance permanently addressed to a courier that never got
+    // the shipment, and would close the online link for an order that has not shipped.
+    await releaseDispatchLatch(orderId, balanceOutstanding);
+
     if (err instanceof ApiError) throw err;
     // Network/DNS/timeout — not a Delhivery rejection. Keep the cause visible
     // instead of reporting it as an order failure.
@@ -1784,8 +1824,10 @@ export async function createShipmentService(
           data:  { screen: "AdminOrder", orderId },
         });
       }
+      await releaseDispatchLatch(orderId, balanceOutstanding);
       throw new ApiError(409, "Order is no longer in a shippable state");
     }
+    await releaseDispatchLatch(orderId, balanceOutstanding);
     throw err;
   }
 

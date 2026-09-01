@@ -138,13 +138,17 @@ export function splitDeposit(total: Decimal, percent: Decimal): DepositSplit {
     .div(100)
     .toDecimalPlaces(0, Decimal.ROUND_HALF_EVEN);
 
-  let deposit = t.minus(balance);
-
   // Razorpay would reject a sub-₹1 deposit, leaving a dead order that can never be paid.
-  if (deposit.lt(RAZORPAY_MIN)) {
-    deposit = RAZORPAY_MIN;
-    balance = t.minus(deposit);
-  }
+  // The clamp lowers the BALANCE rather than raising the deposit, because the balance is
+  // the leg that must stay a whole number of rupees — a courier collects it in cash.
+  // Flooring here keeps it integral; setting `deposit = 1` instead would have handed the
+  // courier a fractional amount on any total with paise in it.
+  const maxBalance = t.minus(RAZORPAY_MIN).floor();
+  if (balance.gt(maxBalance)) balance = maxBalance;
+  if (balance.lt(0)) balance = new Decimal(0);
+
+  // Always a subtraction, never a second rounding, so the two reconstruct the total exactly.
+  const deposit = t.minus(balance);
 
   return { deposit, balance };
 }

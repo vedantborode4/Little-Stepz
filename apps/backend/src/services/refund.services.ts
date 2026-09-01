@@ -56,7 +56,21 @@ type Leg = {
 export async function refundOrderMoney(
   orderId: string,
   reason: string,
-  opts: { scope?: RefundScope } = {}
+  opts: {
+    scope?: RefundScope;
+    /**
+     * Cap the total refunded, apportioned primary leg first then balance. Used by the
+     * return flow, where an admin may approve less than the full amount. Undefined
+     * refunds every captured leg in scope.
+     */
+    limit?: number;
+    /**
+     * The caller already moved the payment out of SUCCESS/PARTIALLY_PAID inside its own
+     * transaction (the return flow records refund intent atomically with the approval).
+     * Skips the claim here rather than losing the race against the caller's own write.
+     */
+    alreadyClaimed?: boolean;
+  } = {}
 ): Promise<RefundOutcome> {
   const scope = opts.scope ?? "ALL";
 
@@ -148,6 +162,17 @@ export async function refundOrderMoney(
     });
   }
 
+  // Apportion an admin-specified cap across the legs, primary first. Anything the cap
+  // does not cover simply is not refunded — this is a deliberate partial refund.
+  if (opts.limit !== undefined) {
+    let remaining = opts.limit;
+    for (const leg of legs) {
+      const take = Math.min(remaining, leg.amount);
+      leg.amount = Number(take.toFixed(2));
+      remaining = Number((remaining - take).toFixed(2));
+    }
+  }
+
   const refundable = legs.filter((l) => l.amount >= MIN_REFUND);
   const tooSmall = legs.filter((l) => l.amount < MIN_REFUND);
   for (const l of tooSmall) {
@@ -167,11 +192,13 @@ export async function refundOrderMoney(
   // Claim the refund atomically. Two admins cancelling the same order at once — or an
   // admin racing the customer — must produce exactly one set of calls to Razorpay.
   // PARTIALLY_PAID is claimable too: a deposit-paid order holds real money.
-  const claimed = await prisma.payment.updateMany({
-    where: { id: payment.id, status: { in: ["SUCCESS", "PARTIALLY_PAID"] } },
-    data: { status: "REFUND_INITIATED", refundReason: reason },
-  });
-  if (claimed.count === 0) return { status: "none" };
+  if (!opts.alreadyClaimed) {
+    const claimed = await prisma.payment.updateMany({
+      where: { id: payment.id, status: { in: ["SUCCESS", "PARTIALLY_PAID"] } },
+      data: { status: "REFUND_INITIATED", refundReason: reason },
+    });
+    if (claimed.count === 0) return { status: "none" };
+  }
 
   let refundedTotal = 0;
   let anyFailed = false;

@@ -1,4 +1,5 @@
 import { prisma, Prisma, OrderStatus } from "@repo/db/client";
+import { SETTLED_MONEY_WHERE } from "../../utils/partialPayment";
 import type { AdminStatsQuery } from "@repo/zod-schema/index";
 
 /**
@@ -49,10 +50,12 @@ export async function adminGetStatsService(query: AdminStatsQuery) {
     prisma.order.count({ where: { deletedAt: null, createdAt: { gte: today } } }),
     prisma.order.count({ where: { deletedAt: null, createdAt: { gte: startOf7d } } }),
     prisma.order.groupBy({ by: ["status"], where: { deletedAt: null }, _count: { id: true } }),
-    prisma.order.aggregate({ where: { deletedAt: null, createdAt: rangeFilter, status: { in: REVENUE_ORDER_STATUSES } }, _sum: { total: true }, _avg: { total: true }, _count: { id: true } }),
-    prisma.payment.count({ where: { status: "SUCCESS", deletedAt: null } }),
+    prisma.order.aggregate({ where: { deletedAt: null, createdAt: rangeFilter, status: { in: REVENUE_ORDER_STATUSES }, ...SETTLED_MONEY_WHERE }, _sum: { total: true }, _avg: { total: true }, _count: { id: true } }),
+    // PARTIALLY_PAID counts as a successful capture: the deposit did clear. It is neither
+    // a success nor a failure for the *order*, but this ratio is about the gateway.
+    prisma.payment.count({ where: { status: { in: ["SUCCESS", "PARTIALLY_PAID"] }, deletedAt: null } }),
     prisma.payment.count({ where: { status: "FAILED",  deletedAt: null } }),
-    prisma.order.aggregate({ where: { deletedAt: null, createdAt: rangeFilter, status: { in: REVENUE_ORDER_STATUSES } }, _sum: { total: true } }),
+    prisma.order.aggregate({ where: { deletedAt: null, createdAt: rangeFilter, status: { in: REVENUE_ORDER_STATUSES }, ...SETTLED_MONEY_WHERE }, _sum: { total: true } }),
     prisma.user.count({ where: { deletedAt: null } }),
     prisma.user.count({ where: { deletedAt: null, createdAt: { gte: today } } }),
     prisma.user.count({ where: { deletedAt: null, createdAt: { gte: startOf7d } } }),
@@ -64,15 +67,23 @@ export async function adminGetStatsService(query: AdminStatsQuery) {
     prisma.commission.aggregate({ where: { deletedAt: null, status: "APPROVED" }, _sum: { amount: true }, _count: { id: true } }),
     prisma.return.count({ where: { status: "PENDING" } }),
     prisma.$queryRaw<Array<{ day: string; revenue: string; orders: string }>>`
-      SELECT DATE("createdAt") AS day,
-             COALESCE(SUM(total),0)::TEXT AS revenue,
-             COUNT(id)::TEXT             AS orders
-      FROM "Order"
-      WHERE "deletedAt" IS NULL
-        AND "createdAt" >= ${startOf30d}
-        AND "createdAt" <= ${now}
-        AND status::TEXT IN (${Prisma.join(REVENUE_ORDER_STATUSES.map(String))})
-      GROUP BY DATE("createdAt")
+      SELECT DATE(o."createdAt") AS day,
+             COALESCE(SUM(o.total),0)::TEXT AS revenue,
+             COUNT(o.id)::TEXT             AS orders
+      FROM "Order" o
+      WHERE o."deletedAt" IS NULL
+        AND o."createdAt" >= ${startOf30d}
+        AND o."createdAt" <= ${now}
+        AND o.status::TEXT IN (${Prisma.join(REVENUE_ORDER_STATUSES.map(String))})
+        -- Same rule as SETTLED_MONEY_WHERE above, expressed in SQL.
+        AND (
+          o."paymentPlan" = 'FULL'
+          OR EXISTS (
+            SELECT 1 FROM "Payment" p
+            WHERE p."orderId" = o.id AND p.status = 'SUCCESS'
+          )
+        )
+      GROUP BY DATE(o."createdAt")
       ORDER BY day ASC`,
     prisma.orderItem.groupBy({
       by: ["productId"], _sum: { quantity: true }, _count: { id: true },

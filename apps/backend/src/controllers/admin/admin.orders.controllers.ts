@@ -6,8 +6,10 @@ import {
   updateOrderStatusService,
 } from "../../services/admin/admin.orders.services";
 import { runStockSweep } from "../../services/stockSweeper.services";
+import { markBalancePaidService } from "../../services/codSettlement.services";
 import {
   updateOrderStatusBodySchema,
+  markBalancePaidBodySchema,
   orderParamsSchema,
 } from "@repo/zod-schema/index";
 import { OrderStatus } from "@repo/db/client";
@@ -65,6 +67,24 @@ async function getAdminOrderById(req: Request, res: Response) {
   return new ApiResponse(200, result, "Order fetched").send(res);
 }
 
+/**
+ * Record a partial order's balance as collected outside the gateway.
+ *
+ * Deliberately admin-only and audited: this books real money on the word of a person,
+ * so who did it and what reference they gave has to survive the click.
+ */
+async function markBalancePaid(req: Request, res: Response) {
+  const adminId = req.user?.userId;
+  if (!adminId) throw new ApiError(401, "Unauthorized");
+
+  const { id } = orderParamsSchema.parse(req.params);
+  const body = markBalancePaidBodySchema.parse(req.body ?? {});
+
+  const result = await markBalancePaidService(id, adminId, body);
+
+  return new ApiResponse(200, result, "Balance marked as paid").send(res);
+}
+
 async function updateOrderStatus(req: Request, res: Response) {
   const adminId = req.user?.userId;
   if (!adminId) throw new ApiError(401, "Unauthorized");
@@ -89,6 +109,7 @@ async function reclaimStock(_req: Request, res: Response) {
 
 export const getAdminOrdersController = asyncHandler(getAdminOrders);
 export const getAdminOrderByIdController = asyncHandler(getAdminOrderById);
+export const markBalancePaidController = asyncHandler(markBalancePaid);
 export const updateOrderStatusController = asyncHandler(updateOrderStatus);
 export const reclaimStockController = asyncHandler(reclaimStock);
 

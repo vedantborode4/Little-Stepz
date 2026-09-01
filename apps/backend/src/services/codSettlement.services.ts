@@ -1,6 +1,8 @@
 import { prisma } from "@repo/db/client";
 import { processAffiliateCommissionService } from "./affiliate.services";
 import { createAuditLog, createAuditLogInTx } from "../utils/auditLog";
+import { ApiError } from "../utils/api";
+import { PaymentErrorCode } from "../utils/paymentErrors";
 import { notify, notifyAdmins } from "./notification.services";
 import { money, orderShortRef } from "../utils/notificationCopy";
 
@@ -96,6 +98,8 @@ export async function settleOrderIfFullyPaid(
   orderId: string,
   trigger: "delivery" | "balance-online" | "balance-manual"
 ): Promise<void> {
+  let unmanifested = false;
+
   const commission = await prisma.$transaction(async (tx) => {
     const order = await tx.order.findUnique({
       where: { id: orderId },
@@ -106,6 +110,7 @@ export async function settleOrderIfFullyPaid(
         affiliateId: true,
         paymentPlan: true,
         balanceAmount: true,
+        dispatchLockedAt: true,
         payment: {
           select: { id: true, status: true, balanceSettledAt: true, balanceMethod: true },
         },
@@ -129,6 +134,27 @@ export async function settleOrderIfFullyPaid(
     // proves the money did, and keeping the two apart is what makes an unremitted COD
     // visible instead of silently counted.
     if (!payment.balanceSettledAt) {
+      // Only infer a doorstep collection when a COD parcel was actually committed.
+      // `dispatchLockedAt` is set in the same act that manifests the shipment as COD, so
+      // its absence means no courier was ever asked for money — the order reached
+      // DELIVERED some other way, most likely an admin moving the status by hand. Booking
+      // the balance there would flip the payment to SUCCESS and accrue affiliate
+      // commission on money nobody collected.
+      if (!order.dispatchLockedAt) {
+        await createAuditLogInTx(tx, {
+          action: "SETTLEMENT_FAILED",
+          entity: "Payment",
+          entityId: orderId,
+          newValue: {
+            trigger,
+            reason: "DELIVERED with an outstanding balance but no COD parcel was manifested",
+            balanceDue: Number(order.balanceAmount ?? 0),
+          },
+        });
+        unmanifested = true;
+        return null;
+      }
+
       const claimedBalance = await tx.payment.updateMany({
         where: { id: payment.id, status: "PARTIALLY_PAID", balanceSettledAt: null },
         data: {
@@ -181,6 +207,15 @@ export async function settleOrderIfFullyPaid(
     });
   });
 
+  if (unmanifested) {
+    void notifyAdmins({
+      type: "ADMIN_CUSTOM",
+      title: "Delivered with an uncollected balance ⚠️",
+      body: `Order #${orderShortRef(orderId)} is marked delivered but its balance was never manifested for collection. Confirm how the customer paid, then mark the balance settled — it is not booked, invoiced or commissioned until you do.`,
+      data: { screen: "AdminOrder", orderId },
+    });
+  }
+
   if (commission) {
     void notify({
       userId: commission.affiliateUserId,
@@ -231,4 +266,72 @@ export async function settleOnDeliverySafe(
       data: { screen: "AdminOrder", orderId },
     });
   }
+}
+
+/**
+ * Record a balance an admin collected outside the gateway.
+ *
+ * The escape hatch the other two channels need. A courier remits cash days late, a
+ * customer pays by bank transfer, or an order reaches DELIVERED without ever having been
+ * manifested for collection — in each case the money is real but nothing automatic can
+ * see it, and until it is recorded the order stays unbooked, uninvoiced and
+ * uncommissioned.
+ *
+ * The conditional update is the whole guard: it refuses an order whose balance is already
+ * settled by any channel, so two admins clicking at once, or an admin racing a courier
+ * webhook, produce exactly one settlement.
+ */
+export async function markBalancePaidService(
+  orderId: string,
+  adminUserId: string,
+  body: { method: "CASH" | "BANK_TRANSFER" | "UPI" | "OTHER"; reference?: string; note?: string }
+): Promise<{ orderId: string; balancePaid: number; settledAt: Date }> {
+  const order = await prisma.order.findFirst({
+    where: { id: orderId, deletedAt: null },
+    select: {
+      paymentPlan: true,
+      balanceAmount: true,
+      payment: { select: { id: true, status: true, balanceSettledAt: true } },
+    },
+  });
+
+  if (!order) throw new ApiError(404, PaymentErrorCode.ORDER_NOT_FOUND);
+  if (order.paymentPlan !== "PARTIAL" || !order.payment) {
+    throw new ApiError(400, PaymentErrorCode.BALANCE_NOT_DUE);
+  }
+  if (order.payment.balanceSettledAt || order.payment.status !== "PARTIALLY_PAID") {
+    throw new ApiError(409, PaymentErrorCode.BALANCE_ALREADY_SETTLED);
+  }
+
+  const settledAt = new Date();
+  const claimed = await prisma.payment.updateMany({
+    where: { id: order.payment.id, status: "PARTIALLY_PAID", balanceSettledAt: null },
+    data: {
+      balanceMethod: "MANUAL",
+      balanceSettledAt: settledAt,
+      balancePaidAt: settledAt,
+      balanceReference: body.reference ?? null,
+    },
+  });
+  if (claimed.count === 0) throw new ApiError(409, PaymentErrorCode.BALANCE_ALREADY_SETTLED);
+
+  await createAuditLog({
+    userId: adminUserId,
+    action: "BALANCE_MARKED_PAID",
+    entity: "Payment",
+    entityId: orderId,
+    newValue: {
+      amount: Number(order.balanceAmount ?? 0),
+      method: body.method,
+      reference: body.reference ?? null,
+      note: body.note ?? null,
+    },
+  });
+
+  // Books the payment, the commission and the invoice — but only once the goods are
+  // actually with the customer. Recording an early settlement leaves the order correctly
+  // marked as paid while delivery still gates the accrual.
+  await settleOrderIfFullyPaid(orderId, "balance-manual");
+
+  return { orderId, balancePaid: Number(order.balanceAmount ?? 0), settledAt };
 }

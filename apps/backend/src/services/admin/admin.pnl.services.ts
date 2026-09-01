@@ -1,4 +1,5 @@
 import { prisma, OrderStatus, CommissionStatus } from "@repo/db/client";
+import { SETTLED_MONEY_WHERE } from "../../utils/partialPayment";
 
 // Estimate constants — overridable via env, defaults match the P&L reference design.
 const COST_RATIO = Number(process.env.PNL_COST_RATIO ?? 0.58); // fallback product cost as a share of line revenue
@@ -34,6 +35,9 @@ function rangeStart(range: PnlRange): Date | null {
 
 const orderWhere = (from: Date | null) => ({
   status: { in: COUNTED_STATUSES },
+  // Revenue is money received, so a partial-payment order is counted only once its
+  // balance has actually settled. FULL orders are unaffected.
+  ...SETTLED_MONEY_WHERE,
   ...(from ? { createdAt: { gte: from } } : {}),
 });
 
