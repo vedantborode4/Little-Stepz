@@ -448,17 +448,33 @@ export async function completePreOrderBalance(
         },
       });
 
+      // A completed pre-order was paid by TWO separate Razorpay captures — the booking
+      // and the balance — so the Payment records both legs.
+      //
+      // This used to store only the balance (`amount: po.balanceAmount`) with the booking
+      // visible nowhere but the PreOrder row. Every order-level refund therefore
+      // under-refunded by exactly the booking amount: cancelling a converted pre-order
+      // silently kept the customer's deposit. Mapping booking→primary and balance→balance
+      // puts both captures where `refundOrderMoney` and the webhook leg-router look.
+      //
+      // amount + balanceAmount == totalAmount, which is the same conservation invariant
+      // partial-payment orders hold.
       await tx.payment.create({
         data: {
           orderId: order.id,
           method: "ONLINE",
           gateway: "razorpay",
-          razorpayOrderId: args.razorpayOrderId,
-          razorpayPaymentId: args.razorpayPaymentId,
-          // This Razorpay payment captured only the balance leg; the booking was a
-          // separate charge tracked on the PreOrder. Recording the true captured
-          // amount keeps refunds/webhook amount-checks correct.
-          amount: po.balanceAmount,
+          // Primary leg — the booking capture.
+          razorpayOrderId: po.bookingRazorpayOrderId,
+          razorpayPaymentId: po.bookingRazorpayPaymentId,
+          amount: po.bookingAmount,
+          // Balance leg — the capture that just landed.
+          balanceRazorpayOrderId: args.razorpayOrderId,
+          balanceRazorpayPaymentId: args.razorpayPaymentId,
+          balanceAmount: po.balanceAmount,
+          balancePaidAt: new Date(),
+          balanceMethod: "ONLINE",
+          balanceSettledAt: new Date(),
           currency: "INR",
           status: "SUCCESS",
           attempts: 1,

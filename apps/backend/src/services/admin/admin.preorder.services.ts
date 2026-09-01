@@ -5,6 +5,9 @@ import { PreOrderErrorCode } from "../../utils/preorderErrors";
 import { initiateRazorpayRefund } from "../../utils/razorpay.client";
 import { sendBackInStockEmail } from "../../utils/email";
 import { releasePreOrderSlots } from "../../utils/preOrderTerms";
+import { createAuditLog } from "../../utils/auditLog";
+import { notifyAdmins } from "../notification.services";
+import { money } from "../../utils/notificationCopy";
 
 const ACTIVE: PreOrderStatus[] = ["PENDING_BOOKING", "BOOKED", "AWAITING_BALANCE"];
 
@@ -90,9 +93,39 @@ export async function refundBookingService(id: string) {
       amount: Number(po.bookingAmount),
       notes: { preOrderId: po.id, reason: "pre-order booking refund" },
     });
-  } catch (e) {
-    // Roll the claim back so the admin can retry.
-    await prisma.preOrder.update({ where: { id }, data: { status: po.status, refundedAt: null } });
+  } catch (e: any) {
+    // The claim is deliberately NOT rolled back.
+    //
+    // This used to reset the status so an admin could retry, but Razorpay refunds are not
+    // idempotent: when the failure is only a lost response — the common case — the refund
+    // did go through, and a retry pays the customer twice. Every other refund path in this
+    // codebase (`refundOrderMoney`, `handleRefundFailed`) leaves the claim standing for
+    // exactly this reason, and having one path disagree meant the safe answer depended on
+    // which button the admin happened to press.
+    //
+    // A human reconciles from the audit row instead.
+    await createAuditLog({
+      action: "REFUND_FAILED",
+      entity: "Payment",
+      entityId: po.id,
+      newValue: {
+        amount: Number(po.bookingAmount),
+        leg: "booking",
+        reason: "pre-order booking refund",
+        error: String(e?.message ?? e).slice(0, 300),
+      },
+    });
+
+    void notifyAdmins({
+      type: "ADMIN_CUSTOM",
+      title: "Manual refund needed ⚠️",
+      body: `The booking refund of ${money(Number(po.bookingAmount))} for pre-order #${po.id.slice(
+        0,
+        8
+      )} failed at the gateway. Check Razorpay before retrying — the refund may already have gone through.`,
+      data: { screen: "AdminPreOrders", preOrderId: po.id },
+    });
+
     throw e;
   }
 

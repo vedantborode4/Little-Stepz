@@ -77,8 +77,10 @@ export function sendPreOrderBookedEmail(to: string, p: {
   return sendEmail({
     to,
     subject: `Pre-order confirmed: ${p.productName}`,
+    // Product names are admin-authored free text and land in an HTML email body, so they
+    // are escaped here like every other interpolated string in this file.
     html: shell("Your pre-order is confirmed 🎉", `
-      <p>Thanks for pre-ordering <strong>${p.productName}</strong>.</p>
+      <p>Thanks for pre-ordering <strong>${escapeHtml(p.productName)}</strong>.</p>
       <p>Booking amount paid: <strong>${money(p.bookingAmount)}</strong></p>
       <p>Remaining balance due when it's back in stock: <strong>${money(p.balanceAmount)}</strong></p>
       <p>We'll email you a secure payment link the moment it arrives.</p>
@@ -97,7 +99,7 @@ export function sendBackInStockEmail(to: string, p: {
     to,
     subject: `Back in stock — complete your pre-order for ${p.productName}`,
     html: shell("It's back in stock! ✅", `
-      <p><strong>${p.productName}</strong> is available again.</p>
+      <p><strong>${escapeHtml(p.productName)}</strong> is available again.</p>
       <p>Pay the remaining balance of <strong>${money(p.balanceAmount)}</strong> to confirm your order.</p>
       <p style="margin:24px 0">
         <a href="${p.payUrl}" style="background:#111;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600">Pay balance now</a>
@@ -273,7 +275,7 @@ export function sendBalancePaidEmail(to: string, p: {
     to,
     subject: `Payment complete — your order is confirmed`,
     html: shell("Order confirmed 🎉", `
-      <p>We've received the balance for <strong>${p.productName}</strong>.</p>
+      <p>We've received the balance for <strong>${escapeHtml(p.productName)}</strong>.</p>
       <p>Your order <strong>#${p.orderId.slice(-8).toUpperCase()}</strong> is now being processed and will ship soon.</p>
     `),
   });

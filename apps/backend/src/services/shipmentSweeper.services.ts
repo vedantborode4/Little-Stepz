@@ -66,8 +66,25 @@ export async function sweepUnshippedOrders(): Promise<number> {
 
   let shipped = 0;
   for (const order of candidates) {
+    // Count only failures since the last successful manual intervention.
+    //
+    // SHIPMENT_FAILED rows are a permanent audit trail with no reset, so three transient
+    // failures used to strand a paid order forever with no way back short of a DB edit.
+    // A SHIPMENT_RETRY_CLEARED row (written when an admin resolves the cause — a corrected
+    // address, a balance moved online, a pincode that regained COD) marks a fresh start.
+    const lastReset = await prisma.auditLog.findFirst({
+      where: { entity: "Order", entityId: order.id, action: "SHIPMENT_RETRY_CLEARED" },
+      orderBy: { createdAt: "desc" },
+      select: { createdAt: true },
+    });
+
     const priorFailures = await prisma.auditLog.count({
-      where: { entity: "Order", entityId: order.id, action: "SHIPMENT_FAILED" },
+      where: {
+        entity: "Order",
+        entityId: order.id,
+        action: "SHIPMENT_FAILED",
+        ...(lastReset ? { createdAt: { gt: lastReset.createdAt } } : {}),
+      },
     });
     if (priorFailures >= MAX_ATTEMPTS) continue;
 
