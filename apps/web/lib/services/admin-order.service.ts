@@ -109,6 +109,9 @@ export interface AdminOrdersResponse {
   page: number
   limit: number
   pages: number
+  /** Money still to collect across the whole filtered set, not just this page. */
+  outstandingTotal?: number
+  outstandingCount?: number
 }
 
 export const AdminOrderService = {
@@ -117,6 +120,9 @@ export const AdminOrderService = {
     page?: number
     limit?: number
     status?: OrderStatus
+    paymentPlan?: "FULL" | "PARTIAL"
+    /** "due" is the operational queue: deposit paid, balance not yet collected. */
+    balanceState?: "due" | "settled"
     fromDate?: string
     toDate?: string
   }): Promise<AdminOrdersResponse> => {

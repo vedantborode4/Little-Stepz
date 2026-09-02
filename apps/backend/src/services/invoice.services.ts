@@ -9,6 +9,7 @@ import {
   getSeller,
 } from "../utils/invoice";
 import { renderInvoicePdf, type InvoicePdfData } from "../utils/invoicePdf";
+import { renderReceiptPdf } from "../utils/receiptPdf";
 
 /**
  * Issue and serve tax invoices.
@@ -247,3 +248,89 @@ export function invoiceFileName(number: string): string {
 }
 
 export { getGstRate };
+
+/**
+ * The deposit acknowledgement for a partial-payment order.
+ *
+ * The reference is DERIVED, never drawn from `InvoiceCounter`: that counter mints a
+ * gap-free legal sequence of tax invoices, and spending numbers from it on documents
+ * that are not tax invoices is a real GST problem rather than a cosmetic one. Deriving
+ * it also means this is idempotent and needs no table of its own — the same order always
+ * produces the same reference.
+ */
+export function advanceReceiptReference(orderId: string, issuedAt: Date): string {
+  return `ADV/${financialYearOf(issuedAt)}/${orderId.slice(-8).toUpperCase()}`;
+}
+
+export function receiptFileName(reference: string): string {
+  return `receipt-${reference.replace(/\//g, "-")}.pdf`;
+}
+
+/**
+ * Render the advance receipt. Scoped by userId when one is given, so a customer cannot
+ * read another's receipt by guessing an order id.
+ */
+export async function getAdvanceReceiptPdfService(orderId: string, userId?: string) {
+  const order = await prisma.order.findFirst({
+    where: { id: orderId, deletedAt: null, ...(userId ? { userId } : {}) },
+    select: {
+      id: true,
+      createdAt: true,
+      total: true,
+      paymentPlan: true,
+      depositAmount: true,
+      balanceAmount: true,
+      depositPaidAt: true,
+      user: { select: { name: true, email: true, phone: true } },
+      address: {
+        select: { name: true, phone: true, address: true, city: true, state: true, pincode: true },
+      },
+      items: {
+        select: {
+          quantity: true, price: true, productName: true, variantName: true,
+          product: { select: { name: true } },
+          variant: { select: { name: true } },
+        },
+      },
+    },
+  });
+
+  if (!order) throw new ApiError(404, "ORDER_NOT_FOUND");
+  // Nothing to acknowledge until a deposit has actually been captured.
+  if (order.paymentPlan !== "PARTIAL" || !order.depositPaidAt) {
+    throw new ApiError(409, "RECEIPT_NOT_AVAILABLE");
+  }
+
+  const seller = getSeller();
+  const issuedAt = order.depositPaidAt;
+  const reference = advanceReceiptReference(order.id, issuedAt);
+
+  const pdf = await renderReceiptPdf({
+    reference,
+    issuedAt,
+    orderId: order.id,
+    orderDate: order.createdAt,
+    seller,
+    buyer: {
+      name: order.address?.name ?? order.user?.name ?? "Customer",
+      email: order.user?.email ?? "",
+      phone: order.address?.phone ?? order.user?.phone ?? null,
+      address: order.address?.address ?? "",
+      city: order.address?.city ?? "",
+      state: order.address?.state ?? "",
+      pincode: order.address?.pincode ?? "",
+    },
+    items: order.items.map((i) => ({
+      // Snapshot names first — the live relation is only a fallback for old rows.
+      name: i.productName ?? i.product?.name ?? "Item",
+      variantName: i.variantName ?? i.variant?.name ?? null,
+      quantity: i.quantity,
+      gross: new Decimal(i.price.toString()).mul(i.quantity).toFixed(2),
+    })),
+    orderTotal: new Decimal(order.total.toString()).toFixed(2),
+    depositPaid: new Decimal((order.depositAmount ?? 0).toString()).toFixed(2),
+    balanceDue: new Decimal((order.balanceAmount ?? 0).toString()).toFixed(2),
+  });
+
+  return { pdf, reference };
+}

@@ -5,7 +5,8 @@ import {
     updateOrderStatusController,
     reclaimStockController,
     getAdminOrderInvoiceController,
-    markBalancePaidController
+    markBalancePaidController,
+    writeOffBalanceController
 } from "../../controllers/admin/admin.orders.controllers";
 import { isAdmin } from "../../middlewares/role.middleware";
 import { authMiddleware } from "../../middlewares/auth.middleware";
@@ -22,6 +23,8 @@ adminOrdersRouter.put("/:id/status", updateOrderStatusController);
 // Record a partial order's balance as collected outside the gateway — a late COD
 // remittance, a bank transfer, or an order delivered without a COD manifest.
 adminOrdersRouter.post("/:id/balance/mark-paid", markBalancePaidController);
+// Close out a balance that will never be collected, retaining the deposit.
+adminOrdersRouter.post("/:id/balance/write-off", writeOffBalanceController);
 // Run the stale-order sweep on demand. The timer in stockSweeper.services.ts already
 // does this every minute; this is the manual lever for when stock looks stuck.
 adminOrdersRouter.post("/reclaim-stock", reclaimStockController);

@@ -6,10 +6,11 @@ import {
   updateOrderStatusService,
 } from "../../services/admin/admin.orders.services";
 import { runStockSweep } from "../../services/stockSweeper.services";
-import { markBalancePaidService } from "../../services/codSettlement.services";
+import { markBalancePaidService, writeOffBalanceService } from "../../services/codSettlement.services";
 import {
   updateOrderStatusBodySchema,
   markBalancePaidBodySchema,
+  writeOffBalanceBodySchema,
   orderParamsSchema,
 } from "@repo/zod-schema/index";
 import { OrderStatus } from "@repo/db/client";
@@ -50,12 +51,24 @@ async function getAdminOrders(req: Request, res: Response) {
     }
   }
 
+  // Validated against the known values rather than passed through, so an unexpected
+  // query string cannot reach the Prisma filter.
+  const rawPlan = req.query.paymentPlan as string | undefined;
+  const paymentPlan =
+    rawPlan === "FULL" || rawPlan === "PARTIAL" ? rawPlan : undefined;
+
+  const rawBalance = req.query.balanceState as string | undefined;
+  const balanceState =
+    rawBalance === "due" || rawBalance === "settled" ? rawBalance : undefined;
+
   const result = await getAdminOrdersService(
     parsedPage,
     parsedLimit,
     parsedStatus,
     parsedFromDate,
-    parsedToDate
+    parsedToDate,
+    paymentPlan,
+    balanceState
   );
 
   return new ApiResponse(200, result, "Admin orders fetched").send(res);
@@ -85,6 +98,24 @@ async function markBalancePaid(req: Request, res: Response) {
   return new ApiResponse(200, result, "Balance marked as paid").send(res);
 }
 
+/**
+ * Close out a balance that will never be collected and record the deposit as retained.
+ *
+ * Distinct from cancelling the order: cancelling implies stock returned and money to be
+ * moved, while this is only the money on an order whose fate the courier already recorded.
+ */
+async function writeOffBalance(req: Request, res: Response) {
+  const adminId = req.user?.userId;
+  if (!adminId) throw new ApiError(401, "Unauthorized");
+
+  const { id } = orderParamsSchema.parse(req.params);
+  const body = writeOffBalanceBodySchema.parse(req.body ?? {});
+
+  const result = await writeOffBalanceService(id, adminId, body);
+
+  return new ApiResponse(200, result, "Balance written off").send(res);
+}
+
 async function updateOrderStatus(req: Request, res: Response) {
   const adminId = req.user?.userId;
   if (!adminId) throw new ApiError(401, "Unauthorized");
@@ -110,6 +141,7 @@ async function reclaimStock(_req: Request, res: Response) {
 export const getAdminOrdersController = asyncHandler(getAdminOrders);
 export const getAdminOrderByIdController = asyncHandler(getAdminOrderById);
 export const markBalancePaidController = asyncHandler(markBalancePaid);
+export const writeOffBalanceController = asyncHandler(writeOffBalance);
 export const updateOrderStatusController = asyncHandler(updateOrderStatus);
 export const reclaimStockController = asyncHandler(reclaimStock);
 

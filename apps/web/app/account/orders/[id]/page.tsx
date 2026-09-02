@@ -207,6 +207,7 @@ export default function OrderDetailsPage() {
   const { currentOrder, fetchOrderById, loading } = useOrderStore()
   const [modal, setModal] = useState<"return" | "cancel" | null>(null)
   const [downloading, setDownloading] = useState(false)
+  const [downloadingReceipt, setDownloadingReceipt] = useState(false)
 
   useEffect(() => {
     fetchOrderById(id)
@@ -460,6 +461,36 @@ export default function OrderDetailsPage() {
           </button>
           <p className="text-xs text-muted mt-2">
             A copy was also emailed to you when the order was confirmed.
+          </p>
+        </div>
+      )}
+
+      {/* Payment receipt — a different document from the invoice, available from the
+          moment the deposit is captured. Gated separately for exactly that reason. */}
+      {o.partial?.depositPaidAt && (
+        <div className="bg-surface border border-border rounded-2xl p-5 shadow-card">
+          <h2 className="font-semibold text-text text-sm mb-3">Payment receipt</h2>
+          <button
+            onClick={async () => {
+              if (downloadingReceipt) return
+              setDownloadingReceipt(true)
+              try {
+                await OrderService.downloadReceipt(o.id)
+              } catch (err) {
+                toast.error(friendlyError(err, "Couldn't download the receipt"))
+              } finally {
+                setDownloadingReceipt(false)
+              }
+            }}
+            disabled={downloadingReceipt}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border text-sm font-medium text-text hover:border-primary hover:text-primary transition disabled:opacity-50"
+          >
+            {downloadingReceipt ? <Loader2 size={15} className="animate-spin" /> : <FileText size={15} />}
+            {downloadingReceipt ? "Preparing…" : "Download receipt"}
+          </button>
+          <p className="text-xs text-muted mt-2">
+            This is a payment receipt, not a tax invoice. Your GST invoice is issued when
+            the order is dispatched.
           </p>
         </div>
       )}

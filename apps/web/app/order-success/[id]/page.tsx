@@ -177,9 +177,22 @@ export default function OrderSuccessPage() {
                   <p className="text-xl font-bold text-text">
                     &#8377;{Number(o.total).toLocaleString("en-IN")}
                   </p>
-                  <p className="text-xs text-muted mt-1 capitalize">
-                    via {o.paymentMethod?.replace(/_/g, " ") ?? "—"}
-                  </p>
+                  {/* Never present the order total as "paid" on a deposit order — a
+                      fifth of it was charged and the rest is owed at the door. */}
+                  {o.partial ? (
+                    <>
+                      <p className="text-xs text-muted mt-1">
+                        Paid now &#8377;{Number(o.partial.depositAmount).toLocaleString("en-IN")}
+                      </p>
+                      <p className="text-xs font-semibold text-amber-600 mt-0.5">
+                        &#8377;{Number(o.partial.balanceAmount).toLocaleString("en-IN")} due at delivery
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-xs text-muted mt-1 capitalize">
+                      via {o.paymentMethod?.replace(/_/g, " ") ?? "—"}
+                    </p>
+                  )}
                 </div>
 
                 <div className="bg-surface border border-border rounded-2xl p-4 shadow-card">

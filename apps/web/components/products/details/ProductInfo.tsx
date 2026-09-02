@@ -2,11 +2,11 @@
 
 import { useState, useMemo, useEffect } from "react"
 import { Product, Variant } from "../../../types/product"
-import { getDisplayPrices, getPreOrderTerms } from "../../../lib/pricing"
+import { getDisplayPrices, getPreOrderTerms, getPartialPaymentTerms } from "../../../lib/pricing"
 import PriceTag from "../PriceTag"
 import ProductShare from "../ProductShare"
 import { RICH_TEXT_CLASS } from "../../../lib/richText"
-import { Heart, Loader2, Zap, ShoppingCart, Star, Shield, Truck, Clock, ShieldCheck, Info } from "lucide-react"
+import { Heart, Loader2, Zap, ShoppingCart, Star, Shield, Truck, Clock, ShieldCheck, Info, Wallet } from "lucide-react"
 import { useCartStore } from "../../../store/useCartStore"
 import { useWishlistStore } from "../../../store/useWishlistStore"
 import { useReviewStore } from "../../../store/useReviewStore"
@@ -102,6 +102,13 @@ export default function ProductInfo({
   )
   const canPreOrder = preOrderTerms.canPreOrder
   const bookingAmount = preOrderTerms.bookingAmount ?? 0
+
+  // Indicative only. The real split is computed by the server from the ORDER total, so
+  // the figure here is a rounded preview of the item price and checkout is authoritative.
+  const partialTerms = useMemo(
+    () => getPartialPaymentTerms(product as never, selectedVariant as never),
+    [product, selectedVariant],
+  )
 
   // The base product stays purchasable on its own stock even when variants exist, so
   // "add to cart" with nothing picked is a real purchase — it was just invisible.
@@ -199,6 +206,26 @@ export default function ProductInfo({
             {inStock ? "● In Stock" : canPreOrder ? "● Pre-Order" : "● Out of Stock"}
           </span>
         </div>
+
+        {/* Partial payment — shown only when the item is actually buyable now, since
+            an out-of-stock product goes down the pre-order path instead. Deliberately
+            hedged: eligibility also depends on the pincode, the order value and the
+            customer's open balances, none of which are known on a product page. */}
+        {partialTerms.enabled && inStock && (
+          <div className="bg-secondary/5 border border-secondary/20 rounded-xl p-3.5 flex items-start gap-2.5">
+            <Wallet size={16} className="text-secondary flex-shrink-0 mt-0.5" />
+            <div className="text-sm">
+              <p className="font-semibold text-secondary">
+                Pay {partialTerms.depositPercent}% now, rest on delivery
+              </p>
+              <p className="text-secondary/70 text-xs mt-0.5">
+                Around ₹{Math.round(((displayPrices.sale ?? displayPrices.regular) * partialTerms.depositPercent) / 100).toLocaleString("en-IN")} at
+                checkout, the balance collected at your door. Availability and the exact
+                amount are confirmed at checkout.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Pre-order banner */}
         {canPreOrder && (

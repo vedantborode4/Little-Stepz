@@ -5,6 +5,7 @@ import { ApiError } from "../utils/api";
 import { PaymentErrorCode } from "../utils/paymentErrors";
 import { notify, notifyAdmins } from "./notification.services";
 import { money, orderShortRef } from "../utils/notificationCopy";
+import { sendDepositForfeitedEmail } from "../utils/email";
 
 /**
  * Book the money for a COD order at the moment it is delivered.
@@ -334,4 +335,79 @@ export async function markBalancePaidService(
   await settleOrderIfFullyPaid(orderId, "balance-manual");
 
   return { orderId, balancePaid: Number(order.balanceAmount ?? 0), settledAt };
+}
+
+/**
+ * Write off a balance that will never be collected, and record the deposit as forfeited.
+ *
+ * The end state for an order that went out COD and came back, or that a customer simply
+ * refused. It exists because the alternative — cancelling the order — implies stock came
+ * back and money should move, neither of which is true here: the parcel's fate is already
+ * recorded by the courier webhook, and this is only the money.
+ *
+ * Deliberately does NOT refund. A written-off balance means the goods were not accepted,
+ * which is exactly the case the deposit covers. Where the merchant is at fault, cancel the
+ * order as MERCHANT instead — that refunds in full.
+ */
+export async function writeOffBalanceService(
+  orderId: string,
+  adminUserId: string,
+  body: { reason: string; note?: string }
+): Promise<{ orderId: string; depositForfeited: number; balanceWrittenOff: number }> {
+  const order = await prisma.order.findFirst({
+    where: { id: orderId, deletedAt: null },
+    select: {
+      paymentPlan: true,
+      depositAmount: true,
+      balanceAmount: true,
+      depositForfeitedAt: true,
+      user: { select: { email: true } },
+      payment: { select: { id: true, status: true, balanceSettledAt: true } },
+    },
+  });
+
+  if (!order) throw new ApiError(404, PaymentErrorCode.ORDER_NOT_FOUND);
+  if (order.paymentPlan !== "PARTIAL" || !order.payment) {
+    throw new ApiError(400, PaymentErrorCode.BALANCE_NOT_DUE);
+  }
+  if (order.payment.balanceSettledAt || order.payment.status !== "PARTIALLY_PAID") {
+    throw new ApiError(409, PaymentErrorCode.BALANCE_ALREADY_SETTLED);
+  }
+
+  // Claimed so two admins cannot both write it off and double-notify the customer.
+  const claimed = await prisma.order.updateMany({
+    where: { id: orderId, depositForfeitedAt: null },
+    data: { depositForfeitedAt: new Date(), depositForfeitReason: body.reason },
+  });
+  if (claimed.count === 0) throw new ApiError(409, PaymentErrorCode.BALANCE_ALREADY_SETTLED);
+
+  const deposit = Number(order.depositAmount ?? 0);
+  const balance = Number(order.balanceAmount ?? 0);
+
+  await createAuditLog({
+    userId: adminUserId,
+    action: "DEPOSIT_FORFEITED",
+    entity: "Order",
+    entityId: orderId,
+    newValue: { amount: deposit, balanceWrittenOff: balance, reason: body.reason, note: body.note ?? null },
+  });
+
+  void notify({
+    userId: (await prisma.order.findUnique({ where: { id: orderId }, select: { userId: true } }))!.userId,
+    type: "ORDER_CANCELLED",
+    title: "Order closed — deposit retained",
+    body: `Order #${orderShortRef(orderId)} has been closed. As set out in our cancellation policy, the ${money(deposit)} deposit is retained.`,
+    data: { screen: "Order", orderId },
+  });
+
+  if (order.user?.email) {
+    void sendDepositForfeitedEmail(order.user.email, {
+      orderId,
+      deposit,
+      reason: body.reason,
+      policyUrl: process.env.FRONTEND_URL ? `${process.env.FRONTEND_URL}/cancellation` : undefined,
+    });
+  }
+
+  return { orderId, depositForfeited: deposit, balanceWrittenOff: balance };
 }

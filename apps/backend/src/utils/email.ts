@@ -281,10 +281,12 @@ export function sendPartialOrderPlacedEmail(to: string, p: {
   deposit: number | string;
   balance: number | string;
   items: { name: string; quantity: number }[];
+  receipt?: { filename: string; pdf: Buffer };
 }) {
   const ref = p.orderId.slice(-8).toUpperCase();
   return sendEmail({
     to,
+    ...(p.receipt ? { attachments: [{ filename: p.receipt.filename, content: p.receipt.pdf }] } : {}),
     subject: `Order confirmed — deposit received (#${ref})`,
     html: shell("Your order is confirmed 🎉", `
       <p>Thanks for your order <strong>#${ref}</strong>.</p>
@@ -295,7 +297,7 @@ export function sendPartialOrderPlacedEmail(to: string, p: {
         <tr><td style="padding:2px 12px 2px 0;color:#666">Balance at delivery</td><td><strong>${money(p.balance)}</strong></td></tr>
       </table>
       <p>Please keep <strong>${money(p.balance)}</strong> ready — our delivery agent will collect it when your order arrives.</p>
-      <p style="font-size:13px;color:#666">This is a payment receipt, not a tax invoice. Your GST invoice is issued when the order is dispatched.</p>
+      <p style="font-size:13px;color:#666">Your payment receipt is attached. It is not a tax invoice — your GST invoice is issued when the order is dispatched.</p>
       <p style="font-size:13px;color:#666">The deposit is not refunded if the order is cancelled or delivery is refused, as set out in our cancellation policy.</p>
     `),
   });

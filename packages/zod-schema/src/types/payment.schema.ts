@@ -95,6 +95,19 @@ export const markBalancePaidBodySchema = z
   })
   .strict();
 
+/**
+ * Writing off a balance that will never be collected. The reason is required and
+ * constrained, because it is what the customer-facing forfeiture notice quotes and what
+ * the P&L needs in order to tell an RTO apart from a customer who simply refused.
+ */
+export const writeOffBalanceBodySchema = z
+  .object({
+    reason: z.enum(["REFUSED_DELIVERY", "RTO", "CANCELLED_BY_CUSTOMER", "UNCOLLECTABLE", "OTHER"]),
+    note: z.string().trim().max(500).optional(),
+  })
+  .strict();
+
+export type WriteOffBalanceBody    = z.infer<typeof writeOffBalanceBodySchema>;
 export type MarkBalancePaidBody    = z.infer<typeof markBalancePaidBodySchema>;
 export type CreatePaymentBody      = z.infer<typeof createPaymentBodySchema>;
 export type VerifyPaymentBody      = z.infer<typeof verifyPaymentBodySchema>;

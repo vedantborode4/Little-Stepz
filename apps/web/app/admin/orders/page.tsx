@@ -14,6 +14,7 @@ export default function AdminOrdersPage() {
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [total, setTotal] = useState(0)
+  const [outstanding, setOutstanding] = useState<{ amount: number; count: number }>({ amount: 0, count: 0 })
 
   const fetchOrders = async () => {
     setLoading(true)
@@ -22,6 +23,7 @@ export default function AdminOrdersPage() {
       setOrders(res.orders ?? [])
       setTotalPages(res.pages ?? 1)
       setTotal(res.total ?? 0)
+      setOutstanding({ amount: res.outstandingTotal ?? 0, count: res.outstandingCount ?? 0 })
     } catch (e) { console.error(e) }
     finally { setLoading(false) }
   }
@@ -34,7 +36,15 @@ export default function AdminOrdersPage() {
     <div className="space-y-4 sm:space-y-5">
       <AdminPageHeader
         title="Orders"
-        subtitle={total ? `${total} total orders` : undefined}
+        subtitle={
+          // The outstanding figure is the whole reason this feature is operable — it
+          // says how much cash is in the field waiting to be collected.
+          outstanding.count
+            ? `${total} total orders · ₹${outstanding.amount.toLocaleString("en-IN")} outstanding across ${outstanding.count} order${outstanding.count === 1 ? "" : "s"}`
+            : total
+              ? `${total} total orders`
+              : undefined
+        }
         action={<OrdersFilters filters={filters} setFilters={handleFilterChange} />}
       />
 

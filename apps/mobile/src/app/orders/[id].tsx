@@ -93,6 +93,7 @@ export default function OrderDetail() {
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [downloadingInvoice, setDownloadingInvoice] = useState(false);
+  const [downloadingReceipt, setDownloadingReceipt] = useState(false);
   /** Refund sentence to show after a successful cancellation. */
   const [cancelResult, setCancelResult] = useState<string | null>(null);
 
@@ -302,6 +303,26 @@ export default function OrderDetail() {
                   toast.error("Couldn't download the invoice. Please try again.");
                 } finally {
                   setDownloadingInvoice(false);
+                }
+              }}
+            />
+          ) : null}
+          {/* The deposit acknowledgement. Gated separately from the invoice because it
+              exists from the moment the deposit is captured, not from dispatch. */}
+          {order.partial?.depositPaidAt ? (
+            <Button
+              label={downloadingReceipt ? "Preparing receipt…" : "Download receipt"}
+              variant="outline"
+              loading={downloadingReceipt}
+              onPress={async () => {
+                if (downloadingReceipt) return;
+                setDownloadingReceipt(true);
+                try {
+                  await OrderService.downloadReceipt(order.id);
+                } catch {
+                  toast.error("Couldn't download the receipt. Please try again.");
+                } finally {
+                  setDownloadingReceipt(false);
                 }
               }}
             />

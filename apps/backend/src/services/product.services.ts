@@ -52,6 +52,11 @@ const baseProductSelect = {
   preOrderLimit: true,
   preOrderCount: true,
   preOrderNote: true,
+  // Partial-payment terms, so the product page can say "pay 20% now". Indicative only —
+  // eligibility also depends on the pincode, order value and the customer's open
+  // balances, none of which a product page knows.
+  partialPaymentEnabled: true,
+  depositPercent: true,
   // SEO overrides + merchant identity — drive metadata, sitemap and Product JSON-LD.
   metaTitle: true,
   metaDescription: true,
@@ -87,6 +92,7 @@ const baseProductSelect = {
       // Per-variant pre-order terms, so the storefront can show the right booking
       // amount per chip and hide variants that are opted out.
       preOrderEnabled: true, bookingAmount: true, preOrderLimit: true, preOrderCount: true,
+      partialPaymentEnabled: true, depositPercent: true,
       optionValues: { select: { optionValueId: true } },
       images: {
         where: { deletedAt: null },

@@ -7,7 +7,12 @@ import {
   cancelOrderService,
   abandonOrderService,
 } from '../services/orders.services';
-import { getInvoicePdfService, invoiceFileName } from '../services/invoice.services';
+import {
+  getInvoicePdfService,
+  invoiceFileName,
+  getAdvanceReceiptPdfService,
+  receiptFileName,
+} from '../services/invoice.services';
 import { orderParamsSchema, createOrderBodySchema } from '@repo/zod-schema/index';
 import { OrderErrorCode } from '../utils/orderErrors';
 
@@ -109,6 +114,26 @@ async function getOrderInvoice(req: Request, res: Response) {
 }
 
 
+/**
+ * The deposit acknowledgement for a partial-payment order, as a PDF.
+ *
+ * Separate from the invoice endpoint because it is a different document with different
+ * rules: available as soon as the deposit is captured, while the tax invoice only exists
+ * once the order is dispatched.
+ */
+async function getOrderReceipt(req: Request, res: Response) {
+  const userId = req.user?.userId;
+  if (!userId) throw new ApiError(401, 'Unauthorized');
+  const { id } = orderParamsSchema.parse(req.params);
+
+  const { pdf, reference } = await getAdvanceReceiptPdfService(id, userId);
+
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="${receiptFileName(reference)}"`);
+  res.setHeader('Content-Length', String(pdf.length));
+  return res.send(pdf);
+}
+
 async function cancelOrder(req: Request, res: Response) {
   const userId = req.user?.userId;
   if (!userId) throw new ApiError(401, 'Unauthorized');
@@ -133,5 +158,6 @@ export const createOrderController = asyncHandler(createOrder);
 export const getOrdersController = asyncHandler(getOrders);
 export const getOrderByIdController = asyncHandler(getOrderById);
 export const getOrderInvoiceController = asyncHandler(getOrderInvoice);
+export const getOrderReceiptController = asyncHandler(getOrderReceipt);
 export const cancelOrderController = asyncHandler(cancelOrder);
 export const abandonOrderController = asyncHandler(abandonOrder);

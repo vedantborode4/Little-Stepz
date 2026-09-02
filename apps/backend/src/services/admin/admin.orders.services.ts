@@ -32,7 +32,13 @@ export async function getAdminOrdersService(
   limit: number,
   status?: OrderStatus,
   fromDate?: Date,
-  toDate?: Date
+  toDate?: Date,
+  /**
+   * Narrow to partial-payment orders, optionally by whether money is still owed.
+   * "due" is the operational queue — what a human has to chase or collect.
+   */
+  paymentPlan?: "FULL" | "PARTIAL",
+  balanceState?: "due" | "settled"
 ) {
   const skip = (page - 1) * limit;
 
@@ -57,6 +63,22 @@ export async function getAdminOrdersService(
     if (toDate) where.createdAt.lte = toDate;
   }
 
+  if (paymentPlan) (where as Record<string, unknown>).paymentPlan = paymentPlan;
+
+  // Outstanding means the deposit landed and nothing has settled the balance since.
+  // Expressed through Payment rather than an Order column so it cannot drift from the
+  // status the settlement path actually writes.
+  if (balanceState === "due") {
+    (where as Record<string, unknown>).paymentPlan = "PARTIAL";
+    (where as Record<string, unknown>).depositPaidAt = { not: null };
+    (where as Record<string, unknown>).payment = {
+      is: { status: "PARTIALLY_PAID", balanceSettledAt: null },
+    };
+  } else if (balanceState === "settled") {
+    (where as Record<string, unknown>).paymentPlan = "PARTIAL";
+    (where as Record<string, unknown>).payment = { is: { status: "SUCCESS" } };
+  }
+
   const [orders, total] = await Promise.all([
     prisma.order.findMany({
       where,
@@ -75,6 +97,19 @@ export async function getAdminOrdersService(
     }),
     prisma.order.count({ where }),
   ]);
+
+  // What the whole filtered set still owes — the number an operator actually wants,
+  // rather than the sum of whatever happens to be on this page.
+  const outstanding = await prisma.order.aggregate({
+    where: {
+      ...where,
+      paymentPlan: "PARTIAL",
+      depositPaidAt: { not: null },
+      payment: { is: { status: "PARTIALLY_PAID", balanceSettledAt: null } },
+    },
+    _sum: { balanceAmount: true },
+    _count: { id: true },
+  });
 
   return {
     orders: orders.map(({ returns, ...order }) => ({
@@ -103,6 +138,8 @@ export async function getAdminOrdersService(
     page,
     limit,
     pages: Math.ceil(total / limit),
+    outstandingTotal: Number(outstanding._sum.balanceAmount ?? 0),
+    outstandingCount: outstanding._count.id,
   };
 }
 

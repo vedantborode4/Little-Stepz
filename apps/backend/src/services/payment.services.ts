@@ -26,7 +26,13 @@ import {
   sendBalanceDueOnDispatchEmail,
   sendDepositForfeitedEmail,
 } from "../utils/email";
-import { issueInvoiceForOrder, getInvoicePdfService, invoiceFileName } from "./invoice.services";
+import {
+  issueInvoiceForOrder,
+  getInvoicePdfService,
+  invoiceFileName,
+  getAdvanceReceiptPdfService,
+  receiptFileName,
+} from "./invoice.services";
 import { orderShortRef, money, orderStatusNotification } from "../utils/notificationCopy";
 import { Decimal } from "decimal.js";
 import type {
@@ -142,12 +148,24 @@ async function emitOrderEmails(orderId: string): Promise<void> {
     // total as paid, and attaches a GST invoice that does not exist yet — the tax invoice
     // is raised at dispatch so it can travel with the goods.
     if (isPartial && order.user?.email) {
+      // The receipt rides along, generated in its own try/catch for the same reason the
+      // invoice is on the full-payment path: a PDF failure must still leave the customer
+      // with a confirmation, and the receipt is recoverable from its own endpoint.
+      let receipt: { filename: string; pdf: Buffer } | undefined;
+      try {
+        const { pdf, reference } = await getAdvanceReceiptPdfService(orderId);
+        receipt = { filename: receiptFileName(reference), pdf };
+      } catch (err) {
+        console.error(`[receipt] generation failed for order ${orderId}:`, err);
+      }
+
       void sendPartialOrderPlacedEmail(order.user.email, {
         orderId: order.id,
         total: Number(order.total),
         deposit: Number(order.depositAmount ?? 0),
         balance: Number(order.balanceAmount ?? 0),
         items,
+        ...(receipt ? { receipt } : {}),
       });
     } else if (order.user?.email) {
       // The invoice rides along with the confirmation. Generated inside its own

@@ -4,6 +4,36 @@ import * as Sharing from "expo-sharing";
 import { api } from "../api/client";
 import type { Order } from "../../types/order";
 
+/**
+ * Fetch a PDF, write it to the cache and hand it to the share sheet.
+ *
+ * Expo Go cannot write to Downloads, so sharing is the only way to get a file off the
+ * app. Shared by the invoice and the receipt rather than duplicated.
+ */
+async function savePdfAndShare(path: string, fallbackName: string): Promise<string> {
+  const res = await api.get(path, { responseType: "blob" });
+
+  const base64 = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(",")[1] ?? "");
+    reader.onerror = () => reject(new Error("Could not read the file"));
+    reader.readAsDataURL(res.data as Blob);
+  });
+
+  const disposition = res.headers?.["content-disposition"] as string | undefined;
+  const filename = disposition?.match(/filename="?([^"]+)"?/)?.[1] ?? fallbackName;
+
+  const file = new File(Paths.cache, filename);
+  if (file.exists) file.delete();
+  file.create();
+  file.write(base64, { encoding: "base64" });
+
+  if (await Sharing.isAvailableAsync()) {
+    await Sharing.shareAsync(file.uri, { mimeType: "application/pdf", UTI: "com.adobe.pdf" });
+  }
+  return file.uri;
+}
+
 export const OrderService = {
   getAll: async (): Promise<Order[] | { orders: Order[] }> => {
     const res = await api.get("/orders");
@@ -46,27 +76,15 @@ export const OrderService = {
    * Downloads folder, so the share sheet is how the file leaves the app.
    */
   downloadInvoice: async (id: string) => {
-    const res = await api.get(`/orders/${id}/invoice`, { responseType: "blob" });
+    return savePdfAndShare(`/orders/${id}/invoice`, `invoice-${id.slice(0, 8)}.pdf`);
+  },
 
-    const base64 = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result).split(",")[1] ?? "");
-      reader.onerror = () => reject(new Error("Could not read the invoice"));
-      reader.readAsDataURL(res.data as Blob);
-    });
-
-    const disposition = res.headers?.["content-disposition"] as string | undefined;
-    const filename = disposition?.match(/filename="?([^"]+)"?/)?.[1] ?? `invoice-${id.slice(0, 8)}.pdf`;
-
-    const file = new File(Paths.cache, filename);
-    if (file.exists) file.delete();
-    file.create();
-    file.write(base64, { encoding: "base64" });
-
-    if (await Sharing.isAvailableAsync()) {
-      await Sharing.shareAsync(file.uri, { mimeType: "application/pdf", UTI: "com.adobe.pdf" });
-    }
-    return file.uri;
+  /**
+   * GET /orders/:id/receipt — the deposit acknowledgement on a partial-payment order.
+   * A different document from the invoice, available as soon as the deposit is captured.
+   */
+  downloadReceipt: async (id: string) => {
+    return savePdfAndShare(`/orders/${id}/receipt`, `receipt-${id.slice(0, 8)}.pdf`);
   },
 
   /** GET /orders/:id/track — Shiprocket tracking */
