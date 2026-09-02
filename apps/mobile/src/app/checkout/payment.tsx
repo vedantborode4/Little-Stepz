@@ -20,6 +20,9 @@ export default function Payment() {
     amount: string;
     currency: string;
     keyId: string;
+    /** Present only when this charge is a deposit rather than the whole order. */
+    purpose?: string;
+    balanceDue?: string;
   }>();
   const user = useAuthStore((s) => s.user);
   const abandonOrder = useCheckoutStore((s) => s.abandonOrder);
@@ -75,7 +78,10 @@ export default function Payment() {
     currency: params.currency || "INR",
     order_id: params.razorpayOrderId,
     name: "Little Stepz",
-    description: "Order Payment",
+    // Named so the Razorpay sheet does not say "Order Payment" over an amount that is
+    // only a fifth of the order. It crosses into the WebView through scriptJson with
+    // everything else, so it is escaped like any other injected value.
+    description: params.purpose === "deposit" ? "Order deposit (20%)" : "Order Payment",
     prefill: { name: user?.name ?? "", email: user?.email ?? "" },
     // One order, one attempt. Razorpay's in-modal retry reuses the same razorpay
     // order, so a second attempt would land on an order the payment.failed webhook
@@ -144,6 +150,9 @@ export default function Payment() {
           razorpayOrderId: msg.response.razorpay_order_id,
           razorpayPaymentId: msg.response.razorpay_payment_id,
           razorpaySignature: msg.response.razorpay_signature,
+          ...(params.purpose === "deposit"
+            ? { purpose: "deposit", balanceDue: params.balanceDue ?? "0" }
+            : {}),
         },
       });
     } else if (msg.type === "failed") {

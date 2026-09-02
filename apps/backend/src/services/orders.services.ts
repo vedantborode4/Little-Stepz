@@ -407,6 +407,65 @@ export async function createOrderService(userId: string, data: CreateOrderBody, 
   return order;
 }
 
+/**
+ * The partial-payment view of an order, as the storefronts need it.
+ *
+ * Returned as its own block rather than loose fields so a FULL order is unambiguously
+ * `partial: null` and no client has to infer the plan from a scatter of nullable columns.
+ * `balanceStatus` and `invoiceAvailable` are derived here, once, rather than in two
+ * storefronts that would drift.
+ */
+function partialBlock(order: {
+  paymentPlan: string;
+  status: string;
+  depositAmount: unknown;
+  balanceAmount: unknown;
+  depositPaidAt: Date | null;
+  depositForfeitedAt: Date | null;
+  dispatchLockedAt: Date | null;
+  payment?: {
+    status: string;
+    balanceSettledAt: Date | null;
+    balanceMethod: string | null;
+    balancePaidAt: Date | null;
+  } | null;
+}) {
+  const paidInFull = order.payment?.status === "SUCCESS";
+
+  if (order.paymentPlan !== "PARTIAL") {
+    return { paymentPlan: "FULL" as const, partial: null, invoiceAvailable: paidInFull };
+  }
+
+  const settled = Boolean(order.payment?.balanceSettledAt) || paidInFull;
+  const balanceStatus = order.depositForfeitedAt
+    ? ("WRITTEN_OFF" as const)
+    : settled
+      ? ("PAID" as const)
+      : ("DUE" as const);
+
+  return {
+    paymentPlan: "PARTIAL" as const,
+    // The tax invoice is raised at dispatch, not at settlement, so it can travel with
+    // the goods. Gating the client button on payment.status === SUCCESS would hide it
+    // for the whole time a COD parcel is in transit.
+    invoiceAvailable:
+      paidInFull ||
+      ["PROCESSING", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED"].includes(order.status),
+    partial: {
+      depositAmount: Number(order.depositAmount ?? 0),
+      balanceAmount: Number(order.balanceAmount ?? 0),
+      depositPaidAt: order.depositPaidAt,
+      balancePaidAt: order.payment?.balancePaidAt ?? null,
+      balanceStatus,
+      balanceMethod: order.payment?.balanceMethod ?? null,
+      // Once a COD parcel is committed the balance is owed to the courier, not to us.
+      collectedAtDoor: Boolean(order.dispatchLockedAt) && balanceStatus === "DUE",
+      depositForfeited: Boolean(order.depositForfeitedAt),
+      depositForfeitedAt: order.depositForfeitedAt,
+    },
+  };
+}
+
 export async function getOrdersService(userId: string, page: number, limit: number, status?: string) {
   const skip = (page - 1) * limit;
 
@@ -434,6 +493,12 @@ export async function getOrdersService(userId: string, page: number, limit: numb
         total: true,
         status: true,
         createdAt: true,
+        paymentPlan: true,
+        depositAmount: true,
+        balanceAmount: true,
+        depositPaidAt: true,
+        depositForfeitedAt: true,
+        dispatchLockedAt: true,
         items: {
           select: {
             productId: true,
@@ -444,7 +509,11 @@ export async function getOrdersService(userId: string, page: number, limit: numb
             variant: { select: { images: { where: { deletedAt: null }, orderBy: { sortOrder: "asc" }, select: { url: true }, take: 1 } } },
           },
         },
-        payment: { select: { status: true } },
+        payment: {
+          select: {
+            status: true, balanceSettledAt: true, balanceMethod: true, balancePaidAt: true,
+          },
+        },
       },
     }),
     prisma.order.count({ where }),
@@ -453,6 +522,7 @@ export async function getOrdersService(userId: string, page: number, limit: numb
   return { 
     orders: orders.map(order => ({
       ...order,
+      ...partialBlock(order),
       subtotal: order.subtotal.toNumber(),
       discount: order.discount.toNumber(),
       shippingCharges: order.shippingCharges.toNumber(),
@@ -495,6 +565,7 @@ export async function getOrderByIdService(userId: string, id: string) {
 
   return {
     ...order,
+    ...partialBlock(order),
     subtotal: order.subtotal.toNumber(),
     discount: order.discount.toNumber(),
     shippingCharges: order.shippingCharges.toNumber(),
