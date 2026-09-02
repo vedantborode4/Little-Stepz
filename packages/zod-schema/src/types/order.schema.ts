@@ -88,10 +88,18 @@ export const createOrderBodySchema = z
 
 export const updateOrderStatusBodySchema = z
   .object({
+    // Every status the admin transition map allows. PROCESSING and OUT_FOR_DELIVERY
+    // were missing, so the panel's own buttons for them were rejected here — and since
+    // the map requires OUT_FOR_DELIVERY before DELIVERED, an order the courier does not
+    // report on (a local delivery) could never be completed at all. Legality is still
+    // decided by `statusTransitions` in the service; this only stops the schema from
+    // refusing values that map already governs.
     status: z.enum([
       "PENDING",
       "CONFIRMED",
+      "PROCESSING",
       "SHIPPED",
+      "OUT_FOR_DELIVERY",
       "DELIVERED",
       "CANCELLED",
     ]),
@@ -120,3 +128,10 @@ export type CheckoutCalculateBody = z.infer<typeof checkoutCalculateBodySchema>;
 export type CreateOrderBody = z.infer<typeof createOrderBodySchema>;
 export type UpdateOrderStatusBody = z.infer<typeof updateOrderStatusBodySchema>;
 export type OrderParams = z.infer<typeof orderParamsSchema>;
+
+/** PATCH-style toggle for local (hand) fulfilment vs Delhivery. */
+export const setFulfilmentModeBodySchema = z
+  .object({ manual: z.boolean() })
+  .strict();
+
+export type SetFulfilmentModeBody = z.infer<typeof setFulfilmentModeBodySchema>;

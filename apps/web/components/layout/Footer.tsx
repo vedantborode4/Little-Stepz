@@ -97,6 +97,9 @@ export default function Footer() {
                 { label: "About Us", href: "/about" },
                 { label: "Support & Contact", href: "/support" },
                 { label: "FAQ", href: "/faq" },
+                // Same destination and wording as the Navbar's account menu item,
+                // which is otherwise only reachable once signed in.
+                { label: "Become Affiliate", href: "/affiliate/apply" },
                 { label: "Track Order", href: "/account/orders" },
                 { label: "Unboxing Policy", href: "/unboxing-policy" },
                 { label: "Shipping Policy", href: "/shipping" },

@@ -73,6 +73,8 @@ export function sendPreOrderBookedEmail(to: string, p: {
   productName: string;
   bookingAmount: number | string;
   balanceAmount: number | string;
+  /** Non-GST booking acknowledgement. Absent is not an error. */
+  receipt?: { filename: string; pdf: Buffer; reference: string };
 }) {
   return sendEmail({
     to,
@@ -82,9 +84,15 @@ export function sendPreOrderBookedEmail(to: string, p: {
     html: shell("Your pre-order is confirmed 🎉", `
       <p>Thanks for pre-ordering <strong>${escapeHtml(p.productName)}</strong>.</p>
       <p>Booking amount paid: <strong>${money(p.bookingAmount)}</strong></p>
+      ${p.receipt
+        ? `<p style="font-size:13px;color:#666">Your booking receipt (<strong>${escapeHtml(p.receipt.reference)}</strong>) is attached. It is an acknowledgement of the advance, not a tax invoice — the invoice follows once your order ships.</p>`
+        : ""}
       <p>Remaining balance due when it's back in stock: <strong>${money(p.balanceAmount)}</strong></p>
       <p>We'll email you a secure payment link the moment it arrives.</p>
     `),
+    ...(p.receipt
+      ? { attachments: [{ filename: p.receipt.filename, content: p.receipt.pdf }] }
+      : {}),
   });
 }
 
@@ -344,6 +352,8 @@ export function sendDepositForfeitedEmail(to: string, p: {
 export function sendBalancePaidEmail(to: string, p: {
   productName: string;
   orderId: string;
+  /** Tax invoice for the full amount, once the pre-order has become an order. */
+  invoice?: { filename: string; pdf: Buffer; number: string };
 }) {
   return sendEmail({
     to,
@@ -351,6 +361,12 @@ export function sendBalancePaidEmail(to: string, p: {
     html: shell("Order confirmed 🎉", `
       <p>We've received the balance for <strong>${escapeHtml(p.productName)}</strong>.</p>
       <p>Your order <strong>#${p.orderId.slice(-8).toUpperCase()}</strong> is now being processed and will ship soon.</p>
+      ${p.invoice
+        ? `<p style="font-size:13px;color:#666">Your tax invoice (<strong>${escapeHtml(p.invoice.number)}</strong>) is attached to this email.</p>`
+        : ""}
     `),
+    ...(p.invoice
+      ? { attachments: [{ filename: p.invoice.filename, content: p.invoice.pdf }] }
+      : {}),
   });
 }

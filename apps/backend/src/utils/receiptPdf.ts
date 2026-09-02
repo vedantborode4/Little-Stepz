@@ -18,6 +18,10 @@ export interface ReceiptPdfData {
   reference: string;
   issuedAt: Date;
   orderId: string;
+  /** What the id above is called on the page. A pre-order has no order yet. */
+  orderIdLabel?: string;
+  /** Overrides the strapline under the title; still must not claim to be an invoice. */
+  subtitle?: string;
   orderDate: Date;
   seller: {
     name: string; gstin: string; pan: string; address: string;
@@ -59,7 +63,7 @@ export function renderReceiptPdf(data: ReceiptPdfData): Promise<Buffer> {
     doc.font("Helvetica-Bold").fontSize(16).fillColor(INK)
       .text("Payment Receipt", left, 40, { width, align: "center" });
     doc.font("Helvetica").fontSize(9).fillColor(MUTED)
-      .text("Advance payment against order — this is not a tax invoice", left, 60, {
+      .text(data.subtitle ?? "Advance payment against order — this is not a tax invoice", left, 60, {
         width, align: "center",
       });
 
@@ -80,7 +84,7 @@ export function renderReceiptPdf(data: ReceiptPdfData): Promise<Buffer> {
     doc.font("Helvetica").fillColor(MUTED).text(data.reference, metaX, y + 12);
     doc.font("Helvetica-Bold").fillColor(INK).text("Receipt Date", metaX, y + 28);
     doc.font("Helvetica").fillColor(MUTED).text(day(data.issuedAt), metaX, y + 40);
-    doc.font("Helvetica-Bold").fillColor(INK).text("Order ID", metaX, y + 56);
+    doc.font("Helvetica-Bold").fillColor(INK).text(data.orderIdLabel ?? "Order ID", metaX, y + 56);
     doc.font("Helvetica").fillColor(MUTED).fontSize(8)
       .text(data.orderId, metaX, y + 68, { width: width * 0.4 });
     doc.fontSize(9).font("Helvetica-Bold").fillColor(INK).text("Order Date", metaX, y + 84);

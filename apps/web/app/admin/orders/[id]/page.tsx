@@ -10,6 +10,7 @@ import { friendlyError } from "../../../../lib/errorMessages"
 import OrderStatusBadge from "../../../../components/admin/orders/OrderStatusBadge"
 import ShipOrderButton from "../../../../components/admin/orders/ShipOrderButton"
 import CancelShipmentButton from "../../../../components/admin/orders/CancelShipmentButton"
+import FulfilmentModeToggle from "../../../../components/admin/orders/FulfilmentModeToggle"
 import OrderTimeline from "../../../../components/admin/orders/AdminOrderTimeline"
 
 export default function AdminOrderDetailPage() {
@@ -60,11 +61,30 @@ export default function AdminOrderDetailPage() {
         </div>
         <div className="flex items-center gap-2 sm:ml-auto flex-wrap">
           <OrderStatusBadge status={order.status} />
-          <ShipOrderButton
-              balanceToCollect={
-                order.partial?.balanceStatus === "DUE" ? Number(order.partial.balanceAmount) : null
-              } orderId={order.id} currentStatus={order.status} onSuccess={load} />
-          <CancelShipmentButton orderId={order.id} currentStatus={order.status} onSuccess={load} />
+          {/* Says how the goods travel before any of the courier actions, so the mode is
+              read first rather than discovered by a Ship button that refuses. */}
+          {order.manualFulfilment && (
+            <span className="text-[10px] font-bold uppercase tracking-wide bg-amber-50 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400 px-2 py-1 rounded-full">
+              Local delivery
+            </span>
+          )}
+          <FulfilmentModeToggle
+            orderId={order.id}
+            manual={!!order.manualFulfilment}
+            currentStatus={order.status}
+            onSuccess={load}
+          />
+          {/* Courier actions are meaningless on a hand-delivered order — the server
+              refuses them, so the buttons should not be there to click. */}
+          {!order.manualFulfilment && (
+            <>
+              <ShipOrderButton
+                balanceToCollect={
+                  order.partial?.balanceStatus === "DUE" ? Number(order.partial.balanceAmount) : null
+                } orderId={order.id} currentStatus={order.status} onSuccess={load} />
+              <CancelShipmentButton orderId={order.id} currentStatus={order.status} onSuccess={load} />
+            </>
+          )}
           {/* Only a paid order has an invoice to hand over. */}
           {order.payment?.status === "SUCCESS" && (
             <button

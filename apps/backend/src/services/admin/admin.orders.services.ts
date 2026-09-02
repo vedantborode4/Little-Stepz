@@ -8,6 +8,9 @@ import { syncProductStockFlags } from "../../utils/stock";
 import { reverseAffiliateCommissionsService } from "../affiliate.services";
 import { refundOrderMoney, type RefundScope } from "../refund.services";
 import { settleOnDeliverySafe } from "../codSettlement.services";
+import { issueInvoiceForOrder } from "../invoice.services";
+import { createAuditLog } from "../../utils/auditLog";
+import type { Request } from "express";
 
 
 const statusTransitions: Record<OrderStatus, OrderStatus[]> = {
@@ -349,6 +352,41 @@ export async function updateOrderStatusService(
     throw new ApiError(400, OrderErrorCode.CANCELLATION_PARTY_REQUIRED);
   }
 
+  // Marking a partial order delivered while its balance is still outstanding would
+  // record the goods as handed over with the money unaccounted for, and nothing else
+  // would ever prompt for it. Settle it first (Mark Balance Paid) or write it off.
+  //
+  // Only the admin path is affected: the courier webhook writes DELIVERED directly and
+  // settles COD in the same flow, so it never reaches this function.
+  if (newStatus === OrderStatus.DELIVERED) {
+    const money = await prisma.order.findUnique({
+      where: { id },
+      select: {
+        status: true,
+        paymentPlan: true,
+        depositForfeitedAt: true,
+        payment: { select: { status: true, balanceSettledAt: true } },
+      },
+    });
+
+    // Only speak about the money when delivering is actually the next legal step.
+    // Otherwise an admin attempting an impossible jump would be told the balance is
+    // unsettled, which sends them off to chase a payment when the real answer is that
+    // the order is not out for delivery yet.
+    const transitionAllowed =
+      !!money && (statusTransitions[money.status] ?? []).includes(OrderStatus.DELIVERED);
+
+    const outstanding =
+      money?.paymentPlan === "PARTIAL" &&
+      !money.depositForfeitedAt &&
+      money.payment?.status !== "SUCCESS" &&
+      !money.payment?.balanceSettledAt;
+
+    if (transitionAllowed && outstanding) {
+      throw new ApiError(400, OrderErrorCode.BALANCE_UNSETTLED);
+    }
+  }
+
   const result = await prisma.$transaction(async (tx) => {
     const order = await tx.order.findUnique({
       where: { id },
@@ -475,6 +513,28 @@ export async function updateOrderStatusService(
     );
   }
 
+  // Dispatch of a locally-fulfilled order. Delhivery dispatch raises the tax invoice
+  // for an outstanding balance (CGST §31(1): the invoice travels with the goods), but a
+  // local order never goes through that path, so it would otherwise ship with no
+  // invoice at all. Fail-soft, and idempotent — issueInvoiceForOrder returns the
+  // existing row if one was already raised.
+  if (newStatus === OrderStatus.SHIPPED) {
+    const local = await prisma.order.findUnique({
+      where: { id },
+      select: {
+        manualFulfilment: true,
+        paymentPlan: true,
+        payment: { select: { balanceSettledAt: true } },
+      },
+    });
+
+    if (local?.manualFulfilment && local.paymentPlan === "PARTIAL" && !local.payment?.balanceSettledAt) {
+      void issueInvoiceForOrder(id).catch((err) =>
+        console.error(`[invoice] manual dispatch issue failed for order ${id}:`, err)
+      );
+    }
+  }
+
   if (newStatus === OrderStatus.DELIVERED) {
     // Safe wrapper: the status change has already committed, so a settlement failure
     // must be escalated rather than 500-ing the admin over work that did succeed.
@@ -495,4 +555,68 @@ export async function updateOrderStatusService(
   }
 
   return { ...result, refund: refund.status };
+}
+
+/**
+ * Switch an order between courier and local (hand) fulfilment.
+ *
+ * Refused while a live waybill exists: the parcel is physically with Delhivery, and an
+ * order claiming to be delivered locally while a courier is carrying it is the one state
+ * ops cannot recover from. Cancel the shipment first, which is an explicit action with
+ * its own audit trail.
+ *
+ * Also refused once the order is past dispatch — the fulfilment route is a decision about
+ * how the goods travel, and they have already travelled.
+ */
+export async function setOrderFulfilmentModeService(
+  id: string,
+  manual: boolean,
+  adminId: string,
+  req?: Request
+) {
+  const order = await prisma.order.findFirst({
+    where: { id, deletedAt: null },
+    select: {
+      id: true,
+      status: true,
+      manualFulfilment: true,
+      shipments: { select: { id: true, status: true, providerRefId: true } },
+    },
+  });
+
+  if (!order) throw new ApiError(404, OrderErrorCode.ORDER_NOT_FOUND);
+  if (order.manualFulfilment === manual) {
+    return { id: order.id, manualFulfilment: manual, changed: false };
+  }
+
+  if (!["PENDING", "CONFIRMED", "PROCESSING"].includes(order.status)) {
+    throw new ApiError(400, OrderErrorCode.INVALID_STATUS_TRANSITION);
+  }
+
+  // FAILED rows are cancelled or unsuccessful attempts, not live parcels — the same
+  // rule createShipmentService and the sweeper already use.
+  const activeShipment = order.shipments.find(
+    (sh) => sh.providerRefId && sh.status !== "FAILED"
+  );
+  if (activeShipment) {
+    throw new ApiError(409, OrderErrorCode.SHIPMENT_ACTIVE);
+  }
+
+  const updated = await prisma.order.update({
+    where: { id },
+    data: { manualFulfilment: manual },
+    select: { id: true, manualFulfilment: true },
+  });
+
+  void createAuditLog({
+    userId: adminId,
+    action: "ORDER_FULFILMENT_MODE_CHANGED",
+    entity: "Order",
+    entityId: id,
+    oldValue: { manualFulfilment: order.manualFulfilment },
+    newValue: { manualFulfilment: manual },
+    req,
+  });
+
+  return { ...updated, changed: true };
 }

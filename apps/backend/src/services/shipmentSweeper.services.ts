@@ -58,6 +58,9 @@ export async function sweepUnshippedOrders(): Promise<number> {
       // the same reason createShipmentService ignores them — they represent a
       // cancelled or unsuccessful attempt, not a live parcel.
       shipments: { none: { status: { not: "FAILED" } } },
+      // Local deliveries are fulfilled by hand; handing one to Delhivery would book a
+      // waybill for a parcel that is never going to the courier.
+      manualFulfilment: false,
     },
     select: { id: true },
     take: BATCH_SIZE,

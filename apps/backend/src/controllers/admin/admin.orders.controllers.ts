@@ -7,9 +7,11 @@ import {
 } from "../../services/admin/admin.orders.services";
 import { runStockSweep } from "../../services/stockSweeper.services";
 import { markBalancePaidService, writeOffBalanceService } from "../../services/codSettlement.services";
+import { setOrderFulfilmentModeService } from "../../services/admin/admin.orders.services";
 import {
   updateOrderStatusBodySchema,
   markBalancePaidBodySchema,
+  setFulfilmentModeBodySchema,
   writeOffBalanceBodySchema,
   orderParamsSchema,
 } from "@repo/zod-schema/index";
@@ -157,3 +159,27 @@ async function getAdminOrderInvoice(req: Request, res: Response) {
 }
 
 export const getAdminOrderInvoiceController = asyncHandler(getAdminOrderInvoice);
+
+/**
+ * Route this order by hand instead of Delhivery, or put it back on the courier.
+ *
+ * Audited like the balance actions: it decides who physically carries the goods, and
+ * the panel has to be able to say who made that call.
+ */
+async function setFulfilmentMode(req: Request, res: Response) {
+  const adminId = req.user?.userId;
+  if (!adminId) throw new ApiError(401, "Unauthorized");
+
+  const { id } = orderParamsSchema.parse(req.params);
+  const { manual } = setFulfilmentModeBodySchema.parse(req.body ?? {});
+
+  const result = await setOrderFulfilmentModeService(id, manual, adminId, req);
+
+  return new ApiResponse(
+    200,
+    result,
+    manual ? "Order set to local fulfilment" : "Order set to courier fulfilment"
+  ).send(res);
+}
+
+export const setFulfilmentModeController = asyncHandler(setFulfilmentMode);

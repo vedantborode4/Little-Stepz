@@ -23,6 +23,8 @@ export interface AdminOrder {
   returnId: string | null
   returnStatus: "PENDING" | "APPROVED" | "REJECTED" | "REFUNDED" | null
   paymentPlan?: "FULL" | "PARTIAL"
+  /** Delivered by hand rather than Delhivery — skipped by auto-ship. */
+  manualFulfilment?: boolean
   /** Still to collect, in rupees. 0 on a full-payment or settled order. */
   balanceOutstanding?: number
   /** Null on a full-payment order. */
@@ -138,6 +140,12 @@ export const AdminOrderService = {
    * carries the auth header (and the 401-refresh interceptor); the response is a
    * blob, saved via a temporary object URL.
    */
+  /** Route an order by hand instead of Delhivery, or put it back on the courier. */
+  setFulfilmentMode: async (orderId: string, manual: boolean) => {
+    const res = await api.post(`/admin/orders/${orderId}/fulfilment`, { manual })
+    return res.data.data as { id: string; manualFulfilment: boolean; changed: boolean }
+  },
+
   downloadInvoice: async (orderId: string) => {
     const res = await api.get(`/admin/orders/${orderId}/invoice`, { responseType: "blob" })
     const disposition = res.headers?.["content-disposition"] as string | undefined

@@ -34,6 +34,7 @@ export type AuditAction =
   | "REFERRAL_CONVERTED"
   | "NOTIFICATION_BROADCAST"
   | "CART_ITEM_ADDED"
+  | "ORDER_FULFILMENT_MODE_CHANGED"
   // Partial payment (20% deposit / balance at delivery). The money on these orders moves
   // in two legs and through three possible channels, so every transition is auditable —
   // the audit row is what a reconciliation or a chargeback dispute is settled from.

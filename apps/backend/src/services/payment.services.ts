@@ -1709,6 +1709,13 @@ export async function createShipmentService(
     throw new ApiError(400, "Order is not in a shippable state");
   }
 
+  // A local order is delivered by hand; booking a Delhivery waybill for it would
+  // manifest a parcel that never reaches the courier — and, on a partial order, ask
+  // the courier to collect cash the client is collecting himself.
+  if (order.manualFulfilment) {
+    throw new ApiError(400, PaymentErrorCode.ORDER_IS_MANUAL_FULFILMENT);
+  }
+
   // Ignore prior FAILED (e.g. cancelled) shipments so a re-ship is possible.
   const activeShipment = order.shipments.find(
     (s) => s.providerRefId && s.status !== "FAILED"

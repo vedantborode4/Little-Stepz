@@ -41,6 +41,12 @@ export enum OrderErrorCode {
   DEPOSIT_FORFEIT_CONFIRMATION_REQUIRED = "DEPOSIT_FORFEIT_CONFIRMATION_REQUIRED",
   /** Admin cancel of a partial order must say who initiated it. */
   CANCELLATION_PARTY_REQUIRED = "CANCELLATION_PARTY_REQUIRED",
+
+  /** Cannot deliver a partial order while its balance is unpaid. */
+  BALANCE_UNSETTLED = "BALANCE_UNSETTLED",
+
+  /** Cannot change fulfilment route while a courier holds the parcel. */
+  SHIPMENT_ACTIVE = "SHIPMENT_ACTIVE",
   /** The phone on the delivery address is unverified — always required for partial. */
   PHONE_NOT_VERIFIED = "PHONE_NOT_VERIFIED",
 }

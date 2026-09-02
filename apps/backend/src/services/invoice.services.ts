@@ -334,3 +334,76 @@ export async function getAdvanceReceiptPdfService(orderId: string, userId?: stri
 
   return { pdf, reference };
 }
+
+/**
+ * Booking receipt for a pre-order.
+ *
+ * A pre-order booking is an advance against goods that have not been supplied, so this
+ * is the same non-GST acknowledgement a partial-payment deposit gets — not a tax
+ * invoice, and it must not draw an InvoiceCounter number. Under Notification 66/2017 no
+ * GST is payable on an advance for goods, so a document showing a tax breakup here
+ * would invite the customer to claim credit it does not support; the tax invoice comes
+ * once, for the full amount, when the pre-order completes into an order.
+ *
+ * Reference is derived from the pre-order id, so it is stable and needs no table.
+ */
+export async function getPreOrderReceiptPdfService(preOrderId: string, userId?: string) {
+  const po = await prisma.preOrder.findFirst({
+    where: { id: preOrderId, deletedAt: null, ...(userId ? { userId } : {}) },
+    select: {
+      id: true,
+      createdAt: true,
+      quantity: true,
+      unitPrice: true,
+      bookingAmount: true,
+      balanceAmount: true,
+      totalAmount: true,
+      bookingPaidAt: true,
+      user: { select: { name: true, email: true, phone: true } },
+      address: {
+        select: { name: true, phone: true, address: true, city: true, state: true, pincode: true },
+      },
+      product: { select: { name: true } },
+      variant: { select: { name: true } },
+    },
+  });
+
+  if (!po) throw new ApiError(404, "PREORDER_NOT_FOUND");
+  // Nothing to acknowledge until the booking has actually been captured.
+  if (!po.bookingPaidAt) throw new ApiError(409, "RECEIPT_NOT_AVAILABLE");
+
+  const issuedAt = po.bookingPaidAt;
+  const reference = `ADV/${financialYearOf(issuedAt)}/PO-${po.id.slice(-8).toUpperCase()}`;
+
+  const pdf = await renderReceiptPdf({
+    reference,
+    issuedAt,
+    orderId: po.id,
+    orderIdLabel: "Pre-order ID",
+    subtitle: "Booking amount received against a pre-order — this is not a tax invoice",
+    orderDate: po.createdAt,
+    seller: getSeller(),
+    buyer: {
+      name: po.address?.name ?? po.user.name,
+      email: po.user.email,
+      phone: po.address?.phone ?? po.user.phone ?? null,
+      address: po.address?.address ?? "",
+      city: po.address?.city ?? "",
+      state: po.address?.state ?? "",
+      pincode: po.address?.pincode ?? "",
+    },
+    items: [
+      {
+        name: po.product.name,
+        variantName: po.variant?.name ?? null,
+        quantity: po.quantity,
+        gross: new Decimal(po.unitPrice.toString()).mul(po.quantity).toString(),
+      },
+    ],
+    orderTotal: po.totalAmount.toString(),
+    depositPaid: po.bookingAmount.toString(),
+    balanceDue: po.balanceAmount.toString(),
+  });
+
+  return { pdf, reference };
+}

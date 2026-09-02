@@ -663,6 +663,13 @@ model Order {
   depositForfeitedAt   DateTime?
   depositForfeitReason String?
 
+  /// Fulfilled by hand instead of Delhivery — local deliveries the client runs himself.
+  /// The auto-ship sweeper skips these, so a local order is never handed to the courier;
+  /// the admin drives its status through the normal sequence. A boolean rather than a new
+  /// enum: there are exactly two cases, and enums must be re-exported by hand from
+  /// @repo/db.
+  manualFulfilment Boolean @default(false)
+
   providerRefId        String?
   providerShipmentId   String?
   trackingUrl          String?

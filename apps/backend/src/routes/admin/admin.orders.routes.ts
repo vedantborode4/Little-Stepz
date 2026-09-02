@@ -6,7 +6,8 @@ import {
     reclaimStockController,
     getAdminOrderInvoiceController,
     markBalancePaidController,
-    writeOffBalanceController
+    writeOffBalanceController,
+    setFulfilmentModeController
 } from "../../controllers/admin/admin.orders.controllers";
 import { isAdmin } from "../../middlewares/role.middleware";
 import { authMiddleware } from "../../middlewares/auth.middleware";
@@ -20,6 +21,8 @@ adminOrdersRouter.get("/", getAdminOrdersController);
 adminOrdersRouter.get("/:id", getAdminOrderByIdController);
 adminOrdersRouter.get("/:id/invoice", getAdminOrderInvoiceController);
 adminOrdersRouter.put("/:id/status", updateOrderStatusController);
+// Local (hand) fulfilment vs Delhivery. Refused while a live waybill exists.
+adminOrdersRouter.post("/:id/fulfilment", setFulfilmentModeController);
 // Record a partial order's balance as collected outside the gateway — a late COD
 // remittance, a bank transfer, or an order delivered without a COD manifest.
 adminOrdersRouter.post("/:id/balance/mark-paid", markBalancePaidController);
