@@ -19,7 +19,13 @@ import { processAffiliateCommissionService, reverseAffiliateCommissionsService }
 import { reconcilePreOrderByRazorpayOrderId } from "./preorder.services";
 import { notify, notifyAdmins } from "./notification.services";
 import { REFUND_WORKING_DAYS } from "@repo/content/index";
-import { sendNewOrderAdminEmail, sendOrderConfirmationEmail } from "../utils/email";
+import {
+  sendNewOrderAdminEmail,
+  sendOrderConfirmationEmail,
+  sendPartialOrderPlacedEmail,
+  sendBalanceDueOnDispatchEmail,
+  sendDepositForfeitedEmail,
+} from "../utils/email";
 import { issueInvoiceForOrder, getInvoicePdfService, invoiceFileName } from "./invoice.services";
 import { orderShortRef, money, orderStatusNotification } from "../utils/notificationCopy";
 import { Decimal } from "decimal.js";
@@ -100,6 +106,9 @@ async function emitOrderEmails(orderId: string): Promise<void> {
         id: true,
         total: true,
         paymentMethod: true,
+        paymentPlan: true,
+        depositAmount: true,
+        balanceAmount: true,
         user: { select: { name: true, email: true } },
         items: { select: { productName: true, variantName: true, quantity: true } },
       },
@@ -117,14 +126,30 @@ async function emitOrderEmails(orderId: string): Promise<void> {
       };
     });
 
+    const isPartial = order.paymentPlan === "PARTIAL";
+
     const payload = {
       orderId: order.id,
       total: order.total.toString(),
-      paymentMethod: order.paymentMethod,
+      // The admin triages from the subject line, so say what was actually collected.
+      paymentMethod: isPartial
+        ? `${money(Number(order.depositAmount ?? 0))} deposit — ${money(Number(order.balanceAmount ?? 0))} due on delivery`
+        : order.paymentMethod,
       items,
     };
 
-    if (order.user?.email) {
+    // A deposit order gets its own template. The standard confirmation states the order
+    // total as paid, and attaches a GST invoice that does not exist yet — the tax invoice
+    // is raised at dispatch so it can travel with the goods.
+    if (isPartial && order.user?.email) {
+      void sendPartialOrderPlacedEmail(order.user.email, {
+        orderId: order.id,
+        total: Number(order.total),
+        deposit: Number(order.depositAmount ?? 0),
+        balance: Number(order.balanceAmount ?? 0),
+        items,
+      });
+    } else if (order.user?.email) {
       // The invoice rides along with the confirmation. Generated inside its own
       // try/catch because a PDF or numbering failure must still leave the customer
       // with a confirmation email — the invoice is recoverable from the download
@@ -1857,6 +1882,20 @@ export async function createShipmentService(
       )} ready — the delivery agent will collect it at your door.`,
       data: { screen: "Order", orderId },
     });
+
+    // Email as well as the push: this is the moment the amount becomes payable to a
+    // person at the door, and a missed notification means a failed delivery.
+    void prisma.user
+      .findUnique({ where: { id: order.userId }, select: { email: true } })
+      .then((u) => {
+        if (!u?.email) return;
+        void sendBalanceDueOnDispatchEmail(u.email, {
+          orderId,
+          balance: Number(order.balanceAmount ?? 0),
+          trackingUrl,
+        });
+      })
+      .catch(() => {});
   }
 
   return result;

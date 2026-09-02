@@ -133,6 +133,7 @@ export const returns: PolicyPage = {
             "Processing time depends on payment providers / banks",
           ],
         },
+        { type: "paragraph", text: "On an approved return of a Partial Payment order, the deposit you paid online is refunded automatically to the original payment method. The balance, where it was collected in cash by the delivery agent, cannot be reversed through the payment gateway and is refunded separately by our team — we will contact you to arrange it." },
       ],
     },
     {

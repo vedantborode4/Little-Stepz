@@ -65,7 +65,7 @@ export async function getAdminOrdersService(
       orderBy: { createdAt: "desc" },
       include: {
         user: { select: { id: true, name: true } },
-        payment: { select: { status: true, amount: true } },
+        payment: { select: { status: true, amount: true, balanceSettledAt: true } },
         // The admin "Resolve Return" action addresses the Return, not the Order —
         // `PUT /admin/returns/:id/resolve`. The row was never sent one, so the button
         // posted `undefined` as the id and the flow could not work at all.
@@ -85,6 +85,13 @@ export async function getAdminOrdersService(
       total: order.total.toNumber(),
       returnId: returns[0]?.id ?? null,
       returnStatus: returns[0]?.status ?? null,
+      // Surfaced on the list so outstanding money is visible without opening each order.
+      balanceOutstanding:
+        order.paymentPlan === "PARTIAL" &&
+        order.payment?.status !== "SUCCESS" &&
+        !order.payment?.balanceSettledAt
+          ? Number(order.balanceAmount ?? 0)
+          : 0,
       payment: order.payment
         ? {
             ...order.payment,
@@ -163,6 +170,12 @@ export async function getAdminOrderByIdService(id: string) {
           currency: true, razorpayOrderId: true, razorpayPaymentId: true,
           refundId: true, refundAmount: true, refundedAt: true, refundReason: true,
           codCollectedAt: true, attempts: true, createdAt: true,
+          // Balance leg — what is outstanding, how it arrived, and what is owed back
+          // by hand when a cash-collected balance has to be returned.
+          balanceAmount: true, balanceSettledAt: true, balanceMethod: true,
+          balancePaidAt: true, balanceReference: true,
+          codRemittedAt: true, codRemittedAmount: true,
+          manualRefundAmount: true, manualRefundSettledAt: true,
         },
       },
       shipments: {
@@ -201,8 +214,35 @@ export async function getAdminOrderByIdService(id: string) {
 
   if (!order) throw new ApiError(404, OrderErrorCode.ORDER_NOT_FOUND);
 
+  const settled = order.payment?.status === "SUCCESS" || Boolean(order.payment?.balanceSettledAt);
+
   return {
     ...order,
+    // Mirrors the customer payload so the admin panel and the storefront cannot
+    // disagree about what is outstanding.
+    partial:
+      order.paymentPlan === "PARTIAL"
+        ? {
+            depositAmount: Number(order.depositAmount ?? 0),
+            balanceAmount: Number(order.balanceAmount ?? 0),
+            depositPaidAt: order.depositPaidAt,
+            balancePaidAt: order.payment?.balancePaidAt ?? null,
+            balanceStatus: order.depositForfeitedAt
+              ? ("WRITTEN_OFF" as const)
+              : settled
+                ? ("PAID" as const)
+                : ("DUE" as const),
+            balanceMethod: order.payment?.balanceMethod ?? null,
+            balanceReference: order.payment?.balanceReference ?? null,
+            collectedAtDoor: Boolean(order.dispatchLockedAt) && !settled,
+            depositForfeited: Boolean(order.depositForfeitedAt),
+            depositForfeitedAt: order.depositForfeitedAt,
+            manualRefundAmount: order.payment?.manualRefundAmount
+              ? Number(order.payment.manualRefundAmount)
+              : null,
+            manualRefundSettledAt: order.payment?.manualRefundSettledAt ?? null,
+          }
+        : null,
     returnId:     order.returns[0]?.id ?? null,
     returnStatus: order.returns[0]?.status ?? null,
     returns: order.returns.map((r) => ({

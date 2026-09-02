@@ -11,11 +11,17 @@ interface Props {
   currentStatus?: OrderStatus
   onSuccess: () => void
   refresh?: () => void
+  /**
+   * Outstanding balance, when this order is a partial-payment one that has not settled.
+   * Dispatching such an order commits it to cash-on-delivery for exactly this amount and
+   * closes the customer's option to pay online, so the admin is told before, not after.
+   */
+  balanceToCollect?: number | null
 }
 
 const SHIPPABLE_STATUSES: OrderStatus[] = ["CONFIRMED", "PROCESSING"]
 
-export default function ShipOrderButton({ orderId, currentStatus, onSuccess, refresh }: Props) {
+export default function ShipOrderButton({ orderId, currentStatus, onSuccess, refresh, balanceToCollect }: Props) {
   const [loading, setLoading] = useState(false)
 
   const cb = onSuccess ?? refresh
@@ -23,7 +29,15 @@ export default function ShipOrderButton({ orderId, currentStatus, onSuccess, ref
   if (currentStatus && !SHIPPABLE_STATUSES.includes(currentStatus)) return null
 
   const ship = async () => {
-    if (!confirm("Create shipment for this order?")) return
+    // A plain "Create shipment?" is not enough once dispatch is also the moment the
+    // collection method is locked in — that decision is irreversible and involves money.
+    const message = balanceToCollect
+      ? `This will ship COD with ₹${balanceToCollect.toLocaleString("en-IN")} to collect at the door.
+
+` +
+        `The customer's option to pay the balance online will close immediately. Continue?`
+      : "Create shipment for this order?"
+    if (!confirm(message)) return
     setLoading(true)
     try {
       await AdminOrderService.createShipment(orderId)

@@ -42,8 +42,16 @@ export const OrderService = {
   },
 
   /** POST /orders/:id/cancel — customer cancels a pending/confirmed order */
-  cancelOrder: async (id: string, reason?: string) => {
-    const res = await api.post(`/orders/${id}/cancel`, { reason })
+  /**
+   * `confirmForfeit` is the record that the customer saw, and accepted, that cancelling a
+   * deposit-paid order keeps the deposit. The server refuses without it, so it must only
+   * be sent when the UI has actually shown the amount.
+   */
+  cancelOrder: async (id: string, reason?: string, confirmForfeit?: boolean) => {
+    const res = await api.post(`/orders/${id}/cancel`, {
+      reason,
+      ...(confirmForfeit ? { confirmForfeit: true } : {}),
+    })
     return res.data.data
   },
 }

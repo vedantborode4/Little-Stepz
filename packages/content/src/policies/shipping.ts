@@ -94,6 +94,7 @@ export const shipping: PolicyPage = {
           ],
         },
         { type: "paragraph", text: "Additional re-shipping charges may apply." },
+        { type: "paragraph", text: "On an order placed under our Partial Payment plan, refusing delivery or failing to pay the balance to the delivery agent means the parcel is returned to us and the deposit paid at checkout is retained in full, as set out in our Cancellation Policy." },
       ],
     },
     {

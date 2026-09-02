@@ -18,12 +18,16 @@ type CreateVariantInput = {
   preOrderEnabled?: boolean;
   bookingAmount?: number | null;
   preOrderLimit?: number | null;
+  /** Per-variant partial-payment terms; see utils/partialPayment.ts for the rules. */
+  partialPaymentEnabled?: boolean;
+  depositPercent?: number | null;
 };
 
 export async function createVariantService(data: CreateVariantInput) {
   const {
     productId, name, sku, sortOrder, isDefault = false, price, salePrice,
     isOnSale = false, stock = 0, preOrderEnabled, bookingAmount, preOrderLimit,
+    partialPaymentEnabled, depositPercent,
   } = data;
   // Store the name exactly as the admin typed it (trimmed) — only the duplicate
   // check below is case-insensitive.
@@ -91,6 +95,9 @@ export async function createVariantService(data: CreateVariantInput) {
         preOrderEnabled: preOrderEnabled ?? true,
         bookingAmount: bookingAmount ?? null,
         preOrderLimit: preOrderLimit ?? null,
+        // Same inherit-by-default rule: true means "follow the product".
+        partialPaymentEnabled: partialPaymentEnabled ?? true,
+        depositPercent: depositPercent ?? null,
       },
     });
 
@@ -112,6 +119,8 @@ type UpdateVariantInput = Partial<{
   preOrderEnabled: boolean;
   bookingAmount: number | null;
   preOrderLimit: number | null;
+  partialPaymentEnabled: boolean;
+  depositPercent: number | null;
 }>;
 
 export async function updateVariantService(
@@ -121,6 +130,7 @@ export async function updateVariantService(
   const {
     name, sku, sortOrder, isDefault, price, salePrice, isOnSale, stock,
     preOrderEnabled, bookingAmount, preOrderLimit,
+    partialPaymentEnabled, depositPercent,
   } = data;
 
   if (
@@ -134,7 +144,9 @@ export async function updateVariantService(
     stock === undefined &&
     preOrderEnabled === undefined &&
     bookingAmount === undefined &&
-    preOrderLimit === undefined
+    preOrderLimit === undefined &&
+    partialPaymentEnabled === undefined &&
+    depositPercent === undefined
   ) {
     throw new ApiError(400, "No fields provided to update");
   }
@@ -217,6 +229,11 @@ export async function updateVariantService(
         // the product's amount again, so it must not be collapsed to "unchanged".
         bookingAmount: bookingAmount !== undefined ? bookingAmount : undefined,
         preOrderLimit: preOrderLimit !== undefined ? preOrderLimit : undefined,
+        partialPaymentEnabled:
+          partialPaymentEnabled !== undefined ? partialPaymentEnabled : undefined,
+        // null clears the override so the variant inherits again — same reasoning as
+        // bookingAmount above, so it must not be collapsed to "unchanged".
+        depositPercent: depositPercent !== undefined ? depositPercent : undefined,
       },
       select: {
         id: true,

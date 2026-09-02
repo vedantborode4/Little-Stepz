@@ -22,6 +22,29 @@ export interface AdminOrder {
   /** Id of the Return raised against this order, if any — what `resolveReturn` addresses. */
   returnId: string | null
   returnStatus: "PENDING" | "APPROVED" | "REJECTED" | "REFUNDED" | null
+  paymentPlan?: "FULL" | "PARTIAL"
+  /** Still to collect, in rupees. 0 on a full-payment or settled order. */
+  balanceOutstanding?: number
+  /** Null on a full-payment order. */
+  partial?: AdminOrderPartial | null
+}
+
+/** The partial-payment view of an order, as the admin panel needs it. */
+export interface AdminOrderPartial {
+  depositAmount: number
+  balanceAmount: number
+  depositPaidAt: string | null
+  balancePaidAt: string | null
+  balanceStatus: "DUE" | "PAID" | "WRITTEN_OFF"
+  balanceMethod: "ONLINE" | "COD" | "MANUAL" | null
+  balanceReference: string | null
+  /** A COD parcel is committed, so the courier collects the balance at the door. */
+  collectedAtDoor: boolean
+  depositForfeited: boolean
+  depositForfeitedAt: string | null
+  /** Owed back to the customer by hand — a cash balance no gateway can reverse. */
+  manualRefundAmount: number | null
+  manualRefundSettledAt: string | null
 }
 
 export interface AdminOrderItem {
@@ -134,6 +157,18 @@ export const AdminOrderService = {
   /** PUT /admin/orders/:id/status — body: { status } */
   updateStatus: async (id: string, status: OrderStatus) => {
     const res = await api.put(`/admin/orders/${id}/status`, { status })
+    return res.data.data
+  },
+
+  /**
+   * POST /admin/orders/:id/balance/mark-paid — record a balance collected outside the
+   * gateway. Books the payment, and (once delivered) the invoice and commission with it.
+   */
+  markBalancePaid: async (
+    id: string,
+    body: { method: "CASH" | "BANK_TRANSFER" | "UPI" | "OTHER"; reference?: string; note?: string }
+  ) => {
+    const res = await api.post(`/admin/orders/${id}/balance/mark-paid`, body)
     return res.data.data
   },
 

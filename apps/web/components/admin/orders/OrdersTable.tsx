@@ -55,6 +55,13 @@ export default function OrdersTable({ data, refresh }: Props) {
                     <span className={`text-xs px-2 py-1 rounded-full font-medium ${paymentColor(order.payment?.status)}`}>
                       {order.payment?.status || "—"}
                     </span>
+                    {order.paymentPlan === "PARTIAL" && (
+                      <span className="block mt-1 text-[10px] font-medium text-amber-600">
+                        {order.balanceOutstanding
+                          ? `20/80 · ₹${order.balanceOutstanding.toLocaleString("en-IN")} due`
+                          : "20/80 · settled"}
+                      </span>
+                    )}
                   </td>
                   <td className="p-4"><OrderStatusBadge status={order.status} /></td>
                   <td className="p-4 text-faint text-xs">
@@ -93,6 +100,11 @@ export default function OrdersTable({ data, refresh }: Props) {
               <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${paymentColor(order.payment?.status)}`}>
                 {order.payment?.status || "—"}
               </span>
+              {order.paymentPlan === "PARTIAL" && order.balanceOutstanding ? (
+                <span className="text-[10px] font-medium text-amber-600">
+                  ₹{order.balanceOutstanding.toLocaleString("en-IN")} due
+                </span>
+              ) : null}
               <span className="text-xs text-faint ml-auto">
                 {new Date(order.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
               </span>

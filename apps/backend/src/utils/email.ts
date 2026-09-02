@@ -267,6 +267,78 @@ export function sendOrderConfirmationEmail(to: string, p: {
   });
 }
 
+/**
+ * A partial order has been placed and its deposit captured.
+ *
+ * Sent INSTEAD of the standard confirmation, never alongside it: that one states the
+ * order total as paid, which on a deposit order is wrong by four fifths. No GST invoice
+ * is attached — the tax invoice is raised at dispatch so it can travel with the goods,
+ * and what the customer has now is an advance payment, not a taxable supply receipt.
+ */
+export function sendPartialOrderPlacedEmail(to: string, p: {
+  orderId: string;
+  total: number | string;
+  deposit: number | string;
+  balance: number | string;
+  items: { name: string; quantity: number }[];
+}) {
+  const ref = p.orderId.slice(-8).toUpperCase();
+  return sendEmail({
+    to,
+    subject: `Order confirmed — deposit received (#${ref})`,
+    html: shell("Your order is confirmed 🎉", `
+      <p>Thanks for your order <strong>#${ref}</strong>.</p>
+      <ul style="padding-left:18px;margin:12px 0">${itemRows(p.items)}</ul>
+      <table style="margin:16px 0;font-size:14px">
+        <tr><td style="padding:2px 12px 2px 0;color:#666">Order total</td><td><strong>${money(p.total)}</strong></td></tr>
+        <tr><td style="padding:2px 12px 2px 0;color:#666">Deposit paid</td><td><strong>${money(p.deposit)}</strong></td></tr>
+        <tr><td style="padding:2px 12px 2px 0;color:#666">Balance at delivery</td><td><strong>${money(p.balance)}</strong></td></tr>
+      </table>
+      <p>Please keep <strong>${money(p.balance)}</strong> ready — our delivery agent will collect it when your order arrives.</p>
+      <p style="font-size:13px;color:#666">This is a payment receipt, not a tax invoice. Your GST invoice is issued when the order is dispatched.</p>
+      <p style="font-size:13px;color:#666">The deposit is not refunded if the order is cancelled or delivery is refused, as set out in our cancellation policy.</p>
+    `),
+  });
+}
+
+/** The parcel has shipped and the courier will be collecting the balance. */
+export function sendBalanceDueOnDispatchEmail(to: string, p: {
+  orderId: string;
+  balance: number | string;
+  trackingUrl?: string | null;
+}) {
+  const ref = p.orderId.slice(-8).toUpperCase();
+  return sendEmail({
+    to,
+    subject: `Your order has shipped — ${money(p.balance)} due on delivery (#${ref})`,
+    html: shell("Your order is on its way 📦", `
+      <p>Order <strong>#${ref}</strong> has been handed to our courier.</p>
+      <p>Please keep <strong>${money(p.balance)}</strong> ready — the delivery agent will collect it at your door.</p>
+      ${p.trackingUrl ? `<p style="margin:24px 0"><a href="${p.trackingUrl}" style="background:#111;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600">Track your order</a></p>` : ""}
+    `),
+  });
+}
+
+/** The deposit was retained after a cancellation or a refused delivery. */
+export function sendDepositForfeitedEmail(to: string, p: {
+  orderId: string;
+  deposit: number | string;
+  reason: string;
+  policyUrl?: string;
+}) {
+  const ref = p.orderId.slice(-8).toUpperCase();
+  return sendEmail({
+    to,
+    subject: `Order #${ref} closed — deposit retained`,
+    html: shell("Your order has been closed", `
+      <p>Order <strong>#${ref}</strong> has been closed: ${escapeHtml(p.reason)}.</p>
+      <p>As set out in our cancellation policy, the <strong>${money(p.deposit)}</strong> deposit paid at checkout is retained and will not be refunded.</p>
+      ${p.policyUrl ? `<p style="font-size:13px;color:#666"><a href="${p.policyUrl}">Read our cancellation policy</a></p>` : ""}
+      <p style="font-size:13px;color:#666">If you believe this is a mistake, reply to this email and our team will look into it.</p>
+    `),
+  });
+}
+
 export function sendBalancePaidEmail(to: string, p: {
   productName: string;
   orderId: string;

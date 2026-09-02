@@ -5,6 +5,7 @@ import { createAuditLog } from "../utils/auditLog";
 import { notify, notifyAdmins } from "./notification.services";
 import { money, orderShortRef } from "../utils/notificationCopy";
 import { REFUND_WORKING_DAYS } from "@repo/content/index";
+import { sendDepositForfeitedEmail } from "../utils/email";
 
 /**
  * Which of an order's captured legs to return.
@@ -86,7 +87,14 @@ export async function refundOrderMoney(
       balanceRazorpayPaymentId: true,
       balanceSettledAt: true,
       balanceMethod: true,
-      order: { select: { userId: true, paymentPlan: true, depositForfeitedAt: true } },
+      order: {
+        select: {
+          userId: true,
+          paymentPlan: true,
+          depositForfeitedAt: true,
+          user: { select: { email: true } },
+        },
+      },
     },
   });
 
@@ -111,6 +119,27 @@ export async function refundOrderMoney(
         entityId: orderId,
         newValue: { amount: deposit, reason },
       });
+
+      // Keeping a customer's money without telling them is not defensible, whatever the
+      // terms say. Both channels, because this is the one message they must not miss.
+      void notify({
+        userId: payment.order.userId,
+        type: "ORDER_CANCELLED",
+        title: "Order closed — deposit retained",
+        body: `Order #${orderShortRef(orderId)} has been closed. As set out in our cancellation policy, the ${money(deposit)} deposit is retained.`,
+        data: { screen: "Order", orderId },
+      });
+
+      if (payment.order.user?.email) {
+        void sendDepositForfeitedEmail(payment.order.user.email, {
+          orderId,
+          deposit,
+          reason,
+          policyUrl: process.env.FRONTEND_URL
+            ? `${process.env.FRONTEND_URL}/cancellation`
+            : undefined,
+        });
+      }
     }
     if (scope === "NONE") return { status: "forfeited", amount: deposit };
   }

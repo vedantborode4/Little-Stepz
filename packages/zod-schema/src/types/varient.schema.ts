@@ -20,6 +20,11 @@ const variantBaseSchema = z.object({
     preOrderEnabled: z.boolean().optional(),
     bookingAmount: priceSchema.nullish(),
     preOrderLimit: z.coerce.number().int().min(1).nullish(),
+
+    // Per-variant partial-payment terms, same inheritance rule: the product switch is
+    // master so this can only opt a variant out, and a null percent inherits.
+    partialPaymentEnabled: z.boolean().optional(),
+    depositPercent: z.coerce.number().min(1).max(99).nullish(),
 });
 
 const refineVariantSalePrice = (
