@@ -24,6 +24,38 @@ export interface ServiceabilityResult {
   pickup: boolean;
 }
 
+export type PaymentPlan = "FULL" | "PARTIAL";
+
+/** Why partial payment is not on offer. Copy comes from @repo/content. */
+export interface PartialReason {
+  code: string;
+  meta?: Record<string, unknown>;
+}
+
+/**
+ * The partial-payment half of a checkout quote.
+ *
+ * `depositAmount` and `balanceAmount` are computed server-side and must be rendered
+ * verbatim — never derived on the client. The split follows rounding rules the server
+ * owns (the balance is whole rupees so a courier can collect it), and a client that
+ * recomputed 20% would show a figure that disagrees with what Razorpay is asked for.
+ */
+export interface PartialPaymentQuote {
+  eligible: boolean;
+  depositPercent: number;
+  depositAmount: number;
+  balanceAmount: number;
+  reasons: PartialReason[];
+}
+
+export interface CheckoutQuote {
+  subtotal: number;
+  discount: number;
+  shippingCharges: number;
+  total: number;
+  partialPayment: PartialPaymentQuote;
+}
+
 export const CheckoutService = {
   /** Check whether Delhivery delivers to a pincode. */
   checkServiceability: async (pincode: string): Promise<ServiceabilityResult> => {
@@ -36,7 +68,8 @@ export const CheckoutService = {
     addressId: string,
     cartItems: CartItemPayload[],
     couponCode?: string | null,
-    idempotencyKey?: string
+    idempotencyKey?: string,
+    plan?: { paymentPlan: PaymentPlan; acceptForfeitTerms?: boolean }
   ) => {
     const affiliateId = await getAffiliateId();
     const headers: Record<string, string> = {};
@@ -53,6 +86,11 @@ export const CheckoutService = {
           quantity: i.quantity,
         })),
         ...(couponCode ? { couponCode } : {}),
+        // Omitted entirely for a full-payment order so the request stays byte-identical
+        // to what shipped before this feature; the server defaults paymentPlan to FULL.
+        ...(plan?.paymentPlan === "PARTIAL"
+          ? { paymentPlan: "PARTIAL", acceptForfeitTerms: true }
+          : {}),
       },
       { headers }
     );
@@ -61,6 +99,9 @@ export const CheckoutService = {
       total: number;
       subtotal: number;
       discount: number;
+      paymentPlan: PaymentPlan;
+      amountDueNow: number;
+      balanceDue: number;
     };
   },
 
@@ -70,9 +111,12 @@ export const CheckoutService = {
     return res.data.data as {
       razorpayOrderId: string;
       orderId: string;
+      /** The deposit on a partial order, the whole total otherwise. */
       amount: number;
       currency: string;
       keyId: string;
+      purpose: "FULL" | "DEPOSIT" | "BALANCE";
+      balanceDue: number;
     };
   },
 
@@ -103,12 +147,12 @@ export const CheckoutService = {
     cartItems: CartItemPayload[],
     addressId: string,
     couponCode?: string | null
-  ) => {
+  ): Promise<CheckoutQuote> => {
     const res = await api.post("/checkout/calculate", {
       cartItems,
       addressId,
       ...(couponCode ? { couponCode } : {}),
     });
-    return res.data.data;
+    return res.data.data as CheckoutQuote;
   },
 };

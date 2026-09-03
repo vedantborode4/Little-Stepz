@@ -19,7 +19,13 @@ import { qk } from "../../lib/api/query-client";
 import { formatPrice, formatDate, shortId } from "../../lib/utils/format";
 import { toast } from "../../store/toast.store";
 import { colors } from "../../theme/tokens";
-import { refundMessage, REFUND_INITIATED_TEXT } from "@repo/content/index";
+import {
+  refundMessage,
+  REFUND_INITIATED_TEXT,
+  balanceAtDoorText,
+  cancelForfeitWarning,
+  depositForfeitedText,
+} from "@repo/content/index";
 
 // Aligned with web (apps/web/app/account/orders/[id]/page.tsx)
 const CANCELLABLE = ["PENDING", "CONFIRMED"];
@@ -87,6 +93,7 @@ export default function OrderDetail() {
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [downloadingInvoice, setDownloadingInvoice] = useState(false);
+  const [downloadingReceipt, setDownloadingReceipt] = useState(false);
   /** Refund sentence to show after a successful cancellation. */
   const [cancelResult, setCancelResult] = useState<string | null>(null);
 
@@ -115,8 +122,15 @@ export default function OrderDetail() {
         // The API reports what happened to the money ("initiated" | "none" |
         // "failed") and this was being thrown away, so the customer learned nothing
         // about their refund. COD in particular must NOT be promised one.
-        const res: any = await OrderService.cancelOrder(id, reason);
-        setCancelResult(refundMessage(res?.refund));
+        // The forfeiture warning above is rendered under exactly this condition, so
+        // the acknowledgement is only sent when the customer has actually seen it.
+        const depositAtRisk = order?.partial?.balanceStatus === "DUE";
+        const res: any = await OrderService.cancelOrder(id, reason, depositAtRisk);
+        setCancelResult(
+          depositAtRisk && order?.partial
+            ? depositForfeitedText(order.partial.depositAmount)
+            : refundMessage(res?.refund)
+        );
         toast.success("Order cancelled");
       }
       refresh();
@@ -226,12 +240,56 @@ export default function OrderDetail() {
             <Text className="font-jakarta-bold text-text">Total</Text>
             <Text className="font-jakarta-bold text-text">{formatPrice(order.total)}</Text>
           </View>
+          {order.partial ? (
+            <>
+              <Row
+                label="Deposit paid"
+                value={`- ${formatPrice(order.partial.depositAmount)}`}
+              />
+              <View className="flex-row items-center justify-between">
+                <Text className="text-sm font-jakarta-semibold text-text">
+                  {order.partial.balanceStatus === "PAID" ? "Balance paid" : "Balance due"}
+                </Text>
+                <Text
+                  className={
+                    order.partial.balanceStatus === "PAID"
+                      ? "text-sm font-jakarta-semibold text-success"
+                      : "text-sm font-jakarta-bold text-text"
+                  }
+                >
+                  {formatPrice(order.partial.balanceAmount)}
+                </Text>
+              </View>
+            </>
+          ) : null}
         </Card>
+
+        {/* Balance — only while something is actually outstanding. */}
+        {order.partial && order.partial.balanceStatus === "DUE" ? (
+          <Card className="gap-2 border border-warning/40">
+            <View className="flex-row items-center gap-2">
+              <Ionicons name="wallet-outline" size={18} color={colors.warning} />
+              <Text className="font-jakarta-semibold text-text">Balance due</Text>
+            </View>
+            <Text className="text-sm text-muted">
+              {balanceAtDoorText(order.partial.balanceAmount)}
+            </Text>
+          </Card>
+        ) : null}
+
+        {order.partial?.depositForfeited ? (
+          <Card className="gap-2 border border-border">
+            <Text className="text-sm text-muted">
+              {depositForfeitedText(order.partial.depositAmount)}
+            </Text>
+          </Card>
+        ) : null}
 
         {/* Actions */}
         <View className="gap-2">
-          {/* Only a paid order has an invoice to hand over. */}
-          {order.payment?.status === "SUCCESS" ? (
+          {/* A partial order's tax invoice is raised at dispatch so it travels with the
+              goods, so this cannot gate on the payment being fully settled. */}
+          {(order.invoiceAvailable ?? order.payment?.status === "SUCCESS") ? (
             <Button
               label={downloadingInvoice ? "Preparing invoice…" : "Download Invoice"}
               variant="outline"
@@ -245,6 +303,26 @@ export default function OrderDetail() {
                   toast.error("Couldn't download the invoice. Please try again.");
                 } finally {
                   setDownloadingInvoice(false);
+                }
+              }}
+            />
+          ) : null}
+          {/* The deposit acknowledgement. Gated separately from the invoice because it
+              exists from the moment the deposit is captured, not from dispatch. */}
+          {order.partial?.depositPaidAt ? (
+            <Button
+              label={downloadingReceipt ? "Preparing receipt…" : "Download receipt"}
+              variant="outline"
+              loading={downloadingReceipt}
+              onPress={async () => {
+                if (downloadingReceipt) return;
+                setDownloadingReceipt(true);
+                try {
+                  await OrderService.downloadReceipt(order.id);
+                } catch {
+                  toast.error("Couldn't download the receipt. Please try again.");
+                } finally {
+                  setDownloadingReceipt(false);
                 }
               }}
             />
@@ -295,6 +373,14 @@ export default function OrderDetail() {
           </View>
         ) : (
         <>
+        {actionMode === "cancel" && order.partial?.balanceStatus === "DUE" ? (
+          <View className="mb-3 flex-row items-start gap-2 rounded-lg bg-warning/10 px-3 py-2">
+            <Ionicons name="alert-circle-outline" size={16} color={colors.warning} />
+            <Text className="flex-1 text-xs text-warning">
+              {cancelForfeitWarning(order.partial.depositAmount)}
+            </Text>
+          </View>
+        ) : null}
         <Text className="mb-2 text-sm text-muted">
           {actionMode === "return"
             ? "Tell us why you'd like to return this order."

@@ -13,6 +13,7 @@ import { useCartStore } from "../../store/cart.store";
 import { formatPrice, shortId } from "../../lib/utils/format";
 import type { Order } from "../../types/order";
 import { colors } from "../../theme/tokens";
+import { balanceAtDoorText } from "@repo/content/index";
 
 type State = "loading" | "success" | "pending" | "failed";
 
@@ -33,7 +34,13 @@ export default function Verifying() {
     razorpayOrderId: string;
     razorpayPaymentId: string;
     razorpaySignature: string;
+    purpose?: string;
+    balanceDue?: string;
   }>();
+
+  // The order payload is authoritative once it loads; the params are what we know
+  // immediately, so the confirmation is correct even before the poll returns.
+  const isDeposit = params.purpose === "deposit";
 
   const resetSession = useCheckoutStore((s) => s.resetSession);
   const fetchCart = useCartStore((s) => s.fetchCart);
@@ -151,15 +158,42 @@ export default function Verifying() {
               <Ionicons name="checkmark-circle" size={40} color={colors.success} />
             </View>
             <View className="items-center">
-              <Text className="text-xl font-jakarta-bold text-text">Payment Successful!</Text>
+              <Text className="text-xl font-jakarta-bold text-text">
+                {isDeposit ? "Deposit Received!" : "Payment Successful!"}
+              </Text>
               <Text className="mt-1 text-sm text-muted">Your order has been confirmed.</Text>
             </View>
             {order ? (
               <View className="w-full gap-2 rounded-xl bg-bg p-4">
                 <Row label="Order ID" value={`#${shortId(order.id)}`} />
-                <Row label="Amount Paid" value={formatPrice(order.total)} />
-                <Row label="Payment" value={order.paymentMethod === "COD" ? "Cash on Delivery" : "Online"} />
+                {/* Never report the order total as "paid" on a deposit — the customer
+                    paid a fifth of it and still owes the rest at the door. */}
+                {isDeposit ? (
+                  <>
+                    <Row label="Order Total" value={formatPrice(order.total)} />
+                    <Row
+                      label="Deposit Paid"
+                      value={formatPrice(order.partial?.depositAmount ?? 0)}
+                    />
+                    <Row
+                      label="Due at delivery"
+                      value={formatPrice(order.partial?.balanceAmount ?? Number(params.balanceDue ?? 0))}
+                    />
+                  </>
+                ) : (
+                  <>
+                    <Row label="Amount Paid" value={formatPrice(order.total)} />
+                    <Row label="Payment" value={order.paymentMethod === "COD" ? "Cash on Delivery" : "Online"} />
+                  </>
+                )}
               </View>
+            ) : null}
+            {isDeposit ? (
+              <Text className="text-center text-xs text-muted">
+                {balanceAtDoorText(
+                  order?.partial?.balanceAmount ?? Number(params.balanceDue ?? 0)
+                )}
+              </Text>
             ) : null}
             <View className="w-full gap-2">
               <Button label="View Order Details" onPress={() => router.replace({ pathname: "/orders/[id]", params: { id: params.orderId } })} />

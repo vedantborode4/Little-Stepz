@@ -33,7 +33,31 @@ export type AuditAction =
   | "REFERRAL_CLICK_RECORDED"
   | "REFERRAL_CONVERTED"
   | "NOTIFICATION_BROADCAST"
-  | "CART_ITEM_ADDED";
+  | "CART_ITEM_ADDED"
+  | "ORDER_FULFILMENT_MODE_CHANGED"
+  // Partial payment (20% deposit / balance at delivery). The money on these orders moves
+  // in two legs and through three possible channels, so every transition is auditable —
+  // the audit row is what a reconciliation or a chargeback dispute is settled from.
+  | "DEPOSIT_CAPTURED"
+  | "DEPOSIT_FORFEITED"
+  | "BALANCE_LINK_CLOSED_AT_DISPATCH"
+  | "BALANCE_PAID_ONLINE"
+  | "BALANCE_MARKED_PAID"
+  | "BALANCE_COLLECTED_COD"
+  | "BALANCE_PAYMENT_FAILED"
+  | "BALANCE_DOUBLE_CAPTURE"
+  | "BALANCE_FORCED_ONLINE"
+  | "COD_DOUBLE_COLLECTION_RISK"
+  | "COD_REMITTANCE_MISMATCH"
+  | "MANUAL_REFUND_OWED"
+  | "MANUAL_REFUND_SETTLED"
+  | "REFUND_SKIPPED_BELOW_MINIMUM"
+  | "ORDER_SETTLED"
+  | "SETTLEMENT_FAILED"
+  /// Resets the auto-ship failure count so a recoverable problem (corrected address,
+  /// balance moved online, pincode that regained COD) can be retried. Without it the
+  /// permanent SHIPMENT_FAILED trail strands a paid order after three attempts.
+  | "SHIPMENT_RETRY_CLEARED";
 
 export type AuditEntity =
   | "Payment"

@@ -6,6 +6,13 @@ import { PENDING_ORDER_TTL_MS } from "../utils/pendingRelease";
 import { PreOrderErrorCode } from "../utils/preorderErrors";
 import { resolveChargedPrice } from "../utils/pricing";
 import {
+  getPreOrderReceiptPdfService,
+  receiptFileName,
+  issueInvoiceForOrder,
+  getInvoicePdfService,
+  invoiceFileName,
+} from "./invoice.services";
+import {
   resolvePreOrderTerms,
   releasePreOrderSlots,
   reservePreOrderSlots,
@@ -24,6 +31,7 @@ import {
 import { Decimal } from "decimal.js";
 import { isFreeShippingEnabled } from "../utils/shipping";
 import type { CreatePreOrderData, VerifyPreOrderPaymentData } from "@repo/zod-schema/index";
+import { publicSiteUrl } from "../utils/siteUrl";
 
 const TX_RETRIES = 3;
 const FLAT_SHIPPING = new Decimal(5.0);
@@ -262,12 +270,25 @@ export async function confirmBookingPaid(
         },
       });
 
-      // Fire-and-forget email after commit
-      void sendPreOrderBookedEmail(po.user.email, {
-        productName: po.product.name,
-        bookingAmount: Number(po.bookingAmount),
-        balanceAmount: Number(po.balanceAmount),
-      });
+      // Fire-and-forget email after commit, with the booking receipt attached. The
+      // receipt is built in its own try/catch: a PDF failure must still leave the
+      // customer with a confirmation, and the document is derivable again later.
+      void (async () => {
+        let receipt: { filename: string; pdf: Buffer; reference: string } | undefined;
+        try {
+          const { pdf, reference } = await getPreOrderReceiptPdfService(po.id);
+          receipt = { filename: receiptFileName(reference), pdf, reference };
+        } catch (err) {
+          console.error(`[receipt] pre-order booking receipt failed for ${po.id}:`, err);
+        }
+
+        void sendPreOrderBookedEmail(po.user.email, {
+          productName: po.product.name,
+          bookingAmount: Number(po.bookingAmount),
+          balanceAmount: Number(po.balanceAmount),
+          ...(receipt ? { receipt } : {}),
+        });
+      })();
     });
   });
 }
@@ -448,17 +469,33 @@ export async function completePreOrderBalance(
         },
       });
 
+      // A completed pre-order was paid by TWO separate Razorpay captures — the booking
+      // and the balance — so the Payment records both legs.
+      //
+      // This used to store only the balance (`amount: po.balanceAmount`) with the booking
+      // visible nowhere but the PreOrder row. Every order-level refund therefore
+      // under-refunded by exactly the booking amount: cancelling a converted pre-order
+      // silently kept the customer's deposit. Mapping booking→primary and balance→balance
+      // puts both captures where `refundOrderMoney` and the webhook leg-router look.
+      //
+      // amount + balanceAmount == totalAmount, which is the same conservation invariant
+      // partial-payment orders hold.
       await tx.payment.create({
         data: {
           orderId: order.id,
           method: "ONLINE",
           gateway: "razorpay",
-          razorpayOrderId: args.razorpayOrderId,
-          razorpayPaymentId: args.razorpayPaymentId,
-          // This Razorpay payment captured only the balance leg; the booking was a
-          // separate charge tracked on the PreOrder. Recording the true captured
-          // amount keeps refunds/webhook amount-checks correct.
-          amount: po.balanceAmount,
+          // Primary leg — the booking capture.
+          razorpayOrderId: po.bookingRazorpayOrderId,
+          razorpayPaymentId: po.bookingRazorpayPaymentId,
+          amount: po.bookingAmount,
+          // Balance leg — the capture that just landed.
+          balanceRazorpayOrderId: args.razorpayOrderId,
+          balanceRazorpayPaymentId: args.razorpayPaymentId,
+          balanceAmount: po.balanceAmount,
+          balancePaidAt: new Date(),
+          balanceMethod: "ONLINE",
+          balanceSettledAt: new Date(),
           currency: "INR",
           status: "SUCCESS",
           attempts: 1,
@@ -479,7 +516,27 @@ export async function completePreOrderBalance(
       // free the reservation slot on both counters
       await releasePreOrderSlots(tx, [{ productId: po.productId, variantId: po.variantId, quantity: po.quantity }]);
 
-      void sendBalancePaidEmail(po.user.email, { productName: po.product.name, orderId: order.id });
+      // The completed pre-order is a normal paid order now, so it gets the normal tax
+      // invoice — one document for the full amount, raised here because this path never
+      // reaches the checkout confirmation that raises it for everything else.
+      void (async () => {
+        let invoice: { filename: string; pdf: Buffer; number: string } | undefined;
+        try {
+          const issued = await issueInvoiceForOrder(order.id);
+          if (issued) {
+            const { pdf, number } = await getInvoicePdfService(order.id);
+            invoice = { filename: invoiceFileName(number), pdf, number };
+          }
+        } catch (err) {
+          console.error(`[invoice] pre-order completion invoice failed for ${order.id}:`, err);
+        }
+
+        void sendBalancePaidEmail(po.user.email, {
+          productName: po.product.name,
+          orderId: order.id,
+          ...(invoice ? { invoice } : {}),
+        });
+      })();
 
       return { orderId: order.id, alreadyProcessed: false };
     });
@@ -548,7 +605,7 @@ export async function notifyRestockedPreOrders(productId: string, variantId?: st
         where: { id: po.id },
         data: { status: "AWAITING_BALANCE", balanceToken: token, balanceDueAt: due, notifiedAt: new Date() },
       });
-      const payUrl = `${process.env.FRONTEND_URL ?? ""}/pre-orders/pay/${token}`;
+      const payUrl = `${publicSiteUrl()}/pre-orders/pay/${token}`;
       void sendBackInStockEmail(po.user.email, {
         productName: po.product.name,
         balanceAmount: Number(po.balanceAmount),

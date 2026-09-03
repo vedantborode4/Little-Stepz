@@ -21,6 +21,9 @@ export interface ProductVariant {
   bookingAmount?: number | null
   preOrderLimit?: number | null
   preOrderCount?: number
+  /** Per-variant partial-payment terms. null depositPercent inherits the product's. */
+  partialPaymentEnabled?: boolean
+  depositPercent?: number | null
   images?: ProductImage[]
   optionValues?: { optionValueId: string }[]
 }
@@ -57,6 +60,9 @@ export interface VariantBody {
   preOrderEnabled?: boolean
   bookingAmount?: number | null
   preOrderLimit?: number | null
+  /** Per-variant partial-payment terms. null depositPercent inherits the product's. */
+  partialPaymentEnabled?: boolean
+  depositPercent?: number | null
 }
 
 export type PriceDisplay = "BOTH" | "REGULAR" | "SALE"
@@ -78,6 +84,8 @@ export interface AdminProduct {
   preOrderLimit?: number | null
   preOrderCount?: number
   preOrderNote?: string | null
+  partialPaymentEnabled?: boolean
+  depositPercent?: number | null
   categoryId?: string
   category?: { id: string; name: string; slug: string }
   images: ProductImage[]
@@ -137,6 +145,7 @@ export const AdminProductService = {
     price: number; salePrice?: number; isOnSale?: boolean; priceDisplay?: PriceDisplay
     quantity?: number; inStock?: boolean; categoryId: string
     preOrderEnabled?: boolean; bookingAmount?: number; preOrderLimit?: number; preOrderNote?: string
+    partialPaymentEnabled?: boolean; depositPercent?: number | null
   }): Promise<AdminProduct> => {
     const res = await api.post("/admin/products", body)
     return res.data.data
@@ -148,6 +157,7 @@ export const AdminProductService = {
     price: number; salePrice: number | null; isOnSale: boolean; priceDisplay: PriceDisplay
     quantity: number; inStock: boolean; categoryId: string
     preOrderEnabled: boolean; bookingAmount: number; preOrderLimit: number; preOrderNote: string
+    partialPaymentEnabled: boolean; depositPercent: number | null
   }>): Promise<AdminProduct> => {
     const res = await api.put(`/admin/products/${id}`, body)
     return res.data.data

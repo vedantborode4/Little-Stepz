@@ -163,6 +163,14 @@ export default function OrdersPage() {
                       <span className="text-sm font-semibold text-text">
                         ₹{Number(order.total).toLocaleString("en-IN")}
                       </span>
+                      {/* An outstanding balance is the one thing about this order the
+                          customer needs to see without opening it. */}
+                      {order.partial?.balanceStatus === "DUE" && (
+                        <span className="text-[10px] font-semibold bg-amber-500/15 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-full">
+                          ₹{Number(order.partial.balanceAmount).toLocaleString("en-IN")}{" "}
+                          {order.partial.collectedAtDoor ? "at delivery" : "due"}
+                        </span>
+                      )}
                     </div>
                     <span className="flex items-center gap-1 text-xs text-primary font-medium group-hover:gap-2 transition-all">
                       View details <ChevronRight size={13} />

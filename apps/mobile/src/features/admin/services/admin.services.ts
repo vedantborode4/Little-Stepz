@@ -70,6 +70,9 @@ export interface AdminOrder {
   createdAt: string;
   user?: { id: string; name: string };
   payment?: { status: string; amount: number } | null;
+  /** Id of the Return raised against this order, if any — what `resolveReturn` addresses. */
+  returnId?: string | null;
+  returnStatus?: "PENDING" | "APPROVED" | "REJECTED" | "REFUNDED" | null;
 }
 
 export interface AdminOrderItem {
@@ -141,8 +144,18 @@ export const AdminOrderService = {
     const res = await api.post(`/admin/orders/${id}/ship`);
     return res.data.data;
   },
-  resolveReturn: async (id: string, body: { action: "APPROVE" | "REJECT"; reason?: string }) => {
-    const res = await api.put(`/admin/returns/${id}/resolve`, body);
+  /**
+   * PUT /admin/returns/:id/resolve
+   *
+   * `returnId` is the Return's id, NOT the order's — the route resolves a Return.
+   * The body must match `resolveReturnBodySchema`, which is `.strict()`; this used to
+   * send the order id plus `{ action, reason }`, so every call 400'd.
+   */
+  resolveReturn: async (
+    returnId: string,
+    body: { status: "APPROVED" | "REJECTED"; adminNote?: string; refundAmount?: number }
+  ) => {
+    const res = await api.put(`/admin/returns/${returnId}/resolve`, body);
     return res.data.data;
   },
 };

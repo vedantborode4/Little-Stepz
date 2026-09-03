@@ -51,6 +51,11 @@ const productBaseSchema = z.object({
     preOrderLimit: z.coerce.number().int().positive().optional(),
     preOrderNote: z.string().max(200).optional(),
 
+    // Partial payment (deposit now, balance at delivery). The product switch is the
+    // master; a null depositPercent inherits the store-wide default.
+    partialPaymentEnabled: z.boolean().optional().default(false),
+    depositPercent: z.coerce.number().min(1).max(99).nullish(),
+
     // ── SEO overrides (admin SEO panel; fall back to generated metadata) ──
     metaTitle: z.string().max(70, "Keep the SEO title under ~70 characters").optional(),
     metaDescription: z.string().max(160, "Keep the meta description under ~160 characters").optional(),

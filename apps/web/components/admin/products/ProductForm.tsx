@@ -48,6 +48,7 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
   const [form, setForm] = useState({
     name: "", slug: "", description: "", longDescription: "", price: "", salePrice: "", costPrice: "", isOnSale: false, priceDisplay: "BOTH", quantity: 0, inStock: true, categoryId: "",
     preOrderEnabled: false, bookingAmount: "", preOrderLimit: "", preOrderNote: "",
+    partialPaymentEnabled: false, depositPercent: "",
     metaTitle: "", metaDescription: "", ogImage: "", noindex: false, brand: "", gtin: "", mpn: "", condition: "new",
   })
   const [images, setImages] = useState<any[]>([])
@@ -78,6 +79,8 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
         bookingAmount: initialData.bookingAmount != null ? String(initialData.bookingAmount) : "",
         preOrderLimit: initialData.preOrderLimit != null ? String(initialData.preOrderLimit) : "",
         preOrderNote: initialData.preOrderNote ?? "",
+        partialPaymentEnabled: initialData.partialPaymentEnabled ?? false,
+        depositPercent: initialData.depositPercent != null ? String(initialData.depositPercent) : "",
         metaTitle: initialData.metaTitle ?? "",
         metaDescription: initialData.metaDescription ?? "",
         ogImage: initialData.ogImage ?? "",
@@ -152,6 +155,8 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
       bookingAmount: form.bookingAmount === "" ? undefined : form.bookingAmount,
       preOrderLimit: form.preOrderLimit === "" ? undefined : form.preOrderLimit,
       preOrderNote: form.preOrderNote === "" ? undefined : form.preOrderNote,
+      // Blank means "use the store default", which the server reads as null.
+      depositPercent: form.depositPercent === "" ? null : form.depositPercent,
       specifications: cleanSpecs.length ? cleanSpecs : undefined,
       metaTitle: form.metaTitle || undefined,
       metaDescription: form.metaDescription || undefined,
@@ -360,6 +365,44 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
           )}
         </div>
 
+        {/* Partial payment */}
+        <div className="pt-4 border-t border-border space-y-4">
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.partialPaymentEnabled}
+              onChange={e => onChange("partialPaymentEnabled", e.target.checked)}
+              className="w-4 h-4 rounded accent-primary"
+            />
+            <span className="text-sm font-medium text-muted">
+              Allow partial payment (deposit now, balance on delivery)
+            </span>
+          </label>
+          {form.partialPaymentEnabled && (
+            <div className="space-y-4 pl-7">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <Field label="Deposit % (optional)" error={errors.depositPercent?.[0]}>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={99}
+                    placeholder="Store default"
+                    value={form.depositPercent}
+                    onChange={e => onChange("depositPercent", e.target.value)}
+                  />
+                </Field>
+              </div>
+              <p className="text-xs text-faint">
+                Customers pay the deposit at checkout; the courier collects the balance at
+                delivery. Leave the percentage blank to use the store-wide default. The
+                deposit is non-refundable if the customer refuses delivery or cancels — the
+                option only appears where the courier can collect and the order is within
+                the configured limits.
+              </p>
+            </div>
+          )}
+        </div>
+
         {/* SEO + Google Shopping */}
         <SeoPanel
           values={{
@@ -423,6 +466,7 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
                 productId={productId}
                 initialVariants={variants}
                 productPreOrderEnabled={form.preOrderEnabled}
+                productPartialPaymentEnabled={form.partialPaymentEnabled}
                 productBookingAmount={form.bookingAmount}
               />
             </div>

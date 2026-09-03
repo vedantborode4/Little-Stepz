@@ -9,6 +9,7 @@ import {
   getSeller,
 } from "../utils/invoice";
 import { renderInvoicePdf, type InvoicePdfData } from "../utils/invoicePdf";
+import { renderReceiptPdf } from "../utils/receiptPdf";
 
 /**
  * Issue and serve tax invoices.
@@ -29,6 +30,8 @@ async function loadInvoiceableOrder(orderId: string) {
       shippingCharges: true,
       discount: true,
       paymentMethod: true,
+      status: true,
+      paymentPlan: true,
       createdAt: true,
       user: { select: { name: true, email: true, phone: true } },
       address: {
@@ -76,6 +79,29 @@ async function nextInvoiceNumber(
 }
 
 /**
+ * Whether a tax invoice may be raised for this order yet.
+ *
+ * A fully-paid order qualifies on payment. A partial-payment order qualifies once it has
+ * been DISPATCHED, even though its balance is still outstanding: CGST §31(1) requires the
+ * tax invoice to be issued before or at the removal of goods, and on a COD balance the
+ * money does not arrive until days after the parcel leaves. Waiting for settlement would
+ * put every such invoice after removal.
+ *
+ * Before dispatch a partial order gets a non-GST advance receipt instead, which must never
+ * consume an InvoiceCounter number — that series is legally required to be gap-free.
+ */
+function isInvoiceable(order: {
+  status: string;
+  paymentPlan?: string;
+  payment?: { status: string } | null;
+}): boolean {
+  if (order.payment?.status === "SUCCESS") return true;
+  if (order.paymentPlan !== "PARTIAL") return false;
+  if (order.payment?.status !== "PARTIALLY_PAID") return false;
+  return ["PROCESSING", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED"].includes(order.status);
+}
+
+/**
  * Create the invoice for an order, or return the one that already exists.
  *
  * Returns null when the order cannot be invoiced (missing, unpaid) rather than
@@ -88,7 +114,7 @@ export async function issueInvoiceForOrder(orderId: string) {
 
   const order = await loadInvoiceableOrder(orderId);
   if (!order) return null;
-  if (order.payment?.status !== "SUCCESS") return null;
+  if (!isInvoiceable(order)) return null;
 
   const seller = getSeller();
   const issuedAt = new Date();
@@ -197,12 +223,14 @@ export async function getInvoicePdfService(orderId: string, userId?: string) {
       id: true,
       createdAt: true,
       paymentMethod: true,
+      status: true,
+      paymentPlan: true,
       payment: { select: { status: true } },
     },
   });
   if (!order) throw new ApiError(404, "ORDER_NOT_FOUND");
 
-  if (order.payment?.status !== "SUCCESS") {
+  if (!isInvoiceable(order)) {
     throw new ApiError(409, "INVOICE_NOT_AVAILABLE");
   }
 
@@ -220,3 +248,162 @@ export function invoiceFileName(number: string): string {
 }
 
 export { getGstRate };
+
+/**
+ * The deposit acknowledgement for a partial-payment order.
+ *
+ * The reference is DERIVED, never drawn from `InvoiceCounter`: that counter mints a
+ * gap-free legal sequence of tax invoices, and spending numbers from it on documents
+ * that are not tax invoices is a real GST problem rather than a cosmetic one. Deriving
+ * it also means this is idempotent and needs no table of its own — the same order always
+ * produces the same reference.
+ */
+export function advanceReceiptReference(orderId: string, issuedAt: Date): string {
+  return `ADV/${financialYearOf(issuedAt)}/${orderId.slice(-8).toUpperCase()}`;
+}
+
+export function receiptFileName(reference: string): string {
+  return `receipt-${reference.replace(/\//g, "-")}.pdf`;
+}
+
+/**
+ * Render the advance receipt. Scoped by userId when one is given, so a customer cannot
+ * read another's receipt by guessing an order id.
+ */
+export async function getAdvanceReceiptPdfService(orderId: string, userId?: string) {
+  const order = await prisma.order.findFirst({
+    where: { id: orderId, deletedAt: null, ...(userId ? { userId } : {}) },
+    select: {
+      id: true,
+      createdAt: true,
+      total: true,
+      paymentPlan: true,
+      depositAmount: true,
+      balanceAmount: true,
+      depositPaidAt: true,
+      user: { select: { name: true, email: true, phone: true } },
+      address: {
+        select: { name: true, phone: true, address: true, city: true, state: true, pincode: true },
+      },
+      items: {
+        select: {
+          quantity: true, price: true, productName: true, variantName: true,
+          product: { select: { name: true } },
+          variant: { select: { name: true } },
+        },
+      },
+    },
+  });
+
+  if (!order) throw new ApiError(404, "ORDER_NOT_FOUND");
+  // Nothing to acknowledge until a deposit has actually been captured.
+  if (order.paymentPlan !== "PARTIAL" || !order.depositPaidAt) {
+    throw new ApiError(409, "RECEIPT_NOT_AVAILABLE");
+  }
+
+  const seller = getSeller();
+  const issuedAt = order.depositPaidAt;
+  const reference = advanceReceiptReference(order.id, issuedAt);
+
+  const pdf = await renderReceiptPdf({
+    reference,
+    issuedAt,
+    orderId: order.id,
+    orderDate: order.createdAt,
+    seller,
+    buyer: {
+      name: order.address?.name ?? order.user?.name ?? "Customer",
+      email: order.user?.email ?? "",
+      phone: order.address?.phone ?? order.user?.phone ?? null,
+      address: order.address?.address ?? "",
+      city: order.address?.city ?? "",
+      state: order.address?.state ?? "",
+      pincode: order.address?.pincode ?? "",
+    },
+    items: order.items.map((i) => ({
+      // Snapshot names first — the live relation is only a fallback for old rows.
+      name: i.productName ?? i.product?.name ?? "Item",
+      variantName: i.variantName ?? i.variant?.name ?? null,
+      quantity: i.quantity,
+      gross: new Decimal(i.price.toString()).mul(i.quantity).toFixed(2),
+    })),
+    orderTotal: new Decimal(order.total.toString()).toFixed(2),
+    depositPaid: new Decimal((order.depositAmount ?? 0).toString()).toFixed(2),
+    balanceDue: new Decimal((order.balanceAmount ?? 0).toString()).toFixed(2),
+  });
+
+  return { pdf, reference };
+}
+
+/**
+ * Booking receipt for a pre-order.
+ *
+ * A pre-order booking is an advance against goods that have not been supplied, so this
+ * is the same non-GST acknowledgement a partial-payment deposit gets — not a tax
+ * invoice, and it must not draw an InvoiceCounter number. Under Notification 66/2017 no
+ * GST is payable on an advance for goods, so a document showing a tax breakup here
+ * would invite the customer to claim credit it does not support; the tax invoice comes
+ * once, for the full amount, when the pre-order completes into an order.
+ *
+ * Reference is derived from the pre-order id, so it is stable and needs no table.
+ */
+export async function getPreOrderReceiptPdfService(preOrderId: string, userId?: string) {
+  const po = await prisma.preOrder.findFirst({
+    where: { id: preOrderId, deletedAt: null, ...(userId ? { userId } : {}) },
+    select: {
+      id: true,
+      createdAt: true,
+      quantity: true,
+      unitPrice: true,
+      bookingAmount: true,
+      balanceAmount: true,
+      totalAmount: true,
+      bookingPaidAt: true,
+      user: { select: { name: true, email: true, phone: true } },
+      address: {
+        select: { name: true, phone: true, address: true, city: true, state: true, pincode: true },
+      },
+      product: { select: { name: true } },
+      variant: { select: { name: true } },
+    },
+  });
+
+  if (!po) throw new ApiError(404, "PREORDER_NOT_FOUND");
+  // Nothing to acknowledge until the booking has actually been captured.
+  if (!po.bookingPaidAt) throw new ApiError(409, "RECEIPT_NOT_AVAILABLE");
+
+  const issuedAt = po.bookingPaidAt;
+  const reference = `ADV/${financialYearOf(issuedAt)}/PO-${po.id.slice(-8).toUpperCase()}`;
+
+  const pdf = await renderReceiptPdf({
+    reference,
+    issuedAt,
+    orderId: po.id,
+    orderIdLabel: "Pre-order ID",
+    subtitle: "Booking amount received against a pre-order — this is not a tax invoice",
+    orderDate: po.createdAt,
+    seller: getSeller(),
+    buyer: {
+      name: po.address?.name ?? po.user.name,
+      email: po.user.email,
+      phone: po.address?.phone ?? po.user.phone ?? null,
+      address: po.address?.address ?? "",
+      city: po.address?.city ?? "",
+      state: po.address?.state ?? "",
+      pincode: po.address?.pincode ?? "",
+    },
+    items: [
+      {
+        name: po.product.name,
+        variantName: po.variant?.name ?? null,
+        quantity: po.quantity,
+        gross: new Decimal(po.unitPrice.toString()).mul(po.quantity).toString(),
+      },
+    ],
+    orderTotal: po.totalAmount.toString(),
+    depositPaid: po.bookingAmount.toString(),
+    balanceDue: po.balanceAmount.toString(),
+  });
+
+  return { pdf, reference };
+}

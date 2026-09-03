@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { publicSiteUrl } from "./siteUrl";
 
 const apiKey = process.env.RESEND_API_KEY;
 // Resend only sends from a domain verified by DNS in your Resend account, so this
@@ -73,16 +74,26 @@ export function sendPreOrderBookedEmail(to: string, p: {
   productName: string;
   bookingAmount: number | string;
   balanceAmount: number | string;
+  /** Non-GST booking acknowledgement. Absent is not an error. */
+  receipt?: { filename: string; pdf: Buffer; reference: string };
 }) {
   return sendEmail({
     to,
     subject: `Pre-order confirmed: ${p.productName}`,
+    // Product names are admin-authored free text and land in an HTML email body, so they
+    // are escaped here like every other interpolated string in this file.
     html: shell("Your pre-order is confirmed 🎉", `
-      <p>Thanks for pre-ordering <strong>${p.productName}</strong>.</p>
+      <p>Thanks for pre-ordering <strong>${escapeHtml(p.productName)}</strong>.</p>
       <p>Booking amount paid: <strong>${money(p.bookingAmount)}</strong></p>
+      ${p.receipt
+        ? `<p style="font-size:13px;color:#666">Your booking receipt (<strong>${escapeHtml(p.receipt.reference)}</strong>) is attached. It is an acknowledgement of the advance, not a tax invoice — the invoice follows once your order ships.</p>`
+        : ""}
       <p>Remaining balance due when it's back in stock: <strong>${money(p.balanceAmount)}</strong></p>
       <p>We'll email you a secure payment link the moment it arrives.</p>
     `),
+    ...(p.receipt
+      ? { attachments: [{ filename: p.receipt.filename, content: p.receipt.pdf }] }
+      : {}),
   });
 }
 
@@ -97,7 +108,7 @@ export function sendBackInStockEmail(to: string, p: {
     to,
     subject: `Back in stock — complete your pre-order for ${p.productName}`,
     html: shell("It's back in stock! ✅", `
-      <p><strong>${p.productName}</strong> is available again.</p>
+      <p><strong>${escapeHtml(p.productName)}</strong> is available again.</p>
       <p>Pay the remaining balance of <strong>${money(p.balanceAmount)}</strong> to confirm your order.</p>
       <p style="margin:24px 0">
         <a href="${p.payUrl}" style="background:#111;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600">Pay balance now</a>
@@ -265,16 +276,190 @@ export function sendOrderConfirmationEmail(to: string, p: {
   });
 }
 
+/**
+ * A partial order has been placed and its deposit captured.
+ *
+ * Sent INSTEAD of the standard confirmation, never alongside it: that one states the
+ * order total as paid, which on a deposit order is wrong by four fifths. No GST invoice
+ * is attached — the tax invoice is raised at dispatch so it can travel with the goods,
+ * and what the customer has now is an advance payment, not a taxable supply receipt.
+ */
+export function sendPartialOrderPlacedEmail(to: string, p: {
+  orderId: string;
+  total: number | string;
+  deposit: number | string;
+  balance: number | string;
+  items: { name: string; quantity: number }[];
+  receipt?: { filename: string; pdf: Buffer };
+}) {
+  const ref = p.orderId.slice(-8).toUpperCase();
+  return sendEmail({
+    to,
+    ...(p.receipt ? { attachments: [{ filename: p.receipt.filename, content: p.receipt.pdf }] } : {}),
+    subject: `Order confirmed — deposit received (#${ref})`,
+    html: shell("Your order is confirmed 🎉", `
+      <p>Thanks for your order <strong>#${ref}</strong>.</p>
+      <ul style="padding-left:18px;margin:12px 0">${itemRows(p.items)}</ul>
+      <table style="margin:16px 0;font-size:14px">
+        <tr><td style="padding:2px 12px 2px 0;color:#666">Order total</td><td><strong>${money(p.total)}</strong></td></tr>
+        <tr><td style="padding:2px 12px 2px 0;color:#666">Deposit paid</td><td><strong>${money(p.deposit)}</strong></td></tr>
+        <tr><td style="padding:2px 12px 2px 0;color:#666">Balance at delivery</td><td><strong>${money(p.balance)}</strong></td></tr>
+      </table>
+      <p>Please keep <strong>${money(p.balance)}</strong> ready — our delivery agent will collect it when your order arrives.</p>
+      <p style="font-size:13px;color:#666">Your payment receipt is attached. It is not a tax invoice — your GST invoice is issued when the order is dispatched.</p>
+      <p style="font-size:13px;color:#666">The deposit is not refunded if the order is cancelled or delivery is refused, as set out in our cancellation policy.</p>
+    `),
+  });
+}
+
+/** The parcel has shipped and the courier will be collecting the balance. */
+export function sendBalanceDueOnDispatchEmail(to: string, p: {
+  orderId: string;
+  balance: number | string;
+  trackingUrl?: string | null;
+}) {
+  const ref = p.orderId.slice(-8).toUpperCase();
+  return sendEmail({
+    to,
+    subject: `Your order has shipped — ${money(p.balance)} due on delivery (#${ref})`,
+    html: shell("Your order is on its way 📦", `
+      <p>Order <strong>#${ref}</strong> has been handed to our courier.</p>
+      <p>Please keep <strong>${money(p.balance)}</strong> ready — the delivery agent will collect it at your door.</p>
+      ${p.trackingUrl ? `<p style="margin:24px 0"><a href="${p.trackingUrl}" style="background:#111;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600">Track your order</a></p>` : ""}
+    `),
+  });
+}
+
+/** The deposit was retained after a cancellation or a refused delivery. */
+export function sendDepositForfeitedEmail(to: string, p: {
+  orderId: string;
+  deposit: number | string;
+  reason: string;
+  policyUrl?: string;
+}) {
+  const ref = p.orderId.slice(-8).toUpperCase();
+  return sendEmail({
+    to,
+    subject: `Order #${ref} closed — deposit retained`,
+    html: shell("Your order has been closed", `
+      <p>Order <strong>#${ref}</strong> has been closed: ${escapeHtml(p.reason)}.</p>
+      <p>As set out in our cancellation policy, the <strong>${money(p.deposit)}</strong> deposit paid at checkout is retained and will not be refunded.</p>
+      ${p.policyUrl ? `<p style="font-size:13px;color:#666"><a href="${p.policyUrl}">Read our cancellation policy</a></p>` : ""}
+      <p style="font-size:13px;color:#666">If you believe this is a mistake, reply to this email and our team will look into it.</p>
+    `),
+  });
+}
+
 export function sendBalancePaidEmail(to: string, p: {
   productName: string;
   orderId: string;
+  /** Tax invoice for the full amount, once the pre-order has become an order. */
+  invoice?: { filename: string; pdf: Buffer; number: string };
 }) {
   return sendEmail({
     to,
     subject: `Payment complete — your order is confirmed`,
     html: shell("Order confirmed 🎉", `
-      <p>We've received the balance for <strong>${p.productName}</strong>.</p>
+      <p>We've received the balance for <strong>${escapeHtml(p.productName)}</strong>.</p>
       <p>Your order <strong>#${p.orderId.slice(-8).toUpperCase()}</strong> is now being processed and will ship soon.</p>
+      ${p.invoice
+        ? `<p style="font-size:13px;color:#666">Your tax invoice (<strong>${escapeHtml(p.invoice.number)}</strong>) is attached to this email.</p>`
+        : ""}
+    `),
+    ...(p.invoice
+      ? { attachments: [{ filename: p.invoice.filename, content: p.invoice.pdf }] }
+      : {}),
+  });
+}
+
+/** Welcome, once the account actually exists. Sent for email, Google and Apple signups. */
+export function sendWelcomeEmail(to: string, p: { name: string }) {
+  const shopUrl = publicSiteUrl();
+  return sendEmail({
+    to,
+    subject: "Welcome to Little Stepz 🎉",
+    html: shell("Your account is ready", `
+      <p>Hi ${escapeHtml(p.name)}, thanks for joining Little Stepz.</p>
+      <p>You can now track orders, save addresses and check out faster.</p>
+      ${shopUrl
+        ? `<p style="margin:24px 0"><a href="${shopUrl}" style="background:#111;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600">Start shopping</a></p>`
+        : ""}
+      <p style="font-size:13px;color:#666">If you didn't create this account, please contact us and we'll remove it.</p>
+    `),
+  });
+}
+
+/** Delivery confirmation. Sent from the one place both the courier webhook and the admin path meet. */
+export function sendOrderDeliveredEmail(to: string, p: {
+  orderId: string;
+  total: number | string;
+}) {
+  const ref = p.orderId.slice(-8).toUpperCase();
+  const base = publicSiteUrl();
+  return sendEmail({
+    to,
+    subject: `Delivered — your Little Stepz order #${ref}`,
+    html: shell("Your order has been delivered 🎉", `
+      <p>Order <strong>#${ref}</strong> (${money(p.total)}) has been delivered. We hope you love it.</p>
+      ${base
+        ? `<p style="margin:24px 0"><a href="${base}/account/orders" style="background:#111;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600">View your order</a></p>`
+        : ""}
+      <p style="font-size:13px;color:#666">Something wrong with it? Reply to this email within the returns window and keep your unboxing video handy — we need it to process a damage or missing-item claim.</p>
+    `),
+  });
+}
+
+/** Acknowledges an affiliate application so the applicant is not left guessing. */
+export function sendAffiliateAppliedEmail(to: string, p: { name: string }) {
+  return sendEmail({
+    to,
+    subject: "We've received your affiliate application",
+    html: shell("Application received ⏳", `
+      <p>Hi ${escapeHtml(p.name)}, thanks for applying to the Little Stepz affiliate programme.</p>
+      <p>Your application is <strong>pending review</strong>. We'll email you as soon as it has been looked at — there's nothing you need to do in the meantime.</p>
+    `),
+  });
+}
+
+/** Approval, with the referral link the affiliate needs to actually start. */
+export function sendAffiliateApprovedEmail(to: string, p: {
+  name: string;
+  referralCode: string;
+}) {
+  const base = publicSiteUrl();
+  const link = base ? `${base}/ref/${encodeURIComponent(p.referralCode)}` : "";
+  return sendEmail({
+    to,
+    subject: "You're now a Little Stepz affiliate 🤝",
+    html: shell("Application approved 🎉", `
+      <p>Hi ${escapeHtml(p.name)}, your affiliate application has been approved.</p>
+      <p>Your referral code is <strong>${escapeHtml(p.referralCode)}</strong>. Share your link and you earn commission on every order placed through it.</p>
+      ${link
+        ? `<p style="margin:20px 0;font-size:14px">Your link: <a href="${link}">${escapeHtml(link)}</a></p>`
+        : ""}
+      ${base
+        ? `<p style="margin:24px 0"><a href="${base}/affiliate" style="background:#111;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600">Open your dashboard</a></p>`
+        : ""}
+    `),
+  });
+}
+
+/** A referred order converted — the affiliate has earned commission. */
+export function sendCommissionEarnedEmail(to: string, p: {
+  amount: number | string;
+  orderId: string;
+}) {
+  const base = publicSiteUrl();
+  return sendEmail({
+    to,
+    subject: `You earned ${money(p.amount)} commission`,
+    html: shell("Commission earned 🎉", `
+      <p>Someone bought through your referral link.</p>
+      <p>You earned <strong>${money(p.amount)}</strong> on order <strong>#${p.orderId.slice(-8).toUpperCase()}</strong>.</p>
+      ${base
+        ? `<p style="margin:24px 0"><a href="${base}/affiliate/commissions" style="background:#111;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600">View your earnings</a></p>`
+        : ""}
+      <p style="font-size:13px;color:#666">Commission is approved and paid out per the affiliate terms.</p>
     `),
   });
 }

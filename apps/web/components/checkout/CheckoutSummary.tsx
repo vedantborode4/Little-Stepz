@@ -23,7 +23,8 @@ export default function CheckoutSummary({
   const isGuest = !user
 
   const { subtotal, total, discount, couponCode, items } = useCartStore()
-  const { placeOrder, placingOrder } = useCheckoutStore()
+  const { placeOrder, placingOrder, paymentPlan, setQuote } = useCheckoutStore()
+  const forfeitureAck = useCheckoutStore((s) => s.forfeitureAck)
 
   const storeAddressId = useAddressStore((s) => s.selectedAddressId)
   const resolvedAddressId = addressId || storeAddressId || ""
@@ -33,9 +34,7 @@ export default function CheckoutSummary({
   // only for as long as shipping happened to be free. Mobile already asks the
   // backend; web now does the same, and falls back to the local figures if the
   // call fails so the page never blocks on it.
-  const [quote, setQuote] = useState<{
-    subtotal: number; discount: number; shippingCharges: number; total: number
-  } | null>(null)
+  const quote = useCheckoutStore((s) => s.quote)
 
   useEffect(() => {
     if (isGuest || !resolvedAddressId || !items.length) {
@@ -55,7 +54,7 @@ export default function CheckoutSummary({
       .then((res) => { if (!cancelled) setQuote(res) })
       .catch(() => { if (!cancelled) setQuote(null) })
     return () => { cancelled = true }
-  }, [isGuest, resolvedAddressId, items, couponCode])
+  }, [isGuest, resolvedAddressId, items, couponCode, setQuote])
 
   const shownSubtotal = quote?.subtotal ?? subtotal
   const shownDiscount = quote?.discount ?? discount
@@ -74,7 +73,15 @@ export default function CheckoutSummary({
     if (orderId) router.push(`/order-success/${orderId}`)
   }
 
-  const canPlace = isGuest || (isValid && !placingOrder)
+  const partial = quote?.partialPayment ?? null
+  // Only true when the server actually offered the plan — the store resets to FULL the
+  // moment a new quote says otherwise.
+  const isPartial = paymentPlan === "PARTIAL" && Boolean(partial?.eligible)
+
+  // The acknowledgement gates the button rather than being validated on submit: a
+  // customer should not be able to start a payment they have not agreed the terms of.
+  const canPlace =
+    isGuest || (isValid && !placingOrder && (!isPartial || forfeitureAck))
 
   return (
     <div className="bg-surface border border-border rounded-2xl shadow-card p-6 space-y-5 h-fit sticky top-6">
@@ -125,13 +132,35 @@ export default function CheckoutSummary({
         <span className="text-xl font-bold text-primary">₹{shownTotal?.toLocaleString("en-IN")}</span>
       </div>
 
+      {/* What is actually being charged now, versus what the courier collects. */}
+      {isPartial && partial ? (
+        <div className="space-y-1.5">
+          <div className="flex justify-between items-center">
+            <span className="text-sm font-semibold text-primary">
+              Pay now ({partial.depositPercent}% deposit)
+            </span>
+            <span className="text-sm font-bold text-primary">
+              ₹{partial.depositAmount.toLocaleString("en-IN")}
+            </span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-muted">Balance at delivery</span>
+            <span className="text-sm text-muted">
+              ₹{partial.balanceAmount.toLocaleString("en-IN")}
+            </span>
+          </div>
+        </div>
+      ) : null}
+
       {/* Payment method badge */}
       <div className="bg-surface-2 border border-border rounded-xl px-3.5 py-2.5 flex items-center justify-between">
         <span className="flex items-center gap-1.5 text-xs text-muted">
           <CreditCard size={13} />
           Payment
         </span>
-        <span className="text-xs font-semibold text-muted">Online (Razorpay)</span>
+        <span className="text-xs font-semibold text-muted">
+          {isPartial ? "20% now · rest on delivery" : "Online (Razorpay)"}
+        </span>
       </div>
 
       {/* CTA */}
@@ -147,6 +176,8 @@ export default function CheckoutSummary({
           </>
         ) : isGuest ? (
           "Place Order"
+        ) : isPartial && partial ? (
+          `Pay ₹${partial.depositAmount.toLocaleString("en-IN")} & Place Order`
         ) : (
           "Proceed to Pay"
         )}
@@ -161,6 +192,12 @@ export default function CheckoutSummary({
       {!isGuest && !resolvedAddressId && (
         <p className="text-xs text-amber-600 dark:text-amber-400 text-center bg-amber-50 dark:bg-amber-500/15 border border-amber-100 dark:border-amber-500/20 rounded-lg py-2 px-3">
           Please select a delivery address to continue.
+        </p>
+      )}
+
+      {!isGuest && isPartial && !forfeitureAck && (
+        <p className="text-xs text-amber-600 dark:text-amber-400 text-center bg-amber-50 dark:bg-amber-500/15 border border-amber-100 dark:border-amber-500/20 rounded-lg py-2 px-3">
+          Please confirm the deposit terms above to continue.
         </p>
       )}
 

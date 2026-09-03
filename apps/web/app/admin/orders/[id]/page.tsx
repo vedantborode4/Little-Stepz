@@ -2,13 +2,15 @@
 
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { ArrowLeft, Package, MapPin, CreditCard, Truck, FileText, Loader2 } from "lucide-react"
+import { ArrowLeft, Package, MapPin, CreditCard, Truck, FileText, Loader2, Wallet } from "lucide-react"
+import MarkBalancePaidModal from "../../../../components/admin/orders/MarkBalancePaidModal"
 import { toast } from "sonner"
 import { AdminOrderService, type AdminOrderDetail } from "../../../../lib/services/admin-order.service"
 import { friendlyError } from "../../../../lib/errorMessages"
 import OrderStatusBadge from "../../../../components/admin/orders/OrderStatusBadge"
 import ShipOrderButton from "../../../../components/admin/orders/ShipOrderButton"
 import CancelShipmentButton from "../../../../components/admin/orders/CancelShipmentButton"
+import FulfilmentModeToggle from "../../../../components/admin/orders/FulfilmentModeToggle"
 import OrderTimeline from "../../../../components/admin/orders/AdminOrderTimeline"
 
 export default function AdminOrderDetailPage() {
@@ -59,8 +61,30 @@ export default function AdminOrderDetailPage() {
         </div>
         <div className="flex items-center gap-2 sm:ml-auto flex-wrap">
           <OrderStatusBadge status={order.status} />
-          <ShipOrderButton orderId={order.id} currentStatus={order.status} onSuccess={load} />
-          <CancelShipmentButton orderId={order.id} currentStatus={order.status} onSuccess={load} />
+          {/* Says how the goods travel before any of the courier actions, so the mode is
+              read first rather than discovered by a Ship button that refuses. */}
+          {order.manualFulfilment && (
+            <span className="text-[10px] font-bold uppercase tracking-wide bg-amber-50 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400 px-2 py-1 rounded-full">
+              Local delivery
+            </span>
+          )}
+          <FulfilmentModeToggle
+            orderId={order.id}
+            manual={!!order.manualFulfilment}
+            currentStatus={order.status}
+            onSuccess={load}
+          />
+          {/* Courier actions are meaningless on a hand-delivered order — the server
+              refuses them, so the buttons should not be there to click. */}
+          {!order.manualFulfilment && (
+            <>
+              <ShipOrderButton
+                balanceToCollect={
+                  order.partial?.balanceStatus === "DUE" ? Number(order.partial.balanceAmount) : null
+                } orderId={order.id} currentStatus={order.status} onSuccess={load} />
+              <CancelShipmentButton orderId={order.id} currentStatus={order.status} onSuccess={load} />
+            </>
+          )}
           {/* Only a paid order has an invoice to hand over. */}
           {order.payment?.status === "SUCCESS" && (
             <button
@@ -98,6 +122,10 @@ export default function AdminOrderDetailPage() {
             { label: "Email",    value: order.user?.email || "—" },
             { label: "Total",    value: `₹${order.total}`, bold: true },
             { label: "Payment",  value: order.payment?.status || "—" },
+            {
+              label: "Plan",
+              value: order.paymentPlan === "PARTIAL" ? "Deposit + balance" : "Paid in full",
+            },
             { label: "Method",   value: order.payment?.method || "—" },
             { label: "Courier",  value: order.shipments[0]?.courierName || "—" },
             { label: "AWB",      value: order.shipments[0]?.awbCode || "—" },
@@ -108,6 +136,61 @@ export default function AdminOrderDetailPage() {
             </div>
           ))}
         </div>
+
+        {/* Payment breakdown — a partial order's money moves in two legs, and the flat
+            label/value card above cannot show what is still outstanding or how it will
+            be collected. */}
+        {order.paymentPlan === "PARTIAL" && order.partial ? (
+          <div className="bg-surface border border-border rounded-2xl p-4 sm:p-5 space-y-3 sm:col-span-3">
+            <div className="flex items-center gap-2 text-sm font-semibold text-muted mb-1">
+              <Wallet size={16} className="text-primary" />
+              Payment breakdown
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+              <div className="flex justify-between sm:block">
+                <span className="text-muted">Order total</span>
+                <p className="font-bold text-text">₹{Number(order.total).toLocaleString("en-IN")}</p>
+              </div>
+              <div className="flex justify-between sm:block">
+                <span className="text-muted">Deposit paid</span>
+                <p className="font-bold text-text">
+                  ₹{Number(order.partial.depositAmount).toLocaleString("en-IN")}
+                </p>
+              </div>
+              <div className="flex justify-between sm:block">
+                <span className="text-muted">Balance</span>
+                <p className={`font-bold ${order.partial.balanceStatus === "PAID" ? "text-green-600 dark:text-green-400" : "text-amber-600"}`}>
+                  ₹{Number(order.partial.balanceAmount).toLocaleString("en-IN")}
+                  <span className="ml-1 text-xs font-medium">
+                    {order.partial.balanceStatus === "PAID"
+                      ? `· paid${order.partial.balanceMethod ? ` (${order.partial.balanceMethod.toLowerCase()})` : ""}`
+                      : order.partial.collectedAtDoor
+                        ? "· to collect on delivery"
+                        : "· outstanding"}
+                  </span>
+                </p>
+              </div>
+            </div>
+
+            {order.partial.depositForfeited ? (
+              <p className="text-xs text-red-600 dark:text-red-400 pt-2 border-t border-border">
+                Deposit forfeited — ₹{Number(order.partial.depositAmount).toLocaleString("en-IN")} retained
+                {order.partial.depositForfeitedAt
+                  ? ` on ${new Date(order.partial.depositForfeitedAt).toLocaleDateString("en-IN")}`
+                  : ""}.
+              </p>
+            ) : order.partial.balanceStatus === "DUE" ? (
+              <div className="pt-2 border-t border-border">
+                <MarkBalancePaidModal
+                  orderId={order.id}
+                  balanceAmount={Number(order.partial.balanceAmount)}
+                  orderStatus={order.status}
+                  refresh={load}
+                />
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         {/* Address */}
         <div className="bg-surface border border-border rounded-2xl p-4 sm:p-5 space-y-3">

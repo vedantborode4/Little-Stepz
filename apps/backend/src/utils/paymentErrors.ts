@@ -17,6 +17,10 @@ export enum PaymentErrorCode {
   COD_NOT_AVAILABLE           = "COD_NOT_AVAILABLE",
   COD_ALREADY_SET             = "COD_ALREADY_SET",
 
+  // Local (non-courier) fulfilment
+  ORDER_IS_MANUAL_FULFILMENT  = "ORDER_IS_MANUAL_FULFILMENT",
+  SHIPMENT_ACTIVE             = "SHIPMENT_ACTIVE",
+
   // Webhooks
   WEBHOOK_SIGNATURE_INVALID   = "WEBHOOK_SIGNATURE_INVALID",
   WEBHOOK_ALREADY_PROCESSED   = "WEBHOOK_ALREADY_PROCESSED",
@@ -38,6 +42,16 @@ export enum PaymentErrorCode {
   DELHIVERY_AUTH_FAILED       = "DELHIVERY_AUTH_FAILED",
   DELHIVERY_ORDER_FAILED      = "DELHIVERY_ORDER_FAILED",
   PINCODE_NOT_SERVICEABLE     = "PINCODE_NOT_SERVICEABLE",
+
+  // Partial payment — balance leg
+  /** The balance was already collected, by any channel. */
+  BALANCE_ALREADY_SETTLED     = "BALANCE_ALREADY_SETTLED",
+  /** The parcel has been manifested COD; the online link is closed by design. */
+  BALANCE_LINK_DISPATCHED     = "BALANCE_LINK_DISPATCHED",
+  /** Unknown or rotated balance token. */
+  BALANCE_LINK_INVALID        = "BALANCE_LINK_INVALID",
+  /** No outstanding balance on this order. */
+  BALANCE_NOT_DUE             = "BALANCE_NOT_DUE",
 
   // Generic
   UNAUTHORIZED_ACCESS         = "UNAUTHORIZED_ACCESS",

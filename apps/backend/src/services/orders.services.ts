@@ -5,13 +5,21 @@ import { resolveChargedPrice } from '../utils/pricing';
 import { Decimal } from 'decimal.js';
 import type { CreateOrderBody } from '@repo/zod-schema/index';
 import { validateCouponService } from './coupons.services';
-import { assertServiceable, resolveShippingCharge } from '../utils/shipping';
+import { assertServiceable, assertCodCollectable, resolveShippingCharge } from '../utils/shipping';
+import {
+  isPartialPaymentEnabled,
+  resolveCartPartialTerms,
+  splitDeposit,
+  isPartialSplittable,
+  maxPartialOrderValue,
+  maxOpenPartialOrders,
+} from '../utils/partialPayment';
 import { notify } from './notification.services';
-import { orderShortRef } from '../utils/notificationCopy';
+import { orderShortRef, money } from '../utils/notificationCopy';
 import { syncProductStockFlag, syncProductStockFlags } from '../utils/stock';
 import { releasePendingOrderStock, stalePendingOrderWhere } from '../utils/pendingRelease';
 import { assertPhoneVerified } from "./phoneVerification.services";
-import { refundCapturedOrderPayment } from './refund.services';
+import { refundOrderMoney, type RefundScope } from './refund.services';
 import { reverseAffiliateCommissionsService } from './affiliate.services';
 
 const MAX_TX_RETRIES = 3;
@@ -66,7 +74,16 @@ export async function createOrderService(userId: string, data: CreateOrderBody, 
   const replay = await prisma.order.findUnique({ where: { idempotencyKey } });
   if (replay) {
     if (replay.userId !== userId) throw new ApiError(403, OrderErrorCode.UNAUTHORIZED_ACCESS);
-    return { orderId: replay.id, subtotal: replay.subtotal.toNumber(), discount: replay.discount.toNumber(), shippingCharges: replay.shippingCharges.toNumber(), total: replay.total.toNumber() };
+    return {
+      orderId: replay.id,
+      subtotal: replay.subtotal.toNumber(),
+      discount: replay.discount.toNumber(),
+      shippingCharges: replay.shippingCharges.toNumber(),
+      total: replay.total.toNumber(),
+      paymentPlan: replay.paymentPlan,
+      amountDueNow: (replay.depositAmount ?? replay.total).toNumber(),
+      balanceDue: replay.balanceAmount?.toNumber() ?? 0,
+    };
   }
 
   // Serviceability check + live shipping rate run OUTSIDE the transaction (external HTTP must
@@ -75,16 +92,41 @@ export async function createOrderService(userId: string, data: CreateOrderBody, 
     where: { id: data.addressId, userId, deletedAt: null },
   });
   if (!shippingAddress) throw new ApiError(400, OrderErrorCode.INVALID_ADDRESS);
-  await assertServiceable(shippingAddress.pincode, data.paymentMethod);
+
+  const wantsPartial = data.paymentPlan === "PARTIAL";
+  if (wantsPartial && !isPartialPaymentEnabled()) {
+    throw new ApiError(400, OrderErrorCode.PARTIAL_PAYMENT_DISABLED);
+  }
+
+  if (wantsPartial) {
+    // The balance is collected by the courier, so the pincode must accept COD. This
+    // fails CLOSED, unlike `assertServiceable` — taking a deposit for an address where
+    // the remaining balance can never be collected is the one outcome worth blocking
+    // checkout over.
+    await assertCodCollectable(shippingAddress.pincode);
+  } else {
+    await assertServiceable(shippingAddress.pincode, data.paymentMethod);
+  }
 
   // Off by default, and it must stay that way until the base has converted: every
   // address that predates phone verification has an unverified number, so enabling
   // this blocks checkout for the entire existing customer base. New and edited
   // addresses go through OTP at save time, so the base converts on its own.
-  if (process.env.REQUIRE_VERIFIED_PHONE_AT_CHECKOUT === "true") {
+  //
+  // Partial payment bypasses that flag deliberately. It is opt-in and brand new, so it
+  // has no legacy base to strand, and a contactable number is what makes doorstep
+  // collection work at all.
+  if (wantsPartial || process.env.REQUIRE_VERIFIED_PHONE_AT_CHECKOUT === "true") {
     await assertPhoneVerified(userId, shippingAddress.phone);
   }
-  const precomputedShipping = await resolveShippingCharge(shippingAddress.pincode, data.paymentMethod);
+
+  // Quote the rate for how the parcel will actually travel: a COD manifest carries a
+  // collection fee. Dormant while FREE_SHIPPING is on, but wired now so the charge does
+  // not silently change the day it is turned off.
+  const precomputedShipping = await resolveShippingCharge(
+    shippingAddress.pincode,
+    wantsPartial ? "COD" : data.paymentMethod
+  );
 
   const result = await runWithRetry(async () => {
     return await prisma.$transaction(async (tx) => {
@@ -94,7 +136,18 @@ export async function createOrderService(userId: string, data: CreateOrderBody, 
       });
       if (existingOrder) {
         if (existingOrder.userId !== userId) throw new ApiError(403, OrderErrorCode.UNAUTHORIZED_ACCESS);
-        return { orderId: existingOrder.id, subtotal: existingOrder.subtotal.toNumber(), discount: existingOrder.discount.toNumber(), shippingCharges: existingOrder.shippingCharges.toNumber(), total: existingOrder.total.toNumber(), isNew: false }; // Idempotent return
+        // Idempotent return
+        return {
+          orderId: existingOrder.id,
+          subtotal: existingOrder.subtotal.toNumber(),
+          discount: existingOrder.discount.toNumber(),
+          shippingCharges: existingOrder.shippingCharges.toNumber(),
+          total: existingOrder.total.toNumber(),
+          paymentPlan: existingOrder.paymentPlan,
+          amountDueNow: (existingOrder.depositAmount ?? existingOrder.total).toNumber(),
+          balanceDue: existingOrder.balanceAmount?.toNumber() ?? 0,
+          isNew: false,
+        };
       }
 
       const address = await tx.address.findFirst({
@@ -117,16 +170,59 @@ export async function createOrderService(userId: string, data: CreateOrderBody, 
 
       const products = await tx.product.findMany({
         where: { id: { in: productIds }, deletedAt: null },
-        select: { id: true, name: true, price: true, salePrice: true, isOnSale: true, quantity: true, inStock: true },
+        select: {
+          id: true, name: true, price: true, salePrice: true, isOnSale: true,
+          quantity: true, inStock: true,
+          partialPaymentEnabled: true, depositPercent: true,
+        },
       });
 
       const variants = await tx.variant.findMany({
         where: { id: { in: variantIds }, deletedAt: null },
-        select: { id: true, name: true, price: true, salePrice: true, isOnSale: true, stock: true, productId: true },
+        select: {
+          id: true, name: true, price: true, salePrice: true, isOnSale: true,
+          stock: true, productId: true,
+          partialPaymentEnabled: true, depositPercent: true,
+        },
       });
 
       const productMap = new Map(products.map(p => [p.id, p]));
       const variantMap = new Map(variants.map(v => [v.id, v]));
+
+      // Partial-payment terms for the whole cart. The order is one payment, so the option
+      // stands only if every line allows it; the products and variants are already loaded,
+      // so this costs no extra queries.
+      const partialTerms = resolveCartPartialTerms(
+        data.cartItems.map((item) => ({
+          product: productMap.get(item.productId) ?? { partialPaymentEnabled: false, depositPercent: null },
+          variant: item.variantId ? variantMap.get(item.variantId) ?? null : null,
+        }))
+      );
+      if (wantsPartial && !partialTerms.enabled) {
+        throw new ApiError(400, OrderErrorCode.PARTIAL_NOT_ELIGIBLE);
+      }
+
+      if (wantsPartial) {
+        // Cap on concurrent unpaid balances. A bare count() is a check-then-write gap
+        // under READ COMMITTED — two simultaneous checkouts would both pass a cap of 1 —
+        // so the user row is locked first. This serialises only one customer's own
+        // concurrent checkouts, which is already pathological.
+        await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${userId} FOR UPDATE`;
+
+        const openBalances = await tx.order.count({
+          where: {
+            userId,
+            paymentPlan: "PARTIAL",
+            deletedAt: null,
+            // Only orders where a deposit actually landed and the balance is still out.
+            depositPaidAt: { not: null },
+            payment: { status: "PARTIALLY_PAID" },
+          },
+        });
+        if (openBalances >= maxOpenPartialOrders()) {
+          throw new ApiError(400, OrderErrorCode.PARTIAL_LIMIT_REACHED);
+        }
+      }
 
       for (const item of data.cartItems) {
         const product = productMap.get(item.productId);
@@ -216,6 +312,24 @@ export async function createOrderService(userId: string, data: CreateOrderBody, 
       shippingCharges = shippingCharges.toDecimalPlaces(2, Decimal.ROUND_HALF_EVEN);
       total = total.toDecimalPlaces(2, Decimal.ROUND_HALF_EVEN);
 
+      // The split is derived HERE, from the total this transaction is about to persist —
+      // never from the earlier quote. That is what makes the "coupon changed the total
+      // between quote and order" race structurally impossible rather than merely unlikely.
+      let depositAmount: Decimal | null = null;
+      let balanceAmount: Decimal | null = null;
+
+      if (wantsPartial) {
+        if (total.gt(maxPartialOrderValue())) {
+          throw new ApiError(400, OrderErrorCode.PARTIAL_ORDER_VALUE_EXCEEDED);
+        }
+        if (!isPartialSplittable(total, partialTerms.depositPercent)) {
+          throw new ApiError(400, OrderErrorCode.PARTIAL_AMOUNT_TOO_SMALL);
+        }
+        const split = splitDeposit(total, partialTerms.depositPercent);
+        depositAmount = split.deposit;
+        balanceAmount = split.balance;
+      }
+
       try {
         const order = await tx.order.create({
           data: {
@@ -228,6 +342,9 @@ export async function createOrderService(userId: string, data: CreateOrderBody, 
             total,
             affiliateId,
             idempotencyKey,
+            paymentPlan: wantsPartial ? "PARTIAL" : "FULL",
+            depositAmount,
+            balanceAmount,
             // Persisted at creation. It was validated by the controller and then
             // dropped, so every order was born ONLINE (the schema default) and only
             // became COD if /payments/cod happened to be called. Shipping rates and
@@ -245,7 +362,17 @@ export async function createOrderService(userId: string, data: CreateOrderBody, 
         // no way to retry. It is cleared on each confirmation path in
         // payment.services.ts (verify, COD, and the payment.captured webhook).
 
-        return { orderId: order.id, subtotal: order.subtotal.toNumber(), discount: order.discount.toNumber(), shippingCharges: order.shippingCharges.toNumber(), total: order.total.toNumber(), isNew: true };
+        return {
+          orderId: order.id,
+          subtotal: order.subtotal.toNumber(),
+          discount: order.discount.toNumber(),
+          shippingCharges: order.shippingCharges.toNumber(),
+          total: order.total.toNumber(),
+          paymentPlan: order.paymentPlan,
+          amountDueNow: (order.depositAmount ?? order.total).toNumber(),
+          balanceDue: order.balanceAmount?.toNumber() ?? 0,
+          isNew: true,
+        };
       } catch (err: any) {
         if (err.message.includes('Unique constraint failed')) { // General check for P2002 without Prisma code
           // Idempotency key conflict; retry query for existing
@@ -253,7 +380,17 @@ export async function createOrderService(userId: string, data: CreateOrderBody, 
             where: { idempotencyKey },
           });
           if (conflictingOrder && conflictingOrder.userId === userId) {
-            return { orderId: conflictingOrder.id, subtotal: conflictingOrder.subtotal.toNumber(), discount: conflictingOrder.discount.toNumber(), shippingCharges: conflictingOrder.shippingCharges.toNumber(), total: conflictingOrder.total.toNumber(), isNew: false };
+            return {
+              orderId: conflictingOrder.id,
+              subtotal: conflictingOrder.subtotal.toNumber(),
+              discount: conflictingOrder.discount.toNumber(),
+              shippingCharges: conflictingOrder.shippingCharges.toNumber(),
+              total: conflictingOrder.total.toNumber(),
+              paymentPlan: conflictingOrder.paymentPlan,
+              amountDueNow: (conflictingOrder.depositAmount ?? conflictingOrder.total).toNumber(),
+              balanceDue: conflictingOrder.balanceAmount?.toNumber() ?? 0,
+              isNew: false,
+            };
           }
           throw new ApiError(409, OrderErrorCode.IDEMPOTENCY_KEY_CONFLICT);
         }
@@ -268,6 +405,65 @@ export async function createOrderService(userId: string, data: CreateOrderBody, 
   // paths (signature verify, payment.captured webhook, and COD).
   const { isNew: _isNew, ...order } = result;
   return order;
+}
+
+/**
+ * The partial-payment view of an order, as the storefronts need it.
+ *
+ * Returned as its own block rather than loose fields so a FULL order is unambiguously
+ * `partial: null` and no client has to infer the plan from a scatter of nullable columns.
+ * `balanceStatus` and `invoiceAvailable` are derived here, once, rather than in two
+ * storefronts that would drift.
+ */
+function partialBlock(order: {
+  paymentPlan: string;
+  status: string;
+  depositAmount: unknown;
+  balanceAmount: unknown;
+  depositPaidAt: Date | null;
+  depositForfeitedAt: Date | null;
+  dispatchLockedAt: Date | null;
+  payment?: {
+    status: string;
+    balanceSettledAt: Date | null;
+    balanceMethod: string | null;
+    balancePaidAt: Date | null;
+  } | null;
+}) {
+  const paidInFull = order.payment?.status === "SUCCESS";
+
+  if (order.paymentPlan !== "PARTIAL") {
+    return { paymentPlan: "FULL" as const, partial: null, invoiceAvailable: paidInFull };
+  }
+
+  const settled = Boolean(order.payment?.balanceSettledAt) || paidInFull;
+  const balanceStatus = order.depositForfeitedAt
+    ? ("WRITTEN_OFF" as const)
+    : settled
+      ? ("PAID" as const)
+      : ("DUE" as const);
+
+  return {
+    paymentPlan: "PARTIAL" as const,
+    // The tax invoice is raised at dispatch, not at settlement, so it can travel with
+    // the goods. Gating the client button on payment.status === SUCCESS would hide it
+    // for the whole time a COD parcel is in transit.
+    invoiceAvailable:
+      paidInFull ||
+      ["PROCESSING", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED"].includes(order.status),
+    partial: {
+      depositAmount: Number(order.depositAmount ?? 0),
+      balanceAmount: Number(order.balanceAmount ?? 0),
+      depositPaidAt: order.depositPaidAt,
+      balancePaidAt: order.payment?.balancePaidAt ?? null,
+      balanceStatus,
+      balanceMethod: order.payment?.balanceMethod ?? null,
+      // Once a COD parcel is committed the balance is owed to the courier, not to us.
+      collectedAtDoor: Boolean(order.dispatchLockedAt) && balanceStatus === "DUE",
+      depositForfeited: Boolean(order.depositForfeitedAt),
+      depositForfeitedAt: order.depositForfeitedAt,
+    },
+  };
 }
 
 export async function getOrdersService(userId: string, page: number, limit: number, status?: string) {
@@ -297,6 +493,12 @@ export async function getOrdersService(userId: string, page: number, limit: numb
         total: true,
         status: true,
         createdAt: true,
+        paymentPlan: true,
+        depositAmount: true,
+        balanceAmount: true,
+        depositPaidAt: true,
+        depositForfeitedAt: true,
+        dispatchLockedAt: true,
         items: {
           select: {
             productId: true,
@@ -307,7 +509,11 @@ export async function getOrdersService(userId: string, page: number, limit: numb
             variant: { select: { images: { where: { deletedAt: null }, orderBy: { sortOrder: "asc" }, select: { url: true }, take: 1 } } },
           },
         },
-        payment: { select: { status: true } },
+        payment: {
+          select: {
+            status: true, balanceSettledAt: true, balanceMethod: true, balancePaidAt: true,
+          },
+        },
       },
     }),
     prisma.order.count({ where }),
@@ -316,6 +522,7 @@ export async function getOrdersService(userId: string, page: number, limit: numb
   return { 
     orders: orders.map(order => ({
       ...order,
+      ...partialBlock(order),
       subtotal: order.subtotal.toNumber(),
       discount: order.discount.toNumber(),
       shippingCharges: order.shippingCharges.toNumber(),
@@ -358,6 +565,7 @@ export async function getOrderByIdService(userId: string, id: string) {
 
   return {
     ...order,
+    ...partialBlock(order),
     subtotal: order.subtotal.toNumber(),
     discount: order.discount.toNumber(),
     shippingCharges: order.shippingCharges.toNumber(),
@@ -379,7 +587,33 @@ export async function getOrderByIdService(userId: string, id: string) {
  * unnumbered JSON and was never consumed by either client.
  */
 
-export async function cancelOrderService(userId: string, orderId: string, reason?: string) {
+export async function cancelOrderService(
+  userId: string,
+  orderId: string,
+  reason?: string,
+  opts: { confirmForfeit?: boolean } = {}
+) {
+  // Read the plan before the unwind so the refund policy can be decided from the state
+  // the customer is actually cancelling.
+  const preState = await prisma.order.findFirst({
+    where: { id: orderId, userId, deletedAt: null },
+    select: {
+      paymentPlan: true,
+      depositAmount: true,
+      payment: { select: { status: true, balanceSettledAt: true } },
+    },
+  });
+
+  // A deposit-paid partial order forfeits its deposit on cancellation. That is a
+  // contractual consequence with the customer's money in it, so it needs an explicit
+  // acknowledgement rather than being applied silently — and requiring the flag forces
+  // the client to show the amount at the moment of the decision.
+  const depositAtRisk =
+    preState?.paymentPlan === "PARTIAL" && preState.payment?.status === "PARTIALLY_PAID";
+  if (depositAtRisk && !opts.confirmForfeit) {
+    throw new ApiError(400, OrderErrorCode.DEPOSIT_FORFEIT_CONFIRMATION_REQUIRED);
+  }
+
   await runWithRetry(async () => {
     return await prisma.$transaction(async (tx) => {
       const order = await tx.order.findFirst({
@@ -440,16 +674,26 @@ export async function cancelOrderService(userId: string, orderId: string, reason
   });
 
   // After the commit, never inside it — this makes an external Razorpay call.
-  // Returns 'none' for COD and for orders that were never actually paid.
-  const refund = await refundCapturedOrderPayment(orderId, 'Order cancelled by customer');
+  //
+  // Scope encodes the forfeiture policy: a customer-cancelled partial order keeps its
+  // deposit. Anything collected BEYOND the deposit is still returned — the customer only
+  // forfeits their commitment, not money they paid toward a balance.
+  const scope: RefundScope = depositAtRisk
+    ? (preState?.payment?.balanceSettledAt ? 'BALANCE_ONLY' : 'NONE')
+    : 'ALL';
 
+  const refund = await refundOrderMoney(orderId, 'Order cancelled by customer', { scope });
+
+  const forfeited = refund.status === 'forfeited';
   void notify({
     userId,
     type: 'ORDER_CANCELLED',
     title: 'Order cancelled',
-    body: refund.status === 'initiated'
-      ? `Your order #${orderShortRef(orderId)} has been cancelled and your refund has been initiated.`
-      : `Your order #${orderShortRef(orderId)} has been cancelled.`,
+    body: forfeited
+      ? `Your order #${orderShortRef(orderId)} has been cancelled. As set out in our cancellation policy, the ${money(Number(preState?.depositAmount ?? 0))} deposit is retained.`
+      : refund.status === 'initiated'
+        ? `Your order #${orderShortRef(orderId)} has been cancelled and your refund has been initiated.`
+        : `Your order #${orderShortRef(orderId)} has been cancelled.`,
     data: { screen: 'Order', orderId },
   });
 

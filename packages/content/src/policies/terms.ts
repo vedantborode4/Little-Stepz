@@ -55,11 +55,22 @@ export const terms: PolicyPage = {
     {
       heading: "Payment Policy",
       blocks: [
-        { type: "paragraph", text: "All orders are prepaid. We may accept payment through approved payment channels including UPI, Debit Cards, Credit Cards, Net Banking and Digital Wallets. Cash on Delivery is not offered. Available payment methods may vary depending on product, location, order type, or operational policies." },
+        { type: "paragraph", text: "Orders may be paid in full at checkout, or — on eligible products and delivery locations — under our Partial Payment plan, where a deposit is paid at checkout and the remaining balance is collected at the time of delivery. We may accept payment through approved payment channels including UPI, Debit Cards, Credit Cards, Net Banking and Digital Wallets. Full Cash on Delivery, with no advance payment, is not offered. Available payment options may vary depending on product, location, order value, account history, or operational policies." },
         {
           type: "paragraph",
           text: "By making a purchase, customers confirm they are authorized to use the selected payment method, that payment information provided is accurate, and that transactions are lawful and genuine. Little Stepz reserves the right to review, verify, delay, hold, or cancel suspicious transactions for fraud prevention or payment security purposes.",
         },
+      ],
+    },
+    {
+      heading: "Partial Payment (Deposit) Policy",
+      blocks: [
+        { type: "paragraph", text: "Partial Payment allows an eligible order to be paid in two parts: a deposit paid online at checkout, and the remaining balance collected at the time of delivery. Availability is shown at checkout and is at our discretion — it may be limited or withdrawn by product, delivery location, order value, or account history." },
+        { type: "paragraph", text: "The deposit is a percentage of the total order value, including shipping and after any discount, and is displayed in full before you confirm the order. The remaining balance is payable at delivery and is collected by the delivery agent." },
+        { type: "paragraph", text: "The deposit is non-refundable. If you refuse delivery, fail to accept the parcel, or cancel the order after the deposit has been paid, the deposit is retained in full. This is stated at checkout and must be acknowledged before a Partial Payment order can be placed." },
+        { type: "paragraph", text: "If the balance is not paid at the time of delivery, the parcel is returned to us, the deposit is retained, and return shipping costs may be recovered. Where Little Stepz cancels an order for its own reasons — including an inability to fulfil it — the deposit is refunded in full." },
+        { type: "paragraph", text: "A GST tax invoice is issued when the order is dispatched. Amounts paid before dispatch are acknowledged by a non-GST payment receipt." },
+        { type: "paragraph", text: "A limit applies to the number of orders one customer may hold with an outstanding balance at any time." },
         {
           type: "paragraph",
           text: "Payments may be processed through third-party payment providers. Little Stepz is not responsible for bank outages, payment gateway downtime, failed payment processing, delayed transaction confirmations, or third-party technical issues beyond our control. All prices displayed are in Indian Rupees (INR) unless otherwise stated.",
@@ -239,7 +250,7 @@ export const terms: PolicyPage = {
       heading: "Frequently Asked Questions (FAQ)",
       blocks: [
         { type: "subheading", text: "Do you offer Cash on Delivery (COD)?" },
-        { type: "paragraph", text: "No. Cash on Delivery is not offered. Every order is paid for at checkout." },
+        { type: "paragraph", text: "Not as a full Cash on Delivery option — every order requires a payment at checkout. On eligible products and pincodes you may instead choose our Partial Payment plan, where you pay a deposit online at checkout and the delivery agent collects the balance at your door. The deposit is non-refundable if you refuse delivery or cancel the order." },
         { type: "subheading", text: "How long does shipping take?" },
         { type: "paragraph", text: "Delivery usually takes 2–7 business days depending on location." },
         { type: "subheading", text: "Can I cancel my order?" },

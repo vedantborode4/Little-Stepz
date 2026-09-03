@@ -15,7 +15,13 @@ import { useAddressStore } from "../../store/address.store";
 import { useAuthStore } from "../../store/auth.store";
 import { useCheckoutStore } from "../../store/checkout.store";
 import type { Address } from "../../lib/services/address.service";
-import { CheckoutService } from "../../lib/services/checkout.service";
+import { CheckoutService, type PartialPaymentQuote } from "../../lib/services/checkout.service";
+import {
+  partialPlanSummary,
+  forfeitureWarning,
+  forfeitureAckLabel,
+  partialReasonText,
+} from "@repo/content/index";
 import { toast } from "../../store/toast.store";
 import { formatPrice } from "../../lib/utils/format";
 import { getErrorMessage } from "../../lib/utils/errors";
@@ -53,11 +59,14 @@ export default function Checkout() {
   } = useCartStore();
   const { addresses, selectedAddressId, fetchAddresses, setSelectedAddress, loadError: addressError } =
     useAddressStore();
-  const { placeOrder, placingOrder, step, setStep } =
-    useCheckoutStore();
+  const {
+    placeOrder, placingOrder, step, setStep,
+    paymentPlan, setPaymentPlan, forfeitureAck, setForfeitureAck,
+  } = useCheckoutStore();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   const [serverTotals, setServerTotals] = useState<ServerTotals | null>(null);
+  const [partialQuote, setPartialQuote] = useState<PartialPaymentQuote | null>(null);
   const [calculating, setCalculating] = useState(false);
   const [pricingFailed, setPricingFailed] = useState(false);
   const keyboardHeight = useKeyboardHeight();
@@ -126,6 +135,7 @@ export default function Checkout() {
   useEffect(() => {
     if (!selectedAddressId || !cartSignature) {
       setServerTotals(null);
+      setPartialQuote(null);
       setPricingFailed(false);
       return;
     }
@@ -138,7 +148,7 @@ export default function Checkout() {
           variantId: i.variantId ?? undefined,
           quantity: i.quantity,
         }));
-        const res: any = await CheckoutService.calculate(cartItems, selectedAddressId, couponCode || null);
+        const res = await CheckoutService.calculate(cartItems, selectedAddressId, couponCode || null);
         if (cancelled) return;
         const next: ServerTotals = {
           subtotal: Number(res.subtotal),
@@ -147,6 +157,11 @@ export default function Checkout() {
           total: Number(res.total),
         };
         setServerTotals(next);
+        setPartialQuote(res.partialPayment ?? null);
+        // A new quote can revoke eligibility — a different address, a coupon that
+        // pushed the total over the cap. Fall back rather than letting the customer
+        // submit a plan the server will reject.
+        if (res.partialPayment && !res.partialPayment.eligible) setPaymentPlan("FULL");
         setPricingFailed(false);
         if (Math.abs(next.subtotal - useCartStore.getState().subtotal) > 0.5) {
           toast.info("Cart updated — please review your order");
@@ -163,9 +178,13 @@ export default function Checkout() {
     return () => {
       cancelled = true;
     };
-  }, [selectedAddressId, couponCode, cartSignature]);
+  }, [selectedAddressId, couponCode, cartSignature, setPaymentPlan]);
 
   const selectedAddress = addresses.find((a) => a.id === selectedAddressId);
+
+  // Only ever true when the server said the option is available — the plan is reset to
+  // FULL by the quote effect the moment eligibility lapses.
+  const isPartial = paymentPlan === "PARTIAL" && Boolean(partialQuote?.eligible);
 
   const view = serverTotals ?? {
     subtotal,
@@ -198,6 +217,11 @@ export default function Checkout() {
         amount: String(result.rzp.amount),
         currency: result.rzp.currency,
         keyId: result.rzp.keyId,
+        // Only present on a deposit, so the sheet and the confirmation can name what
+        // was charged and what is still owed at the door.
+        ...(result.kind === "partial"
+          ? { purpose: "deposit", balanceDue: String(result.balanceAmount) }
+          : {}),
       },
     });
   };
@@ -395,26 +419,105 @@ export default function Checkout() {
 
         {step === 2 ? (
           <>
-            {/* Online payment is the only method — a one-option radio group is noise,
-                so this states what will happen instead of asking a question. */}
-            <Card className="border border-primary">
-              <View className="flex-row items-center gap-3">
-                <View className="h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-                  <Ionicons name="card-outline" size={18} color={colors.primary} />
+            {/* Pay in full — always available. */}
+            <Pressable onPress={() => setPaymentPlan("FULL")}>
+              <Card className={paymentPlan === "FULL" ? "border border-primary" : "border border-border"}>
+                <View className="flex-row items-center gap-3">
+                  <Ionicons
+                    name={paymentPlan === "FULL" ? "radio-button-on" : "radio-button-off"}
+                    size={20}
+                    color={paymentPlan === "FULL" ? colors.primary : colors.muted}
+                  />
+                  <View className="flex-1">
+                    <View className="flex-row items-center gap-2">
+                      <Text className="font-jakarta-semibold text-text">Pay in full</Text>
+                      <View className="rounded-full bg-success/10 px-2 py-0.5">
+                        <Text className="text-[10px] font-jakarta-semibold text-success">Secure</Text>
+                      </View>
+                    </View>
+                    <Text className="text-xs text-muted">
+                      Credit/Debit card, UPI &amp; Net Banking via Razorpay
+                    </Text>
+                  </View>
+                  <Text className="font-jakarta-semibold text-text">{formatPrice(view.total)}</Text>
                 </View>
-                <View className="flex-1">
-                  <View className="flex-row items-center gap-2">
-                    <Text className="font-jakarta-semibold text-text">Pay Online</Text>
-                    <View className="rounded-full bg-success/10 px-2 py-0.5">
-                      <Text className="text-[10px] font-jakarta-semibold text-success">Secure</Text>
+              </Card>
+            </Pressable>
+
+            {/* Pay 20% now. Rendered greyed-with-a-reason when unavailable rather than
+                hidden: an option that silently disappears for one customer and not
+                another reliably turns into a support ticket. */}
+            {partialQuote ? (
+              partialQuote.eligible ? (
+                <Pressable onPress={() => setPaymentPlan("PARTIAL")}>
+                  <Card className={paymentPlan === "PARTIAL" ? "border border-primary" : "border border-border"}>
+                    <View className="flex-row items-center gap-3">
+                      <Ionicons
+                        name={paymentPlan === "PARTIAL" ? "radio-button-on" : "radio-button-off"}
+                        size={20}
+                        color={paymentPlan === "PARTIAL" ? colors.primary : colors.muted}
+                      />
+                      <View className="flex-1">
+                        <Text className="font-jakarta-semibold text-text">
+                          Pay {partialQuote.depositPercent}% now, rest on delivery
+                        </Text>
+                        <Text className="text-xs text-muted">
+                          {partialPlanSummary(partialQuote.depositAmount, partialQuote.balanceAmount)}
+                        </Text>
+                      </View>
+                      <Text className="font-jakarta-semibold text-primary">
+                        {formatPrice(partialQuote.depositAmount)}
+                      </Text>
+                    </View>
+
+                    {paymentPlan === "PARTIAL" ? (
+                      <View className="mt-3 gap-3">
+                        {/* Always inline, never a tooltip or a "terms apply" link — the
+                            customer must not reach the pay button without seeing it. */}
+                        <View className="flex-row items-start gap-2 rounded-lg bg-warning/10 px-3 py-2">
+                          <Ionicons name="alert-circle-outline" size={16} color={colors.warning} />
+                          <Text className="flex-1 text-xs text-warning">
+                            {forfeitureWarning(partialQuote.depositAmount)}
+                          </Text>
+                        </View>
+
+                        <Pressable
+                          onPress={() => setForfeitureAck(!forfeitureAck)}
+                          className="flex-row items-start gap-2"
+                          hitSlop={8}
+                        >
+                          <Ionicons
+                            name={forfeitureAck ? "checkbox" : "square-outline"}
+                            size={20}
+                            color={forfeitureAck ? colors.primary : colors.muted}
+                          />
+                          <Text className="flex-1 text-xs text-muted">
+                            {forfeitureAckLabel(partialQuote.depositAmount)}
+                          </Text>
+                        </Pressable>
+                      </View>
+                    ) : null}
+                  </Card>
+                </Pressable>
+              ) : (
+                <Card className="border border-border opacity-70">
+                  <View className="flex-row items-start gap-3">
+                    <Ionicons name="radio-button-off" size={20} color={colors.muted} />
+                    <View className="flex-1">
+                      <Text className="font-jakarta-semibold text-muted">
+                        Pay {partialQuote.depositPercent}% now, rest on delivery
+                      </Text>
+                      <Text className="text-xs text-muted">
+                        {partialReasonText(
+                          partialQuote.reasons[0]?.code ?? "PARTIAL_PAYMENT_DISABLED",
+                          partialQuote.reasons[0]?.meta
+                        )}
+                      </Text>
                     </View>
                   </View>
-                  <Text className="text-xs text-muted">
-                    Credit/Debit card, UPI &amp; Net Banking via Razorpay
-                  </Text>
-                </View>
-              </View>
-            </Card>
+                </Card>
+              )
+            ) : null}
             <View className="flex-row items-center gap-1.5 px-1">
               <Ionicons name="shield-checkmark-outline" size={14} color={colors.muted} />
               <Text className="text-xs text-muted">Secure & encrypted checkout powered by Razorpay</Text>
@@ -488,10 +591,28 @@ export default function Checkout() {
               <Text className="font-jakarta-bold text-text">Total</Text>
               <Text className="text-base font-jakarta-bold text-primary">{formatPrice(view.total)}</Text>
             </View>
+            {step === 2 && isPartial && partialQuote ? (
+              <>
+                <View className="flex-row items-center justify-between">
+                  <Text className="text-sm font-jakarta-semibold text-primary">
+                    Pay now ({partialQuote.depositPercent}% deposit)
+                  </Text>
+                  <Text className="text-sm font-jakarta-bold text-primary">
+                    {formatPrice(partialQuote.depositAmount)}
+                  </Text>
+                </View>
+                <View className="flex-row items-center justify-between">
+                  <Text className="text-sm text-muted">Balance at delivery</Text>
+                  <Text className="text-sm text-muted">{formatPrice(partialQuote.balanceAmount)}</Text>
+                </View>
+              </>
+            ) : null}
             {step === 2 ? (
               <View className="mt-1 flex-row items-center justify-between rounded-lg bg-bg px-2.5 py-1.5">
                 <Text className="text-xs text-muted">Payment</Text>
-                <Text className="text-xs font-jakarta-semibold text-text">Online (Razorpay)</Text>
+                <Text className="text-xs font-jakarta-semibold text-text">
+                  {isPartial ? "20% now · rest on delivery" : "Online (Razorpay)"}
+                </Text>
               </View>
             ) : null}
           </Card>
@@ -518,6 +639,15 @@ export default function Checkout() {
           <Text className="text-muted">Total{couponCode ? " (coupon applied)" : ""}</Text>
           <Text className="text-lg font-jakarta-bold text-text">{formatPrice(view.total)}</Text>
         </View>
+        {/* The number under the thumb has to match the number on the button. */}
+        {step === 2 && isPartial && partialQuote ? (
+          <View className="flex-row items-center justify-between">
+            <Text className="text-sm font-jakarta-semibold text-primary">Pay now</Text>
+            <Text className="text-sm font-jakarta-bold text-primary">
+              {formatPrice(partialQuote.depositAmount)}
+            </Text>
+          </View>
+        ) : null}
         {step === 2 ? <PaymentBadges label="" /> : null}
         {step < 2 ? (
           <Button
@@ -527,8 +657,13 @@ export default function Checkout() {
           />
         ) : (
           <Button
-            label="Proceed to Pay"
+            label={
+              isPartial && partialQuote
+                ? `Pay ${formatPrice(partialQuote.depositAmount)} & Place Order`
+                : "Proceed to Pay"
+            }
             loading={placingOrder}
+            disabled={isPartial && !forfeitureAck}
             onPress={onPlaceOrder}
           />
         )}

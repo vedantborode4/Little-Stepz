@@ -1,5 +1,6 @@
 export * from "./types";
 export * from "./refunds";
+export * from "./partial-payment";
 export * from "./contact";
 
 import type { PolicyPage, PolicySlug } from "./types";

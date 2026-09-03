@@ -35,6 +35,20 @@ const FRIENDLY: Record<string, string> = {
   EMAIL_SEND_FAILED: "We couldn't send the verification email. Check the address and try again.",
   OTP_RESEND_TOO_SOON: "We just sent a code — check your inbox, or wait a moment to resend.",
   APP_UPDATE_REQUIRED: "Please update the app to create an account.",
+  // Partial payment (20% deposit / balance on delivery)
+  PARTIAL_PAYMENT_DISABLED: "Pay-later isn't available right now.",
+  PARTIAL_PAYMENT_NOT_ELIGIBLE: "Pay-later is no longer available for this order.",
+  PARTIAL_NOT_ELIGIBLE: "Some items in your cart can't be paid in instalments.",
+  PARTIAL_ORDER_VALUE_EXCEEDED: "This order is above the pay-later limit.",
+  PARTIAL_LIMIT_REACHED: "You already have orders with a balance due. Pay one off to use this again.",
+  PARTIAL_AMOUNT_TOO_SMALL: "This order is too small to split into two payments.",
+  FORFEIT_TERMS_NOT_ACCEPTED: "Please confirm you understand the deposit is non-refundable.",
+  DEPOSIT_FORFEIT_CONFIRMATION_REQUIRED:
+    "Cancelling forfeits your deposit — please confirm to continue.",
+  COD_NOT_AVAILABLE: "Our courier can't collect payment at this address.",
+  PINCODE_NOT_SERVICEABLE: "We don't deliver to this pincode yet.",
+  BALANCE_ALREADY_SETTLED: "This balance has already been paid.",
+  BALANCE_NOT_DUE: "There's no balance outstanding on this order.",
   // Generic
   UNAUTHORIZED_ACCESS: "Please sign in to continue.",
   INVALID_STATE: "That action isn't available right now.",

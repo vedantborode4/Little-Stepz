@@ -6,13 +6,19 @@ import { useOrderStore } from "../../../../store/useOrderStore"
 import { OrderService } from "../../../../lib/services/order.service"
 import { cldFill } from "../../../../lib/utils/cloudinaryUrl"
 import {
-  Package, MapPin, CreditCard, ArrowLeft,
+  Package, MapPin, CreditCard, ArrowLeft, AlertTriangle, Wallet,
   RotateCcw, XCircle, ChevronRight, Truck, CheckCircle, Clock, FileText, Loader2
 } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
 import { friendlyError } from "../../../../lib/errorMessages"
-import { refundMessage, REFUND_INITIATED_TEXT } from "@repo/content/index"
+import {
+  refundMessage,
+  REFUND_INITIATED_TEXT,
+  balanceAtDoorText,
+  cancelForfeitWarning,
+  depositForfeitedText,
+} from "@repo/content/index"
 
 const STATUS_STEPS = [
   "PENDING", "CONFIRMED", "PROCESSING", "SHIPPED",
@@ -45,11 +51,18 @@ function ReturnCancelModal({
   orderId,
   onClose,
   onDone,
+  partial,
 }: {
   mode: "return" | "cancel"
   orderId: string
   onClose: () => void
   onDone: () => void
+  /** The order's partial-payment block, so the cancel path can state what it costs. */
+  partial?: {
+    depositAmount: number
+    balanceAmount: number
+    balanceStatus: "DUE" | "PAID" | "WRITTEN_OFF"
+  } | null
 }) {
   const [reason, setReason] = useState("")
   const [loading, setLoading] = useState(false)
@@ -86,8 +99,15 @@ function ReturnCancelModal({
         // The API already reports what happened to the money ("initiated" | "none" |
         // "failed"); this was being discarded, so a cancelling customer was told
         // nothing about their refund and had to ask support.
-        const res = await OrderService.cancelOrder(orderId, reason)
-        setDone(refundMessage(res?.refund))
+        // The warning below renders under exactly this condition, so the
+        // acknowledgement is only sent when the customer has actually seen it.
+        const depositAtRisk = partial?.balanceStatus === "DUE"
+        const res = await OrderService.cancelOrder(orderId, reason, depositAtRisk)
+        setDone(
+          depositAtRisk && partial
+            ? depositForfeitedText(partial.depositAmount)
+            : refundMessage(res?.refund)
+        )
         toast.success("Order cancelled")
       }
     } catch (e: any) {
@@ -129,6 +149,14 @@ function ReturnCancelModal({
         </div>
 
         <div className="p-6 space-y-4">
+          {mode === "cancel" && partial?.balanceStatus === "DUE" ? (
+            <div className="flex items-start gap-2 rounded-lg bg-amber-50 dark:bg-amber-500/15 border border-amber-100 dark:border-amber-500/20 px-3 py-2">
+              <AlertTriangle size={15} className="text-amber-600 shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-700 dark:text-amber-400">
+                {cancelForfeitWarning(partial.depositAmount)}
+              </p>
+            </div>
+          ) : null}
           <p className="text-sm text-muted">
             {mode === "return"
               ? "Please tell us why you want to return this item."
@@ -179,6 +207,7 @@ export default function OrderDetailsPage() {
   const { currentOrder, fetchOrderById, loading } = useOrderStore()
   const [modal, setModal] = useState<"return" | "cancel" | null>(null)
   const [downloading, setDownloading] = useState(false)
+  const [downloadingReceipt, setDownloadingReceipt] = useState(false)
 
   useEffect(() => {
     fetchOrderById(id)
@@ -324,7 +353,45 @@ export default function OrderDetailsPage() {
           <span>Total</span>
           <span>₹{Number(o.total).toLocaleString("en-IN")}</span>
         </div>
+        {o.partial ? (
+          <>
+            <div className="flex justify-between text-sm text-muted pt-2">
+              <span>Deposit paid</span>
+              <span className="text-green-600 dark:text-green-400">
+                -₹{Number(o.partial.depositAmount).toLocaleString("en-IN")}
+              </span>
+            </div>
+            <div className="flex justify-between text-sm font-semibold text-text">
+              <span>{o.partial.balanceStatus === "PAID" ? "Balance paid" : "Balance due"}</span>
+              <span className={o.partial.balanceStatus === "PAID" ? "text-green-600 dark:text-green-400" : ""}>
+                ₹{Number(o.partial.balanceAmount).toLocaleString("en-IN")}
+              </span>
+            </div>
+          </>
+        ) : null}
       </div>
+
+      {/* Balance — only while something is actually outstanding. */}
+      {o.partial?.balanceStatus === "DUE" ? (
+        <div className="bg-surface border border-amber-200 dark:border-amber-500/30 rounded-2xl p-5 shadow-card">
+          <div className="flex items-center gap-2 mb-2">
+            <Wallet size={15} className="text-amber-600" />
+            <h2 className="font-semibold text-text text-sm">Balance due</h2>
+          </div>
+          <p className="text-sm text-muted">{balanceAtDoorText(Number(o.partial.balanceAmount))}</p>
+        </div>
+      ) : null}
+
+      {o.partial?.depositForfeited ? (
+        <div className="bg-surface border border-border rounded-2xl p-5 shadow-card">
+          <p className="text-sm text-muted">
+            {depositForfeitedText(Number(o.partial.depositAmount))}{" "}
+            <Link href="/cancellation" className="text-primary hover:underline">
+              Cancellation policy
+            </Link>
+          </p>
+        </div>
+      ) : null}
 
       {/* Delivery & Payment */}
       <div className="grid sm:grid-cols-2 gap-4">
@@ -355,7 +422,7 @@ export default function OrderDetailsPage() {
             <div className="flex justify-between">
               <span className="text-muted">Method</span>
               <span className="text-muted font-medium capitalize">
-                {o.paymentMethod?.replace(/_/g, " ") ?? "—"}
+                {o.partial ? "Deposit + balance on delivery" : (o.paymentMethod?.replace(/_/g, " ") ?? "—")}
               </span>
             </div>
             {o.payment && (
@@ -371,7 +438,7 @@ export default function OrderDetailsPage() {
       </div>
 
       {/* Invoice — only a paid order has one to download. */}
-      {o.payment?.status === "SUCCESS" && (
+      {(o.invoiceAvailable ?? o.payment?.status === "SUCCESS") && (
         <div className="bg-surface border border-border rounded-2xl p-5 shadow-card">
           <h2 className="font-semibold text-text text-sm mb-3">Invoice</h2>
           <button
@@ -394,6 +461,36 @@ export default function OrderDetailsPage() {
           </button>
           <p className="text-xs text-muted mt-2">
             A copy was also emailed to you when the order was confirmed.
+          </p>
+        </div>
+      )}
+
+      {/* Payment receipt — a different document from the invoice, available from the
+          moment the deposit is captured. Gated separately for exactly that reason. */}
+      {o.partial?.depositPaidAt && (
+        <div className="bg-surface border border-border rounded-2xl p-5 shadow-card">
+          <h2 className="font-semibold text-text text-sm mb-3">Payment receipt</h2>
+          <button
+            onClick={async () => {
+              if (downloadingReceipt) return
+              setDownloadingReceipt(true)
+              try {
+                await OrderService.downloadReceipt(o.id)
+              } catch (err) {
+                toast.error(friendlyError(err, "Couldn't download the receipt"))
+              } finally {
+                setDownloadingReceipt(false)
+              }
+            }}
+            disabled={downloadingReceipt}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border text-sm font-medium text-text hover:border-primary hover:text-primary transition disabled:opacity-50"
+          >
+            {downloadingReceipt ? <Loader2 size={15} className="animate-spin" /> : <FileText size={15} />}
+            {downloadingReceipt ? "Preparing…" : "Download receipt"}
+          </button>
+          <p className="text-xs text-muted mt-2">
+            This is a payment receipt, not a tax invoice. Your GST invoice is issued when
+            the order is dispatched.
           </p>
         </div>
       )}
@@ -431,6 +528,7 @@ export default function OrderDetailsPage() {
         <ReturnCancelModal
           mode={modal}
           orderId={o.id}
+          partial={o.partial}
           onClose={() => setModal(null)}
           onDone={refresh}
         />

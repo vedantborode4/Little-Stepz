@@ -79,6 +79,36 @@ export const razorpayWebhookBodySchema = z.object({
   }),
 });
 
+/**
+ * Recording a balance an admin collected outside the gateway — cash handed over, a bank
+ * transfer, a UPI payment taken by hand.
+ *
+ * `reference` is free text on purpose: it is whatever lets a human reconcile the entry
+ * later (a UTR, a receipt number, a driver's name). It is not validated because nothing
+ * downstream parses it.
+ */
+export const markBalancePaidBodySchema = z
+  .object({
+    method:    z.enum(["CASH", "BANK_TRANSFER", "UPI", "OTHER"]),
+    reference: z.string().trim().max(120).optional(),
+    note:      z.string().trim().max(500).optional(),
+  })
+  .strict();
+
+/**
+ * Writing off a balance that will never be collected. The reason is required and
+ * constrained, because it is what the customer-facing forfeiture notice quotes and what
+ * the P&L needs in order to tell an RTO apart from a customer who simply refused.
+ */
+export const writeOffBalanceBodySchema = z
+  .object({
+    reason: z.enum(["REFUSED_DELIVERY", "RTO", "CANCELLED_BY_CUSTOMER", "UNCOLLECTABLE", "OTHER"]),
+    note: z.string().trim().max(500).optional(),
+  })
+  .strict();
+
+export type WriteOffBalanceBody    = z.infer<typeof writeOffBalanceBodySchema>;
+export type MarkBalancePaidBody    = z.infer<typeof markBalancePaidBodySchema>;
 export type CreatePaymentBody      = z.infer<typeof createPaymentBodySchema>;
 export type VerifyPaymentBody      = z.infer<typeof verifyPaymentBodySchema>;
 export type CreateReturnBody       = z.infer<typeof createReturnBodySchema>;

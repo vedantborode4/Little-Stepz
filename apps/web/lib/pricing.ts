@@ -107,3 +107,32 @@ export function getPreOrderTerms(
     canPreOrder: enabled && outOfStock && bookingAmount != null && bookingAmount > 0,
   }
 }
+
+
+/**
+ * Partial-payment terms for a product/variant pairing — the client mirror of the
+ * backend's `resolvePartialTerms`.
+ *
+ * Display only. The deposit shown on a product page is indicative: the real split is
+ * computed server-side from the ORDER total (after discount, plus shipping) with the
+ * balance rounded to whole rupees, so it will not always be exactly this percentage of
+ * the item price. Checkout always renders the server's figures, never these.
+ *
+ * Same inheritance rule as pre-orders: the product switch is master, a variant may only
+ * opt out, and a null percentage inherits.
+ */
+export function getPartialPaymentTerms(
+  product: { partialPaymentEnabled?: boolean; depositPercent?: unknown },
+  variant?: { partialPaymentEnabled?: boolean; depositPercent?: unknown } | null,
+  fallbackPercent = 20,
+): { enabled: boolean; depositPercent: number } {
+  const enabled =
+    !!product.partialPaymentEnabled && (variant ? variant.partialPaymentEnabled !== false : true)
+
+  const raw = variant?.depositPercent ?? product.depositPercent
+  const parsed = raw == null || raw === "" ? NaN : Number(raw)
+  const depositPercent =
+    Number.isFinite(parsed) && parsed > 0 && parsed < 100 ? parsed : fallbackPercent
+
+  return { enabled, depositPercent }
+}

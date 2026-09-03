@@ -68,8 +68,17 @@ export const cancellation: PolicyPage = {
           items: [
             `Prepaid orders will be refunded to the original payment method, and the refund will be initiated within ${REFUND_WORKING_DAYS} working days`,
             "Once initiated, the time it takes to appear on your statement depends on your bank or payment provider",
+            "On a Partial Payment order the deposit is not refunded — see below. Any amount collected beyond the deposit is returned in full",
           ],
         },
+      ],
+    },
+    {
+      heading: "Partial Payment Orders and Refused Delivery",
+      blocks: [
+        { type: "paragraph", text: "On an order placed under our Partial Payment plan, the deposit paid at checkout is non-refundable. It is retained in full if you cancel the order after paying it, refuse delivery, or are unavailable to accept the parcel." },
+        { type: "paragraph", text: "This is because the deposit secures the order and covers the cost of preparing and shipping it. The term is shown at checkout and must be acknowledged before the order can be placed, and it is shown again before you confirm a cancellation." },
+        { type: "paragraph", text: "Any amount you paid beyond the deposit is refunded in full. Where Little Stepz cancels the order for its own reasons — including an inability to fulfil it — the deposit is refunded as well. Return shipping costs may be recovered on a refused delivery." },
       ],
     },
     {

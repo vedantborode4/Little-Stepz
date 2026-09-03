@@ -2,7 +2,7 @@ import { prisma } from "@repo/db/client";
 import { ApiError } from "../../utils/api";
 import { AffiliateErrorCode } from "../../utils/affiliateErrors";
 import { createAuditLogInTx, createAuditLog } from "../../utils/auditLog";
-import { sendAffiliateInviteEmail } from "../../utils/email";
+import { sendAffiliateInviteEmail, sendAffiliateApprovedEmail } from "../../utils/email";
 import { notify } from "../notification.services";
 import { money } from "../../utils/notificationCopy";
 import type { NotificationType } from "@repo/db/client";
@@ -13,6 +13,7 @@ import type {
   AdminPayCommissionBody,
 } from "@repo/zod-schema/index";
 import type { Request } from "express";
+import { publicSiteUrl } from "../../utils/siteUrl";
 
 async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
   for (let i = 0; i < 3; i++) {
@@ -58,8 +59,8 @@ export async function adminApproveAffiliateOnlyService(
 ) {
   const result = await prisma.$transaction(async (tx) => {
     const rows = await tx.$queryRaw<Array<{
-      id: string; userId: string; status: string;
-    }>>`SELECT id, "userId", status FROM "Affiliate" WHERE id = ${affiliateId} FOR UPDATE`;
+      id: string; userId: string; status: string; referralCode: string;
+    }>>`SELECT id, "userId", status, "referralCode" FROM "Affiliate" WHERE id = ${affiliateId} FOR UPDATE`;
 
     const aff = rows[0];
     if (!aff) throw new ApiError(404, AffiliateErrorCode.AFFILIATE_NOT_FOUND);
@@ -90,7 +91,7 @@ export async function adminApproveAffiliateOnlyService(
       req,
     });
 
-    return { affiliateId, status: "APPROVED", userId: aff.userId };
+    return { affiliateId, status: "APPROVED", userId: aff.userId, referralCode: aff.referralCode };
   });
 
   void notify({
@@ -101,7 +102,11 @@ export async function adminApproveAffiliateOnlyService(
     data: { screen: "AffiliateDashboard" },
   });
 
-  const { userId, ...response } = result;
+  // Email as well as the push: an affiliate who approved months ago and has push off
+  // would otherwise never learn they can start, and the email carries the link itself.
+  void notifyAffiliateApprovedByEmail(result.userId, result.referralCode);
+
+  const { userId, referralCode, ...response } = result;
   return response;
 }
 
@@ -536,7 +541,7 @@ export async function adminUpdateAffiliateService(
  * for the admin to share manually.
  */
 export async function adminInviteAffiliateService(email: string) {
-  const baseUrl = process.env.FRONTEND_URL ?? "https://yourdomain.com";
+  const baseUrl = publicSiteUrl();
   const inviteUrl = `${baseUrl}/affiliate/apply`;
 
   const emailSent = await sendAffiliateInviteEmail(email, { inviteUrl });
@@ -607,4 +612,18 @@ export async function adminAffiliateStatsService() {
       revenue: referredOrders._sum.total?.toNumber() ?? 0,
     },
   };
+}
+
+/** Resolve the affiliate's user and email them the approval. Fail-soft. */
+async function notifyAffiliateApprovedByEmail(userId: string, referralCode: string) {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { name: true, email: true },
+    });
+    if (!user?.email) return;
+    void sendAffiliateApprovedEmail(user.email, { name: user.name, referralCode });
+  } catch (err) {
+    console.error(`[email] affiliate approval notice failed for user ${userId}:`, err);
+  }
 }

@@ -4,8 +4,24 @@ import { useCartStore } from "./useCartStore"
 import { toast } from "sonner"
 import { friendlyError } from "../lib/errorMessages"
 
+export type PaymentPlan = "FULL" | "PARTIAL"
+
+import type { CheckoutQuote } from "../lib/services/checkout.service"
+
 interface CheckoutState {
   placingOrder: boolean
+  /** Which plan the customer chose at step 3. */
+  paymentPlan: PaymentPlan
+  /** Whether they ticked the deposit-forfeiture acknowledgement. */
+  forfeitureAck: boolean
+  /**
+   * The server quote, shared rather than re-fetched.
+   *
+   * CheckoutSummary owns the request (it always has); the plan chooser needs the same
+   * numbers, and a second fetch would be both wasteful and a chance for the two to
+   * disagree about the deposit for a moment.
+   */
+  quote: CheckoutQuote | null
   // Stable idempotency key — generated once per checkout session,
   // cleared after a successful order so a fresh one is used next time.
   _idempotencyKey: string | null
@@ -13,6 +29,9 @@ interface CheckoutState {
   // must start a new order rather than silently replay the old one.
   _keySignature: string | null
 
+  setQuote: (quote: CheckoutQuote | null) => void
+  setPaymentPlan: (plan: PaymentPlan) => void
+  setForfeitureAck: (ack: boolean) => void
   placeOrder: (addressId: string) => Promise<string | null>
   resetSession: () => void
 }
@@ -34,10 +53,33 @@ function releaseAbandonedOrder(orderId: string): void {
 
 export const useCheckoutStore = create<CheckoutState>((set, get) => ({
   placingOrder: false,
+  paymentPlan: "FULL",
+  forfeitureAck: false,
+  quote: null,
   _idempotencyKey: null,
   _keySignature: null,
 
-  resetSession: () => set({ _idempotencyKey: null, _keySignature: null, placingOrder: false }),
+  // A new quote can revoke eligibility (a different address, a coupon that pushed the
+  // total over the cap), so the plan falls back rather than letting the customer submit
+  // one the server will reject.
+  setQuote: (quote) =>
+    set((state) =>
+      quote && !quote.partialPayment?.eligible && state.paymentPlan === "PARTIAL"
+        ? { quote, paymentPlan: "FULL", forfeitureAck: false }
+        : { quote }
+    ),
+
+  // Changing the plan invalidates the acknowledgement: it was given against a specific
+  // deposit amount, so it has to be re-given if that changes.
+  setPaymentPlan: (plan) => set({ paymentPlan: plan, forfeitureAck: false }),
+  setForfeitureAck: (ack) => set({ forfeitureAck: ack }),
+
+  // `paymentPlan` deliberately survives this. resetSession fires on every step change
+  // in the stepper, and wiping the customer's choice because they went back to edit
+  // their address would be infuriating. The acknowledgement does not survive: it is
+  // cheap to re-give and must always be a deliberate act.
+  resetSession: () =>
+    set({ _idempotencyKey: null, _keySignature: null, placingOrder: false, forfeitureAck: false }),
 
   placeOrder: async (addressId: string) => {
     // ── Guard: prevent concurrent calls ─────────────────────────────────
@@ -64,7 +106,22 @@ export const useCheckoutStore = create<CheckoutState>((set, get) => ({
     // Repeated clicks / retries send the SAME key, so the backend dedupes them
     // instead of creating multiple orders. Editing the cart changes the
     // signature and starts a genuinely new order.
-    const signature = JSON.stringify({ addressId, couponCode: couponCode || null, cartItems })
+    // `paymentPlan` is part of the signature deliberately. Without it, switching plan
+    // after an abandoned attempt replays the earlier order — charging the full amount to
+    // someone who just chose to pay 20%, or the reverse.
+    const { paymentPlan, forfeitureAck } = get()
+
+    if (paymentPlan === "PARTIAL" && !forfeitureAck) {
+      toast.error("Please confirm you understand the deposit is non-refundable.")
+      return null
+    }
+
+    const signature = JSON.stringify({
+      addressId,
+      couponCode: couponCode || null,
+      cartItems,
+      paymentPlan,
+    })
     let idempotencyKey = get()._idempotencyKey
     if (!idempotencyKey || get()._keySignature !== signature) {
       idempotencyKey = generateKey()
@@ -79,7 +136,8 @@ export const useCheckoutStore = create<CheckoutState>((set, get) => ({
         addressId,
         cartItems,
         couponCode || null,
-        idempotencyKey
+        idempotencyKey,
+        { paymentPlan, acceptForfeitTerms: forfeitureAck }
       )
 
       // ── Step 2: Open Razorpay ────────────────────────────────────────
@@ -98,7 +156,8 @@ export const useCheckoutStore = create<CheckoutState>((set, get) => ({
           currency: rzpData.currency || "INR",
           order_id: rzpData.razorpayOrderId,
           name:     "Little Stepz",
-          description: "Order Payment",
+          // Named so the sheet does not say "Order Payment" over a fifth of the order.
+          description: paymentPlan === "PARTIAL" ? "Order deposit (20%)" : "Order Payment",
 
           handler: async (response: {
             razorpay_order_id: string
@@ -180,6 +239,30 @@ export const useCheckoutStore = create<CheckoutState>((set, get) => ({
         toast.error("That checkout expired. Please try again.")
         return null
       }
+
+      // Eligibility lapsed between the quote and order creation. Fall back to paying in
+      // full and STOP — silently charging the whole amount because pay-later disappeared
+      // is the worst available outcome, so the customer has to re-confirm.
+      const code = err?.response?.data?.message
+      if (
+        code === "PARTIAL_PAYMENT_NOT_ELIGIBLE" ||
+        code === "PARTIAL_NOT_ELIGIBLE" ||
+        code === "PARTIAL_ORDER_VALUE_EXCEEDED" ||
+        code === "PARTIAL_LIMIT_REACHED" ||
+        code === "PARTIAL_PAYMENT_DISABLED" ||
+        code === "PARTIAL_AMOUNT_TOO_SMALL"
+      ) {
+        set({
+          placingOrder: false,
+          paymentPlan: "FULL",
+          forfeitureAck: false,
+          _idempotencyKey: null,
+          _keySignature: null,
+        })
+        toast.error(friendlyError(err, "Pay-later is no longer available for this order."))
+        return null
+      }
+
       toast.error(friendlyError(err, "Something went wrong. Please try again."))
       set({ placingOrder: false })
       return null

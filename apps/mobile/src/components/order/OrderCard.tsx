@@ -55,6 +55,15 @@ export function OrderCard({ order }: { order: Order }) {
             <Text className="text-sm text-muted">{itemCount} {itemCount === 1 ? "item" : "items"}</Text>
             <Text className="text-border">•</Text>
             <Text className="text-sm font-jakarta-bold text-text">{formatPrice(order.total)}</Text>
+            {/* An outstanding balance is the one thing about this order the customer
+                needs to see without opening it. */}
+            {order.partial?.balanceStatus === "DUE" ? (
+              <View className="rounded-full bg-warning/10 px-2 py-0.5">
+                <Text className="text-[10px] font-jakarta-semibold text-warning">
+                  {formatPrice(order.partial.balanceAmount)} {order.partial.collectedAtDoor ? "at delivery" : "due"}
+                </Text>
+              </View>
+            ) : null}
           </View>
           <View className="flex-row items-center gap-1">
             <Text className="text-xs font-jakarta-medium text-primary">View details</Text>

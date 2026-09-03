@@ -6,8 +6,11 @@ import { orderStatusNotification, orderShortRef } from "../../utils/notification
 import { cancelShipmentService } from "../payment.services";
 import { syncProductStockFlags } from "../../utils/stock";
 import { reverseAffiliateCommissionsService } from "../affiliate.services";
-import { refundCapturedOrderPayment } from "../refund.services";
-import { settleCodOnDelivery } from "../codSettlement.services";
+import { refundOrderMoney, type RefundScope } from "../refund.services";
+import { settleOnDeliverySafe, emailOrderDelivered } from "../codSettlement.services";
+import { issueInvoiceForOrder } from "../invoice.services";
+import { createAuditLog } from "../../utils/auditLog";
+import type { Request } from "express";
 
 
 const statusTransitions: Record<OrderStatus, OrderStatus[]> = {
@@ -32,7 +35,13 @@ export async function getAdminOrdersService(
   limit: number,
   status?: OrderStatus,
   fromDate?: Date,
-  toDate?: Date
+  toDate?: Date,
+  /**
+   * Narrow to partial-payment orders, optionally by whether money is still owed.
+   * "due" is the operational queue — what a human has to chase or collect.
+   */
+  paymentPlan?: "FULL" | "PARTIAL",
+  balanceState?: "due" | "settled"
 ) {
   const skip = (page - 1) * limit;
 
@@ -57,6 +66,22 @@ export async function getAdminOrdersService(
     if (toDate) where.createdAt.lte = toDate;
   }
 
+  if (paymentPlan) (where as Record<string, unknown>).paymentPlan = paymentPlan;
+
+  // Outstanding means the deposit landed and nothing has settled the balance since.
+  // Expressed through Payment rather than an Order column so it cannot drift from the
+  // status the settlement path actually writes.
+  if (balanceState === "due") {
+    (where as Record<string, unknown>).paymentPlan = "PARTIAL";
+    (where as Record<string, unknown>).depositPaidAt = { not: null };
+    (where as Record<string, unknown>).payment = {
+      is: { status: "PARTIALLY_PAID", balanceSettledAt: null },
+    };
+  } else if (balanceState === "settled") {
+    (where as Record<string, unknown>).paymentPlan = "PARTIAL";
+    (where as Record<string, unknown>).payment = { is: { status: "SUCCESS" } };
+  }
+
   const [orders, total] = await Promise.all([
     prisma.order.findMany({
       where,
@@ -65,19 +90,46 @@ export async function getAdminOrdersService(
       orderBy: { createdAt: "desc" },
       include: {
         user: { select: { id: true, name: true } },
-        payment: { select: { status: true, amount: true } },
+        payment: { select: { status: true, amount: true, balanceSettledAt: true } },
+        // The admin "Resolve Return" action addresses the Return, not the Order —
+        // `PUT /admin/returns/:id/resolve`. The row was never sent one, so the button
+        // posted `undefined` as the id and the flow could not work at all.
+        // Return.orderId is @unique, so there is at most one.
+        returns: { select: { id: true, status: true }, take: 1 },
       },
     }),
     prisma.order.count({ where }),
   ]);
 
+  // What the whole filtered set still owes — the number an operator actually wants,
+  // rather than the sum of whatever happens to be on this page.
+  const outstanding = await prisma.order.aggregate({
+    where: {
+      ...where,
+      paymentPlan: "PARTIAL",
+      depositPaidAt: { not: null },
+      payment: { is: { status: "PARTIALLY_PAID", balanceSettledAt: null } },
+    },
+    _sum: { balanceAmount: true },
+    _count: { id: true },
+  });
+
   return {
-    orders: orders.map((order) => ({
+    orders: orders.map(({ returns, ...order }) => ({
       ...order,
       subtotal: order.subtotal.toNumber(),
       discount: order.discount.toNumber(),
       shippingCharges: order.shippingCharges.toNumber(),
       total: order.total.toNumber(),
+      returnId: returns[0]?.id ?? null,
+      returnStatus: returns[0]?.status ?? null,
+      // Surfaced on the list so outstanding money is visible without opening each order.
+      balanceOutstanding:
+        order.paymentPlan === "PARTIAL" &&
+        order.payment?.status !== "SUCCESS" &&
+        !order.payment?.balanceSettledAt
+          ? Number(order.balanceAmount ?? 0)
+          : 0,
       payment: order.payment
         ? {
             ...order.payment,
@@ -89,6 +141,8 @@ export async function getAdminOrdersService(
     page,
     limit,
     pages: Math.ceil(total / limit),
+    outstandingTotal: Number(outstanding._sum.balanceAmount ?? 0),
+    outstandingCount: outstanding._count.id,
   };
 }
 
@@ -156,6 +210,12 @@ export async function getAdminOrderByIdService(id: string) {
           currency: true, razorpayOrderId: true, razorpayPaymentId: true,
           refundId: true, refundAmount: true, refundedAt: true, refundReason: true,
           codCollectedAt: true, attempts: true, createdAt: true,
+          // Balance leg — what is outstanding, how it arrived, and what is owed back
+          // by hand when a cash-collected balance has to be returned.
+          balanceAmount: true, balanceSettledAt: true, balanceMethod: true,
+          balancePaidAt: true, balanceReference: true,
+          codRemittedAt: true, codRemittedAmount: true,
+          manualRefundAmount: true, manualRefundSettledAt: true,
         },
       },
       shipments: {
@@ -184,13 +244,51 @@ export async function getAdminOrderByIdService(id: string) {
           variant: { select: { id: true, name: true } },
         },
       },
+      // The "Resolve Return" action addresses the Return, not the Order.
+      returns: {
+        select: { id: true, status: true, reason: true, refundAmount: true, createdAt: true },
+        take: 1,
+      },
     },
   });
 
   if (!order) throw new ApiError(404, OrderErrorCode.ORDER_NOT_FOUND);
 
+  const settled = order.payment?.status === "SUCCESS" || Boolean(order.payment?.balanceSettledAt);
+
   return {
     ...order,
+    // Mirrors the customer payload so the admin panel and the storefront cannot
+    // disagree about what is outstanding.
+    partial:
+      order.paymentPlan === "PARTIAL"
+        ? {
+            depositAmount: Number(order.depositAmount ?? 0),
+            balanceAmount: Number(order.balanceAmount ?? 0),
+            depositPaidAt: order.depositPaidAt,
+            balancePaidAt: order.payment?.balancePaidAt ?? null,
+            balanceStatus: order.depositForfeitedAt
+              ? ("WRITTEN_OFF" as const)
+              : settled
+                ? ("PAID" as const)
+                : ("DUE" as const),
+            balanceMethod: order.payment?.balanceMethod ?? null,
+            balanceReference: order.payment?.balanceReference ?? null,
+            collectedAtDoor: Boolean(order.dispatchLockedAt) && !settled,
+            depositForfeited: Boolean(order.depositForfeitedAt),
+            depositForfeitedAt: order.depositForfeitedAt,
+            manualRefundAmount: order.payment?.manualRefundAmount
+              ? Number(order.payment.manualRefundAmount)
+              : null,
+            manualRefundSettledAt: order.payment?.manualRefundSettledAt ?? null,
+          }
+        : null,
+    returnId:     order.returns[0]?.id ?? null,
+    returnStatus: order.returns[0]?.status ?? null,
+    returns: order.returns.map((r) => ({
+      ...r,
+      refundAmount: r.refundAmount?.toNumber() ?? null,
+    })),
     subtotal:        order.subtotal.toNumber(),
     discount:        order.discount.toNumber(),
     shippingCharges: order.shippingCharges.toNumber(),
@@ -220,8 +318,75 @@ export async function getAdminOrderByIdService(id: string) {
 export async function updateOrderStatusService(
   id: string,
   newStatus: OrderStatus,
-  adminId: string
+  adminId: string,
+  /**
+   * Who the cancellation is on behalf of. Required when cancelling a partial-payment
+   * order, because the two cases have opposite money outcomes and this is the only
+   * admin cancel there is:
+   *
+   *  - MERCHANT — we cannot fulfil. The deposit is returned in full.
+   *  - CUSTOMER — cancelled on the customer's behalf. The deposit is forfeited, exactly
+   *               as if they had cancelled it themselves.
+   *
+   * Without it an admin doing a customer a favour would silently refund a deposit that
+   * policy says is retained, with no way to tell afterwards which was meant.
+   */
+  cancellationParty?: "MERCHANT" | "CUSTOMER"
 ) {
+  // Read before the unwind, so the refund policy is decided from the state being cancelled.
+  const preState =
+    newStatus === OrderStatus.CANCELLED
+      ? await prisma.order.findUnique({
+          where: { id },
+          select: {
+            paymentPlan: true,
+            payment: { select: { status: true, balanceSettledAt: true } },
+          },
+        })
+      : null;
+
+  const depositAtRisk =
+    preState?.paymentPlan === "PARTIAL" && preState.payment?.status === "PARTIALLY_PAID";
+
+  if (depositAtRisk && !cancellationParty) {
+    throw new ApiError(400, OrderErrorCode.CANCELLATION_PARTY_REQUIRED);
+  }
+
+  // Marking a partial order delivered while its balance is still outstanding would
+  // record the goods as handed over with the money unaccounted for, and nothing else
+  // would ever prompt for it. Settle it first (Mark Balance Paid) or write it off.
+  //
+  // Only the admin path is affected: the courier webhook writes DELIVERED directly and
+  // settles COD in the same flow, so it never reaches this function.
+  if (newStatus === OrderStatus.DELIVERED) {
+    const money = await prisma.order.findUnique({
+      where: { id },
+      select: {
+        status: true,
+        paymentPlan: true,
+        depositForfeitedAt: true,
+        payment: { select: { status: true, balanceSettledAt: true } },
+      },
+    });
+
+    // Only speak about the money when delivering is actually the next legal step.
+    // Otherwise an admin attempting an impossible jump would be told the balance is
+    // unsettled, which sends them off to chase a payment when the real answer is that
+    // the order is not out for delivery yet.
+    const transitionAllowed =
+      !!money && (statusTransitions[money.status] ?? []).includes(OrderStatus.DELIVERED);
+
+    const outstanding =
+      money?.paymentPlan === "PARTIAL" &&
+      !money.depositForfeitedAt &&
+      money.payment?.status !== "SUCCESS" &&
+      !money.payment?.balanceSettledAt;
+
+    if (transitionAllowed && outstanding) {
+      throw new ApiError(400, OrderErrorCode.BALANCE_UNSETTLED);
+    }
+  }
+
   const result = await prisma.$transaction(async (tx) => {
     const order = await tx.order.findUnique({
       where: { id },
@@ -321,7 +486,7 @@ export async function updateOrderStatusService(
   });
 
   // Both of these make their own external/DB calls and so run after the commit.
-  let refund: Awaited<ReturnType<typeof refundCapturedOrderPayment>> = { status: "none" };
+  let refund: Awaited<ReturnType<typeof refundOrderMoney>> = { status: "none" };
 
   if (newStatus === OrderStatus.CANCELLED) {
     // A PROCESSING order has already been manifested with Delhivery. Cancelling it
@@ -330,11 +495,54 @@ export async function updateOrderStatusService(
     // out. Best-effort: a courier that refuses the cancellation must not fail the
     // cancellation itself, so the admin is told to pull it manually instead.
     await cancelWaybillForCancelledOrder(id, adminId);
-    refund = await refundCapturedOrderPayment(id, "Order cancelled by admin");
+
+    // A merchant-side cancellation returns everything: the customer did nothing wrong,
+    // so there is nothing to forfeit. A customer-side one follows the deposit policy.
+    const scope: RefundScope = !depositAtRisk || cancellationParty === "MERCHANT"
+      ? "ALL"
+      : preState?.payment?.balanceSettledAt
+        ? "BALANCE_ONLY"
+        : "NONE";
+
+    refund = await refundOrderMoney(
+      id,
+      cancellationParty === "CUSTOMER"
+        ? "Order cancelled by admin on the customer's behalf"
+        : "Order cancelled by admin",
+      { scope }
+    );
+  }
+
+  // Dispatch of a locally-fulfilled order. Delhivery dispatch raises the tax invoice
+  // for an outstanding balance (CGST §31(1): the invoice travels with the goods), but a
+  // local order never goes through that path, so it would otherwise ship with no
+  // invoice at all. Fail-soft, and idempotent — issueInvoiceForOrder returns the
+  // existing row if one was already raised.
+  if (newStatus === OrderStatus.SHIPPED) {
+    const local = await prisma.order.findUnique({
+      where: { id },
+      select: {
+        manualFulfilment: true,
+        paymentPlan: true,
+        payment: { select: { balanceSettledAt: true } },
+      },
+    });
+
+    if (local?.manualFulfilment && local.paymentPlan === "PARTIAL" && !local.payment?.balanceSettledAt) {
+      void issueInvoiceForOrder(id).catch((err) =>
+        console.error(`[invoice] manual dispatch issue failed for order ${id}:`, err)
+      );
+    }
   }
 
   if (newStatus === OrderStatus.DELIVERED) {
-    await settleCodOnDelivery(id);
+    // Safe wrapper: the status change has already committed, so a settlement failure
+    // must be escalated rather than 500-ing the admin over work that did succeed.
+    await settleOnDeliverySafe(id, "admin");
+
+    // Only reachable on a real transition — the map forbids DELIVERED -> DELIVERED — so
+    // this cannot mail the same customer twice.
+    void emailOrderDelivered(id);
   }
 
   const copy = orderStatusNotification(newStatus, result.id);
@@ -351,4 +559,68 @@ export async function updateOrderStatusService(
   }
 
   return { ...result, refund: refund.status };
+}
+
+/**
+ * Switch an order between courier and local (hand) fulfilment.
+ *
+ * Refused while a live waybill exists: the parcel is physically with Delhivery, and an
+ * order claiming to be delivered locally while a courier is carrying it is the one state
+ * ops cannot recover from. Cancel the shipment first, which is an explicit action with
+ * its own audit trail.
+ *
+ * Also refused once the order is past dispatch — the fulfilment route is a decision about
+ * how the goods travel, and they have already travelled.
+ */
+export async function setOrderFulfilmentModeService(
+  id: string,
+  manual: boolean,
+  adminId: string,
+  req?: Request
+) {
+  const order = await prisma.order.findFirst({
+    where: { id, deletedAt: null },
+    select: {
+      id: true,
+      status: true,
+      manualFulfilment: true,
+      shipments: { select: { id: true, status: true, providerRefId: true } },
+    },
+  });
+
+  if (!order) throw new ApiError(404, OrderErrorCode.ORDER_NOT_FOUND);
+  if (order.manualFulfilment === manual) {
+    return { id: order.id, manualFulfilment: manual, changed: false };
+  }
+
+  if (!["PENDING", "CONFIRMED", "PROCESSING"].includes(order.status)) {
+    throw new ApiError(400, OrderErrorCode.INVALID_STATUS_TRANSITION);
+  }
+
+  // FAILED rows are cancelled or unsuccessful attempts, not live parcels — the same
+  // rule createShipmentService and the sweeper already use.
+  const activeShipment = order.shipments.find(
+    (sh) => sh.providerRefId && sh.status !== "FAILED"
+  );
+  if (activeShipment) {
+    throw new ApiError(409, OrderErrorCode.SHIPMENT_ACTIVE);
+  }
+
+  const updated = await prisma.order.update({
+    where: { id },
+    data: { manualFulfilment: manual },
+    select: { id: true, manualFulfilment: true },
+  });
+
+  void createAuditLog({
+    userId: adminId,
+    action: "ORDER_FULFILMENT_MODE_CHANGED",
+    entity: "Order",
+    entityId: id,
+    oldValue: { manualFulfilment: order.manualFulfilment },
+    newValue: { manualFulfilment: manual },
+    req,
+  });
+
+  return { ...updated, changed: true };
 }

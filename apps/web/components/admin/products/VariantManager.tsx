@@ -23,6 +23,7 @@ interface Props {
   onChange?: () => void
   /** Pre-order fields are hidden unless the product allows pre-orders at all. */
   productPreOrderEnabled?: boolean
+  productPartialPaymentEnabled?: boolean
   productBookingAmount?: string
 }
 
@@ -36,6 +37,7 @@ const emptyForm = (): VariantFormValue => ({
   name: "", sku: "", price: "", salePrice: "", isOnSale: false, stock: "",
   // Defaults to inheriting the product: allowed, with the product's booking amount.
   preOrderEnabled: true, bookingAmount: "", preOrderLimit: "",
+  partialPaymentEnabled: true, depositPercent: "",
 })
 
 const toEditable = (v: ProductVariant, index: number): EditableVariant => ({
@@ -49,6 +51,8 @@ const toEditable = (v: ProductVariant, index: number): EditableVariant => ({
   preOrderEnabled: v.preOrderEnabled ?? true,
   bookingAmount: v.bookingAmount != null ? String(v.bookingAmount) : "",
   preOrderLimit: v.preOrderLimit != null ? String(v.preOrderLimit) : "",
+  partialPaymentEnabled: v.partialPaymentEnabled ?? true,
+  depositPercent: v.depositPercent != null ? String(v.depositPercent) : "",
   sortOrder: v.sortOrder ?? index,
   images: v.images ?? [],
 })
@@ -64,9 +68,12 @@ const buildBody = (v: VariantFormValue): VariantBody => ({
   // null clears the override so the variant inherits the product's amount again.
   bookingAmount: v.bookingAmount === "" ? null : Number(v.bookingAmount),
   preOrderLimit: v.preOrderLimit === "" ? null : Number(v.preOrderLimit),
+  partialPaymentEnabled: v.partialPaymentEnabled,
+  // null clears the override so the variant inherits the product's percentage again.
+  depositPercent: v.depositPercent === "" ? null : Number(v.depositPercent),
 })
 
-export default function VariantManager({ productId, initialVariants = [], onChange, productPreOrderEnabled, productBookingAmount }: Props) {
+export default function VariantManager({ productId, initialVariants = [], onChange, productPreOrderEnabled, productBookingAmount, productPartialPaymentEnabled }: Props) {
   const [variants, setVariants] = useState<EditableVariant[]>([])
   const [drafts, setDrafts] = useState<VariantFormValue[]>([])
   const [dirtyIds, setDirtyIds] = useState<Set<string>>(new Set())
@@ -212,6 +219,7 @@ export default function VariantManager({ productId, initialVariants = [], onChan
                   onChange={(patch) => editVariant(v.id, patch)}
                   disabled={savingId === v.id}
                   productPreOrderEnabled={productPreOrderEnabled}
+                  productPartialPaymentEnabled={productPartialPaymentEnabled}
                   productBookingAmount={productBookingAmount}
                 />
               </div>
@@ -278,6 +286,7 @@ export default function VariantManager({ productId, initialVariants = [], onChan
                   onChange={(patch) => updateDraft(i, patch)}
                   disabled={savingAll}
                   productPreOrderEnabled={productPreOrderEnabled}
+                  productPartialPaymentEnabled={productPartialPaymentEnabled}
                   productBookingAmount={productBookingAmount}
                 />
               </div>

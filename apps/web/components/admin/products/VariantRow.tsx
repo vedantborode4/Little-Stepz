@@ -15,6 +15,9 @@ export interface VariantFormValue {
   preOrderEnabled: boolean
   bookingAmount: string
   preOrderLimit: string
+  /** Partial-payment terms. Same rule: the product switch is master, blank inherits. */
+  partialPaymentEnabled: boolean
+  depositPercent: string
 }
 
 const priceGuard = (v: string) => v === "" || /^\d*\.?\d{0,2}$/.test(v)
@@ -33,6 +36,7 @@ export default function VariantRow({
   disabled,
   productPreOrderEnabled,
   productBookingAmount,
+  productPartialPaymentEnabled,
 }: {
   value: VariantFormValue
   onChange: (patch: Partial<VariantFormValue>) => void
@@ -41,6 +45,8 @@ export default function VariantRow({
   productPreOrderEnabled?: boolean
   /** Shown as the placeholder, so "blank = inherit" is visible rather than implied. */
   productBookingAmount?: string
+  /** Partial-payment controls only make sense once the product allows them. */
+  productPartialPaymentEnabled?: boolean
 }) {
   // Remembers the last positive stock so flipping "in stock" back on restores it.
   const lastStockRef = useRef("1")
@@ -154,6 +160,41 @@ export default function VariantRow({
               <p className="sm:col-span-2 text-[11px] text-faint">
                 Leave blank to use the product&apos;s booking amount. A limit here caps this
                 variant alone — the product limit still applies as the overall total.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Partial payment — only meaningful when the product itself allows it. */}
+      {productPartialPaymentEnabled && (
+        <div className="rounded-xl border border-border bg-surface-2/50 p-3 space-y-3">
+          <label className="flex items-center gap-2 text-sm text-muted">
+            <input
+              type="checkbox"
+              checked={value.partialPaymentEnabled}
+              disabled={disabled}
+              onChange={(e) => onChange({ partialPaymentEnabled: e.target.checked })}
+              className="w-4 h-4 rounded accent-primary"
+            />
+            Allow partial payment for this variant
+          </label>
+
+          {value.partialPaymentEnabled && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pl-6">
+              <label className="space-y-1">
+                <span className="text-xs font-medium text-faint">Deposit %</span>
+                <input
+                  className={inputCls}
+                  inputMode="numeric"
+                  placeholder="Same as product"
+                  value={value.depositPercent}
+                  disabled={disabled}
+                  onChange={(e) => { if (intGuard(e.target.value)) onChange({ depositPercent: e.target.value }) }}
+                />
+              </label>
+              <p className="sm:col-span-2 text-[11px] text-faint">
+                Leave blank to inherit the product&apos;s deposit percentage.
               </p>
             </div>
           )}

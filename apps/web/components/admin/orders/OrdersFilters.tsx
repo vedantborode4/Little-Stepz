@@ -27,6 +27,25 @@ export default function OrdersFilters({ filters, setFilters }: Props) {
         {ALL_STATUS.map(s => <option key={s} value={s}>{s.replace(/_/g, " ")}</option>)}
       </select>
 
+      {/* Payment plan / outstanding money. "Balance due" is the operational queue —
+          orders where a deposit landed and the rest has not been collected yet. */}
+      <select
+        value={filters.balanceState ? `balance:${filters.balanceState}` : filters.paymentPlan ? `plan:${filters.paymentPlan}` : ""}
+        onChange={(e) => {
+          const v = e.target.value
+          const next: Record<string, unknown> = { ...filters, paymentPlan: undefined, balanceState: undefined }
+          if (v.startsWith("plan:")) next.paymentPlan = v.slice(5)
+          else if (v.startsWith("balance:")) next.balanceState = v.slice(8)
+          setFilters(next)
+        }}
+        className="border border-border text-muted rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-surface"
+      >
+        <option value="">All plans</option>
+        <option value="plan:FULL">Paid in full</option>
+        <option value="balance:due">Partial — balance due</option>
+        <option value="balance:settled">Partial — settled</option>
+      </select>
+
       <div className="flex gap-2">
         <input type="date" value={filters.from || ""}
           onChange={(e) => setFilters({ ...filters, from: e.target.value || undefined })}

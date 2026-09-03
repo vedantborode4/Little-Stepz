@@ -19,6 +19,34 @@ export interface AdminOrder {
   updatedAt: string
   user: { id: string; name: string }
   payment: { status: string; amount: number } | null
+  /** Id of the Return raised against this order, if any — what `resolveReturn` addresses. */
+  returnId: string | null
+  returnStatus: "PENDING" | "APPROVED" | "REJECTED" | "REFUNDED" | null
+  paymentPlan?: "FULL" | "PARTIAL"
+  /** Delivered by hand rather than Delhivery — skipped by auto-ship. */
+  manualFulfilment?: boolean
+  /** Still to collect, in rupees. 0 on a full-payment or settled order. */
+  balanceOutstanding?: number
+  /** Null on a full-payment order. */
+  partial?: AdminOrderPartial | null
+}
+
+/** The partial-payment view of an order, as the admin panel needs it. */
+export interface AdminOrderPartial {
+  depositAmount: number
+  balanceAmount: number
+  depositPaidAt: string | null
+  balancePaidAt: string | null
+  balanceStatus: "DUE" | "PAID" | "WRITTEN_OFF"
+  balanceMethod: "ONLINE" | "COD" | "MANUAL" | null
+  balanceReference: string | null
+  /** A COD parcel is committed, so the courier collects the balance at the door. */
+  collectedAtDoor: boolean
+  depositForfeited: boolean
+  depositForfeitedAt: string | null
+  /** Owed back to the customer by hand — a cash balance no gateway can reverse. */
+  manualRefundAmount: number | null
+  manualRefundSettledAt: string | null
 }
 
 export interface AdminOrderItem {
@@ -83,6 +111,9 @@ export interface AdminOrdersResponse {
   page: number
   limit: number
   pages: number
+  /** Money still to collect across the whole filtered set, not just this page. */
+  outstandingTotal?: number
+  outstandingCount?: number
 }
 
 export const AdminOrderService = {
@@ -91,6 +122,9 @@ export const AdminOrderService = {
     page?: number
     limit?: number
     status?: OrderStatus
+    paymentPlan?: "FULL" | "PARTIAL"
+    /** "due" is the operational queue: deposit paid, balance not yet collected. */
+    balanceState?: "due" | "settled"
     fromDate?: string
     toDate?: string
   }): Promise<AdminOrdersResponse> => {
@@ -106,6 +140,12 @@ export const AdminOrderService = {
    * carries the auth header (and the 401-refresh interceptor); the response is a
    * blob, saved via a temporary object URL.
    */
+  /** Route an order by hand instead of Delhivery, or put it back on the courier. */
+  setFulfilmentMode: async (orderId: string, manual: boolean) => {
+    const res = await api.post(`/admin/orders/${orderId}/fulfilment`, { manual })
+    return res.data.data as { id: string; manualFulfilment: boolean; changed: boolean }
+  },
+
   downloadInvoice: async (orderId: string) => {
     const res = await api.get(`/admin/orders/${orderId}/invoice`, { responseType: "blob" })
     const disposition = res.headers?.["content-disposition"] as string | undefined
@@ -134,6 +174,18 @@ export const AdminOrderService = {
     return res.data.data
   },
 
+  /**
+   * POST /admin/orders/:id/balance/mark-paid — record a balance collected outside the
+   * gateway. Books the payment, and (once delivered) the invoice and commission with it.
+   */
+  markBalancePaid: async (
+    id: string,
+    body: { method: "CASH" | "BANK_TRANSFER" | "UPI" | "OTHER"; reference?: string; note?: string }
+  ) => {
+    const res = await api.post(`/admin/orders/${id}/balance/mark-paid`, body)
+    return res.data.data
+  },
+
   /** POST /admin/orders/:id/ship */
   createShipment: async (id: string) => {
     const res = await api.post(`/admin/orders/${id}/ship`)
@@ -146,9 +198,18 @@ export const AdminOrderService = {
     return res.data.data
   },
 
-  /** PUT /admin/returns/:id/resolve */
-  resolveReturn: async (id: string, body: { action: "APPROVE" | "REJECT"; reason?: string }) => {
-    const res = await api.put(`/admin/returns/${id}/resolve`, body)
+  /**
+   * PUT /admin/returns/:id/resolve
+   *
+   * `returnId` is the Return's id, NOT the order's — the route resolves a Return.
+   * The body shape is dictated by `resolveReturnBodySchema`, which is `.strict()`:
+   * this used to send `{ action, reason }`, which every call rejected with a 400.
+   */
+  resolveReturn: async (
+    returnId: string,
+    body: { status: "APPROVED" | "REJECTED"; adminNote?: string; refundAmount?: number }
+  ) => {
+    const res = await api.put(`/admin/returns/${returnId}/resolve`, body)
     return res.data.data
   },
 }
