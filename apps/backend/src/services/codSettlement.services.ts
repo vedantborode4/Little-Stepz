@@ -5,7 +5,7 @@ import { ApiError } from "../utils/api";
 import { PaymentErrorCode } from "../utils/paymentErrors";
 import { notify, notifyAdmins } from "./notification.services";
 import { money, orderShortRef } from "../utils/notificationCopy";
-import { sendDepositForfeitedEmail } from "../utils/email";
+import { sendDepositForfeitedEmail, sendOrderDeliveredEmail } from "../utils/email";
 
 /**
  * Book the money for a COD order at the moment it is delivered.
@@ -410,4 +410,30 @@ export async function writeOffBalanceService(
   }
 
   return { orderId, depositForfeited: deposit, balanceWrittenOff: balance };
+}
+
+/**
+ * Tell the customer their order arrived.
+ *
+ * Called from the two places that own a real DELIVERED *transition* — the admin status
+ * change and the courier webhook's own transition guard — rather than from
+ * settleOnDeliverySafe. Settlement is deliberately idempotent and re-runs on every
+ * repeated "delivered" scan Delhivery sends; an email is not idempotent, so hanging it
+ * there would mail the customer again on each replay.
+ */
+export async function emailOrderDelivered(orderId: string): Promise<void> {
+  try {
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      select: { id: true, total: true, user: { select: { email: true } } },
+    });
+    if (!order?.user?.email) return;
+
+    void sendOrderDeliveredEmail(order.user.email, {
+      orderId: order.id,
+      total: Number(order.total),
+    });
+  } catch (err) {
+    console.error(`[email] delivered notice failed for order ${orderId}:`, err);
+  }
 }

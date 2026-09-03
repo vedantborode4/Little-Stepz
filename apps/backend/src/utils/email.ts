@@ -370,3 +370,95 @@ export function sendBalancePaidEmail(to: string, p: {
       : {}),
   });
 }
+
+/** Welcome, once the account actually exists. Sent for email, Google and Apple signups. */
+export function sendWelcomeEmail(to: string, p: { name: string }) {
+  const shopUrl = process.env.FRONTEND_URL ?? "";
+  return sendEmail({
+    to,
+    subject: "Welcome to Little Stepz 🎉",
+    html: shell("Your account is ready", `
+      <p>Hi ${escapeHtml(p.name)}, thanks for joining Little Stepz.</p>
+      <p>You can now track orders, save addresses and check out faster.</p>
+      ${shopUrl
+        ? `<p style="margin:24px 0"><a href="${shopUrl}" style="background:#111;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600">Start shopping</a></p>`
+        : ""}
+      <p style="font-size:13px;color:#666">If you didn't create this account, please contact us and we'll remove it.</p>
+    `),
+  });
+}
+
+/** Delivery confirmation. Sent from the one place both the courier webhook and the admin path meet. */
+export function sendOrderDeliveredEmail(to: string, p: {
+  orderId: string;
+  total: number | string;
+}) {
+  const ref = p.orderId.slice(-8).toUpperCase();
+  const base = process.env.FRONTEND_URL ?? "";
+  return sendEmail({
+    to,
+    subject: `Delivered — your Little Stepz order #${ref}`,
+    html: shell("Your order has been delivered 🎉", `
+      <p>Order <strong>#${ref}</strong> (${money(p.total)}) has been delivered. We hope you love it.</p>
+      ${base
+        ? `<p style="margin:24px 0"><a href="${base}/account/orders" style="background:#111;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600">View your order</a></p>`
+        : ""}
+      <p style="font-size:13px;color:#666">Something wrong with it? Reply to this email within the returns window and keep your unboxing video handy — we need it to process a damage or missing-item claim.</p>
+    `),
+  });
+}
+
+/** Acknowledges an affiliate application so the applicant is not left guessing. */
+export function sendAffiliateAppliedEmail(to: string, p: { name: string }) {
+  return sendEmail({
+    to,
+    subject: "We've received your affiliate application",
+    html: shell("Application received ⏳", `
+      <p>Hi ${escapeHtml(p.name)}, thanks for applying to the Little Stepz affiliate programme.</p>
+      <p>Your application is <strong>pending review</strong>. We'll email you as soon as it has been looked at — there's nothing you need to do in the meantime.</p>
+    `),
+  });
+}
+
+/** Approval, with the referral link the affiliate needs to actually start. */
+export function sendAffiliateApprovedEmail(to: string, p: {
+  name: string;
+  referralCode: string;
+}) {
+  const base = process.env.FRONTEND_URL ?? "";
+  const link = base ? `${base}/ref/${encodeURIComponent(p.referralCode)}` : "";
+  return sendEmail({
+    to,
+    subject: "You're now a Little Stepz affiliate 🤝",
+    html: shell("Application approved 🎉", `
+      <p>Hi ${escapeHtml(p.name)}, your affiliate application has been approved.</p>
+      <p>Your referral code is <strong>${escapeHtml(p.referralCode)}</strong>. Share your link and you earn commission on every order placed through it.</p>
+      ${link
+        ? `<p style="margin:20px 0;font-size:14px">Your link: <a href="${link}">${escapeHtml(link)}</a></p>`
+        : ""}
+      ${base
+        ? `<p style="margin:24px 0"><a href="${base}/affiliate" style="background:#111;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600">Open your dashboard</a></p>`
+        : ""}
+    `),
+  });
+}
+
+/** A referred order converted — the affiliate has earned commission. */
+export function sendCommissionEarnedEmail(to: string, p: {
+  amount: number | string;
+  orderId: string;
+}) {
+  const base = process.env.FRONTEND_URL ?? "";
+  return sendEmail({
+    to,
+    subject: `You earned ${money(p.amount)} commission`,
+    html: shell("Commission earned 🎉", `
+      <p>Someone bought through your referral link.</p>
+      <p>You earned <strong>${money(p.amount)}</strong> on order <strong>#${p.orderId.slice(-8).toUpperCase()}</strong>.</p>
+      ${base
+        ? `<p style="margin:24px 0"><a href="${base}/affiliate/commissions" style="background:#111;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600">View your earnings</a></p>`
+        : ""}
+      <p style="font-size:13px;color:#666">Commission is approved and paid out per the affiliate terms.</p>
+    `),
+  });
+}

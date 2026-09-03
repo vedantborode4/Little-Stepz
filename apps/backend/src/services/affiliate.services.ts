@@ -4,6 +4,11 @@ import { AffiliateErrorCode } from "../utils/affiliateErrors";
 import { createAuditLog, createAuditLogInTx } from "../utils/auditLog";
 import { notify, notifyAdmins } from "./notification.services";
 import { money } from "../utils/notificationCopy";
+import {
+  sendAffiliateAppliedEmail,
+  sendAffiliateApprovedEmail,
+  sendCommissionEarnedEmail,
+} from "../utils/email";
 import { Decimal } from "decimal.js";
 import crypto from "crypto";
 import type {
@@ -76,7 +81,7 @@ export async function applyForAffiliateService(
 
   const user = await prisma.user.findUnique({
     where:  { id: userId },
-    select: { name: true, referralCode: true, deletedAt: true },
+    select: { name: true, email: true, referralCode: true, deletedAt: true },
   });
   if (!user || user.deletedAt) throw new ApiError(404, "User not found");
 
@@ -111,6 +116,10 @@ export async function applyForAffiliateService(
       newValue: { referralCode, message: data.message },
       req,
     });
+
+    // Acknowledge the application. The response already says "you will be notified",
+    // and until now nothing ever was — the applicant had no record of having applied.
+    void sendAffiliateAppliedEmail(user.email, { name: user.name });
 
     return {
       affiliateId:  affiliate.id,
@@ -720,11 +729,11 @@ export async function adminApproveAffiliateService(
   data:         AdminAffiliateApproveBody,
   req?:         Request
 ) {
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const affiliates = await tx.$queryRaw<Array<{
-      id: string; userId: string; status: string;
+      id: string; userId: string; status: string; referralCode: string;
     }>>`
-      SELECT id, "userId", status FROM "Affiliate"
+      SELECT id, "userId", status, "referralCode" FROM "Affiliate"
       WHERE id = ${affiliateId}
       FOR UPDATE
     `;
@@ -777,10 +786,31 @@ export async function adminApproveAffiliateService(
 
     return {
       affiliateId,
-      status:    data.status,
-      message:   `Affiliate ${data.status.toLowerCase()} successfully`,
+      status:      data.status,
+      message:     `Affiliate ${data.status.toLowerCase()} successfully`,
+      // Carried out of the transaction so the approval email can be sent after commit —
+      // emailing inside it would announce an approval a rollback could still undo.
+      _userId:     affiliate.userId,
+      _referralCode: affiliate.referralCode,
     };
   });
+
+  // After commit: an approval email must not go out for a transaction that rolled back.
+  if (result.status === "APPROVED") {
+    const user = await prisma.user.findUnique({
+      where: { id: result._userId },
+      select: { name: true, email: true },
+    });
+    if (user?.email) {
+      void sendAffiliateApprovedEmail(user.email, {
+        name: user.name,
+        referralCode: result._referralCode,
+      });
+    }
+  }
+
+  const { _userId, _referralCode, ...response } = result;
+  return response;
 }
 
 export async function adminListAffiliatesService(

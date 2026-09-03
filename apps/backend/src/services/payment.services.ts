@@ -25,6 +25,7 @@ import {
   sendPartialOrderPlacedEmail,
   sendBalanceDueOnDispatchEmail,
   sendDepositForfeitedEmail,
+  sendCommissionEarnedEmail,
 } from "../utils/email";
 import {
   issueInvoiceForOrder,
@@ -43,7 +44,7 @@ import type {
 } from "@repo/zod-schema/index";
 import { Request } from "express";
 import { releasePendingOrderStock } from "../utils/pendingRelease";
-import { settleOnDeliverySafe } from "./codSettlement.services";
+import { settleOnDeliverySafe, emailOrderDelivered } from "./codSettlement.services";
 import { refundOrderMoney, type RefundScope } from "./refund.services";
 import { restoreOrderStock } from "../utils/stock";
 
@@ -230,6 +231,23 @@ function emitCommissionEarned(
     body: `You earned ${money(commission.amount)} commission on a referred order.`,
     data: { screen: "AffiliateEarnings", orderId },
   });
+
+  // Email too: this is the affiliate's proof that a referral converted, and it is the
+  // one event they will want a record of outside the app. Fail-soft, like every other
+  // send in this file — a bounced email must never disturb a settled payment.
+  void (async () => {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: commission.affiliateUserId },
+        select: { email: true },
+      });
+      if (user?.email) {
+        void sendCommissionEarnedEmail(user.email, { amount: commission.amount, orderId });
+      }
+    } catch (err) {
+      console.error(`[email] commission notice failed for order ${orderId}:`, err);
+    }
+  })();
 }
 
 async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
@@ -2356,6 +2374,14 @@ export async function handleDelhiveryWebhookService(
     // order page can no longer disagree.
     if (mapped !== prevStatus) {
       const notifyStatus = shipmentStatusToOrderStatus(mapped);
+
+      // Emailed on the transition, not on every delivered scan: Delhivery repeats the
+      // final status, and settleOnDeliverySafe above is idempotent precisely because of
+      // that. An email is not.
+      if (notifyStatus === "DELIVERED") {
+        void emailOrderDelivered(shipment.orderId);
+      }
+
       const copy = notifyStatus ? orderStatusNotification(notifyStatus, shipment.orderId) : null;
       if (copy) {
         const order = await prisma.order.findUnique({

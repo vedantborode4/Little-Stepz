@@ -7,7 +7,7 @@ import { cancelShipmentService } from "../payment.services";
 import { syncProductStockFlags } from "../../utils/stock";
 import { reverseAffiliateCommissionsService } from "../affiliate.services";
 import { refundOrderMoney, type RefundScope } from "../refund.services";
-import { settleOnDeliverySafe } from "../codSettlement.services";
+import { settleOnDeliverySafe, emailOrderDelivered } from "../codSettlement.services";
 import { issueInvoiceForOrder } from "../invoice.services";
 import { createAuditLog } from "../../utils/auditLog";
 import type { Request } from "express";
@@ -539,6 +539,10 @@ export async function updateOrderStatusService(
     // Safe wrapper: the status change has already committed, so a settlement failure
     // must be escalated rather than 500-ing the admin over work that did succeed.
     await settleOnDeliverySafe(id, "admin");
+
+    // Only reachable on a real transition — the map forbids DELIVERED -> DELIVERED — so
+    // this cannot mail the same customer twice.
+    void emailOrderDelivered(id);
   }
 
   const copy = orderStatusNotification(newStatus, result.id);

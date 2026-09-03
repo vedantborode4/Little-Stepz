@@ -20,7 +20,12 @@ import {
 import { verifyGoogleIdToken } from "../utils/auth/google";
 import { verifyAppleIdentityToken } from "../utils/auth/apple";
 import { ApiError } from "../utils/api/ApiError";
-import { sendPasswordChangedEmail, sendPasswordResetEmail, sendSignupOtpEmail } from "../utils/email";
+import {
+  sendPasswordChangedEmail,
+  sendPasswordResetEmail,
+  sendSignupOtpEmail,
+  sendWelcomeEmail,
+} from "../utils/email";
 import {
   generateSignupOtp,
   MAX_SIGNUP_OTP_ATTEMPTS,
@@ -235,6 +240,11 @@ export async function verifySignupOtpService(email: string, code: string) {
     throw err;
   }
 
+  // Sent here rather than at OTP time: until the transaction above commits there is no
+  // account to welcome, and a signup abandoned at the OTP step would have been greeted
+  // for an account that never existed.
+  void sendWelcomeEmail(user.email, { name: user.name });
+
   if (referredById) {
     void notify({
       userId: referredById,
@@ -367,6 +377,10 @@ export async function googleAuthService(idToken: string, referralCode?: string) 
       select: userSelect,
     });
 
+    // Only on the brand-new-account branch: signing in with Google to an account that
+    // already exists must not be greeted as a fresh signup.
+    void sendWelcomeEmail(user.email, { name: user.name });
+
     if (referredById) {
       void notify({
         userId: referredById,
@@ -466,6 +480,9 @@ export async function appleAuthService(
       },
       select: userSelect,
     });
+
+    // Same rule as the Google branch — new accounts only.
+    void sendWelcomeEmail(user.email, { name: user.name });
 
     if (referredById) {
       void notify({
