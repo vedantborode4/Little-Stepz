@@ -34,6 +34,7 @@ import {
   SIGNUP_OTP_TTL_MINUTES,
 } from "../utils/auth/signup-otp";
 import { notify } from "./notification.services";
+import { publicSiteUrl } from "../utils/siteUrl";
 
 const userSelect = {
   id: true,
@@ -686,7 +687,7 @@ export async function requestPasswordResetService(
     });
   });
 
-  const base = process.env.FRONTEND_URL ?? "";
+  const base = publicSiteUrl();
   void sendPasswordResetEmail(user.email, {
     code: reset.code,
     resetUrl: `${base}/reset-password?token=${reset.token}`,

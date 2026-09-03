@@ -6,6 +6,7 @@ import { notify, notifyAdmins } from "./notification.services";
 import { money, orderShortRef } from "../utils/notificationCopy";
 import { REFUND_WORKING_DAYS } from "@repo/content/index";
 import { sendDepositForfeitedEmail } from "../utils/email";
+import { publicSiteUrl } from "../utils/siteUrl";
 
 /**
  * Which of an order's captured legs to return.
@@ -135,8 +136,8 @@ export async function refundOrderMoney(
           orderId,
           deposit,
           reason,
-          policyUrl: process.env.FRONTEND_URL
-            ? `${process.env.FRONTEND_URL}/cancellation`
+          policyUrl: publicSiteUrl()
+            ? `${publicSiteUrl()}/cancellation`
             : undefined,
         });
       }

@@ -31,6 +31,7 @@ import {
 import { Decimal } from "decimal.js";
 import { isFreeShippingEnabled } from "../utils/shipping";
 import type { CreatePreOrderData, VerifyPreOrderPaymentData } from "@repo/zod-schema/index";
+import { publicSiteUrl } from "../utils/siteUrl";
 
 const TX_RETRIES = 3;
 const FLAT_SHIPPING = new Decimal(5.0);
@@ -604,7 +605,7 @@ export async function notifyRestockedPreOrders(productId: string, variantId?: st
         where: { id: po.id },
         data: { status: "AWAITING_BALANCE", balanceToken: token, balanceDueAt: due, notifiedAt: new Date() },
       });
-      const payUrl = `${process.env.FRONTEND_URL ?? ""}/pre-orders/pay/${token}`;
+      const payUrl = `${publicSiteUrl()}/pre-orders/pay/${token}`;
       void sendBackInStockEmail(po.user.email, {
         productName: po.product.name,
         balanceAmount: Number(po.balanceAmount),

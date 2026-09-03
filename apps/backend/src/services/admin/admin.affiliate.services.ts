@@ -13,6 +13,7 @@ import type {
   AdminPayCommissionBody,
 } from "@repo/zod-schema/index";
 import type { Request } from "express";
+import { publicSiteUrl } from "../../utils/siteUrl";
 
 async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
   for (let i = 0; i < 3; i++) {
@@ -540,7 +541,7 @@ export async function adminUpdateAffiliateService(
  * for the admin to share manually.
  */
 export async function adminInviteAffiliateService(email: string) {
-  const baseUrl = process.env.FRONTEND_URL ?? "https://yourdomain.com";
+  const baseUrl = publicSiteUrl();
   const inviteUrl = `${baseUrl}/affiliate/apply`;
 
   const emailSent = await sendAffiliateInviteEmail(email, { inviteUrl });

@@ -6,6 +6,7 @@ import { PaymentErrorCode } from "../utils/paymentErrors";
 import { notify, notifyAdmins } from "./notification.services";
 import { money, orderShortRef } from "../utils/notificationCopy";
 import { sendDepositForfeitedEmail, sendOrderDeliveredEmail } from "../utils/email";
+import { publicSiteUrl } from "../utils/siteUrl";
 
 /**
  * Book the money for a COD order at the moment it is delivered.
@@ -405,7 +406,7 @@ export async function writeOffBalanceService(
       orderId,
       deposit,
       reason: body.reason,
-      policyUrl: process.env.FRONTEND_URL ? `${process.env.FRONTEND_URL}/cancellation` : undefined,
+      policyUrl: publicSiteUrl() ? `${publicSiteUrl()}/cancellation` : undefined,
     });
   }
 

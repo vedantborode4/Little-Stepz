@@ -23,6 +23,7 @@ import type {
   AdminProcessWithdrawalBody,
 } from "@repo/zod-schema/index";
 import type { Request } from "express";
+import { publicSiteUrl } from "../utils/siteUrl";
 
 const MIN_WITHDRAWAL_AMOUNT = 100; // ₹100
 const MAX_COMMISSION_RATE   = 0.20;
@@ -152,7 +153,7 @@ export async function getAffiliateProfileService(userId: string) {
 
   if (!affiliate) throw new ApiError(404, AffiliateErrorCode.NOT_AN_AFFILIATE);
 
-  const baseUrl = process.env.FRONTEND_URL ?? "https://yourdomain.com";
+  const baseUrl = publicSiteUrl();
 
   return {
     ...affiliate,
@@ -175,7 +176,7 @@ export async function getReferralLinkService(userId: string) {
     throw new ApiError(403, AffiliateErrorCode.AFFILIATE_NOT_APPROVED);
   }
 
-  const baseUrl = process.env.FRONTEND_URL ?? "https://yourdomain.com";
+  const baseUrl = publicSiteUrl();
   return {
     referralCode: affiliate.referralCode,
     referralLink: `${baseUrl}/ref/${affiliate.referralCode}`,
@@ -238,7 +239,7 @@ export async function trackReferralClickService(
     });
   }
 
-  const baseUrl    = process.env.FRONTEND_URL ?? "https://yourdomain.com";
+  const baseUrl    = publicSiteUrl();
   const redirectTo = req.query.redirect?.toString() ?? baseUrl;
 
   return {

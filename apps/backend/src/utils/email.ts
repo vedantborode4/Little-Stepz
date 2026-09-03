@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { publicSiteUrl } from "./siteUrl";
 
 const apiKey = process.env.RESEND_API_KEY;
 // Resend only sends from a domain verified by DNS in your Resend account, so this
@@ -373,7 +374,7 @@ export function sendBalancePaidEmail(to: string, p: {
 
 /** Welcome, once the account actually exists. Sent for email, Google and Apple signups. */
 export function sendWelcomeEmail(to: string, p: { name: string }) {
-  const shopUrl = process.env.FRONTEND_URL ?? "";
+  const shopUrl = publicSiteUrl();
   return sendEmail({
     to,
     subject: "Welcome to Little Stepz 🎉",
@@ -394,7 +395,7 @@ export function sendOrderDeliveredEmail(to: string, p: {
   total: number | string;
 }) {
   const ref = p.orderId.slice(-8).toUpperCase();
-  const base = process.env.FRONTEND_URL ?? "";
+  const base = publicSiteUrl();
   return sendEmail({
     to,
     subject: `Delivered — your Little Stepz order #${ref}`,
@@ -425,7 +426,7 @@ export function sendAffiliateApprovedEmail(to: string, p: {
   name: string;
   referralCode: string;
 }) {
-  const base = process.env.FRONTEND_URL ?? "";
+  const base = publicSiteUrl();
   const link = base ? `${base}/ref/${encodeURIComponent(p.referralCode)}` : "";
   return sendEmail({
     to,
@@ -448,7 +449,7 @@ export function sendCommissionEarnedEmail(to: string, p: {
   amount: number | string;
   orderId: string;
 }) {
-  const base = process.env.FRONTEND_URL ?? "";
+  const base = publicSiteUrl();
   return sendEmail({
     to,
     subject: `You earned ${money(p.amount)} commission`,

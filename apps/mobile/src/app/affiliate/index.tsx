@@ -69,7 +69,10 @@ export default function AffiliateDashboard() {
             />
           </View>
 
-          <ReferralLinkCard link={link.data?.link} code={link.data?.code} />
+          {/* GET /affiliate/referral-link returns `referralLink` and `referralCode`.
+              These were read as `link` and `code`, so the card always rendered its
+              empty-state dash and the affiliate had no link to share at all. */}
+          <ReferralLinkCard link={link.data?.referralLink} code={link.data?.referralCode} />
 
           {/* Quick links */}
           <View className="gap-3">

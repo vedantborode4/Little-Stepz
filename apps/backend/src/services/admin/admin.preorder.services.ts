@@ -8,6 +8,7 @@ import { releasePreOrderSlots } from "../../utils/preOrderTerms";
 import { createAuditLog } from "../../utils/auditLog";
 import { notifyAdmins } from "../notification.services";
 import { money } from "../../utils/notificationCopy";
+import { publicSiteUrl } from "../../utils/siteUrl";
 
 const ACTIVE: PreOrderStatus[] = ["PENDING_BOOKING", "BOOKED", "AWAITING_BALANCE"];
 
@@ -171,7 +172,7 @@ export async function resendBalanceLinkService(id: string) {
     data: { balanceToken: token, balanceDueAt: due, notifiedAt: new Date() },
   });
 
-  const payUrl = `${process.env.FRONTEND_URL ?? ""}/pre-orders/pay/${token}`;
+  const payUrl = `${publicSiteUrl()}/pre-orders/pay/${token}`;
   await sendBackInStockEmail(po.user.email, {
     productName: po.product.name,
     balanceAmount: Number(po.balanceAmount),
