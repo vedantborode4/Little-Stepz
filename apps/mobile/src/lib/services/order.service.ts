@@ -1,38 +1,6 @@
-import { File, Paths } from "expo-file-system";
-import * as Sharing from "expo-sharing";
-
 import { api } from "../api/client";
+import { savePdfAndShare } from "../pdf";
 import type { Order } from "../../types/order";
-
-/**
- * Fetch a PDF, write it to the cache and hand it to the share sheet.
- *
- * Expo Go cannot write to Downloads, so sharing is the only way to get a file off the
- * app. Shared by the invoice and the receipt rather than duplicated.
- */
-async function savePdfAndShare(path: string, fallbackName: string): Promise<string> {
-  const res = await api.get(path, { responseType: "blob" });
-
-  const base64 = await new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result).split(",")[1] ?? "");
-    reader.onerror = () => reject(new Error("Could not read the file"));
-    reader.readAsDataURL(res.data as Blob);
-  });
-
-  const disposition = res.headers?.["content-disposition"] as string | undefined;
-  const filename = disposition?.match(/filename="?([^"]+)"?/)?.[1] ?? fallbackName;
-
-  const file = new File(Paths.cache, filename);
-  if (file.exists) file.delete();
-  file.create();
-  file.write(base64, { encoding: "base64" });
-
-  if (await Sharing.isAvailableAsync()) {
-    await Sharing.shareAsync(file.uri, { mimeType: "application/pdf", UTI: "com.adobe.pdf" });
-  }
-  return file.uri;
-}
 
 export const OrderService = {
   getAll: async (): Promise<Order[] | { orders: Order[] }> => {

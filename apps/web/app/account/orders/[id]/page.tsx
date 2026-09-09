@@ -12,6 +12,7 @@ import {
 import Link from "next/link"
 import { toast } from "sonner"
 import { friendlyError } from "../../../../lib/errorMessages"
+import { pdfErrorMessage } from "../../../../lib/download-pdf"
 import {
   refundMessage,
   REFUND_INITIATED_TEXT,
@@ -448,7 +449,7 @@ export default function OrderDetailsPage() {
               try {
                 await OrderService.downloadInvoice(o.id)
               } catch (err) {
-                toast.error(friendlyError(err, "Couldn't download the invoice"))
+                toast.error(await pdfErrorMessage(err, "Couldn't download the invoice"))
               } finally {
                 setDownloading(false)
               }
@@ -477,7 +478,7 @@ export default function OrderDetailsPage() {
               try {
                 await OrderService.downloadReceipt(o.id)
               } catch (err) {
-                toast.error(friendlyError(err, "Couldn't download the receipt"))
+                toast.error(await pdfErrorMessage(err, "Couldn't download the receipt"))
               } finally {
                 setDownloadingReceipt(false)
               }

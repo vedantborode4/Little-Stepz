@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { asyncHandler, ApiResponse } from "../../utils/api";
+import { getPreOrderReceiptPdfService, receiptFileName } from "../../services/invoice.services";
 import { PreOrderStatus } from "@repo/db/client";
 import { preOrderParamsSchema } from "@repo/zod-schema/index";
 import {
@@ -9,6 +10,17 @@ import {
   cancelPreOrderService,
   resendBalanceLinkService,
 } from "../../services/admin/admin.preorder.services";
+
+/** The customer's booking receipt, served to the panel. Unscoped — admin reads any. */
+export const getAdminPreOrderReceiptController = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = preOrderParamsSchema.parse(req.params);
+  const { pdf, reference } = await getPreOrderReceiptPdfService(id);
+
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", `attachment; filename="${receiptFileName(reference)}"`);
+  res.setHeader("Content-Length", String(pdf.length));
+  return res.send(pdf);
+});
 
 export const listPreOrdersController = asyncHandler(async (req: Request, res: Response) => {
   const page = Math.max(1, Number(req.query.page) || 1);

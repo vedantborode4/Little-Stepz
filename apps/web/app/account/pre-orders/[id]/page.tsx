@@ -6,8 +6,10 @@ import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import {
   Package, CreditCard, ArrowLeft, ChevronRight,
-  Clock, CheckCircle, XCircle, RotateCcw, AlertCircle
+  Clock, CheckCircle, XCircle, RotateCcw, AlertCircle, Download
 } from "lucide-react"
+import { toast } from "sonner"
+import { pdfErrorMessage } from "../../../../lib/download-pdf"
 import { PreOrderService, type PreOrderSummary, type PreOrderStatus } from "../../../../lib/services/preorder.service"
 import { cldFill } from "../../../../lib/utils/cloudinaryUrl"
 
@@ -41,6 +43,19 @@ export default function PreOrderDetailsPage() {
   const router = useRouter()
   const [po, setPo] = useState<PreOrderSummary | null>(null)
   const [loading, setLoading] = useState(true)
+  const [downloading, setDownloading] = useState(false)
+
+  const downloadReceipt = async () => {
+    if (!id) return
+    setDownloading(true)
+    try {
+      await PreOrderService.downloadReceipt(id)
+    } catch (e) {
+      toast.error(await pdfErrorMessage(e, "Could not download receipt"))
+    } finally {
+      setDownloading(false)
+    }
+  }
 
   useEffect(() => {
     if (!id) return
@@ -70,6 +85,10 @@ export default function PreOrderDetailsPage() {
   const stepIndex = STATUS_STEPS.findIndex((s) => s.key === po.status)
   const showSteps = stepIndex !== -1
   const subtotal = Number(po.unitPrice) * Number(po.quantity)
+  // Whether anything renders above the receipt button inside the Actions card.
+  const hasOtherAction =
+    (po.status === "AWAITING_BALANCE" && !!po.balanceToken) ||
+    (po.status === "COMPLETED" && !!po.orderId)
 
   return (
     <AuthGuard>
@@ -187,7 +206,7 @@ export default function PreOrderDetailsPage() {
         </div>
 
         {/* Actions */}
-        {((po.status === "AWAITING_BALANCE" && po.balanceToken) || (po.status === "COMPLETED" && po.orderId)) && (
+        {((po.status === "AWAITING_BALANCE" && po.balanceToken) || (po.status === "COMPLETED" && po.orderId) || po.bookingPaidAt) && (
           <div className="bg-surface border border-border rounded-2xl p-5 shadow-card">
             <h2 className="font-semibold text-text text-sm mb-3">Actions</h2>
             {po.status === "AWAITING_BALANCE" && po.balanceToken && (
@@ -210,6 +229,22 @@ export default function PreOrderDetailsPage() {
               >
                 View linked order <ChevronRight size={14} />
               </Link>
+            )}
+            {po.bookingPaidAt && (
+              <div className={hasOtherAction ? "mt-3 pt-3 border-t border-border" : ""}>
+                <button
+                  onClick={downloadReceipt}
+                  disabled={downloading}
+                  className="inline-flex items-center gap-2 text-sm font-medium text-text border border-border rounded-xl px-4 py-2 hover:bg-surface-2 transition disabled:opacity-50"
+                >
+                  <Download size={14} />
+                  {downloading ? "Preparing…" : "Download booking receipt"}
+                </button>
+                <p className="text-xs text-muted mt-2">
+                  Acknowledgement of the booking amount received. Not a tax invoice — that is
+                  issued once the balance is paid and the order ships.
+                </p>
+              </div>
             )}
           </div>
         )}

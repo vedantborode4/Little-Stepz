@@ -5,12 +5,14 @@ import {
   refundBookingController,
   cancelPreOrderController,
   resendBalanceLinkController,
+  getAdminPreOrderReceiptController,
 } from "../../controllers/admin/admin.preorder.controllers";
 
 export const adminPreOrderRouter: Router = Router();
 
 adminPreOrderRouter.get("/", listPreOrdersController);
 adminPreOrderRouter.get("/:id", getAdminPreOrderByIdController);
+adminPreOrderRouter.get("/:id/receipt", getAdminPreOrderReceiptController);
 adminPreOrderRouter.post("/:id/refund-booking", refundBookingController);
 adminPreOrderRouter.post("/:id/cancel", cancelPreOrderController);
 adminPreOrderRouter.post("/:id/resend-link", resendBalanceLinkController);

@@ -5,8 +5,10 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
-  Clock, Package, CheckCircle, XCircle, RotateCcw, AlertCircle, ChevronRight
+  Clock, Package, CheckCircle, XCircle, RotateCcw, AlertCircle, ChevronRight, Download
 } from "lucide-react"
+import { toast } from "sonner"
+import { pdfErrorMessage } from "../../../lib/download-pdf"
 import { PreOrderService, type PreOrderSummary, type PreOrderStatus } from "../../../lib/services/preorder.service"
 import { cldFill } from "../../../lib/utils/cloudinaryUrl"
 
@@ -62,6 +64,18 @@ export default function MyPreOrdersPage() {
   const router = useRouter()
   const [items, setItems] = useState<PreOrderSummary[]>([])
   const [loading, setLoading] = useState(true)
+  const [downloadingId, setDownloadingId] = useState<string | null>(null)
+
+  const downloadReceipt = async (id: string) => {
+    setDownloadingId(id)
+    try {
+      await PreOrderService.downloadReceipt(id)
+    } catch (e) {
+      toast.error(await pdfErrorMessage(e, "Could not download receipt"))
+    } finally {
+      setDownloadingId(null)
+    }
+  }
 
   useEffect(() => {
     PreOrderService.getMine()
@@ -158,22 +172,41 @@ export default function MyPreOrdersPage() {
                       </span>
                     </div>
 
-                    {po.status === "AWAITING_BALANCE" && po.balanceToken ? (
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          router.push(`/pre-orders/pay/${po.balanceToken}`)
-                        }}
-                        className="inline-flex items-center bg-primary text-white text-xs font-semibold px-4 py-2 rounded-lg hover:opacity-90 transition"
-                      >
-                        Pay {inr(po.balanceAmount)}
-                      </button>
-                    ) : (
-                      <span className="flex items-center gap-1 text-xs text-primary font-medium group-hover:gap-2 transition-all">
-                        View details <ChevronRight size={13} />
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {po.bookingPaidAt && (
+                        <button
+                          onClick={(e) => {
+                            // The whole card is a Link; keep the download from navigating.
+                            e.preventDefault()
+                            e.stopPropagation()
+                            downloadReceipt(po.id)
+                          }}
+                          disabled={downloadingId === po.id}
+                          title="Download booking receipt"
+                          className="inline-flex items-center gap-1.5 text-xs font-medium text-muted border border-border px-3 py-2 rounded-lg hover:bg-surface-2 transition disabled:opacity-50"
+                        >
+                          <Download size={12} />
+                          Receipt
+                        </button>
+                      )}
+
+                      {po.status === "AWAITING_BALANCE" && po.balanceToken ? (
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            router.push(`/pre-orders/pay/${po.balanceToken}`)
+                          }}
+                          className="inline-flex items-center bg-primary text-white text-xs font-semibold px-4 py-2 rounded-lg hover:opacity-90 transition"
+                        >
+                          Pay {inr(po.balanceAmount)}
+                        </button>
+                      ) : (
+                        <span className="flex items-center gap-1 text-xs text-primary font-medium group-hover:gap-2 transition-all">
+                          View details <ChevronRight size={13} />
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </Link>
               )

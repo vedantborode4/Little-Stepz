@@ -14,6 +14,7 @@ import {
 } from "../../features/admin/services/admin.services";
 import { qk } from "../../lib/api/query-client";
 import { toast } from "../../store/toast.store";
+import { pdfErrorMessage } from "../../lib/pdf";
 import { formatPrice, formatDate, shortId } from "../../lib/utils/format";
 import { type ThemeColors } from "../../theme/tokens";
 import { useThemeColors } from "../../theme/useThemeColors";
@@ -60,6 +61,7 @@ export default function AdminPreOrders() {
   const qc = useQueryClient();
   const [status, setStatus] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [receiptId, setReceiptId] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: qk.adminPreOrders({ status }),
@@ -77,6 +79,18 @@ export default function AdminPreOrders() {
       toast.error(e?.response?.data?.message || "Action failed");
     } finally {
       setBusyId(null);
+    }
+  };
+
+  /** A download changes nothing, so unlike `run` it neither toasts on success nor refetches. */
+  const downloadReceipt = async (id: string) => {
+    setReceiptId(id);
+    try {
+      await AdminPreOrderService.downloadReceipt(id);
+    } catch (e) {
+      toast.error(await pdfErrorMessage(e, "Couldn't download the receipt"));
+    } finally {
+      setReceiptId(null);
     }
   };
 
@@ -119,6 +133,17 @@ export default function AdminPreOrders() {
         <Text className="text-[11px] text-muted">#{shortId(item.id)} · {formatDate(item.createdAt)}</Text>
 
         <View className="mt-1 flex-row flex-wrap gap-2">
+          {item.bookingPaidAt ? (
+            <Pressable
+              disabled={receiptId === item.id}
+              onPress={() => downloadReceipt(item.id)}
+              className="rounded-lg border border-border px-3 py-1.5"
+            >
+              <Text className="text-xs font-jakarta-medium text-text">
+                {receiptId === item.id ? "Preparing…" : "Receipt"}
+              </Text>
+            </Pressable>
+          ) : null}
           {canResend ? (
             <Pressable
               disabled={disabled}

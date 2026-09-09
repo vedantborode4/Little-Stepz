@@ -13,6 +13,7 @@ import { EmptyState } from "../../components/ui/EmptyState";
 import { PreOrderService, type PreOrderStatus } from "../../lib/services/preorder.service";
 import { formatPrice, formatDate } from "../../lib/utils/format";
 import { toast } from "../../store/toast.store";
+import { pdfErrorMessage } from "../../lib/pdf";
 import { colors } from "../../theme/tokens";
 
 const LABEL: Record<PreOrderStatus, string> = {
@@ -37,6 +38,7 @@ const COLOR: Record<PreOrderStatus, string> = {
 
 export default function MyPreOrders() {
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [receiptId, setReceiptId] = useState<string | null>(null);
   const { data, isLoading } = useQuery({
     queryKey: ["pre-orders"],
     queryFn: () => PreOrderService.getMine(),
@@ -61,6 +63,18 @@ export default function MyPreOrders() {
       toast.error(e?.response?.data?.message || "Could not start payment");
     } finally {
       setBusyId(null);
+    }
+  };
+
+  const downloadReceipt = async (id: string) => {
+    if (receiptId) return;
+    setReceiptId(id);
+    try {
+      await PreOrderService.downloadReceipt(id);
+    } catch (e) {
+      toast.error(await pdfErrorMessage(e, "Couldn't download the receipt"));
+    } finally {
+      setReceiptId(null);
     }
   };
 
@@ -97,6 +111,11 @@ export default function MyPreOrders() {
                 {po.orderId ? (
                   <Text onPress={() => router.push(`/orders/${po.orderId}`)} className="mt-0.5 text-xs font-jakarta-medium text-primary">
                     View linked order →
+                  </Text>
+                ) : null}
+                {po.bookingPaidAt ? (
+                  <Text onPress={() => downloadReceipt(po.id)} className="mt-0.5 text-xs font-jakarta-medium text-primary">
+                    {receiptId === po.id ? "Preparing receipt…" : "Download booking receipt ↓"}
                   </Text>
                 ) : null}
               </View>

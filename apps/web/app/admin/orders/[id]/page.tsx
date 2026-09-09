@@ -6,7 +6,7 @@ import { ArrowLeft, Package, MapPin, CreditCard, Truck, FileText, Loader2, Walle
 import MarkBalancePaidModal from "../../../../components/admin/orders/MarkBalancePaidModal"
 import { toast } from "sonner"
 import { AdminOrderService, type AdminOrderDetail } from "../../../../lib/services/admin-order.service"
-import { friendlyError } from "../../../../lib/errorMessages"
+import { pdfErrorMessage } from "../../../../lib/download-pdf"
 import OrderStatusBadge from "../../../../components/admin/orders/OrderStatusBadge"
 import ShipOrderButton from "../../../../components/admin/orders/ShipOrderButton"
 import CancelShipmentButton from "../../../../components/admin/orders/CancelShipmentButton"
@@ -95,7 +95,7 @@ export default function AdminOrderDetailPage() {
                 catch (err) {
                   // The api-client interceptor only handles the 401 refresh, so
                   // nothing else surfaces this — say it here or it fails silently.
-                  toast.error(friendlyError(err, "Couldn't download the invoice"))
+                  toast.error(await pdfErrorMessage(err, "Couldn't download the invoice"))
                 }
                 finally { setDownloading(false) }
               }}

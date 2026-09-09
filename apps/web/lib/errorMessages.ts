@@ -61,6 +61,10 @@ const ERROR_COPY: Record<string, string> = {
   RETURN_ALREADY_RESOLVED: "This return has already been resolved.",
   RETURN_NOT_FOUND: "We couldn't find that return request.",
 
+  // ── Invoices / receipts ──────────────────────────────────────────────────
+  INVOICE_NOT_AVAILABLE: "The tax invoice isn't ready yet. It's issued once your order is dispatched.",
+  RECEIPT_NOT_AVAILABLE: "There's no receipt for this yet. It becomes available once the payment is received.",
+
   // ── Pre-orders ───────────────────────────────────────────────────────────
   PREORDER_FULL: "All pre-order slots for this product are taken.",
   PREORDER_NOT_ENABLED: "Pre-orders aren't available for this product.",

@@ -15,6 +15,7 @@ import {
   createBalancePaymentService,
   verifyBalancePaymentService,
 } from "../services/preorder.services";
+import { getPreOrderReceiptPdfService, receiptFileName } from "../services/invoice.services";
 
 export const createPreOrderController = asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user?.userId;
@@ -51,6 +52,28 @@ export const getPreOrderByIdController = asyncHandler(async (req: Request, res: 
   const { id } = preOrderParamsSchema.parse(req.params);
   const result = await getPreOrderByIdService(userId, id);
   return new ApiResponse(200, result, "Pre-order fetched").send(res);
+});
+
+/**
+ * The booking acknowledgement for a pre-order, as a PDF.
+ *
+ * Scoped by userId so a customer cannot read another's receipt by guessing an id, and
+ * responds with the binary rather than an ApiResponse envelope — this is consumed by a
+ * download, not by JSON. Stays available after the pre-order converts into an order or
+ * is cancelled: the booking money was received either way, and the tax invoice raised on
+ * conversion is a separate document for a separate leg.
+ */
+export const getPreOrderReceiptController = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+  if (!userId) throw new ApiError(401, "Unauthorized");
+  const { id } = preOrderParamsSchema.parse(req.params);
+
+  const { pdf, reference } = await getPreOrderReceiptPdfService(id, userId);
+
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", `attachment; filename="${receiptFileName(reference)}"`);
+  res.setHeader("Content-Length", String(pdf.length));
+  return res.send(pdf);
 });
 
 /* ── Public, token-gated balance endpoints ── */

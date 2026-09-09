@@ -1,22 +1,5 @@
 import { api } from "../api-client"
-
-/** Fetch a PDF and hand it to the browser's downloader. Shared by invoice and receipt. */
-async function downloadPdf(path: string, fallbackName: string): Promise<void> {
-  const res = await api.get(path, { responseType: "blob" })
-  const disposition = res.headers?.["content-disposition"] as string | undefined
-  const match = disposition?.match(/filename="?([^"]+)"?/)
-  const filename = match?.[1] ?? fallbackName
-
-  const url = URL.createObjectURL(new Blob([res.data], { type: "application/pdf" }))
-  const a = document.createElement("a")
-  a.href = url
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  // Revoked on the next tick so the click has already started the download.
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
-}
+import { downloadPdf } from "../download-pdf"
 
 export const OrderService = {
   getAll: async () => {
@@ -24,13 +7,7 @@ export const OrderService = {
     return res.data.data
   },
 
-  /**
-   * Download the tax invoice PDF.
-   *
-   * Fetched through the axios client rather than linked directly so the request
-   * carries the auth header (and the 401-refresh interceptor); the response is a
-   * blob, saved via a temporary object URL.
-   */
+  /** Download the tax invoice PDF. */
   downloadInvoice: async (orderId: string) => {
     return downloadPdf(`/orders/${orderId}/invoice`, `invoice-${orderId.slice(0, 8)}.pdf`)
   },

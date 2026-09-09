@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { authMiddleware } from "../middlewares/auth.middleware";
 import { orderRateLimiter } from "../middlewares/orderRateLimiter.middleware";
+import { documentRateLimiter } from "../middlewares/documentRateLimiter.middleware";
 import {
   createPreOrderController,
   verifyBookingController,
@@ -9,6 +10,7 @@ import {
   getPreOrderByTokenController,
   createBalancePaymentController,
   verifyBalancePaymentController,
+  getPreOrderReceiptController,
 } from "../controllers/preorder.controllers";
 
 export const preOrderRouter: Router = Router();
@@ -24,3 +26,4 @@ preOrderRouter.post("/", orderRateLimiter, createPreOrderController);
 preOrderRouter.get("/", getMyPreOrdersController);
 preOrderRouter.get("/:id", getPreOrderByIdController);
 preOrderRouter.post("/:id/booking/verify", orderRateLimiter, verifyBookingController);
+preOrderRouter.get("/:id/receipt", documentRateLimiter, getPreOrderReceiptController);

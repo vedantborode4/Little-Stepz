@@ -10,6 +10,7 @@ import {
   abandonOrderController,
 } from '../controllers/orders.controllers';
 import { orderRateLimiter } from '../middlewares/orderRateLimiter.middleware';
+import { documentRateLimiter } from '../middlewares/documentRateLimiter.middleware';
 import {
   requestReturnController,
   trackOrderController,
@@ -22,10 +23,10 @@ ordersRouter.use(authMiddleware);
 ordersRouter.post('/', orderRateLimiter, createOrderController);
 ordersRouter.get('/', orderRateLimiter, getOrdersController);
 ordersRouter.get('/:id', orderRateLimiter, getOrderByIdController);
-ordersRouter.get('/:id/invoice', orderRateLimiter, getOrderInvoiceController);
+ordersRouter.get('/:id/invoice', documentRateLimiter, getOrderInvoiceController);
 // The deposit acknowledgement on a partial-payment order. Available from the moment the
 // deposit is captured, unlike the tax invoice, which is only raised at dispatch.
-ordersRouter.get('/:id/receipt', orderRateLimiter, getOrderReceiptController);
+ordersRouter.get('/:id/receipt', documentRateLimiter, getOrderReceiptController);
 
 ordersRouter.post('/:id/return', requestReturnController);
 ordersRouter.get('/:id/track',   trackOrderController);

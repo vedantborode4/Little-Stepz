@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { toast } from "sonner"
+import { pdfErrorMessage } from "../../../lib/download-pdf"
 import { AdminPreOrderService, type AdminPreOrder, type PreOrderStatus } from "../../../lib/services/admin-preorder.service"
 
 const STATUS_STYLES: Record<PreOrderStatus, string> = {
@@ -27,6 +28,18 @@ export default function PreOrdersTable({ data, refresh }: { data: AdminPreOrder[
       refresh()
     } catch (e: any) {
       toast.error(e?.response?.data?.message || "Action failed")
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  /** Its own path, not `run`: a download changes nothing, so there is nothing to refresh. */
+  const download = async (id: string) => {
+    setBusyId(id)
+    try {
+      await AdminPreOrderService.downloadReceipt(id)
+    } catch (e) {
+      toast.error(await pdfErrorMessage(e, "Could not download receipt"))
     } finally {
       setBusyId(null)
     }
@@ -73,6 +86,15 @@ export default function PreOrdersTable({ data, refresh }: { data: AdminPreOrder[
                 </td>
                 <td className="p-4">
                   <div className="flex items-center justify-end gap-2">
+                    {po.bookingPaidAt && (
+                      <button
+                        disabled={busyId === po.id}
+                        onClick={() => download(po.id)}
+                        className="px-3 py-1.5 rounded-lg text-xs font-medium text-muted border border-border hover:bg-surface-2 disabled:opacity-50"
+                      >
+                        Receipt
+                      </button>
+                    )}
                     {po.status === "AWAITING_BALANCE" && (
                       <button
                         disabled={busyId === po.id}

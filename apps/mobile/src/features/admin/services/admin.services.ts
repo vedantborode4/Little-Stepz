@@ -1,4 +1,5 @@
 import { api } from "../../../lib/api/client";
+import { savePdfAndShare } from "../../../lib/pdf";
 
 // ───────────────────────── Stats ─────────────────────────
 export interface AdminStats {
@@ -600,6 +601,11 @@ export const AdminPreOrderService = {
   getById: async (id: string): Promise<AdminPreOrder> => {
     const res = await api.get(`/admin/pre-orders/${id}`);
     return res.data.data;
+  },
+
+  /** The customer's booking receipt PDF. Only exists once the booking was paid. */
+  downloadReceipt: async (id: string) => {
+    return savePdfAndShare(`/admin/pre-orders/${id}/receipt`, `receipt-${id.slice(0, 8)}.pdf`);
   },
 
   refundBooking: async (id: string) => {

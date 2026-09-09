@@ -1,4 +1,5 @@
 import { api } from "../api-client"
+import { downloadPdf } from "../download-pdf"
 
 export type OrderStatus =
   | "PENDING" | "CONFIRMED" | "PROCESSING" | "SHIPPED"
@@ -133,34 +134,15 @@ export const AdminOrderService = {
   },
 
   /** GET /admin/orders/:id — full order: items, address, payment, shipments. */
-  /**
-   * Download the tax invoice PDF.
-   *
-   * Fetched through the axios client rather than linked directly so the request
-   * carries the auth header (and the 401-refresh interceptor); the response is a
-   * blob, saved via a temporary object URL.
-   */
   /** Route an order by hand instead of Delhivery, or put it back on the courier. */
   setFulfilmentMode: async (orderId: string, manual: boolean) => {
     const res = await api.post(`/admin/orders/${orderId}/fulfilment`, { manual })
     return res.data.data as { id: string; manualFulfilment: boolean; changed: boolean }
   },
 
+  /** Download the tax invoice PDF. */
   downloadInvoice: async (orderId: string) => {
-    const res = await api.get(`/admin/orders/${orderId}/invoice`, { responseType: "blob" })
-    const disposition = res.headers?.["content-disposition"] as string | undefined
-    const match = disposition?.match(/filename="?([^"]+)"?/)
-    const filename = match?.[1] ?? `invoice-${orderId.slice(0, 8)}.pdf`
-
-    const url = URL.createObjectURL(new Blob([res.data], { type: "application/pdf" }))
-    const a = document.createElement("a")
-    a.href = url
-    a.download = filename
-    document.body.appendChild(a)
-    a.click()
-    a.remove()
-    // Revoked on the next tick so the click has already started the download.
-    setTimeout(() => URL.revokeObjectURL(url), 1000)
+    return downloadPdf(`/admin/orders/${orderId}/invoice`, `invoice-${orderId.slice(0, 8)}.pdf`)
   },
 
   getById: async (id: string): Promise<AdminOrderDetail> => {

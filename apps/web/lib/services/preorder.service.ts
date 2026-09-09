@@ -1,4 +1,5 @@
 import { api } from "../api-client"
+import { downloadPdf } from "../download-pdf"
 
 export type PreOrderStatus =
   | "PENDING_BOOKING"
@@ -67,6 +68,15 @@ export const PreOrderService = {
   getById: async (id: string): Promise<PreOrderSummary> => {
     const res = await api.get(`/pre-orders/${id}`)
     return res.data.data
+  },
+
+  /**
+   * The booking acknowledgement PDF. Available from the moment the booking payment is
+   * captured, and stays available after the pre-order converts or is cancelled — the
+   * tax invoice raised on conversion is a separate document for a separate leg.
+   */
+  downloadReceipt: async (preOrderId: string) => {
+    return downloadPdf(`/pre-orders/${preOrderId}/receipt`, `receipt-${preOrderId.slice(0, 8)}.pdf`)
   },
 
   // ── Balance (token-gated, public) ──
