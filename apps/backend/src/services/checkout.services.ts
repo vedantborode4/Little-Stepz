@@ -219,6 +219,11 @@ async function quotePartialPayment(args: {
     reasons.push({ code: "PARTIAL_AMOUNT_TOO_SMALL" });
   }
 
+  // Phone verification follows REQUIRE_VERIFIED_PHONE_AT_CHECKOUT rather than being
+  // required by partial payment alone — see the note in createOrderService. Skipping the
+  // lookup entirely when the flag is off also saves a query on every quote.
+  const requirePhone = process.env.REQUIRE_VERIFIED_PHONE_AT_CHECKOUT === "true";
+
   const limit = maxOpenPartialOrders();
   const [openBalances, phoneVerified] = await Promise.all([
     prisma.order.count({
@@ -230,7 +235,7 @@ async function quotePartialPayment(args: {
         payment: { status: "PARTIALLY_PAID" },
       },
     }),
-    isPhoneVerified(userId, phone),
+    requirePhone ? isPhoneVerified(userId, phone) : Promise.resolve(true),
   ]);
 
   if (openBalances >= limit) {

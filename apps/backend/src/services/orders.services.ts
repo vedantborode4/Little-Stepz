@@ -113,10 +113,13 @@ export async function createOrderService(userId: string, data: CreateOrderBody, 
   // this blocks checkout for the entire existing customer base. New and edited
   // addresses go through OTP at save time, so the base converts on its own.
   //
-  // Partial payment bypasses that flag deliberately. It is opt-in and brand new, so it
-  // has no legacy base to strand, and a contactable number is what makes doorstep
-  // collection work at all.
-  if (wantsPartial || process.env.REQUIRE_VERIFIED_PHONE_AT_CHECKOUT === "true") {
+  // Partial payment follows the same flag rather than requiring verification of its own.
+  // It looked like a free fraud control — the feature is new, so in principle it strands
+  // nobody — but the flag has never been on, so VerifiedPhone is empty and EVERY existing
+  // address is unverified. A partial-only requirement therefore withheld the option from
+  // the entire customer base until they happened to edit an address, which reads as a
+  // broken feature rather than a control. Turn this flag on to enforce it for both.
+  if (process.env.REQUIRE_VERIFIED_PHONE_AT_CHECKOUT === "true") {
     await assertPhoneVerified(userId, shippingAddress.phone);
   }
 
