@@ -70,6 +70,17 @@ export default function SignUp() {
         referralCode: rest.referralCode || undefined,
       } as SignupData;
 
+      // One-step signup first: while email verification is switched off server-side
+      // (SIGNUP_EMAIL_OTP_ENABLED=false) this creates the account straight away. With it
+      // on, the server answers 426 and we continue to the emailed-code flow below.
+      try {
+        const res = await AuthService.signup(payload);
+        await onVerified(res);
+        return;
+      } catch (err: any) {
+        if (err?.response?.status !== 426) throw err;
+      }
+
       // Emails a code; no account exists yet. The payload stays in component state —
       // it holds a plaintext password, so it must never reach AsyncStorage or a route
       // param (expo-router serialises those into navigation state).

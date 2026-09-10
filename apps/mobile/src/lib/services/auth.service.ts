@@ -35,6 +35,15 @@ export const AuthService = {
     return res.data;
   },
 
+  /**
+   * One-step signup — creates the account and signs in, while email verification is
+   * switched off server-side. Rejects with 426 when it is on; use `requestSignupOtp`.
+   */
+  signup: async (data: SignupData): Promise<AuthResponse> => {
+    const res = await api.post<AuthResponse>("/auth/signup", data);
+    return res.data;
+  },
+
   googleAuth: async (idToken: string, referralCode?: string): Promise<AuthResponse> => {
     const res = await api.post<AuthResponse>("/auth/google", { idToken, referralCode });
     return res.data;

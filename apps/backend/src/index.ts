@@ -9,6 +9,7 @@ import { startStockSweeper } from "./services/stockSweeper.services";
 import { startShipmentSweeper } from "./services/shipmentSweeper.services";
 import { checkDelhiveryWarehouse, checkSmsProvider } from "./services/shippingPreflight.services";
 import { startAuthSweeper } from "./services/authSweeper.services";
+import { isSignupEmailOtpEnabled } from "./services/auth.services";
 
 const app = express();
 
@@ -93,7 +94,9 @@ app.listen(PORT, () => {
 
   if (!process.env.RESEND_API_KEY) {
     console.error(
-      "[boot] RESEND_API_KEY is not set — email signup is DISABLED (no OTP can be delivered)."
+      isSignupEmailOtpEnabled()
+        ? "[boot] RESEND_API_KEY is not set — email signup is DISABLED (no OTP can be delivered)."
+        : "[boot] RESEND_API_KEY is not set — no email will be sent (signup email verification is off, so accounts can still be created)."
     );
   }
 });

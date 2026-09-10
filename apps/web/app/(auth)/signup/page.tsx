@@ -51,6 +51,19 @@ export default function SignUpPage() {
   const onSubmit = async (data: SignupFormData) => {
     try {
       const { confirmPassword: _confirmPassword, ...signupData } = data
+
+      // One-step signup first: while email verification is switched off server-side
+      // (SIGNUP_EMAIL_OTP_ENABLED=false) this creates the account straight away. With it
+      // on, the server answers 426 and we continue to the emailed-code flow below.
+      try {
+        const res = await AuthService.signup(signupData)
+        await login(res)
+        router.push("/")
+        return
+      } catch (err) {
+        if ((err as { response?: { status?: number } })?.response?.status !== 426) throw err
+      }
+
       // No account is created here — this only emails a code. The payload stays in
       // component state (never localStorage: it contains a plaintext password), so a
       // reload correctly drops back to step 1 rather than stranding a half-signup.

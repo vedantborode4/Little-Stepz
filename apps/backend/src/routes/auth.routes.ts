@@ -1,4 +1,5 @@
-import { Router } from "express";
+import { Router, type RequestHandler } from "express";
+import { isSignupEmailOtpEnabled } from "../services/auth.services";
 import {
   appleController,
   forgotPasswordController,
@@ -30,8 +31,17 @@ export const authRouter: Router = Router();
 authRouter.post("/signup/request", signupOtpRequestRateLimiter, requestSignupOtpController);
 authRouter.post("/signup/verify", signupOtpVerifyRateLimiter, verifySignupOtpController);
 
-// Retained so shipped app builds get 426 "update required" rather than a bare 404.
-authRouter.post("/signup", authRateLimiter, signupController);
+// One-step signup while SIGNUP_EMAIL_OTP_ENABLED=false; otherwise 426 "update required",
+// which current clients treat as "use the code flow" and older builds show as-is.
+//
+// The 426 is not rate-limited: every current client calls /signup before the code flow,
+// and counting those under authRateLimiter (shared with /signin, /google and /apple, and
+// blind to non-2xx "successes") locked sign-in for a whole IP after ~10 signup submits.
+// When one-step signup is live it creates accounts, so it takes the signup limiter.
+const oneStepSignupRateLimiter: RequestHandler = (req, res, next) =>
+  isSignupEmailOtpEnabled() ? next() : signupOtpRequestRateLimiter(req, res, next);
+
+authRouter.post("/signup", oneStepSignupRateLimiter, signupController);
 authRouter.post("/signin", authRateLimiter, signinController);
 authRouter.post("/google", authRateLimiter, googleController);
 authRouter.post("/apple", authRateLimiter, appleController);

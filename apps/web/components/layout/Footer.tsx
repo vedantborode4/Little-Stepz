@@ -7,6 +7,7 @@ import {
   SUPPORT_PHONE_E164,
 } from "@repo/content/index"
 import PaymentBadges from "../common/PaymentBadges"
+import AppStoreBadges from "../common/AppStoreBadges"
 
 function ThreadsIcon({ size = 14 }: { size?: number }) {
   return (
@@ -61,6 +62,10 @@ export default function Footer() {
                   {s.icon}
                 </a>
               ))}
+            </div>
+            <div className="space-y-1.5 pt-1">
+              <p className="text-xs text-gray-500">Get the app</p>
+              <AppStoreBadges />
             </div>
             <div className="space-y-1.5 pt-1">
               <p className="text-xs text-gray-500">We accept</p>

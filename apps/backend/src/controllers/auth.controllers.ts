@@ -12,7 +12,9 @@ import {
 import {
   appleAuthService,
   googleAuthService,
+  isSignupEmailOtpEnabled,
   logoutService,
+  signupService,
   refreshService,
   requestPasswordResetService,
   requestSignupOtpService,
@@ -89,25 +91,41 @@ async function verifySignupOtp(req: Request, res: Response) {
 }
 
 /**
- * The old direct-signup route. Shipped mobile builds still call it, so it must not
- * 404. 426 is semantically right and — importantly — is NOT 401, which would trip
- * both clients' refresh interceptor and bounce the user to sign-in.
+ * Direct, one-step signup.
  *
- * The message is PROSE, not an error code, on purpose: the only callers are builds
- * that predate this change, so they have no copy mapping for a new code and would
- * render it raw (or swallow it behind a generic "Signup failed"). Current clients
- * never hit this route — both services call /signup/request instead.
+ * While SIGNUP_EMAIL_OTP_ENABLED=false this creates the account immediately. Current web
+ * and mobile clients try it first and fall back to /signup/request on a 426.
+ *
+ * With verification on it answers 426, as it always has for app builds that predate the
+ * code flow. 426 is NOT 401, which would trip both clients' refresh interceptor and
+ * bounce the user to sign-in. The message stays PROSE on purpose: those old builds have
+ * no copy mapping for a code and would render it raw.
  */
-async function legacySignup(_req: Request, _res: Response) {
-  throw new ApiError(
-    426,
-    "Please update the Little Stepz app to create an account. You can still sign in normally."
-  );
+async function signup(req: Request, res: Response) {
+  if (isSignupEmailOtpEnabled()) {
+    throw new ApiError(
+      426,
+      "Please update the Little Stepz app to create an account. You can still sign in normally."
+    );
+  }
+
+  const parsed = SignupSchema.safeParse(req.body);
+
+  if (!parsed.success) {
+    throw new ApiError(400, "Invalid request data", parsed.error.flatten().fieldErrors);
+  }
+
+  const { user, accessToken, refreshToken } = await signupService(parsed.data);
+
+  res.cookie("accessToken", accessToken, accessTokenCookieOptions);
+  res.cookie("refreshToken", refreshToken, refreshTokenCookieOptions);
+
+  return res.status(201).json(authPayload(req, user, accessToken, refreshToken));
 }
 
 export const requestSignupOtpController = asyncHandler(requestSignupOtp);
 export const verifySignupOtpController = asyncHandler(verifySignupOtp);
-export const signupController = asyncHandler(legacySignup);
+export const signupController = asyncHandler(signup);
 
 export async function signinController(req: Request, res: Response) {
   try {

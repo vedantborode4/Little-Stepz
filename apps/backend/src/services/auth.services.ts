@@ -263,6 +263,92 @@ export async function verifySignupOtpService(email: string, code: string) {
 
 
 
+/**
+ * Whether signup must confirm the email address with a code before creating the account.
+ * On unless SIGNUP_EMAIL_OTP_ENABLED is exactly "false".
+ */
+export function isSignupEmailOtpEnabled(): boolean {
+  return (process.env.SIGNUP_EMAIL_OTP_ENABLED ?? "true").toLowerCase() !== "false";
+}
+
+/**
+ * One-step signup, used only while SIGNUP_EMAIL_OTP_ENABLED=false: the account is created
+ * immediately. It is left `emailVerified: false` because nothing proved the address.
+ *
+ * `/signup/request` + `/signup/verify` keep working either way, so installed app builds
+ * that always ask for a code are unaffected.
+ */
+export async function signupService(data: SignupData) {
+  const { email, password, name, phone, referralCode } = data;
+
+  const existingUser = await prisma.user.findUnique({
+    where: { email },
+    select: { id: true },
+  });
+  if (existingUser) {
+    throw new ApiError(409, "EMAIL_ALREADY_REGISTERED");
+  }
+
+  // Outside the transaction: bcrypt at cost 12 would blow an interactive-transaction
+  // budget on Neon.
+  const passwordHash = await hashPassword(password);
+  const referredById = await resolveReferrerUserId(referralCode);
+  const refresh = await generateRefreshToken();
+
+  let user;
+  try {
+    user = await prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({
+        data: {
+          email,
+          name,
+          phone,
+          password: passwordHash,
+          emailVerified: false,
+          referredById,
+        },
+        select: userSelect,
+      });
+
+      await tx.refreshToken.create({
+        data: {
+          tokenHash: refresh.tokenHash,
+          userId: created.id,
+          expiresAt: refresh.expiresAt,
+        },
+      });
+
+      // A code requested earlier for this address must not linger and be redeemable
+      // against an account that now exists.
+      await tx.pendingSignup.deleteMany({ where: { email } });
+
+      return created;
+    }, { maxWait: 5000, timeout: 15000 });
+  } catch (err: any) {
+    // Two concurrent submits, or the email registered via Google/Apple in between.
+    if (err?.code === "P2002") {
+      throw new ApiError(409, "EMAIL_ALREADY_REGISTERED");
+    }
+    throw err;
+  }
+
+  void sendWelcomeEmail(user.email, { name: user.name });
+
+  if (referredById) {
+    void notify({
+      userId: referredById,
+      type: "REFERRAL_SIGNUP",
+      title: "New referral joined 🎉",
+      body: `${name} signed up using your referral link.`,
+      data: { screen: "AffiliateDashboard" },
+    });
+  }
+
+  const accessToken = generateAccessToken({ userId: user.id, role: user.role });
+
+  return { user, accessToken, refreshToken: refresh.token };
+}
+
 export async function signinService(data: SigninData) {
   const { email, password } = data;
 
@@ -346,7 +432,7 @@ export async function googleAuthService(idToken: string, referralCode?: string) 
   if (!user) {
     const existing = await prisma.user.findUnique({
       where: { email: profile.email },
-      select: { id: true, googleId: true, avatarUrl: true },
+      select: { id: true, googleId: true, avatarUrl: true, emailVerified: true },
     });
 
     if (existing) {
@@ -356,6 +442,12 @@ export async function googleAuthService(idToken: string, referralCode?: string) 
           googleId: existing.googleId ?? profile.sub,
           avatarUrl: existing.avatarUrl ?? profile.picture,
           emailVerified: true,
+          // An unverified account was created without proving this address (one-step
+          // signup, SIGNUP_EMAIL_OTP_ENABLED=false), possibly by someone who does not own
+          // it. Google has now proved ownership, so the password and name set at that
+          // signup must not survive alongside the owner's sign-in. Sessions are revoked
+          // below, as on every sign-in.
+          ...(existing.emailVerified ? {} : { password: null, name: profile.name }),
         },
         select: userSelect,
       });
@@ -440,7 +532,7 @@ export async function appleAuthService(
   if (!user && profile.email && profile.emailVerified) {
     const existing = await prisma.user.findUnique({
       where: { email: profile.email },
-      select: { id: true, appleId: true },
+      select: { id: true, appleId: true, emailVerified: true },
     });
 
     if (existing) {
@@ -449,6 +541,10 @@ export async function appleAuthService(
         data: {
           appleId: existing.appleId ?? profile.sub,
           emailVerified: true,
+          // Same rule as the Google branch: a password set by an unverified signup must
+          // not keep working once the address's real owner signs in. (Apple sends a name
+          // only on first authorisation, so the name is left as is.)
+          ...(existing.emailVerified ? {} : { password: null }),
         },
         select: userSelect,
       });
@@ -767,7 +863,10 @@ export async function resetPasswordService(token: string, newPassword: string) {
   await prisma.$transaction(async (tx) => {
     await tx.user.update({
       where: { id: record.userId },
-      data: { password: hashed },
+      // Redeeming an emailed reset proves the address, which also settles an account made
+      // by one-step signup (SIGNUP_EMAIL_OTP_ENABLED=false) — including one someone else
+      // created for this email, whose password this replaces and whose sessions go below.
+      data: { password: hashed, emailVerified: true },
     });
 
     // signing out every device kills any session an attacker may hold
