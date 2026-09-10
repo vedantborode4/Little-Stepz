@@ -37,7 +37,7 @@ const FAQS: { q: string; a: string }[] = [
   },
   {
     q: "Do you offer Cash on Delivery?",
-    a: "No. Cash on Delivery is no longer offered — orders are paid for securely at checkout by UPI, card, net banking or wallet.",
+    a: "Yes — on eligible products and pincodes, up to a maximum order value. Choose Cash on Delivery at checkout and pay the delivery agent when your order arrives. You can also pay online in full, or pay a deposit now and the rest on delivery.",
   },
 ];
 

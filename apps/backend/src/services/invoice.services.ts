@@ -93,12 +93,20 @@ async function nextInvoiceNumber(
 function isInvoiceable(order: {
   status: string;
   paymentPlan?: string;
+  paymentMethod?: string;
   payment?: { status: string } | null;
 }): boolean {
   if (order.payment?.status === "SUCCESS") return true;
+
+  const dispatched = ["PROCESSING", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED"].includes(order.status);
+
+  // Cash on Delivery follows the same rule as a deposit order: the invoice travels with the
+  // goods, while the payment stays PENDING until the courier collects.
+  if (order.paymentMethod === "COD" && order.payment?.status === "PENDING") return dispatched;
+
   if (order.paymentPlan !== "PARTIAL") return false;
   if (order.payment?.status !== "PARTIALLY_PAID") return false;
-  return ["PROCESSING", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED"].includes(order.status);
+  return dispatched;
 }
 
 /**

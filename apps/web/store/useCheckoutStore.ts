@@ -5,6 +5,10 @@ import { toast } from "sonner"
 import { friendlyError } from "../lib/errorMessages"
 
 export type PaymentPlan = "FULL" | "PARTIAL"
+/** ONLINE for both online plans; COD for Cash on Delivery, which is always a FULL plan. */
+export type PaymentMethod = "ONLINE" | "COD"
+/** The single choice the checkout offers, mapped onto plan + method. */
+export type PaymentChoice = "FULL" | "PARTIAL" | "COD"
 
 import type { CheckoutQuote } from "../lib/services/checkout.service"
 
@@ -12,6 +16,7 @@ interface CheckoutState {
   placingOrder: boolean
   /** Which plan the customer chose at step 3. */
   paymentPlan: PaymentPlan
+  paymentMethod: PaymentMethod
   /** Whether they ticked the deposit-forfeiture acknowledgement. */
   forfeitureAck: boolean
   /**
@@ -31,6 +36,7 @@ interface CheckoutState {
 
   setQuote: (quote: CheckoutQuote | null) => void
   setPaymentPlan: (plan: PaymentPlan) => void
+  setPaymentChoice: (choice: PaymentChoice) => void
   setForfeitureAck: (ack: boolean) => void
   placeOrder: (addressId: string) => Promise<string | null>
   resetSession: () => void
@@ -54,6 +60,7 @@ function releaseAbandonedOrder(orderId: string): void {
 export const useCheckoutStore = create<CheckoutState>((set, get) => ({
   placingOrder: false,
   paymentPlan: "FULL",
+  paymentMethod: "ONLINE",
   forfeitureAck: false,
   quote: null,
   _idempotencyKey: null,
@@ -63,15 +70,26 @@ export const useCheckoutStore = create<CheckoutState>((set, get) => ({
   // total over the cap), so the plan falls back rather than letting the customer submit
   // one the server will reject.
   setQuote: (quote) =>
-    set((state) =>
-      quote && !quote.partialPayment?.eligible && state.paymentPlan === "PARTIAL"
-        ? { quote, paymentPlan: "FULL", forfeitureAck: false }
-        : { quote }
-    ),
+    set((state) => {
+      if (!quote) return { quote }
+      if (state.paymentMethod === "COD" && !quote.codPayment?.eligible) {
+        return { quote, paymentPlan: "FULL", paymentMethod: "ONLINE", forfeitureAck: false }
+      }
+      if (state.paymentPlan === "PARTIAL" && !quote.partialPayment?.eligible) {
+        return { quote, paymentPlan: "FULL", forfeitureAck: false }
+      }
+      return { quote }
+    }),
 
   // Changing the plan invalidates the acknowledgement: it was given against a specific
   // deposit amount, so it has to be re-given if that changes.
-  setPaymentPlan: (plan) => set({ paymentPlan: plan, forfeitureAck: false }),
+  setPaymentPlan: (plan) => set({ paymentPlan: plan, paymentMethod: "ONLINE", forfeitureAck: false }),
+  setPaymentChoice: (choice) =>
+    set(
+      choice === "COD"
+        ? { paymentPlan: "FULL", paymentMethod: "COD", forfeitureAck: false }
+        : { paymentPlan: choice, paymentMethod: "ONLINE", forfeitureAck: false }
+    ),
   setForfeitureAck: (ack) => set({ forfeitureAck: ack }),
 
   // `paymentPlan` deliberately survives this. resetSession fires on every step change
@@ -109,7 +127,18 @@ export const useCheckoutStore = create<CheckoutState>((set, get) => ({
     // `paymentPlan` is part of the signature deliberately. Without it, switching plan
     // after an abandoned attempt replays the earlier order — charging the full amount to
     // someone who just chose to pay 20%, or the reverse.
-    const { paymentPlan, forfeitureAck } = get()
+    //
+    // Place exactly what the page shows as selected. PaymentSection and CheckoutSummary
+    // only mark COD or the deposit plan as chosen while the current quote offers it, so a
+    // failed quote (setQuote(null)) reads as paying in full there and must here too —
+    // otherwise "Proceed to Pay" would silently create a COD order.
+    const { quote, forfeitureAck } = get()
+    const paymentMethod: PaymentMethod =
+      get().paymentMethod === "COD" && quote?.codPayment?.eligible ? "COD" : "ONLINE"
+    const paymentPlan: PaymentPlan =
+      paymentMethod === "ONLINE" && get().paymentPlan === "PARTIAL" && quote?.partialPayment?.eligible
+        ? "PARTIAL"
+        : "FULL"
 
     if (paymentPlan === "PARTIAL" && !forfeitureAck) {
       toast.error("Please confirm you understand the deposit is non-refundable.")
@@ -121,6 +150,7 @@ export const useCheckoutStore = create<CheckoutState>((set, get) => ({
       couponCode: couponCode || null,
       cartItems,
       paymentPlan,
+      paymentMethod,
     })
     let idempotencyKey = get()._idempotencyKey
     if (!idempotencyKey || get()._keySignature !== signature) {
@@ -137,8 +167,27 @@ export const useCheckoutStore = create<CheckoutState>((set, get) => ({
         cartItems,
         couponCode || null,
         idempotencyKey,
-        { paymentPlan, acceptForfeitTerms: forfeitureAck }
+        { paymentPlan, paymentMethod, acceptForfeitTerms: forfeitureAck }
       )
+
+      // Cash on Delivery charges nothing now: confirm the order and stop. There is no
+      // Razorpay sheet to open.
+      if (paymentMethod === "COD") {
+        try {
+          await CheckoutService.confirmCod(orderId)
+        } catch (err) {
+          // The order exists but was not confirmed (another tab took the last open COD
+          // slot, say) and is holding its stock. Release it now so the pay-online retry
+          // does not fail as out of stock until the sweeper runs, and retire the key that
+          // points at it. A confirmed order is left alone by the abandon endpoint.
+          releaseAbandonedOrder(orderId)
+          set({ _idempotencyKey: null, _keySignature: null })
+          throw err
+        }
+        toast.success("Order placed — pay on delivery 🎉")
+        set({ placingOrder: false, _idempotencyKey: null, _keySignature: null })
+        return orderId
+      }
 
       // ── Step 2: Open Razorpay ────────────────────────────────────────
       const rzpData = await CheckoutService.createRazorpayOrder(orderId)
@@ -244,6 +293,31 @@ export const useCheckoutStore = create<CheckoutState>((set, get) => ({
       // full and STOP — silently charging the whole amount because pay-later disappeared
       // is the worst available outcome, so the customer has to re-confirm.
       const code = err?.response?.data?.message
+
+      // Same for Cash on Delivery: fall back to paying online and stop, so the customer
+      // re-confirms rather than being silently moved to a different way of paying.
+      if (
+        code === "COD_DISABLED" ||
+        code === "COD_NOT_ELIGIBLE" ||
+        code === "COD_ORDER_VALUE_EXCEEDED" ||
+        code === "COD_LIMIT_REACHED" ||
+        code === "COD_BLOCKED" ||
+        code === "COD_PLAN_CONFLICT" ||
+        code === "COD_NOT_AVAILABLE" ||
+        code === "PAYMENT_METHOD_INVALID"
+      ) {
+        set({
+          placingOrder: false,
+          paymentPlan: "FULL",
+          paymentMethod: "ONLINE",
+          forfeitureAck: false,
+          _idempotencyKey: null,
+          _keySignature: null,
+        })
+        toast.error(friendlyError(err, "Cash on Delivery isn't available for this order."))
+        return null
+      }
+
       if (
         code === "PARTIAL_PAYMENT_NOT_ELIGIBLE" ||
         code === "PARTIAL_NOT_ELIGIBLE" ||

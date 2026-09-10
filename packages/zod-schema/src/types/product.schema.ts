@@ -56,6 +56,9 @@ const productBaseSchema = z.object({
     partialPaymentEnabled: z.boolean().optional().default(false),
     depositPercent: z.coerce.number().min(1).max(99).nullish(),
 
+    // Cash on Delivery for this product. The product switch is the master.
+    codEnabled: z.boolean().optional().default(false),
+
     // ── SEO overrides (admin SEO panel; fall back to generated metadata) ──
     metaTitle: z.string().max(70, "Keep the SEO title under ~70 characters").optional(),
     metaDescription: z.string().max(160, "Keep the meta description under ~160 characters").optional(),

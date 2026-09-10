@@ -29,8 +29,8 @@ async function createOrder(req: Request, res: Response) {
   // the stale build was the actual bug, and the workaround meant `paymentMethod` was
   // hardcoded here and every new field had to be added in two places.
   //
-  // `paymentMethod` still collapses to ONLINE inside the schema (see
-  // retiredCodPaymentMethod), so published builds that send 'COD' keep working.
+  // `paymentMethod: 'COD'` is honoured again; its gates run in createOrderService and again
+  // when the order is confirmed through /payments/cod.
   let validated;
   try {
     validated = createOrderBodySchema.parse(req.body ?? {});

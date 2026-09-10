@@ -24,6 +24,7 @@ const baseProductSelect = {
   preOrderNote: true,
   partialPaymentEnabled: true,
   depositPercent: true,
+  codEnabled: true,
   metaTitle: true,
   metaDescription: true,
   ogImage: true,
@@ -58,7 +59,7 @@ const baseProductSelect = {
       price: true, salePrice: true, isOnSale: true, stock: true,
       // Per-variant pre-order terms, so the admin editor round-trips them.
       preOrderEnabled: true, bookingAmount: true, preOrderLimit: true, preOrderCount: true,
-      partialPaymentEnabled: true, depositPercent: true,
+      partialPaymentEnabled: true, depositPercent: true, codEnabled: true,
       optionValues: { select: { optionValueId: true } },
       images: {
         where: { deletedAt: null },
@@ -93,6 +94,7 @@ export async function createProductService(data: {
   preOrderNote?: string;
   partialPaymentEnabled?: boolean;
   depositPercent?: number | null;
+  codEnabled?: boolean;
   metaTitle?: string;
   metaDescription?: string;
   ogImage?: string;
@@ -162,6 +164,7 @@ export async function updateProductService(
     preOrderNote: string | null;
     partialPaymentEnabled: boolean;
     depositPercent: number | null;
+    codEnabled: boolean;
     metaTitle: string | null;
     metaDescription: string | null;
     ogImage: string | null;

@@ -14,6 +14,7 @@ import {
   maxPartialOrderValue,
   maxOpenPartialOrders,
 } from '../utils/partialPayment';
+import { isCodEnabled, resolveCartCodEnabled, assertCodAllowed } from '../utils/cod';
 import { notify } from './notification.services';
 import { orderShortRef, money } from '../utils/notificationCopy';
 import { syncProductStockFlag, syncProductStockFlags } from '../utils/stock';
@@ -98,11 +99,20 @@ export async function createOrderService(userId: string, data: CreateOrderBody, 
     throw new ApiError(400, OrderErrorCode.PARTIAL_PAYMENT_DISABLED);
   }
 
-  if (wantsPartial) {
-    // The balance is collected by the courier, so the pincode must accept COD. This
-    // fails CLOSED, unlike `assertServiceable` — taking a deposit for an address where
-    // the remaining balance can never be collected is the one outcome worth blocking
-    // checkout over.
+  const wantsCod = data.paymentMethod === "COD";
+  if (wantsCod && !isCodEnabled()) {
+    throw new ApiError(400, OrderErrorCode.COD_DISABLED);
+  }
+  // Separate options: COD collects everything at the door, a deposit plan collects part of
+  // it online first. One order is never both.
+  if (wantsCod && wantsPartial) {
+    throw new ApiError(400, OrderErrorCode.COD_PLAN_CONFLICT);
+  }
+
+  if (wantsPartial || wantsCod) {
+    // The courier collects money on both plans, so the pincode must accept COD. This fails
+    // CLOSED, unlike `assertServiceable` — accepting an order whose payment can never be
+    // collected at the door is the one outcome worth blocking checkout over.
     await assertCodCollectable(shippingAddress.pincode);
   } else {
     await assertServiceable(shippingAddress.pincode, data.paymentMethod);
@@ -177,6 +187,7 @@ export async function createOrderService(userId: string, data: CreateOrderBody, 
           id: true, name: true, price: true, salePrice: true, isOnSale: true,
           quantity: true, inStock: true,
           partialPaymentEnabled: true, depositPercent: true,
+          codEnabled: true,
         },
       });
 
@@ -186,6 +197,7 @@ export async function createOrderService(userId: string, data: CreateOrderBody, 
           id: true, name: true, price: true, salePrice: true, isOnSale: true,
           stock: true, productId: true,
           partialPaymentEnabled: true, depositPercent: true,
+          codEnabled: true,
         },
       });
 
@@ -225,6 +237,17 @@ export async function createOrderService(userId: string, data: CreateOrderBody, 
         if (openBalances >= maxOpenPartialOrders()) {
           throw new ApiError(400, OrderErrorCode.PARTIAL_LIMIT_REACHED);
         }
+      }
+
+      // Every line must allow Cash on Delivery — the order is collected as one amount.
+      if (wantsCod) {
+        const codAllowed = resolveCartCodEnabled(
+          data.cartItems.map((item) => ({
+            product: productMap.get(item.productId) ?? { codEnabled: false },
+            variant: item.variantId ? variantMap.get(item.variantId) ?? null : null,
+          }))
+        );
+        if (!codAllowed) throw new ApiError(400, OrderErrorCode.COD_NOT_ELIGIBLE);
       }
 
       for (const item of data.cartItems) {
@@ -333,6 +356,12 @@ export async function createOrderService(userId: string, data: CreateOrderBody, 
         balanceAmount = split.balance;
       }
 
+      // Order value, undelivered COD orders and past refusals — checked against the total
+      // this transaction is about to persist, under a lock on the customer row.
+      if (wantsCod) {
+        await assertCodAllowed(tx, userId, total);
+      }
+
       try {
         const order = await tx.order.create({
           data: {
@@ -420,6 +449,7 @@ export async function createOrderService(userId: string, data: CreateOrderBody, 
  */
 function partialBlock(order: {
   paymentPlan: string;
+  paymentMethod?: string;
   status: string;
   depositAmount: unknown;
   balanceAmount: unknown;
@@ -436,7 +466,16 @@ function partialBlock(order: {
   const paidInFull = order.payment?.status === "SUCCESS";
 
   if (order.paymentPlan !== "PARTIAL") {
-    return { paymentPlan: "FULL" as const, partial: null, invoiceAvailable: paidInFull };
+    // A COD order's tax invoice is raised at dispatch while its payment stays PENDING until
+    // the courier collects, so gating on a settled payment would hide it in transit.
+    const codDispatched =
+      order.paymentMethod === "COD" &&
+      ["PROCESSING", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED"].includes(order.status);
+    return {
+      paymentPlan: "FULL" as const,
+      partial: null,
+      invoiceAvailable: paidInFull || codDispatched,
+    };
   }
 
   const settled = Boolean(order.payment?.balanceSettledAt) || paidInFull;
@@ -496,6 +535,7 @@ export async function getOrdersService(userId: string, page: number, limit: numb
         total: true,
         status: true,
         createdAt: true,
+        paymentMethod: true,
         paymentPlan: true,
         depositAmount: true,
         balanceAmount: true,

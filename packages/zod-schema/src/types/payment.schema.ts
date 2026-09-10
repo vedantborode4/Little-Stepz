@@ -107,6 +107,14 @@ export const writeOffBalanceBodySchema = z
   })
   .strict();
 
+/** Confirm a Cash on Delivery order. It must have been created with paymentMethod COD. */
+export const createCodPaymentBodySchema = z
+  .object({
+    orderId: uuidSchema,
+  })
+  .strict();
+
+export type CreateCodPaymentBody   = z.infer<typeof createCodPaymentBodySchema>;
 export type WriteOffBalanceBody    = z.infer<typeof writeOffBalanceBodySchema>;
 export type MarkBalancePaidBody    = z.infer<typeof markBalancePaidBodySchema>;
 export type CreatePaymentBody      = z.infer<typeof createPaymentBodySchema>;

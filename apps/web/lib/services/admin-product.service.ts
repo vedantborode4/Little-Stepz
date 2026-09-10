@@ -24,6 +24,7 @@ export interface ProductVariant {
   /** Per-variant partial-payment terms. null depositPercent inherits the product's. */
   partialPaymentEnabled?: boolean
   depositPercent?: number | null
+  codEnabled?: boolean
   images?: ProductImage[]
   optionValues?: { optionValueId: string }[]
 }
@@ -63,6 +64,7 @@ export interface VariantBody {
   /** Per-variant partial-payment terms. null depositPercent inherits the product's. */
   partialPaymentEnabled?: boolean
   depositPercent?: number | null
+  codEnabled?: boolean
 }
 
 export type PriceDisplay = "BOTH" | "REGULAR" | "SALE"
@@ -86,6 +88,7 @@ export interface AdminProduct {
   preOrderNote?: string | null
   partialPaymentEnabled?: boolean
   depositPercent?: number | null
+  codEnabled?: boolean
   categoryId?: string
   category?: { id: string; name: string; slug: string }
   images: ProductImage[]
@@ -145,7 +148,7 @@ export const AdminProductService = {
     price: number; salePrice?: number; isOnSale?: boolean; priceDisplay?: PriceDisplay
     quantity?: number; inStock?: boolean; categoryId: string
     preOrderEnabled?: boolean; bookingAmount?: number; preOrderLimit?: number; preOrderNote?: string
-    partialPaymentEnabled?: boolean; depositPercent?: number | null
+    partialPaymentEnabled?: boolean; depositPercent?: number | null; codEnabled?: boolean
   }): Promise<AdminProduct> => {
     const res = await api.post("/admin/products", body)
     return res.data.data
@@ -157,7 +160,7 @@ export const AdminProductService = {
     price: number; salePrice: number | null; isOnSale: boolean; priceDisplay: PriceDisplay
     quantity: number; inStock: boolean; categoryId: string
     preOrderEnabled: boolean; bookingAmount: number; preOrderLimit: number; preOrderNote: string
-    partialPaymentEnabled: boolean; depositPercent: number | null
+    partialPaymentEnabled: boolean; depositPercent: number | null; codEnabled: boolean
   }>): Promise<AdminProduct> => {
     const res = await api.put(`/admin/products/${id}`, body)
     return res.data.data

@@ -165,6 +165,12 @@ export default function OrdersPage() {
                       </span>
                       {/* An outstanding balance is the one thing about this order the
                           customer needs to see without opening it. */}
+                      {!order.partial && order.paymentMethod === "COD" &&
+                        ["CONFIRMED", "PROCESSING", "SHIPPED", "OUT_FOR_DELIVERY"].includes(order.status) && (
+                        <span className="text-[10px] font-semibold bg-amber-500/15 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-full">
+                          ₹{Number(order.total).toLocaleString("en-IN")} on delivery
+                        </span>
+                      )}
                       {order.partial?.balanceStatus === "DUE" && (
                         <span className="text-[10px] font-semibold bg-amber-500/15 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-full">
                           ₹{Number(order.partial.balanceAmount).toLocaleString("en-IN")}{" "}

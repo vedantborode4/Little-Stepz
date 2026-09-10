@@ -25,6 +25,9 @@ const variantBaseSchema = z.object({
     // master so this can only opt a variant out, and a null percent inherits.
     partialPaymentEnabled: z.boolean().optional(),
     depositPercent: z.coerce.number().min(1).max(99).nullish(),
+
+    // Cash on Delivery — can only opt a variant out of what its product allows.
+    codEnabled: z.boolean().optional(),
 });
 
 const refineVariantSalePrice = (

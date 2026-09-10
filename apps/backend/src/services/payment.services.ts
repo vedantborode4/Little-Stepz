@@ -1,3 +1,6 @@
+import { OrderErrorCode } from "../utils/orderErrors";
+import type { CreateCodPaymentBody } from "@repo/zod-schema/index";
+import { assertCodAllowed } from "../utils/cod";
 import { prisma, Prisma, PaymentStatus, OrderStatus, PaymentMethod, WebhookStatus, ReturnStatus } from "@repo/db/client";
 import type { ShipmentStatus } from "@repo/db/client";
 import { ApiError } from "../utils/api";
@@ -141,7 +144,9 @@ async function emitOrderEmails(orderId: string): Promise<void> {
       // The admin triages from the subject line, so say what was actually collected.
       paymentMethod: isPartial
         ? `${money(Number(order.depositAmount ?? 0))} deposit — ${money(Number(order.balanceAmount ?? 0))} due on delivery`
-        : order.paymentMethod,
+        : order.paymentMethod === "COD"
+          ? `Cash on Delivery: ${money(Number(order.total))} to collect`
+          : "Paid online",
       items,
     };
 
@@ -323,10 +328,10 @@ export async function createPaymentService(
       // Deliberately no COD guard here. COD confirmation always flipped the order to
       // CONFIRMED in the same transaction that wrote the COD payment, so a PENDING
       // order can never carry a settled COD payment — and the status check above
-      // already rejects a confirmed one. Since COD was withdrawn this also covers an
-      // order created by a legacy client that intended COD: paying online must work,
-      // because the order is replayed under the same idempotency key. The method is
-      // corrected below.
+      // already rejects a confirmed one. A customer who created a COD order and then
+      // chose to pay online instead must be able to, because the order is replayed under
+      // the same idempotency key. The method is corrected to ONLINE below, which also
+      // means /payments/cod refuses the order from then on.
 
       const isPartial = order.paymentPlan === "PARTIAL";
 
@@ -817,12 +822,111 @@ export async function verifyPaymentService(
 }
 
 /**
- * Cash on Delivery was withdrawn — `createCodPaymentService` is gone and
- * `POST /payments/cod` now answers 410. Everything downstream of a COD order that
- * already exists is deliberately untouched: settleCodOnDelivery(), the COD branches
- * in refunds and admin cancellation, and the Delhivery "COD" paymentMode all still
- * run for parcels that are already in the field.
+ * Confirm a Cash on Delivery order.
+ *
+ * Nothing is charged: the order is confirmed with a PENDING payment that
+ * `settleCodOnDelivery` books when the courier reports it delivered, and the tax invoice is
+ * raised at dispatch.
+ *
+ * The COD gates run at order creation against the method stated there, so this refuses any
+ * order not created for COD, otherwise a client could create an online order, skipping
+ * every gate, and confirm it here. The per-customer gates are re-asserted under lock, since
+ * another COD order may have been confirmed in between.
  */
+export async function createCodPaymentService(
+  userId: string,
+  data: CreateCodPaymentBody,
+  req?: Request
+) {
+  const result = await withRetry(async () => {
+    return prisma.$transaction(async (tx) => {
+      const orders = await tx.$queryRaw<Array<{
+        id: string; userId: string; total: unknown; status: string;
+        paymentMethod: string; paymentPlan: string;
+      }>>`
+        SELECT id, "userId", total, status, "paymentMethod", "paymentPlan"
+        FROM "Order"
+        WHERE id = ${data.orderId}
+        FOR UPDATE
+      `;
+
+      const order = orders[0];
+      if (!order) throw new ApiError(404, PaymentErrorCode.ORDER_NOT_FOUND);
+      if (order.userId !== userId) throw new ApiError(403, PaymentErrorCode.UNAUTHORIZED_ACCESS);
+
+      if (order.paymentMethod !== "COD" || order.paymentPlan !== "FULL") {
+        throw new ApiError(400, OrderErrorCode.PAYMENT_METHOD_INVALID);
+      }
+
+      const existingPayment = await tx.payment.findUnique({
+        where: { orderId: data.orderId },
+      });
+
+      // A double tap or a retried request lands here after the first confirm committed.
+      if (order.status !== "PENDING") {
+        if (existingPayment?.method === "COD") {
+          return { orderId: data.orderId, total: Number(order.total), alreadyProcessed: true };
+        }
+        throw new ApiError(400, PaymentErrorCode.ORDER_NOT_PENDING);
+      }
+
+      const total = new Decimal(String(order.total));
+      await assertCodAllowed(tx, userId, total);
+
+      if (existingPayment) {
+        await tx.payment.update({
+          where: { orderId: data.orderId },
+          data: { method: "COD", gateway: "cod", status: "PENDING", amount: total },
+        });
+      } else {
+        await tx.payment.create({
+          data: {
+            orderId:  data.orderId,
+            method:   "COD",
+            gateway:  "cod",
+            amount:   total,
+            currency: "INR",
+            status:   "PENDING",
+          },
+        });
+      }
+
+      await tx.order.update({
+        where: { id: data.orderId },
+        data:  { status: "CONFIRMED" },
+      });
+
+      // Cleared only now the order is confirmed, see orders.services.ts.
+      await tx.cartItem.updateMany({
+        where: { userId, deletedAt: null },
+        data:  { deletedAt: new Date() },
+      });
+
+      await createAuditLogInTx(tx, {
+        userId,
+        action:   "PAYMENT_COD_CREATED",
+        entity:   "Payment",
+        entityId: data.orderId,
+        newValue: { method: "COD", amount: Number(total) },
+        req,
+      });
+
+      return { orderId: data.orderId, total: Number(total), alreadyProcessed: false };
+    });
+  });
+
+  if (!result.alreadyProcessed) {
+    emitOrderConfirmed(userId, result.orderId, result.total, { paid: false });
+  }
+
+  return {
+    success:          true,
+    orderId:          result.orderId,
+    paymentMethod:    "COD" as const,
+    alreadyProcessed: result.alreadyProcessed,
+  };
+}
+
 export async function handleRazorpayWebhookService(
   rawBody:   Buffer,
   signature: string,
@@ -1466,6 +1570,8 @@ export async function resolveReturnService(
       // Filled inside the transaction, actioned after it commits. Returned rather
       // than captured in a closure so a retried attempt cannot leak its intent.
       let pendingRefund: { amount: number; full: boolean } | null = null;
+      // Cash already handed to a courier cannot be reversed through any gateway.
+      let manualCodRefund: number | null = null;
       const returns = await tx.$queryRaw<Array<{
         id: string; orderId: string; status: string; userId: string;
       }>>`
@@ -1522,13 +1628,27 @@ export async function resolveReturnService(
           throw new ApiError(409, PaymentErrorCode.REFUND_ALREADY_ISSUED);
         }
         if (payment.method === "COD") {
+          // Paid in cash at the door, so there is no capture to reverse. Marking the payment
+          // REFUND_INITIATED alone left the money owed with nothing queuing it; it is now an
+          // explicit payout an admin settles by hand.
+          const owed = data.refundAmount ?? Number(payment.amount);
           await tx.payment.update({
             where: { orderId: returnReq.orderId },
             data: {
-              status:       "REFUND_INITIATED",
-              refundReason: data.adminNote ?? "Return approved",
+              status:             "REFUND_INITIATED",
+              refundReason:       data.adminNote ?? "Return approved",
+              manualRefundAmount: new Decimal(owed),
             },
           });
+          await createAuditLogInTx(tx, {
+            userId:   adminUserId,
+            action:   "MANUAL_REFUND_OWED",
+            entity:   "Payment",
+            entityId: returnReq.orderId,
+            newValue: { amount: owed, collectedVia: "COD", reason: data.adminNote ?? "Return approved" },
+            req,
+          });
+          manualCodRefund = owed;
         } else if (payment.method === "ONLINE" && payment.razorpayPaymentId) {
           // The gateway call is deliberately NOT made here — it runs after the
           // commit (see below), so Razorpay latency never holds this transaction's
@@ -1580,11 +1700,21 @@ export async function resolveReturnService(
         orderId:   returnReq.orderId,
         refundInitiated: data.status === "APPROVED" && order.payment?.method === "ONLINE",
         pendingRefund,
+        manualCodRefund,
       };
     });
   });
 
-  const { pendingRefund, ...response } = result;
+  const { pendingRefund, manualCodRefund, ...response } = result;
+
+  if (manualCodRefund) {
+    void notifyAdmins({
+      type:  "ADMIN_CUSTOM",
+      title: "Manual refund owed",
+      body:  `The return for order #${orderShortRef(result.orderId)} was approved. ${money(manualCodRefund)} was paid in cash on delivery, so it must be refunded by hand.`,
+      data:  { screen: "AdminOrder", orderId: result.orderId },
+    });
+  }
 
   // Gateway call after the commit. Never throws: the return is already approved and
   // the stock already back, so a gateway outage must not fail the whole operation —
@@ -1907,11 +2037,11 @@ export async function createShipmentService(
     data: { screen: "Order", orderId, trackingUrl },
   });
 
-  // A partial order's tax invoice is raised HERE rather than on settlement, because the
+  // A partial or COD order's tax invoice is raised HERE rather than on settlement, because the
   // invoice must travel with the goods (CGST §31(1)) and its balance is not collected
   // until delivery. Fail-soft: the parcel is already manifested, and the invoice is
   // recoverable from the download endpoint.
-  if (balanceOutstanding) {
+  if (shipsCod && codAmount > 0) {
     void issueInvoiceForOrder(orderId).catch((err) =>
       console.error(`[invoice] dispatch-time issue failed for order ${orderId}:`, err)
     );
@@ -1919,9 +2049,9 @@ export async function createShipmentService(
     void notify({
       userId: order.userId,
       type: "PAYMENT_SUCCESS",
-      title: "Balance due on delivery 💵",
+      title: "Payment due on delivery 💵",
       body: `Your order #${orderShortRef(orderId)} has shipped. Please keep ${money(
-        Number(order.balanceAmount ?? 0)
+        codAmount
       )} ready — the delivery agent will collect it at your door.`,
       data: { screen: "Order", orderId },
     });
@@ -1934,7 +2064,7 @@ export async function createShipmentService(
         if (!u?.email) return;
         void sendBalanceDueOnDispatchEmail(u.email, {
           orderId,
-          balance: Number(order.balanceAmount ?? 0),
+          balance: codAmount,
           trackingUrl,
         });
       })

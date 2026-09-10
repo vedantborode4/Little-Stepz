@@ -20,7 +20,7 @@ export interface Faq {
 export const FAQS: Faq[] = [
   {
     q: "Do you offer Cash on Delivery (COD)?",
-    a: "No. Little Stepz orders are prepaid — pay securely at checkout by UPI, debit or credit card, net banking or wallet. Cash on Delivery is no longer offered.",
+    a: "Yes — on eligible products and pincodes, up to a maximum order value. Choose Cash on Delivery at checkout and pay the delivery agent when your order arrives. You can also pay online in full by UPI, card, net banking or wallet, or pay a deposit now and the rest on delivery.",
   },
   {
     q: "How long does shipping take?",

@@ -16,6 +16,15 @@ import {
   maxOpenPartialOrders,
 } from "../utils/partialPayment";
 import { isPhoneVerified } from "./phoneVerification.services";
+import {
+  isCodEnabled,
+  maxCodOrderValue,
+  maxOpenCodOrders,
+  codRefusalLimit,
+  resolveCartCodEnabled,
+  openCodOrderWhere,
+  codRefusalWhere,
+} from "../utils/cod";
 
 /**
  * Why partial payment is not on offer. Codes only, no prose — the copy lives in
@@ -39,6 +48,23 @@ export interface PartialPaymentQuote {
   reasons: PartialIneligibilityReason[];
 }
 
+/** Why Cash on Delivery is not on offer. Copy lives in @repo/content (`codReasonText`). */
+export type CodIneligibilityReason =
+  | { code: "COD_DISABLED" }
+  | { code: "ITEMS_NOT_ELIGIBLE"; meta: { count: number } }
+  | { code: "ORDER_VALUE_ABOVE_CAP"; meta: { cap: number } }
+  | { code: "TOO_MANY_OPEN_COD_ORDERS"; meta: { open: number; limit: number } }
+  | { code: "COD_BLOCKED_REFUSALS" }
+  | { code: "PHONE_NOT_VERIFIED" }
+  | { code: "PINCODE_COD_UNAVAILABLE"; meta: { pincode: string } };
+
+export interface CodPaymentQuote {
+  eligible: boolean;
+  /** Collected in full at the door — the order total. */
+  amountDue: number;
+  reasons: CodIneligibilityReason[];
+}
+
 export async function checkServiceabilityService(pincode: string) {
   return checkServiceability(pincode);
 }
@@ -51,6 +77,8 @@ interface CheckoutResult {
   items: Array<{ productId: string; variantId?: string; quantity: number; price: Decimal; subtotal: Decimal }>;
   /** Always returned, whichever plan was asked for, so one call renders both options. */
   partialPayment: PartialPaymentQuote;
+  /** Always returned too, so the checkout renders all three options from one call. */
+  codPayment: CodPaymentQuote;
 }
 
 export async function calculateCheckoutService(userId: string, data: CheckoutCalculateBody): Promise<CheckoutResult> {
@@ -77,6 +105,7 @@ export async function calculateCheckoutService(userId: string, data: CheckoutCal
       select: {
         id: true, price: true, salePrice: true, isOnSale: true, quantity: true, inStock: true,
         partialPaymentEnabled: true, depositPercent: true,
+        codEnabled: true,
       },
     }),
     prisma.variant.findMany({
@@ -84,6 +113,7 @@ export async function calculateCheckoutService(userId: string, data: CheckoutCal
       select: {
         id: true, price: true, salePrice: true, isOnSale: true, stock: true, productId: true,
         partialPaymentEnabled: true, depositPercent: true,
+        codEnabled: true,
       },
     }),
   ]);
@@ -103,6 +133,19 @@ export async function calculateCheckoutService(userId: string, data: CheckoutCal
     if (!product?.partialPaymentEnabled) return true;
     const variant = item.variantId ? variantMap.get(item.variantId) : null;
     return variant ? !variant.partialPaymentEnabled : false;
+  }).length;
+
+  const codCartEnabled = resolveCartCodEnabled(
+    cartItems.map((item) => ({
+      product: productMap.get(item.productId) ?? { codEnabled: false },
+      variant: item.variantId ? variantMap.get(item.variantId) ?? null : null,
+    }))
+  );
+  const codIneligibleItemCount = cartItems.filter((item) => {
+    const product = productMap.get(item.productId);
+    if (!product?.codEnabled) return true;
+    const variant = item.variantId ? variantMap.get(item.variantId) : null;
+    return variant ? !variant.codEnabled : false;
   }).length;
 
   let hasInvalidItems = false;
@@ -150,7 +193,10 @@ export async function calculateCheckoutService(userId: string, data: CheckoutCal
     discount = calcDiscount;
   }
 
-  await assertServiceable(address.pincode, data.paymentMethod);
+  // Hard serviceability only. Whether the courier can also collect cash is reported as data
+  // in the COD and deposit quotes below, so a COD-only restriction must not fail the whole
+  // quote — and published builds still send paymentMethod: COD to this endpoint.
+  await assertServiceable(address.pincode, "ONLINE");
   let shippingCharges = await resolveShippingCharge(address.pincode, data.paymentMethod);
 
   let total = subtotal.sub(discount).add(shippingCharges);
@@ -161,16 +207,45 @@ export async function calculateCheckoutService(userId: string, data: CheckoutCal
   shippingCharges = shippingCharges.toDecimalPlaces(2, Decimal.ROUND_HALF_EVEN);
   total = total.toDecimalPlaces(2, Decimal.ROUND_HALF_EVEN);
 
-  const partialPayment = await quotePartialPayment({
-    userId,
-    total,
-    pincode: address.pincode,
-    phone: address.phone,
-    terms: partialTerms,
-    ineligibleItemCount,
-  });
+  // A COD order and a deposit order both travel on a COD manifest, and createOrderService
+  // charges the COD rate for them. Their quotes must use that rate too, or the amount shown
+  // at checkout is less than what the order charges and the courier collects.
+  const codShipping =
+    data.paymentMethod === "COD"
+      ? shippingCharges
+      : (await resolveShippingCharge(address.pincode, "COD")).toDecimalPlaces(2, Decimal.ROUND_HALF_EVEN);
+  let codTotal = subtotal.sub(discount).add(codShipping);
+  if (codTotal.lt(0)) codTotal = new Decimal(0);
+  codTotal = codTotal.toDecimalPlaces(2, Decimal.ROUND_HALF_EVEN);
 
-  return { subtotal, discount, shippingCharges, total, items: enhancedItems, partialPayment };
+  // Both plans need the same Delhivery COD lookup — an HTTP round-trip — so ask once.
+  let codCheck: Promise<boolean> | null = null;
+  const codCollectable = () => (codCheck ??= isCodCollectable(address.pincode));
+
+  const [partialPayment, codPayment] = await Promise.all([
+    quotePartialPayment({
+      userId,
+      total: codTotal,
+      pincode: address.pincode,
+      phone: address.phone,
+      terms: partialTerms,
+      ineligibleItemCount,
+      codCollectable,
+    }),
+    quoteCodPayment({
+      userId,
+      total: codTotal,
+      pincode: address.pincode,
+      phone: address.phone,
+      cartEnabled: codCartEnabled,
+      ineligibleItemCount: codIneligibleItemCount,
+      codCollectable,
+    }),
+  ]);
+
+  return {
+    subtotal, discount, shippingCharges, total, items: enhancedItems, partialPayment, codPayment,
+  };
 }
 
 /**
@@ -191,8 +266,9 @@ async function quotePartialPayment(args: {
   phone: string;
   terms: { enabled: boolean; depositPercent: Decimal };
   ineligibleItemCount: number;
+  codCollectable: () => Promise<boolean>;
 }): Promise<PartialPaymentQuote> {
-  const { userId, total, pincode, phone, terms, ineligibleItemCount } = args;
+  const { userId, total, pincode, phone, terms, ineligibleItemCount, codCollectable } = args;
   const reasons: PartialIneligibilityReason[] = [];
 
   const split = splitDeposit(total, terms.depositPercent);
@@ -246,9 +322,70 @@ async function quotePartialPayment(args: {
   }
 
   // Last, and only if it can still change the answer: this one is an HTTP round-trip.
-  if (reasons.length === 0 && !(await isCodCollectable(pincode))) {
+  if (reasons.length === 0 && !(await codCollectable())) {
     reasons.push({ code: "PINCODE_COD_UNAVAILABLE", meta: { pincode } });
   }
 
   return { ...base, eligible: reasons.length === 0, reasons };
+}
+
+/**
+ * Can this cart be paid in full by Cash on Delivery, and if not, why not?
+ *
+ * Mirrors `quotePartialPayment`: every gate is reported rather than the first failure, the
+ * Delhivery lookup runs last and only if it can still change the answer, and nothing here is
+ * trusted — `createOrderService` and `createCodPaymentService` re-assert all of it.
+ */
+async function quoteCodPayment(args: {
+  userId: string;
+  total: Decimal;
+  pincode: string;
+  phone: string;
+  cartEnabled: boolean;
+  ineligibleItemCount: number;
+  codCollectable: () => Promise<boolean>;
+}): Promise<CodPaymentQuote> {
+  const { userId, total, pincode, phone, cartEnabled, ineligibleItemCount, codCollectable } = args;
+  const amountDue = total.toNumber();
+
+  if (!isCodEnabled()) {
+    return { eligible: false, amountDue, reasons: [{ code: "COD_DISABLED" }] };
+  }
+
+  const reasons: CodIneligibilityReason[] = [];
+
+  if (!cartEnabled) {
+    reasons.push({ code: "ITEMS_NOT_ELIGIBLE", meta: { count: ineligibleItemCount } });
+  }
+
+  const cap = maxCodOrderValue();
+  if (total.gt(cap)) {
+    reasons.push({ code: "ORDER_VALUE_ABOVE_CAP", meta: { cap: cap.toNumber() } });
+  }
+
+  const requirePhone = process.env.REQUIRE_VERIFIED_PHONE_AT_CHECKOUT === "true";
+  const [open, refused, phoneVerified] = await Promise.all([
+    prisma.order.count({ where: openCodOrderWhere(userId) }),
+    prisma.order.count({ where: codRefusalWhere(userId) }),
+    requirePhone ? isPhoneVerified(userId, phone) : Promise.resolve(true),
+  ]);
+
+  if (refused >= codRefusalLimit()) {
+    reasons.push({ code: "COD_BLOCKED_REFUSALS" });
+  }
+
+  const limit = maxOpenCodOrders();
+  if (open >= limit) {
+    reasons.push({ code: "TOO_MANY_OPEN_COD_ORDERS", meta: { open, limit } });
+  }
+
+  if (!phoneVerified) {
+    reasons.push({ code: "PHONE_NOT_VERIFIED" });
+  }
+
+  if (reasons.length === 0 && !(await codCollectable())) {
+    reasons.push({ code: "PINCODE_COD_UNAVAILABLE", meta: { pincode } });
+  }
+
+  return { eligible: reasons.length === 0, amountDue, reasons };
 }

@@ -184,7 +184,7 @@ export default function OrderDetail() {
           <View className="flex-row items-center justify-between">
             <Text className="text-sm text-muted">Payment</Text>
             <View className="flex-row items-center gap-2">
-              <Text className="text-sm text-text">{order.paymentMethod}</Text>
+              <Text className="text-sm text-text">{order.paymentMethod === "COD" ? "Cash on Delivery" : "Online"}</Text>
               {order.payment?.status ? <StatusBadge value={order.payment.status} map={PAYMENT_STATUS} /> : null}
             </View>
           </View>

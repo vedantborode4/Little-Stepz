@@ -21,13 +21,14 @@ type CreateVariantInput = {
   /** Per-variant partial-payment terms; see utils/partialPayment.ts for the rules. */
   partialPaymentEnabled?: boolean;
   depositPercent?: number | null;
+  codEnabled?: boolean;
 };
 
 export async function createVariantService(data: CreateVariantInput) {
   const {
     productId, name, sku, sortOrder, isDefault = false, price, salePrice,
     isOnSale = false, stock = 0, preOrderEnabled, bookingAmount, preOrderLimit,
-    partialPaymentEnabled, depositPercent,
+    partialPaymentEnabled, depositPercent, codEnabled,
   } = data;
   // Store the name exactly as the admin typed it (trimmed) — only the duplicate
   // check below is case-insensitive.
@@ -98,6 +99,7 @@ export async function createVariantService(data: CreateVariantInput) {
         // Same inherit-by-default rule: true means "follow the product".
         partialPaymentEnabled: partialPaymentEnabled ?? true,
         depositPercent: depositPercent ?? null,
+        codEnabled: codEnabled ?? true,
       },
     });
 
@@ -121,6 +123,7 @@ type UpdateVariantInput = Partial<{
   preOrderLimit: number | null;
   partialPaymentEnabled: boolean;
   depositPercent: number | null;
+  codEnabled: boolean;
 }>;
 
 export async function updateVariantService(
@@ -130,7 +133,7 @@ export async function updateVariantService(
   const {
     name, sku, sortOrder, isDefault, price, salePrice, isOnSale, stock,
     preOrderEnabled, bookingAmount, preOrderLimit,
-    partialPaymentEnabled, depositPercent,
+    partialPaymentEnabled, depositPercent, codEnabled,
   } = data;
 
   if (
@@ -146,7 +149,8 @@ export async function updateVariantService(
     bookingAmount === undefined &&
     preOrderLimit === undefined &&
     partialPaymentEnabled === undefined &&
-    depositPercent === undefined
+    depositPercent === undefined &&
+    codEnabled === undefined
   ) {
     throw new ApiError(400, "No fields provided to update");
   }
@@ -234,6 +238,7 @@ export async function updateVariantService(
         // null clears the override so the variant inherits again — same reasoning as
         // bookingAmount above, so it must not be collapsed to "unchanged".
         depositPercent: depositPercent !== undefined ? depositPercent : undefined,
+        codEnabled: codEnabled !== undefined ? codEnabled : undefined,
       },
       select: {
         id: true,

@@ -45,12 +45,20 @@ export interface PartialPaymentQuote {
   reasons: PartialReason[]
 }
 
+/** Cash on Delivery eligibility from the checkout quote. `amountDue` is the order total. */
+export interface CodPaymentQuote {
+  eligible: boolean
+  amountDue: number
+  reasons: PartialReason[]
+}
+
 export interface CheckoutQuote {
   subtotal: number
   discount: number
   shippingCharges: number
   total: number
   partialPayment: PartialPaymentQuote
+  codPayment: CodPaymentQuote
 }
 
 export const CheckoutService = {
@@ -95,7 +103,7 @@ export const CheckoutService = {
     cartItems: CartItemPayload[],
     couponCode?: string | null,
     idempotencyKey?: string,
-    plan?: { paymentPlan: "FULL" | "PARTIAL"; acceptForfeitTerms?: boolean }
+    plan?: { paymentPlan: "FULL" | "PARTIAL"; paymentMethod?: "ONLINE" | "COD"; acceptForfeitTerms?: boolean }
   ) => {
     const affiliateId = getAffiliateId()
     const headers: Record<string, string> = {}
@@ -113,6 +121,8 @@ export const CheckoutService = {
           quantity: i.quantity,
         })),
         ...(couponCode ? { couponCode } : {}),
+        // Sent only for Cash on Delivery; the server defaults to ONLINE.
+        ...(plan?.paymentMethod === "COD" ? { paymentMethod: "COD" } : {}),
         // Omitted for a full-payment order so the request stays identical to what
         // shipped before this feature; the server defaults paymentPlan to FULL.
         ...(plan?.paymentPlan === "PARTIAL"
@@ -125,6 +135,15 @@ export const CheckoutService = {
       orderId: string; total: number; subtotal: number; discount: number
       paymentPlan: "FULL" | "PARTIAL"; amountDueNow: number; balanceDue: number
     }
+  },
+
+  /**
+   * Confirm a Cash on Delivery order. Nothing is charged — the order is confirmed and the
+   * courier collects the total at the door. Used in place of the Razorpay step.
+   */
+  confirmCod: async (orderId: string) => {
+    const res = await api.post("/payments/cod", { orderId })
+    return res.data.data as { success: boolean; orderId: string; paymentMethod: "COD"; alreadyProcessed: boolean }
   },
 
   /**

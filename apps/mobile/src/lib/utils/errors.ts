@@ -46,6 +46,14 @@ const FRIENDLY: Record<string, string> = {
   DEPOSIT_FORFEIT_CONFIRMATION_REQUIRED:
     "Cancelling forfeits your deposit — please confirm to continue.",
   COD_NOT_AVAILABLE: "Our courier can't collect payment at this address.",
+  // Cash on Delivery
+  COD_ALREADY_SET: "This order is already set to Cash on Delivery.",
+  COD_DISABLED: "Cash on Delivery isn't available right now.",
+  COD_NOT_ELIGIBLE: "Some items in your cart can't be paid with Cash on Delivery.",
+  COD_ORDER_VALUE_EXCEEDED: "This order is above the Cash on Delivery limit. Please pay online.",
+  COD_LIMIT_REACHED: "You already have Cash on Delivery orders on the way. Please pay online for this one.",
+  COD_BLOCKED: "Cash on Delivery isn't available on this account. You can still pay online.",
+  COD_PLAN_CONFLICT: "Cash on Delivery can't be combined with a deposit. Please choose one.",
   PINCODE_NOT_SERVICEABLE: "We don't deliver to this pincode yet.",
   BALANCE_ALREADY_SETTLED: "This balance has already been paid.",
   BALANCE_NOT_DUE: "There's no balance outstanding on this order.",

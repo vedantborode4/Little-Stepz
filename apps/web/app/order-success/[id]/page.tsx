@@ -189,8 +189,10 @@ export default function OrderSuccessPage() {
                       </p>
                     </>
                   ) : (
-                    <p className="text-xs text-muted mt-1 capitalize">
-                      via {o.paymentMethod?.replace(/_/g, " ") ?? "—"}
+                    <p className="text-xs text-muted mt-1">
+                      {o.paymentMethod === "COD"
+                        ? `Pay ₹${Number(o.total).toLocaleString("en-IN")} in cash on delivery`
+                        : "Paid online"}
                     </p>
                   )}
                 </div>

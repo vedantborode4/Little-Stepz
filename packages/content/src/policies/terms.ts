@@ -55,7 +55,7 @@ export const terms: PolicyPage = {
     {
       heading: "Payment Policy",
       blocks: [
-        { type: "paragraph", text: "Orders may be paid in full at checkout, or — on eligible products and delivery locations — under our Partial Payment plan, where a deposit is paid at checkout and the remaining balance is collected at the time of delivery. We may accept payment through approved payment channels including UPI, Debit Cards, Credit Cards, Net Banking and Digital Wallets. Full Cash on Delivery, with no advance payment, is not offered. Available payment options may vary depending on product, location, order value, account history, or operational policies." },
+        { type: "paragraph", text: "Orders may be paid in full online at checkout, by Cash on Delivery, or under our Partial Payment plan, where a deposit is paid at checkout and the remaining balance is collected at the time of delivery. Online payment is accepted through approved channels including UPI, Debit Cards, Credit Cards, Net Banking and Digital Wallets. Cash on Delivery and Partial Payment are available only on eligible products and delivery locations, up to a maximum order value, and may be withdrawn for an account — including after a previously refused or undelivered Cash on Delivery order. Available payment options may vary depending on product, location, order value, account history, or operational policies." },
         {
           type: "paragraph",
           text: "By making a purchase, customers confirm they are authorized to use the selected payment method, that payment information provided is accurate, and that transactions are lawful and genuine. Little Stepz reserves the right to review, verify, delay, hold, or cancel suspicious transactions for fraud prevention or payment security purposes.",
@@ -247,10 +247,19 @@ export const terms: PolicyPage = {
       ],
     },
     {
+      heading: "Cash on Delivery Policy",
+      blocks: [
+        { type: "paragraph", text: "Cash on Delivery lets you pay the full order value in cash to the delivery agent when your order arrives. It is offered at checkout only where available — on eligible products and delivery locations, and up to a maximum order value." },
+        { type: "paragraph", text: "Please keep the order amount ready at the time of delivery. An order that cannot be delivered because payment is refused, or because the recipient is unavailable, is returned to us." },
+        { type: "paragraph", text: "We may limit the number of undelivered Cash on Delivery orders an account can hold at one time, and may withdraw Cash on Delivery from an account after a previously refused or undelivered Cash on Delivery order. Online payment remains available." },
+        { type: "paragraph", text: "A GST tax invoice is issued when a Cash on Delivery order is dispatched. If an approved return is refunded, the amount paid in cash is refunded by our team to your bank account or UPI, since it cannot be reversed through a payment gateway." },
+      ],
+    },
+    {
       heading: "Frequently Asked Questions (FAQ)",
       blocks: [
         { type: "subheading", text: "Do you offer Cash on Delivery (COD)?" },
-        { type: "paragraph", text: "Not as a full Cash on Delivery option — every order requires a payment at checkout. On eligible products and pincodes you may instead choose our Partial Payment plan, where you pay a deposit online at checkout and the delivery agent collects the balance at your door. The deposit is non-refundable if you refuse delivery or cancel the order." },
+        { type: "paragraph", text: "Yes, on eligible products and pincodes, up to a maximum order value. Choose Cash on Delivery at checkout and pay the delivery agent when your order arrives. You can also pay online in full, or pay a deposit now and the rest on delivery. Cash on Delivery may be unavailable on an account after a previously refused or undelivered Cash on Delivery order." },
         { type: "subheading", text: "How long does shipping take?" },
         { type: "paragraph", text: "Delivery usually takes 2–7 business days depending on location." },
         { type: "subheading", text: "Can I cancel my order?" },

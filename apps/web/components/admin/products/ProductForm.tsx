@@ -49,6 +49,7 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
     name: "", slug: "", description: "", longDescription: "", price: "", salePrice: "", costPrice: "", isOnSale: false, priceDisplay: "BOTH", quantity: 0, inStock: true, categoryId: "",
     preOrderEnabled: false, bookingAmount: "", preOrderLimit: "", preOrderNote: "",
     partialPaymentEnabled: false, depositPercent: "",
+    codEnabled: false,
     metaTitle: "", metaDescription: "", ogImage: "", noindex: false, brand: "", gtin: "", mpn: "", condition: "new",
   })
   const [images, setImages] = useState<any[]>([])
@@ -81,6 +82,7 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
         preOrderNote: initialData.preOrderNote ?? "",
         partialPaymentEnabled: initialData.partialPaymentEnabled ?? false,
         depositPercent: initialData.depositPercent != null ? String(initialData.depositPercent) : "",
+        codEnabled: initialData.codEnabled ?? false,
         metaTitle: initialData.metaTitle ?? "",
         metaDescription: initialData.metaDescription ?? "",
         ogImage: initialData.ogImage ?? "",
@@ -403,6 +405,26 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
           )}
         </div>
 
+        {/* Cash on Delivery */}
+        <div className="pt-4 border-t border-border space-y-2">
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.codEnabled}
+              onChange={e => onChange("codEnabled", e.target.checked)}
+              className="w-4 h-4 rounded accent-primary"
+            />
+            <span className="text-sm font-medium text-muted">Allow Cash on Delivery</span>
+          </label>
+          {form.codEnabled && (
+            <p className="text-xs text-faint pl-7">
+              Customers can pay the full amount in cash when the order arrives. The option only
+              appears where the courier can collect, the order is within the COD order-value limit,
+              and the customer has no previously refused COD delivery.
+            </p>
+          )}
+        </div>
+
         {/* SEO + Google Shopping */}
         <SeoPanel
           values={{
@@ -467,6 +489,7 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
                 initialVariants={variants}
                 productPreOrderEnabled={form.preOrderEnabled}
                 productPartialPaymentEnabled={form.partialPaymentEnabled}
+                productCodEnabled={form.codEnabled}
                 productBookingAmount={form.bookingAmount}
               />
             </div>

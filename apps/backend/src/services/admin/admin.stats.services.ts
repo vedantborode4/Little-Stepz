@@ -77,7 +77,7 @@ export async function adminGetStatsService(query: AdminStatsQuery) {
         AND o.status::TEXT IN (${Prisma.join(REVENUE_ORDER_STATUSES.map(String))})
         -- Same rule as SETTLED_MONEY_WHERE above, expressed in SQL.
         AND (
-          o."paymentPlan" = 'FULL'
+          (o."paymentPlan" = 'FULL' AND o."paymentMethod" = 'ONLINE')
           OR EXISTS (
             SELECT 1 FROM "Payment" p
             WHERE p."orderId" = o.id AND p.status = 'SUCCESS'

@@ -295,6 +295,11 @@ model Product {
   partialPaymentEnabled Boolean  @default(false)
   depositPercent        Decimal? @db.Decimal(5,2)
 
+  /// Cash on Delivery. Default false, so restoring COD opts no product in — an admin
+  /// enables it per product, and the courier, order-value, open-order and refused-delivery
+  /// gates still apply on top.
+  codEnabled Boolean @default(false)
+
   category     Category      @relation(fields: [categoryId], references: [id])
   images       ProductImage[]
   variants     Variant[]
@@ -366,6 +371,9 @@ model Variant {
   partialPaymentEnabled Boolean  @default(true)
   /// Null inherits Product.depositPercent, which in turn inherits the env default.
   depositPercent        Decimal? @db.Decimal(5,2)
+
+  /// Same rule as the others: the product switch is master, a variant can only opt out.
+  codEnabled Boolean @default(true)
 
   cartItems    CartItem[]
   orderItems   OrderItem[]
@@ -706,6 +714,8 @@ model Order {
   @@index([idempotencyKey])
   @@index([paymentMethod])
   @@index([paymentPlan])
+  /// Backs the COD open-order and refused-delivery counts run on every checkout quote.
+  @@index([userId, paymentMethod, status])
   @@index([affiliateId])
   /// Backs the per-user coupon cap — Order already records both, so counting a
   /// customer's redemptions needs no separate redemption table.

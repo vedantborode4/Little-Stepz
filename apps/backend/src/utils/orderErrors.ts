@@ -49,4 +49,18 @@ export enum OrderErrorCode {
   SHIPMENT_ACTIVE = "SHIPMENT_ACTIVE",
   /** The phone on the delivery address is unverified — always required for partial. */
   PHONE_NOT_VERIFIED = "PHONE_NOT_VERIFIED",
+
+  // Cash on Delivery. Map each in web's `friendlyError` and mobile's `getErrorMessage`.
+  /** COD is switched off store-wide. */
+  COD_DISABLED = "COD_DISABLED",
+  /** A cart line's product or variant does not allow COD. */
+  COD_NOT_ELIGIBLE = "COD_NOT_ELIGIBLE",
+  /** Order value is above COD_MAX_AMOUNT. */
+  COD_ORDER_VALUE_EXCEEDED = "COD_ORDER_VALUE_EXCEEDED",
+  /** Customer already holds COD_MAX_OPEN_ORDERS undelivered COD orders. */
+  COD_LIMIT_REACHED = "COD_LIMIT_REACHED",
+  /** Customer has refused COD deliveries before. */
+  COD_BLOCKED = "COD_BLOCKED",
+  /** COD and a deposit plan were both requested for one order. */
+  COD_PLAN_CONFLICT = "COD_PLAN_CONFLICT",
 }

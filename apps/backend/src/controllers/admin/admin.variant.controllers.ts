@@ -20,7 +20,7 @@ export const createVariantController = asyncHandler(async (req: Request, res: Re
   const {
     productId, name, sku, sortOrder, isDefault, price, salePrice, isOnSale, stock,
     preOrderEnabled, bookingAmount, preOrderLimit,
-    partialPaymentEnabled, depositPercent,
+    partialPaymentEnabled, depositPercent, codEnabled,
   } = createVariantBodySchema.parse({
     ...req.body,
     productId: req.params.productId,
@@ -32,7 +32,7 @@ export const createVariantController = asyncHandler(async (req: Request, res: Re
     // destructures rather than spreading, so a new field is dropped unless it is named
     // here — which is exactly how the pre-order fields were silently lost once already.
     preOrderEnabled, bookingAmount, preOrderLimit,
-    partialPaymentEnabled, depositPercent,
+    partialPaymentEnabled, depositPercent, codEnabled,
   });
 
   return new ApiResponse(201, variant, "Variant created successfully").send(res);

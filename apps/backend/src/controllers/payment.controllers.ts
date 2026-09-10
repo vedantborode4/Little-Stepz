@@ -6,10 +6,12 @@ import {
   verifyPaymentBodySchema,
   createReturnBodySchema,
   trackOrderParamsSchema,
+  createCodPaymentBodySchema,
 } from "@repo/zod-schema/index";
 import {
   createPaymentService,
   verifyPaymentService,
+  createCodPaymentService,
   handleRazorpayWebhookService,
   createReturnRequestService,
   trackOrderService,
@@ -40,14 +42,17 @@ async function verifyPayment(req: Request, res: Response) {
 }
 
 /**
- * Cash on Delivery has been withdrawn as a payment method.
- *
- * 410 rather than a deleted route: published mobile builds still offer the COD
- * button, and they map error codes to copy. A 404 would surface as a generic
- * failure with the order left PENDING and no explanation.
+ * Confirm a Cash on Delivery order. Nothing is charged — the order is confirmed with a
+ * PENDING payment that is booked when the courier reports it delivered.
  */
-async function codRetired(_req: Request, _res: Response) {
-  throw new ApiError(410, PaymentErrorCode.COD_NOT_AVAILABLE);
+async function createCodPayment(req: Request, res: Response) {
+  const userId = req.user?.userId;
+  if (!userId) throw new ApiError(401, "Unauthorized");
+
+  const validated = createCodPaymentBodySchema.parse(req.body);
+  const result    = await createCodPaymentService(userId, validated, req);
+
+  return new ApiResponse(200, result, "Cash on Delivery confirmed").send(res);
 }
 
 async function razorpayWebhook(req: Request, res: Response) {
@@ -150,7 +155,7 @@ async function trackOrder(req: Request, res: Response) {
 
 export const createPaymentController    = asyncHandler(createPayment);
 export const verifyPaymentController    = asyncHandler(verifyPayment);
-export const codRetiredController       = asyncHandler(codRetired);
+export const createCodPaymentController = asyncHandler(createCodPayment);
 export const razorpayWebhookController  = razorpayWebhook; // NOT wrapped in asyncHandler — responds 200 immediately
 export const delhiveryWebhookController  = delhiveryWebhook; // responds 200 immediately, processes async
 export const requestReturnController    = asyncHandler(requestReturn);

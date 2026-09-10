@@ -18,6 +18,8 @@ export interface VariantFormValue {
   /** Partial-payment terms. Same rule: the product switch is master, blank inherits. */
   partialPaymentEnabled: boolean
   depositPercent: string
+  /** Cash on Delivery for this variant. Same rule: the product switch is master. */
+  codEnabled: boolean
 }
 
 const priceGuard = (v: string) => v === "" || /^\d*\.?\d{0,2}$/.test(v)
@@ -37,6 +39,7 @@ export default function VariantRow({
   productPreOrderEnabled,
   productBookingAmount,
   productPartialPaymentEnabled,
+  productCodEnabled,
 }: {
   value: VariantFormValue
   onChange: (patch: Partial<VariantFormValue>) => void
@@ -47,6 +50,8 @@ export default function VariantRow({
   productBookingAmount?: string
   /** Partial-payment controls only make sense once the product allows them. */
   productPartialPaymentEnabled?: boolean
+  /** Cash on Delivery controls only make sense once the product allows it. */
+  productCodEnabled?: boolean
 }) {
   // Remembers the last positive stock so flipping "in stock" back on restores it.
   const lastStockRef = useRef("1")
@@ -198,6 +203,22 @@ export default function VariantRow({
               </p>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Cash on Delivery — only meaningful when the product itself allows it. */}
+      {productCodEnabled && (
+        <div className="rounded-xl border border-border bg-surface-2/50 p-3">
+          <label className="flex items-center gap-2 text-sm text-muted">
+            <input
+              type="checkbox"
+              checked={value.codEnabled}
+              disabled={disabled}
+              onChange={(e) => onChange({ codEnabled: e.target.checked })}
+              className="w-4 h-4 rounded accent-primary"
+            />
+            Allow Cash on Delivery for this variant
+          </label>
         </div>
       )}
     </div>

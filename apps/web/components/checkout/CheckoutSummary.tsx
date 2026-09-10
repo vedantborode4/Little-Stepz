@@ -23,7 +23,7 @@ export default function CheckoutSummary({
   const isGuest = !user
 
   const { subtotal, total, discount, couponCode, items } = useCartStore()
-  const { placeOrder, placingOrder, paymentPlan, setQuote } = useCheckoutStore()
+  const { placeOrder, placingOrder, paymentPlan, paymentMethod, setQuote } = useCheckoutStore()
   const forfeitureAck = useCheckoutStore((s) => s.forfeitureAck)
 
   const storeAddressId = useAddressStore((s) => s.selectedAddressId)
@@ -77,6 +77,7 @@ export default function CheckoutSummary({
   // Only true when the server actually offered the plan — the store resets to FULL the
   // moment a new quote says otherwise.
   const isPartial = paymentPlan === "PARTIAL" && Boolean(partial?.eligible)
+  const isCod = paymentMethod === "COD" && Boolean(quote?.codPayment?.eligible)
 
   // The acknowledgement gates the button rather than being validated on submit: a
   // customer should not be able to start a payment they have not agreed the terms of.
@@ -152,6 +153,15 @@ export default function CheckoutSummary({
         </div>
       ) : null}
 
+      {isCod ? (
+        <div className="flex justify-between items-center">
+          <span className="text-sm font-semibold text-amber-600">Pay on delivery</span>
+          <span className="text-sm font-bold text-amber-600">
+            ₹{quote?.codPayment?.amountDue.toLocaleString("en-IN")}
+          </span>
+        </div>
+      ) : null}
+
       {/* Payment method badge */}
       <div className="bg-surface-2 border border-border rounded-xl px-3.5 py-2.5 flex items-center justify-between">
         <span className="flex items-center gap-1.5 text-xs text-muted">
@@ -159,7 +169,7 @@ export default function CheckoutSummary({
           Payment
         </span>
         <span className="text-xs font-semibold text-muted">
-          {isPartial ? "20% now · rest on delivery" : "Online (Razorpay)"}
+          {isCod ? "Cash on Delivery" : isPartial ? "20% now · rest on delivery" : "Online (Razorpay)"}
         </span>
       </div>
 
@@ -172,9 +182,9 @@ export default function CheckoutSummary({
         {placingOrder ? (
           <>
             <Loader2 className="w-4 h-4 animate-spin" />
-            Preparing payment…
+            {isCod ? "Placing order…" : "Preparing payment…"}
           </>
-        ) : isGuest ? (
+        ) : isGuest || isCod ? (
           "Place Order"
         ) : isPartial && partial ? (
           `Pay ₹${partial.depositAmount.toLocaleString("en-IN")} & Place Order`

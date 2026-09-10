@@ -1,44 +1,57 @@
 "use client"
 
-import { CreditCard, Shield, Wallet, AlertTriangle } from "lucide-react"
+import { CreditCard, Shield, Wallet, AlertTriangle, Banknote } from "lucide-react"
 import { useCheckoutStore } from "../../store/useCheckoutStore"
 import {
   partialPlanSummary,
   forfeitureWarning,
   forfeitureAckLabel,
   partialReasonText,
+  codPlanSummary,
+  codReasonText,
 } from "@repo/content/index"
 
 const inr = (n: number) => `₹${Math.round(n).toLocaleString("en-IN")}`
 
 /**
- * How the customer pays: in full, or a deposit now with the balance collected at the
- * door. This was a single static card while Cash on Delivery was withdrawn and online
- * was the only method; partial payment makes it a real choice again.
+ * How the customer pays: in full online, a deposit now with the balance at the door, or
+ * Cash on Delivery for the whole amount.
  *
  * The quote comes from the store rather than a second fetch — CheckoutSummary already
- * asks the server, and two requests would be a chance for the displayed deposit to
- * disagree with itself for a moment.
+ * asks the server, and two requests would be a chance for these options to disagree with
+ * the summary. Unavailable options render greyed with a reason rather than disappearing:
+ * an option that silently vanishes for one customer and not another is a reliable way to
+ * generate support tickets.
  */
 export default function PaymentSection() {
   const quote = useCheckoutStore((s) => s.quote)
   const paymentPlan = useCheckoutStore((s) => s.paymentPlan)
-  const setPaymentPlan = useCheckoutStore((s) => s.setPaymentPlan)
+  const paymentMethod = useCheckoutStore((s) => s.paymentMethod)
+  const setPaymentChoice = useCheckoutStore((s) => s.setPaymentChoice)
   const forfeitureAck = useCheckoutStore((s) => s.forfeitureAck)
   const setForfeitureAck = useCheckoutStore((s) => s.setForfeitureAck)
 
   const partial = quote?.partialPayment ?? null
-  const selected = paymentPlan === "PARTIAL" && partial?.eligible
+  const cod = quote?.codPayment ?? null
+
+  // The store falls back to paying in full the moment a quote withdraws an option, so these
+  // only read true for something the server is currently offering.
+  const codSelected = paymentMethod === "COD" && Boolean(cod?.eligible)
+  const partialSelected = !codSelected && paymentPlan === "PARTIAL" && Boolean(partial?.eligible)
+  const fullSelected = !codSelected && !partialSelected
+
+  const cardClass = (active: boolean) =>
+    `rounded-xl p-4 shadow-sm border transition ${
+      active ? "border-primary bg-primary/5" : "border-border hover:bg-surface-2"
+    }`
 
   return (
     <div className="space-y-3">
-      {/* Pay in full — always available. */}
+      {/* Pay in full online — always available. */}
       <button
         type="button"
-        onClick={() => setPaymentPlan("FULL")}
-        className={`w-full text-left flex items-center gap-4 rounded-xl p-4 shadow-sm border transition ${
-          !selected ? "border-primary bg-primary/5" : "border-border hover:bg-surface-2"
-        }`}
+        onClick={() => setPaymentChoice("FULL")}
+        className={`w-full text-left flex items-center gap-4 ${cardClass(fullSelected)}`}
       >
         <div className="p-2 rounded-xl bg-primary/10">
           <CreditCard size={17} className="text-primary" />
@@ -57,19 +70,13 @@ export default function PaymentSection() {
         {quote ? <span className="text-sm font-semibold text-text">{inr(quote.total)}</span> : null}
       </button>
 
-      {/* Pay a deposit. Rendered greyed-with-a-reason when unavailable rather than
-          hidden — an option that silently disappears for one customer and not another
-          is a reliable way to generate support tickets. */}
+      {/* Pay a deposit now, the rest at the door. */}
       {partial ? (
         partial.eligible ? (
-          <div
-            className={`rounded-xl p-4 shadow-sm border transition ${
-              selected ? "border-primary bg-primary/5" : "border-border"
-            }`}
-          >
+          <div className={cardClass(partialSelected)}>
             <button
               type="button"
-              onClick={() => setPaymentPlan("PARTIAL")}
+              onClick={() => setPaymentChoice("PARTIAL")}
               className="w-full text-left flex items-center gap-4"
             >
               <div className="p-2 rounded-xl bg-primary/10">
@@ -88,7 +95,7 @@ export default function PaymentSection() {
               </span>
             </button>
 
-            {selected ? (
+            {partialSelected ? (
               <div className="mt-4 space-y-3 pl-1">
                 {/* Always inline, never a tooltip or a "terms apply" link — the customer
                     must not reach the pay button without having seen it. */}
@@ -133,11 +140,43 @@ export default function PaymentSection() {
         )
       ) : null}
 
+      {/* Cash on Delivery — the whole amount at the door. */}
+      {cod ? (
+        cod.eligible ? (
+          <button
+            type="button"
+            onClick={() => setPaymentChoice("COD")}
+            className={`w-full text-left flex items-center gap-4 ${cardClass(codSelected)}`}
+          >
+            <div className="p-2 rounded-xl bg-primary/10">
+              <Banknote size={17} className="text-primary" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-text">Cash on Delivery</p>
+              <p className="text-xs text-faint mt-0.5">{codPlanSummary(cod.amountDue)}</p>
+            </div>
+            <span className="text-sm font-semibold text-text">{inr(cod.amountDue)}</span>
+          </button>
+        ) : (
+          <div className="flex items-start gap-4 rounded-xl p-4 border border-border opacity-70">
+            <div className="p-2 rounded-xl bg-surface-2">
+              <Banknote size={17} className="text-faint" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-muted">Cash on Delivery</p>
+              <p className="text-xs text-faint mt-0.5">
+                {codReasonText(cod.reasons[0]?.code ?? "COD_DISABLED", cod.reasons[0]?.meta)}
+              </p>
+            </div>
+          </div>
+        )
+      ) : null}
+
       <div className="flex items-center pt-2 text-xs text-faint">
         <Shield size={13} className="text-secondary mr-1" />
         Click
         <span className="font-semibold text-muted mx-1">
-          {selected ? "Pay & Place Order" : "Proceed to Pay"}
+          {codSelected ? "Place Order" : partialSelected ? "Pay & Place Order" : "Proceed to Pay"}
         </span>
         in the summary to continue.
       </div>

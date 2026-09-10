@@ -15,12 +15,18 @@ import { useAddressStore } from "../../store/address.store";
 import { useAuthStore } from "../../store/auth.store";
 import { useCheckoutStore } from "../../store/checkout.store";
 import type { Address } from "../../lib/services/address.service";
-import { CheckoutService, type PartialPaymentQuote } from "../../lib/services/checkout.service";
+import {
+  CheckoutService,
+  type CodPaymentQuote,
+  type PartialPaymentQuote,
+} from "../../lib/services/checkout.service";
 import {
   partialPlanSummary,
   forfeitureWarning,
   forfeitureAckLabel,
   partialReasonText,
+  codPlanSummary,
+  codReasonText,
 } from "@repo/content/index";
 import { toast } from "../../store/toast.store";
 import { formatPrice } from "../../lib/utils/format";
@@ -61,12 +67,13 @@ export default function Checkout() {
     useAddressStore();
   const {
     placeOrder, placingOrder, step, setStep,
-    paymentPlan, setPaymentPlan, forfeitureAck, setForfeitureAck,
+    paymentPlan, paymentMethod, setPaymentChoice, forfeitureAck, setForfeitureAck,
   } = useCheckoutStore();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   const [serverTotals, setServerTotals] = useState<ServerTotals | null>(null);
   const [partialQuote, setPartialQuote] = useState<PartialPaymentQuote | null>(null);
+  const [codQuote, setCodQuote] = useState<CodPaymentQuote | null>(null);
   const [calculating, setCalculating] = useState(false);
   const [pricingFailed, setPricingFailed] = useState(false);
   const keyboardHeight = useKeyboardHeight();
@@ -136,6 +143,7 @@ export default function Checkout() {
     if (!selectedAddressId || !cartSignature) {
       setServerTotals(null);
       setPartialQuote(null);
+      setCodQuote(null);
       setPricingFailed(false);
       return;
     }
@@ -158,10 +166,17 @@ export default function Checkout() {
         };
         setServerTotals(next);
         setPartialQuote(res.partialPayment ?? null);
+        setCodQuote(res.codPayment ?? null);
         // A new quote can revoke eligibility — a different address, a coupon that
         // pushed the total over the cap. Fall back rather than letting the customer
         // submit a plan the server will reject.
-        if (res.partialPayment && !res.partialPayment.eligible) setPaymentPlan("FULL");
+        const current = useCheckoutStore.getState();
+        if (
+          (current.paymentPlan === "PARTIAL" && !res.partialPayment?.eligible) ||
+          (current.paymentMethod === "COD" && !res.codPayment?.eligible)
+        ) {
+          setPaymentChoice("FULL");
+        }
         setPricingFailed(false);
         if (Math.abs(next.subtotal - useCartStore.getState().subtotal) > 0.5) {
           toast.info("Cart updated — please review your order");
@@ -178,13 +193,15 @@ export default function Checkout() {
     return () => {
       cancelled = true;
     };
-  }, [selectedAddressId, couponCode, cartSignature, setPaymentPlan]);
+  }, [selectedAddressId, couponCode, cartSignature, setPaymentChoice]);
 
   const selectedAddress = addresses.find((a) => a.id === selectedAddressId);
 
   // Only ever true when the server said the option is available — the plan is reset to
   // FULL by the quote effect the moment eligibility lapses.
-  const isPartial = paymentPlan === "PARTIAL" && Boolean(partialQuote?.eligible);
+  const isCod = paymentMethod === "COD" && Boolean(codQuote?.eligible);
+  const isPartial = !isCod && paymentPlan === "PARTIAL" && Boolean(partialQuote?.eligible);
+  const isFull = !isCod && !isPartial;
 
   const view = serverTotals ?? {
     subtotal,
@@ -209,6 +226,14 @@ export default function Checkout() {
     // The order now exists and the server has cleared the cart — the empty-cart
     // guard must not yank this screen out from under the payment flow.
     orderPlacedRef.current = true;
+    // Cash on Delivery is already confirmed — there is no payment sheet to open.
+    if (result.kind === "cod") {
+      router.replace({ pathname: "/checkout/success", params: { orderId: result.orderId } });
+      // The online flow resets in verifying.tsx; COD never reaches that screen, so reset
+      // here or the next checkout reopens on the Payment step with COD still selected.
+      useCheckoutStore.getState().resetSession();
+      return;
+    }
     router.push({
       pathname: "/checkout/payment",
       params: {
@@ -420,13 +445,13 @@ export default function Checkout() {
         {step === 2 ? (
           <>
             {/* Pay in full — always available. */}
-            <Pressable onPress={() => setPaymentPlan("FULL")}>
-              <Card className={paymentPlan === "FULL" ? "border border-primary" : "border border-border"}>
+            <Pressable onPress={() => setPaymentChoice("FULL")}>
+              <Card className={isFull ? "border border-primary" : "border border-border"}>
                 <View className="flex-row items-center gap-3">
                   <Ionicons
-                    name={paymentPlan === "FULL" ? "radio-button-on" : "radio-button-off"}
+                    name={isFull ? "radio-button-on" : "radio-button-off"}
                     size={20}
-                    color={paymentPlan === "FULL" ? colors.primary : colors.muted}
+                    color={isFull ? colors.primary : colors.muted}
                   />
                   <View className="flex-1">
                     <View className="flex-row items-center gap-2">
@@ -449,13 +474,13 @@ export default function Checkout() {
                 another reliably turns into a support ticket. */}
             {partialQuote ? (
               partialQuote.eligible ? (
-                <Pressable onPress={() => setPaymentPlan("PARTIAL")}>
-                  <Card className={paymentPlan === "PARTIAL" ? "border border-primary" : "border border-border"}>
+                <Pressable onPress={() => setPaymentChoice("PARTIAL")}>
+                  <Card className={isPartial ? "border border-primary" : "border border-border"}>
                     <View className="flex-row items-center gap-3">
                       <Ionicons
-                        name={paymentPlan === "PARTIAL" ? "radio-button-on" : "radio-button-off"}
+                        name={isPartial ? "radio-button-on" : "radio-button-off"}
                         size={20}
-                        color={paymentPlan === "PARTIAL" ? colors.primary : colors.muted}
+                        color={isPartial ? colors.primary : colors.muted}
                       />
                       <View className="flex-1">
                         <Text className="font-jakarta-semibold text-text">
@@ -470,7 +495,7 @@ export default function Checkout() {
                       </Text>
                     </View>
 
-                    {paymentPlan === "PARTIAL" ? (
+                    {isPartial ? (
                       <View className="mt-3 gap-3">
                         {/* Always inline, never a tooltip or a "terms apply" link — the
                             customer must not reach the pay button without seeing it. */}
@@ -518,6 +543,43 @@ export default function Checkout() {
                 </Card>
               )
             ) : null}
+
+            {/* Cash on Delivery — the whole amount at the door. */}
+            {codQuote ? (
+              codQuote.eligible ? (
+                <Pressable onPress={() => setPaymentChoice("COD")}>
+                  <Card className={isCod ? "border border-primary" : "border border-border"}>
+                    <View className="flex-row items-center gap-3">
+                      <Ionicons
+                        name={isCod ? "radio-button-on" : "radio-button-off"}
+                        size={20}
+                        color={isCod ? colors.primary : colors.muted}
+                      />
+                      <View className="flex-1">
+                        <Text className="font-jakarta-semibold text-text">Cash on Delivery</Text>
+                        <Text className="text-xs text-muted">{codPlanSummary(codQuote.amountDue)}</Text>
+                      </View>
+                      <Text className="font-jakarta-semibold text-text">
+                        {formatPrice(codQuote.amountDue)}
+                      </Text>
+                    </View>
+                  </Card>
+                </Pressable>
+              ) : (
+                <Card className="border border-border opacity-70">
+                  <View className="flex-row items-start gap-3">
+                    <Ionicons name="radio-button-off" size={20} color={colors.muted} />
+                    <View className="flex-1">
+                      <Text className="font-jakarta-semibold text-muted">Cash on Delivery</Text>
+                      <Text className="text-xs text-muted">
+                        {codReasonText(codQuote.reasons[0]?.code ?? "COD_DISABLED", codQuote.reasons[0]?.meta)}
+                      </Text>
+                    </View>
+                  </View>
+                </Card>
+              )
+            ) : null}
+
             <View className="flex-row items-center gap-1.5 px-1">
               <Ionicons name="shield-checkmark-outline" size={14} color={colors.muted} />
               <Text className="text-xs text-muted">Secure & encrypted checkout powered by Razorpay</Text>
@@ -611,7 +673,7 @@ export default function Checkout() {
               <View className="mt-1 flex-row items-center justify-between rounded-lg bg-bg px-2.5 py-1.5">
                 <Text className="text-xs text-muted">Payment</Text>
                 <Text className="text-xs font-jakarta-semibold text-text">
-                  {isPartial ? "20% now · rest on delivery" : "Online (Razorpay)"}
+                  {isCod ? "Cash on Delivery" : isPartial ? "20% now · rest on delivery" : "Online (Razorpay)"}
                 </Text>
               </View>
             ) : null}
@@ -648,7 +710,13 @@ export default function Checkout() {
             </Text>
           </View>
         ) : null}
-        {step === 2 ? <PaymentBadges label="" /> : null}
+        {step === 2 && isCod && codQuote ? (
+          <View className="flex-row items-center justify-between">
+            <Text className="text-sm font-jakarta-semibold text-warning">Pay on delivery</Text>
+            <Text className="text-sm font-jakarta-bold text-warning">{formatPrice(codQuote.amountDue)}</Text>
+          </View>
+        ) : null}
+        {step === 2 && !isCod ? <PaymentBadges label="" /> : null}
         {step < 2 ? (
           <Button
             label="Continue"
@@ -658,9 +726,11 @@ export default function Checkout() {
         ) : (
           <Button
             label={
-              isPartial && partialQuote
-                ? `Pay ${formatPrice(partialQuote.depositAmount)} & Place Order`
-                : "Proceed to Pay"
+              isCod
+                ? "Place Order"
+                : isPartial && partialQuote
+                  ? `Pay ${formatPrice(partialQuote.depositAmount)} & Place Order`
+                  : "Proceed to Pay"
             }
             loading={placingOrder}
             disabled={isPartial && !forfeitureAck}

@@ -185,10 +185,15 @@ export function isPartialSplittable(total: Decimal, percent: Decimal): boolean {
 export function amountPaid(order: {
   total: unknown;
   paymentPlan: string;
+  paymentMethod?: string;
   depositAmount: unknown;
   payment?: { status: string } | null;
 }): Decimal {
   const total = new Decimal(order.total!.toString());
+  // Nothing is received on a COD order until the courier collects it.
+  if (order.paymentMethod === "COD") {
+    return order.payment?.status === "SUCCESS" ? total : new Decimal(0);
+  }
   if (order.paymentPlan !== "PARTIAL") return total;
   if (order.payment?.status === "SUCCESS") return total;
   if (order.payment?.status === "PARTIALLY_PAID") {
@@ -210,7 +215,7 @@ export function amountDue(order: Parameters<typeof amountPaid>[0]): Decimal {
  */
 export const AMOUNT_RECEIVED_SQL = `
   CASE
-    WHEN o."paymentPlan" = 'FULL' THEN o.total
+    WHEN o."paymentPlan" = 'FULL' AND o."paymentMethod" = 'ONLINE' THEN o.total
     WHEN p.status = 'SUCCESS'     THEN o.total
     WHEN p.status = 'PARTIALLY_PAID' THEN COALESCE(o."depositAmount", 0)
     ELSE 0
@@ -223,5 +228,11 @@ export const AMOUNT_RECEIVED_SQL = `
  * decision 9: revenue lands on settlement, not on the deposit.
  */
 export const SETTLED_MONEY_WHERE = {
-  OR: [{ paymentPlan: "FULL" as const }, { payment: { status: "SUCCESS" as const } }],
+  OR: [
+    // Paid online in full. A FULL order paid by Cash on Delivery is deliberately NOT here:
+    // its payment stays PENDING until the courier collects, and counting it at order time
+    // would book revenue for cash nobody has received — and keep it through an RTO.
+    { paymentPlan: "FULL" as const, paymentMethod: "ONLINE" as const },
+    { payment: { status: "SUCCESS" as const } },
+  ],
 };

@@ -1,4 +1,5 @@
 "use client"
+import { codDueAtDoorText } from "@repo/content/index"
 
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
@@ -372,6 +373,17 @@ export default function OrderDetailsPage() {
         ) : null}
       </div>
 
+      {/* Cash on Delivery still to be collected by the courier. */}
+      {!o.partial && o.paymentMethod === "COD" && ["CONFIRMED", "PROCESSING", "SHIPPED", "OUT_FOR_DELIVERY"].includes(o.status) ? (
+        <div className="bg-surface border border-amber-200 dark:border-amber-500/30 rounded-2xl p-5 shadow-card">
+          <div className="flex items-center gap-2 mb-2">
+            <Wallet size={15} className="text-amber-600" />
+            <h2 className="font-semibold text-text text-sm">Pay on delivery</h2>
+          </div>
+          <p className="text-sm text-muted">{codDueAtDoorText(Number(o.total))}</p>
+        </div>
+      ) : null}
+
       {/* Balance — only while something is actually outstanding. */}
       {o.partial?.balanceStatus === "DUE" ? (
         <div className="bg-surface border border-amber-200 dark:border-amber-500/30 rounded-2xl p-5 shadow-card">
@@ -423,7 +435,7 @@ export default function OrderDetailsPage() {
             <div className="flex justify-between">
               <span className="text-muted">Method</span>
               <span className="text-muted font-medium capitalize">
-                {o.partial ? "Deposit + balance on delivery" : (o.paymentMethod?.replace(/_/g, " ") ?? "—")}
+                {o.partial ? "Deposit + balance on delivery" : o.paymentMethod === "COD" ? "Cash on Delivery" : "Online"}
               </span>
             </div>
             {o.payment && (

@@ -24,6 +24,7 @@ interface Props {
   /** Pre-order fields are hidden unless the product allows pre-orders at all. */
   productPreOrderEnabled?: boolean
   productPartialPaymentEnabled?: boolean
+  productCodEnabled?: boolean
   productBookingAmount?: string
 }
 
@@ -38,6 +39,7 @@ const emptyForm = (): VariantFormValue => ({
   // Defaults to inheriting the product: allowed, with the product's booking amount.
   preOrderEnabled: true, bookingAmount: "", preOrderLimit: "",
   partialPaymentEnabled: true, depositPercent: "",
+  codEnabled: true,
 })
 
 const toEditable = (v: ProductVariant, index: number): EditableVariant => ({
@@ -53,6 +55,7 @@ const toEditable = (v: ProductVariant, index: number): EditableVariant => ({
   preOrderLimit: v.preOrderLimit != null ? String(v.preOrderLimit) : "",
   partialPaymentEnabled: v.partialPaymentEnabled ?? true,
   depositPercent: v.depositPercent != null ? String(v.depositPercent) : "",
+  codEnabled: v.codEnabled ?? true,
   sortOrder: v.sortOrder ?? index,
   images: v.images ?? [],
 })
@@ -71,9 +74,10 @@ const buildBody = (v: VariantFormValue): VariantBody => ({
   partialPaymentEnabled: v.partialPaymentEnabled,
   // null clears the override so the variant inherits the product's percentage again.
   depositPercent: v.depositPercent === "" ? null : Number(v.depositPercent),
+  codEnabled: v.codEnabled,
 })
 
-export default function VariantManager({ productId, initialVariants = [], onChange, productPreOrderEnabled, productBookingAmount, productPartialPaymentEnabled }: Props) {
+export default function VariantManager({ productId, initialVariants = [], onChange, productPreOrderEnabled, productBookingAmount, productPartialPaymentEnabled, productCodEnabled }: Props) {
   const [variants, setVariants] = useState<EditableVariant[]>([])
   const [drafts, setDrafts] = useState<VariantFormValue[]>([])
   const [dirtyIds, setDirtyIds] = useState<Set<string>>(new Set())
@@ -220,6 +224,7 @@ export default function VariantManager({ productId, initialVariants = [], onChan
                   disabled={savingId === v.id}
                   productPreOrderEnabled={productPreOrderEnabled}
                   productPartialPaymentEnabled={productPartialPaymentEnabled}
+                  productCodEnabled={productCodEnabled}
                   productBookingAmount={productBookingAmount}
                 />
               </div>
@@ -287,6 +292,7 @@ export default function VariantManager({ productId, initialVariants = [], onChan
                   disabled={savingAll}
                   productPreOrderEnabled={productPreOrderEnabled}
                   productPartialPaymentEnabled={productPartialPaymentEnabled}
+                  productCodEnabled={productCodEnabled}
                   productBookingAmount={productBookingAmount}
                 />
               </div>

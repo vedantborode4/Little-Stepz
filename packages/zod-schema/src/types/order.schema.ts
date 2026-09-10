@@ -13,17 +13,18 @@ export const cartItemSchema = z
 
   
 /**
- * Payment method after the Cash on Delivery withdrawal.
+ * How the order is paid: online through Razorpay, or in cash to the courier.
  *
- * Kept permissive on input and narrow on output: a legacy client may still POST
- * "COD", and answering that with a 400 would strand it on an unusable checkout
- * screen. Parsing always yields "ONLINE", so nothing downstream can create a new
- * COD order. Existing COD orders are untouched — this only governs new intent.
+ * This collapsed every input to ONLINE while Cash on Delivery was withdrawn. COD is back,
+ * so it is honoured again. Its eligibility gates — per-product toggle, courier
+ * serviceability, order-value cap, open-order limit and refused-delivery block — are
+ * enforced server-side at order creation and again at confirmation, never trusted to the
+ * client. Defaults to ONLINE, so clients that never send it are unchanged.
  */
-export const retiredCodPaymentMethod = z
-  .enum(["ONLINE", "COD"])
-  .default("ONLINE")
-  .transform(() => "ONLINE" as const);
+export const paymentMethodSchema = z.enum(["ONLINE", "COD"]).default("ONLINE");
+
+/** @deprecated COD is no longer retired — use `paymentMethodSchema`. */
+export const retiredCodPaymentMethod = paymentMethodSchema;
 
 
 /**
@@ -49,11 +50,9 @@ export const checkoutCalculateBodySchema = z
     addressId: uuidSchema,
     couponCode: z.string().trim().min(1).optional(),
 
-    // Cash on Delivery has been withdrawn: every quote is prepaid. "COD" is still
-    // *accepted* — mobile builds already on the stores send it — but collapsed to
-    // ONLINE so a legacy client cannot be quoted a COD collection fee or rejected
-    // by the prepaid-only pincode check for an order that will be paid online.
-    paymentMethod: retiredCodPaymentMethod,
+    // Informational on a quote: COD and deposit eligibility are both returned whichever
+    // method is sent, so one call renders every option.
+    paymentMethod: paymentMethodSchema,
 
     // The quote returns partial-payment eligibility regardless of what is requested, so
     // the checkout can render both options from a single call.
@@ -70,8 +69,7 @@ export const createOrderBodySchema = z
     addressId: uuidSchema,
     couponCode: z.string().trim().min(1).optional(),
 
-    // Always ONLINE — see retiredCodPaymentMethod.
-    paymentMethod: retiredCodPaymentMethod,
+    paymentMethod: paymentMethodSchema,
     paymentPlan: paymentPlanSchema,
     customerNote: z.string().max(500).optional(),
 
