@@ -1,7 +1,7 @@
 import { useMemo } from "react";
-import { FlatList, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, Text, View } from "react-native";
 import { router } from "expo-router";
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 
 import { ScreenContainer } from "../../components/layout/ScreenContainer";
 import { Header } from "../../components/layout/Header";
@@ -10,17 +10,34 @@ import { EmptyState } from "../../components/ui/EmptyState";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { OrderService } from "../../lib/services/order.service";
 import { qk } from "../../lib/api/query-client";
+import { colors } from "../../theme/tokens";
 import type { Order } from "../../types/order";
 
+const PAGE_SIZE = 20;
+
 export default function Orders() {
-  const { data, isLoading, isError, refetch, isRefetching } = useQuery({
-    queryKey: qk.orders,
-    queryFn: () => OrderService.getAll(),
+  // Paged: the endpoint returns 20 orders by default, so a single fetch silently hid
+  // every order older than that. The key sits under `qk.orders`, so the invalidations
+  // elsewhere (cancel, return) still refresh this list.
+  const {
+    data,
+    isLoading,
+    isError,
+    refetch,
+    isRefetching,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
+    queryKey: [...qk.orders, "pages"],
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) => OrderService.getPage(pageParam, PAGE_SIZE),
+    getNextPageParam: (last) => (last && last.page < last.pages ? last.page + 1 : undefined),
   });
 
   const orders = useMemo<Order[]>(() => {
-    const raw: Order[] = !data ? [] : Array.isArray(data) ? data : (data as any).orders ?? [];
-    // Dedupe by id so a repeated order from the API can't collide React keys.
+    const raw: Order[] = data?.pages.flatMap((p) => p?.orders ?? []) ?? [];
+    // Dedupe by id: a new order placed between page fetches shifts the pages by one.
     const seen = new Set<string>();
     return raw.filter((o) => {
       if (!o?.id || seen.has(o.id)) return false;
@@ -35,11 +52,22 @@ export default function Orders() {
       <FlatList
         data={orders}
         keyExtractor={(o) => o.id}
-        refreshing={isRefetching}
+        refreshing={isRefetching && !isFetchingNextPage}
         onRefresh={refetch}
+        onEndReached={() => {
+          if (hasNextPage && !isFetchingNextPage) fetchNextPage();
+        }}
+        onEndReachedThreshold={0.4}
         contentContainerStyle={{ padding: 16, gap: 12, flexGrow: 1 }}
         ListHeaderComponent={
           <Text className="-mt-1 mb-1 text-sm text-muted">Track and manage your purchases</Text>
+        }
+        ListFooterComponent={
+          isFetchingNextPage ? (
+            <View className="items-center py-4">
+              <ActivityIndicator color={colors.primary} />
+            </View>
+          ) : null
         }
         ListEmptyComponent={
           isLoading ? (

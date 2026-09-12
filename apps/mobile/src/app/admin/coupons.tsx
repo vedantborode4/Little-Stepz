@@ -17,6 +17,7 @@ import { qk } from "../../lib/api/query-client";
 import { toast } from "../../store/toast.store";
 import { formatPrice } from "../../lib/utils/format";
 import { colors } from "../../theme/tokens";
+import { getErrorMessage } from "../../lib/utils/errors";
 
 export default function AdminCoupons() {
   const qc = useQueryClient();
@@ -26,7 +27,7 @@ export default function AdminCoupons() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<AdminCoupon | null>(null);
   const [code, setCode] = useState("");
-  const [type, setType] = useState<"PERCENTAGE" | "FLAT">("PERCENTAGE");
+  const [type, setType] = useState<"PERCENTAGE" | "FIXED_AMOUNT">("PERCENTAGE");
   const [value, setValue] = useState("");
   const [minOrderValue, setMinOrderValue] = useState("");
   const [maxDiscount, setMaxDiscount] = useState("");
@@ -40,7 +41,7 @@ export default function AdminCoupons() {
   const openForm = (c?: AdminCoupon) => {
     setEditing(c ?? null);
     setCode(c?.code ?? "");
-    setType((c?.type as any) ?? "PERCENTAGE");
+    setType(c?.type === "FIXED_AMOUNT" ? "FIXED_AMOUNT" : "PERCENTAGE");
     setValue(c?.value != null ? String(c.value) : "");
     setMinOrderValue(c?.minOrderValue != null ? String(c.minOrderValue) : "");
     setMaxDiscount(c?.maxDiscount != null ? String(c.maxDiscount) : "");
@@ -78,7 +79,7 @@ export default function AdminCoupons() {
       setOpen(false);
       qc.invalidateQueries({ queryKey: qk.adminCoupons });
     } catch (e: any) {
-      toast.error(e?.response?.data?.message || "Could not save coupon");
+      toast.error(getErrorMessage(e, "Could not save coupon"));
     } finally {
       setSaving(false);
     }
@@ -148,8 +149,8 @@ export default function AdminCoupons() {
           <SelectSheet
             label="Type"
             value={type}
-            options={[{ label: "Percentage (%)", value: "PERCENTAGE" }, { label: "Flat amount (₹)", value: "FLAT" }]}
-            onChange={(v) => setType(v as any)}
+            options={[{ label: "Percentage (%)", value: "PERCENTAGE" }, { label: "Flat amount (₹)", value: "FIXED_AMOUNT" }]}
+            onChange={(v) => setType(v === "FIXED_AMOUNT" ? "FIXED_AMOUNT" : "PERCENTAGE")}
           />
           <View className="flex-row gap-2">
             <View className="flex-1"><Input label={type === "PERCENTAGE" ? "Value (%)" : "Value (₹)"} keyboardType="numeric" value={value} onChangeText={setValue} /></View>

@@ -11,6 +11,7 @@ import { Input } from "../../components/ui/Input";
 import { Button } from "../../components/ui/Button";
 import { AuthService } from "../../lib/services/auth.service";
 import { toast } from "../../store/toast.store";
+import { getErrorMessage } from "../../lib/utils/errors";
 
 export default function ForgotPassword() {
   const [submitting, setSubmitting] = useState(false);
@@ -35,7 +36,7 @@ export default function ForgotPassword() {
       await AuthService.forgotPassword(data);
       router.push({ pathname: "/(auth)/verify-code", params: { email: data.email } });
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Could not send the reset email");
+      toast.error(getErrorMessage(err, "Could not send the reset email"));
     } finally {
       setSubmitting(false);
     }

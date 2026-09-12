@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { router } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 
+import { AuthGuard } from "../../components/guard/guards";
 import { ScreenContainer } from "../../components/layout/ScreenContainer";
 import { Header } from "../../components/layout/Header";
 import { Card } from "../../components/ui/Card";
@@ -15,6 +16,7 @@ import { formatPrice, formatDate } from "../../lib/utils/format";
 import { toast } from "../../store/toast.store";
 import { pdfErrorMessage } from "../../lib/pdf";
 import { colors } from "../../theme/tokens";
+import { getErrorMessage } from "../../lib/utils/errors";
 
 const LABEL: Record<PreOrderStatus, string> = {
   PENDING_BOOKING: "Pending",
@@ -36,7 +38,16 @@ const COLOR: Record<PreOrderStatus, string> = {
   REFUNDED: "text-secondary",
 };
 
-export default function MyPreOrders() {
+/** Account content — the guard lives on the screen, not the layout (see _layout.tsx). */
+export default function MyPreOrdersScreen() {
+  return (
+    <AuthGuard>
+      <MyPreOrders />
+    </AuthGuard>
+  );
+}
+
+function MyPreOrders() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [receiptId, setReceiptId] = useState<string | null>(null);
   const { data, isLoading } = useQuery({
@@ -60,7 +71,7 @@ export default function MyPreOrders() {
         },
       });
     } catch (e: any) {
-      toast.error(e?.response?.data?.message || "Could not start payment");
+      toast.error(getErrorMessage(e, "Could not start payment"));
     } finally {
       setBusyId(null);
     }
@@ -90,7 +101,13 @@ export default function MyPreOrders() {
       ) : (
         <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
           {items.map((po) => (
-            <Card key={po.id} className="flex-row items-center gap-3">
+            <Pressable
+              key={po.id}
+              onPress={() => router.push({ pathname: "/pre-orders/[id]", params: { id: po.id } } as never)}
+              accessibilityRole="button"
+              accessibilityLabel={`Pre-order for ${po.product.name}, ${LABEL[po.status]}`}
+            >
+            <Card className="flex-row items-center gap-3">
               <Image source={{ uri: po.product.images?.[0]?.url }} style={{ width: 60, height: 60, borderRadius: 10 }} contentFit="contain" />
               <View className="flex-1">
                 <Text numberOfLines={1} className="font-jakarta-medium text-text">{po.product.name}</Text>
@@ -126,10 +143,11 @@ export default function MyPreOrders() {
                   onPress={() => payBalance(po.balanceToken!)}
                   className="px-3"
                 />
-              ) : po.status === "COMPLETED" && po.orderId ? (
-                <Ionicons name="chevron-forward" size={18} color={colors.faint} onPress={() => router.push(`/orders/${po.orderId}`)} />
-              ) : null}
+              ) : (
+                <Ionicons name="chevron-forward" size={18} color={colors.faint} />
+              )}
             </Card>
+            </Pressable>
           ))}
         </ScrollView>
       )}

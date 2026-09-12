@@ -7,6 +7,7 @@ import { Button } from "../../../components/ui/Button";
 import { AdminProductService, type AdminMatrixBody, type AdminProductOption } from "../services/admin.services";
 import { toast } from "../../../store/toast.store";
 import { colors } from "../../../theme/tokens";
+import { getErrorMessage } from "../../../lib/utils/errors";
 
 interface DraftValue { value: string; swatchHex: string }
 interface DraftOption { name: string; values: DraftValue[] }
@@ -65,7 +66,7 @@ export function VariantMatrixGenerator({
       setDraft([]); setDefPrice(""); setDefStock("");
       onGenerated();
     } catch (e: any) {
-      toast.error(e?.response?.data?.message || "Failed to generate variants");
+      toast.error(getErrorMessage(e, "Failed to generate variants"));
     } finally {
       setGenerating(false);
     }

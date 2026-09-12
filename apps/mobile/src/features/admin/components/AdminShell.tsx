@@ -26,6 +26,14 @@ const SECTIONS: { title: string; items: NavItem[] }[] = [
       { key: "pre-orders", label: "Pre-Orders", icon: "time-outline", route: "/admin/pre-orders" },
       { key: "coupons", label: "Coupons", icon: "ticket-outline", route: "/admin/coupons" },
       { key: "reviews", label: "Reviews", icon: "star-outline", route: "/admin/reviews" },
+      { key: "shipping", label: "Shipping", icon: "car-outline", route: "/admin/shipping" },
+    ],
+  },
+  {
+    title: "People",
+    items: [
+      { key: "customers", label: "Customers", icon: "person-circle-outline", route: "/admin/customers" },
+      { key: "cart-activity", label: "Cart Activity", icon: "pulse-outline", route: "/admin/customers/activity" },
     ],
   },
   {

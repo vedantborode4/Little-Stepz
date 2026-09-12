@@ -18,6 +18,7 @@ import { pdfErrorMessage } from "../../lib/pdf";
 import { formatPrice, formatDate, shortId } from "../../lib/utils/format";
 import { type ThemeColors } from "../../theme/tokens";
 import { useThemeColors } from "../../theme/useThemeColors";
+import { getErrorMessage } from "../../lib/utils/errors";
 
 const STATUS_LABEL: Record<AdminPreOrderStatus, string> = {
   PENDING_BOOKING: "Pending booking",
@@ -76,7 +77,7 @@ export default function AdminPreOrders() {
       toast.success(okMsg);
       qc.invalidateQueries({ queryKey: ["admin", "pre-orders"] });
     } catch (e: any) {
-      toast.error(e?.response?.data?.message || "Action failed");
+      toast.error(getErrorMessage(e, "Action failed"));
     } finally {
       setBusyId(null);
     }

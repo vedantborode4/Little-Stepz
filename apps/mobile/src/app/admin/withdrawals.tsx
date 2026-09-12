@@ -11,6 +11,7 @@ import { AdminWithdrawalService, type AdminWithdrawal } from "../../features/adm
 import { WITHDRAWAL_STATUS } from "../../lib/enums";
 import { formatPrice, formatDate } from "../../lib/utils/format";
 import { toast } from "../../store/toast.store";
+import { getErrorMessage } from "../../lib/utils/errors";
 
 export default function AdminWithdrawals() {
   const qc = useQueryClient();
@@ -35,7 +36,7 @@ export default function AdminWithdrawals() {
             toast.success(`Marked ${status.toLowerCase()}`);
             qc.invalidateQueries({ queryKey: ["admin", "withdrawals"] });
           } catch (e: any) {
-            toast.error(e?.response?.data?.message || "Action failed");
+            toast.error(getErrorMessage(e, "Action failed"));
           }
         },
       },

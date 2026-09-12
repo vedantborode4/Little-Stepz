@@ -74,7 +74,36 @@ export interface AdminOrder {
   /** Id of the Return raised against this order, if any — what `resolveReturn` addresses. */
   returnId?: string | null;
   returnStatus?: "PENDING" | "APPROVED" | "REJECTED" | "REFUNDED" | null;
+  paymentPlan?: "FULL" | "PARTIAL";
+  /** Delivered by hand rather than Delhivery — skipped by auto-ship. */
+  manualFulfilment?: boolean;
+  /** Still to collect, in rupees. 0 on a full-payment or settled order. */
+  balanceOutstanding?: number;
 }
+
+export interface AdminOrdersQuery {
+  page?: number;
+  limit?: number;
+  status?: string;
+  paymentPlan?: "FULL" | "PARTIAL";
+  /** "due" is the operational queue: deposit paid, balance not yet collected. */
+  balanceState?: "due" | "settled";
+  fromDate?: string;
+  toDate?: string;
+}
+
+export interface AdminOrdersResponse {
+  orders: AdminOrder[];
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+  /** Money still to collect across the whole filtered set, not just this page. */
+  outstandingTotal?: number;
+  outstandingCount?: number;
+}
+
+export type BalanceCollectionMethod = "CASH" | "BANK_TRANSFER" | "UPI" | "OTHER";
 
 export interface AdminOrderItem {
   id: string;
@@ -99,7 +128,26 @@ export interface AdminOrderAddress {
   country: string;
 }
 
+/** Deposit / balance terms of a partial-payment order, as the admin detail returns them. */
+export interface AdminOrderPartial {
+  depositAmount: number;
+  balanceAmount: number;
+  depositPaidAt: string | null;
+  balancePaidAt: string | null;
+  balanceStatus: "DUE" | "PAID" | "WRITTEN_OFF";
+  balanceMethod: string | null;
+  balanceReference: string | null;
+  collectedAtDoor: boolean;
+  depositForfeited: boolean;
+  depositForfeitedAt: string | null;
+  manualRefundAmount: number | null;
+  manualRefundSettledAt: string | null;
+}
+
+export type CancellationParty = "MERCHANT" | "CUSTOMER";
+
 export interface AdminOrderDetail extends AdminOrder {
+  partial: AdminOrderPartial | null;
   user: { id: string; name: string; email: string; phone: string | null };
   address: AdminOrderAddress | null;
   items: AdminOrderItem[];
@@ -115,6 +163,8 @@ export interface AdminOrderDetail extends AdminOrder {
         refundAmount: number | null;
         refundReason: string | null;
         codCollectedAt: string | null;
+        balanceSettledAt?: string | null;
+        balanceMethod?: string | null;
       }
     | null;
   shipments: {
@@ -129,21 +179,53 @@ export interface AdminOrderDetail extends AdminOrder {
 }
 
 export const AdminOrderService = {
-  getOrders: async (params?: { page?: number; limit?: number; status?: string }) => {
+  getOrders: async (params?: AdminOrdersQuery): Promise<AdminOrdersResponse> => {
     const res = await api.get("/admin/orders", { params });
-    return res.data.data as { orders: AdminOrder[]; total: number; page: number; limit: number; pages: number };
+    return res.data.data;
   },
   getById: async (id: string): Promise<AdminOrderDetail> => {
     const res = await api.get(`/admin/orders/${id}`);
     return res.data.data;
   },
-  updateStatus: async (id: string, status: string) => {
-    const res = await api.put(`/admin/orders/${id}/status`, { status });
+  /**
+   * `cancellationParty` is required by the API when cancelling a deposit-paid order: a
+   * MERCHANT cancellation refunds the deposit, a CUSTOMER one forfeits it.
+   */
+  updateStatus: async (id: string, status: string, cancellationParty?: CancellationParty) => {
+    const res = await api.put(`/admin/orders/${id}/status`, {
+      status,
+      ...(cancellationParty ? { cancellationParty } : {}),
+    });
     return res.data.data;
   },
   createShipment: async (id: string) => {
     const res = await api.post(`/admin/orders/${id}/ship`);
     return res.data.data;
+  },
+  /** Cancels the Delhivery waybill. */
+  cancelShipment: async (id: string) => {
+    const res = await api.post(`/admin/orders/${id}/cancel-shipment`);
+    return res.data.data;
+  },
+  /** Route an order by hand instead of Delhivery, or put it back on the courier. */
+  setFulfilmentMode: async (id: string, manual: boolean) => {
+    const res = await api.post(`/admin/orders/${id}/fulfilment`, { manual });
+    return res.data.data as { id: string; manualFulfilment: boolean; changed: boolean };
+  },
+  /**
+   * Record a partial order's balance as collected outside the gateway — a late COD
+   * remittance, a bank transfer, or an order delivered without a COD manifest.
+   */
+  markBalancePaid: async (
+    id: string,
+    body: { method: BalanceCollectionMethod; reference?: string; note?: string }
+  ) => {
+    const res = await api.post(`/admin/orders/${id}/balance/mark-paid`, body);
+    return res.data.data;
+  },
+  /** The tax invoice PDF, saved and shared. */
+  downloadInvoice: async (id: string) => {
+    return savePdfAndShare(`/admin/orders/${id}/invoice`, `invoice-${id.slice(0, 8)}.pdf`);
   },
   /**
    * PUT /admin/returns/:id/resolve
@@ -162,8 +244,43 @@ export const AdminOrderService = {
 };
 
 // ───────────────────────── Products ─────────────────────────
-export interface AdminProductImage { id: string; url: string; alt?: string; sortOrder: number }
-export interface AdminProductVariant { id: string; name: string; price: number | null; salePrice?: number | null; isOnSale?: boolean; sortOrder?: number; stock: number; images?: AdminProductImage[]; optionValues?: { optionValueId: string }[] }
+export interface AdminProductImage { id: string; url: string; alt?: string | null; sortOrder: number }
+export interface AdminProductVariant {
+  id: string;
+  name: string;
+  sku?: string | null;
+  price: number | null;
+  salePrice?: number | null;
+  isOnSale?: boolean;
+  sortOrder?: number;
+  stock: number;
+  images?: AdminProductImage[];
+  optionValues?: { optionValueId: string }[];
+  /** Per-variant overrides. The product switch is the master — these can only opt out;
+   *  a null amount/percent inherits the product's. */
+  preOrderEnabled?: boolean;
+  bookingAmount?: number | string | null;
+  preOrderLimit?: number | null;
+  partialPaymentEnabled?: boolean;
+  depositPercent?: number | string | null;
+  codEnabled?: boolean;
+}
+
+export interface AdminVariantBody {
+  name?: string;
+  sku?: string | null;
+  price?: number | null;
+  salePrice?: number | null;
+  isOnSale?: boolean;
+  stock?: number;
+  sortOrder?: number;
+  preOrderEnabled?: boolean;
+  bookingAmount?: number | null;
+  preOrderLimit?: number | null;
+  partialPaymentEnabled?: boolean;
+  depositPercent?: number | null;
+  codEnabled?: boolean;
+}
 export interface AdminProductOptionValue { id: string; value: string; swatchHex?: string | null; sortOrder?: number }
 export interface AdminProductOption { id: string; name: string; sortOrder?: number; values: AdminProductOptionValue[] }
 export interface AdminMatrixBody {
@@ -195,14 +312,47 @@ export interface AdminProduct {
   images: AdminProductImage[];
   variants: AdminProductVariant[];
   options?: AdminProductOption[];
+  // Pre-order
+  preOrderEnabled?: boolean;
+  bookingAmount?: number | string | null;
+  preOrderLimit?: number | null;
+  preOrderNote?: string | null;
+  // Partial payment + Cash on Delivery
+  partialPaymentEnabled?: boolean;
+  depositPercent?: number | string | null;
+  codEnabled?: boolean;
+  // SEO + Google Shopping
+  metaTitle?: string | null;
+  metaDescription?: string | null;
+  ogImage?: string | null;
+  noindex?: boolean;
+  brand?: string | null;
+  gtin?: string | null;
+  mpn?: string | null;
+  condition?: "new" | "used" | "refurbished" | null;
 }
 
-/** Sale / spec fields shared by create + update payloads. */
+/** Everything beyond name/slug/price/stock/category that create + update payloads carry. */
 type ProductPricingFields = {
   salePrice?: number | null;
   isOnSale?: boolean;
   priceDisplay?: PriceDisplayMode;
   specifications?: ProductSpec[];
+  preOrderEnabled?: boolean;
+  bookingAmount?: number;
+  preOrderLimit?: number;
+  preOrderNote?: string;
+  partialPaymentEnabled?: boolean;
+  depositPercent?: number | null;
+  codEnabled?: boolean;
+  metaTitle?: string;
+  metaDescription?: string;
+  ogImage?: string;
+  noindex?: boolean;
+  brand?: string;
+  gtin?: string;
+  mpn?: string;
+  condition?: "new" | "used" | "refurbished";
 };
 
 export const AdminProductService = {
@@ -240,11 +390,17 @@ export const AdminProductService = {
     await api.delete(`/admin/products/${id}`);
   },
   // variants
-  createVariant: async (productId: string, body: { name: string; price?: number | null; salePrice?: number | null; isOnSale?: boolean; stock?: number }) => {
+  /** Admin product search — the same endpoint the web product table uses. */
+  searchProducts: async (q: string): Promise<AdminProduct[]> => {
+    const res = await api.get("/products/search", { params: { q, limit: 50 } });
+    const d = res.data.data;
+    return (d?.products ?? d ?? []) as AdminProduct[];
+  },
+  createVariant: async (productId: string, body: AdminVariantBody & { name: string }) => {
     const res = await api.post(`/admin/products/${productId}/variants`, body);
     return res.data.data as AdminProductVariant;
   },
-  updateVariant: async (id: string, body: { name?: string; price?: number | null; salePrice?: number | null; isOnSale?: boolean; stock?: number; sortOrder?: number }) => {
+  updateVariant: async (id: string, body: AdminVariantBody) => {
     const res = await api.put(`/admin/products/variants/${id}`, body);
     return res.data.data as AdminProductVariant;
   },
@@ -267,12 +423,22 @@ export const AdminProductService = {
     const res = await api.get("/admin/products/images/upload-signature", { params: { variantId } });
     return res.data.data as { cloudName: string; apiKey: string; timestamp: number; signature: string; folder: string };
   },
-  addImage: async (productId: string, body: { url: string; alt?: string; sortOrder?: number }) => {
+  addImage: async (productId: string, body: { url: string; publicId: string; alt?: string; sortOrder?: number }) => {
     const res = await api.post(`/admin/products/${productId}/images`, body);
     return res.data.data as AdminProductImage;
   },
-  addVariantImage: async (variantId: string, body: { url: string; alt?: string; sortOrder?: number }) => {
+  addVariantImage: async (variantId: string, body: { url: string; publicId: string; alt?: string; sortOrder?: number }) => {
     const res = await api.post(`/admin/products/variants/${variantId}/images`, body);
+    return res.data.data as AdminProductImage;
+  },
+  /** Swap an image's file, keeping its position and alt text. */
+  replaceImage: async (imageId: string, body: { url: string; publicId: string }) => {
+    const res = await api.put(`/admin/products/images/${imageId}/replace`, body);
+    return res.data.data as AdminProductImage;
+  },
+  /** Alt text — read by screen readers and search engines. */
+  updateImageAlt: async (imageId: string, alt: string) => {
+    const res = await api.patch(`/admin/products/images/${imageId}/alt`, { alt });
     return res.data.data as AdminProductImage;
   },
   reorderImage: async (imageId: string, sortOrder: number) => {
@@ -311,7 +477,7 @@ export const AdminCategoryService = {
 export interface AdminCoupon {
   id: string;
   code: string;
-  type: "PERCENTAGE" | "FLAT";
+  type: "PERCENTAGE" | "FIXED_AMOUNT";
   value: number;
   minOrderValue?: number | null;
   maxDiscount?: number | null;
@@ -324,7 +490,7 @@ export interface AdminCoupon {
 }
 export interface CreateCouponBody {
   code: string;
-  type: "PERCENTAGE" | "FLAT";
+  type: "PERCENTAGE" | "FIXED_AMOUNT";
   value: number;
   minOrderValue?: number;
   maxDiscount?: number;
@@ -355,7 +521,7 @@ export const AdminCouponService = {
 };
 
 // ───────────────────────── Banners ─────────────────────────
-export type BannerPosition = "HOME_HERO" | "HOME_MID" | "CATEGORY_TOP" | "PRODUCT_SIDEBAR" | "CHECKOUT_TOP";
+export type BannerPosition = "HOME_HERO" | "MOBILE_HERO" | "HOME_MID" | "CATEGORY_TOP" | "PRODUCT_SIDEBAR" | "CHECKOUT_TOP";
 export interface AdminBanner {
   id: string;
   title: string;
@@ -444,6 +610,11 @@ export const AdminAffiliateService = {
     const res = await api.get(`/admin/affiliates/${id}/details`);
     return res.data.data;
   },
+  /** Emails an invite to apply for the affiliate program. */
+  invite: async (email: string) => {
+    const res = await api.post("/admin/affiliates/invite", { email });
+    return res.data.data as { email: string; inviteUrl: string; emailSent: boolean };
+  },
   approve: async (id: string, body: { commissionRate?: number; adminNote?: string }) => {
     const res = await api.put(`/admin/affiliates/${id}/approve`, body);
     return res.data.data;
@@ -496,8 +667,119 @@ export const AdminCommissionService = {
     const res = await api.put(`/admin/affiliates/commissions/${id}/approve`, { note });
     return res.data.data;
   },
-  markPaid: async (id: string, transactionRef?: string) => {
-    const res = await api.put(`/admin/affiliates/commissions/${id}/pay`, { transactionRef });
+  markPaid: async (id: string, transactionRef?: string, note?: string) => {
+    const res = await api.put(`/admin/affiliates/commissions/${id}/pay`, { transactionRef, note });
+    return res.data.data;
+  },
+};
+
+// ───────────────────────── Customers ─────────────────────────
+export type CustomerSegment = "all" | "with-orders" | "without-orders" | "affiliates";
+export type CustomerSort = "recent" | "oldest" | "name" | "spend" | "orders";
+
+export interface AdminCustomer {
+  id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  registeredAt: string;
+  isAffiliate: boolean;
+  city: string | null;
+  state: string | null;
+  orders: number;
+  totalSpend: number;
+  aov: number;
+  lastOrderAt: string | null;
+}
+
+export interface CartActivityEvent {
+  id: string;
+  createdAt: string;
+  product: { id: string; name: string; slug: string | null };
+  variantId: string | null;
+  quantity: number;
+  ip: string | null;
+  userAgent: string | null;
+  sessionId: string | null;
+  user?: { id: string; name: string; email: string } | null;
+}
+
+export interface AdminCustomerDetail {
+  id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  role: string;
+  emailVerified: boolean;
+  createdAt: string;
+  referredBy: { id: string; name: string; email: string } | null;
+  affiliate: { id: string; status: string; referralCode: string; commissionRate: string } | null;
+  addresses: {
+    id: string; name: string; phone: string; address: string; city: string;
+    state: string; pincode: string; country: string; isDefault: boolean;
+  }[];
+  orders: {
+    id: string; status: string; total: string; paymentMethod: string; createdAt: string;
+    payment: { status: string; method: string } | null;
+    _count: { items: number };
+  }[];
+  reviews: {
+    id: string; rating: number; comment: string | null; createdAt: string;
+    product: { id: string; name: string; slug: string };
+  }[];
+  stats: { orders: number; totalSpend: number; aov: number; lastOrderAt: string | null };
+  cartActivity: CartActivityEvent[];
+}
+
+export interface CustomerPagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+export const AdminCustomerService = {
+  list: async (params: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    segment?: CustomerSegment;
+    sort?: CustomerSort;
+  }): Promise<{ customers: AdminCustomer[]; pagination: CustomerPagination }> => {
+    const res = await api.get("/admin/customers", { params });
+    return res.data.data;
+  },
+  get: async (id: string): Promise<AdminCustomerDetail> => {
+    const res = await api.get(`/admin/customers/${id}`);
+    return res.data.data;
+  },
+  cartActivity: async (params: {
+    page?: number;
+    limit?: number;
+    userId?: string;
+  }): Promise<{ events: CartActivityEvent[]; pagination: CustomerPagination }> => {
+    const res = await api.get("/admin/customers/activity", { params });
+    return res.data.data;
+  },
+};
+
+// ───────────────────────── Shipping ─────────────────────────
+export interface WarehouseStatus {
+  configuredName: string | null;
+  /** null = Delhivery gives no way to read this back — NOT "missing". */
+  registered: boolean | null;
+  /** False when Delhivery rejected the API token, so nothing could be checked. */
+  authenticated?: boolean;
+  message: string;
+}
+
+export const AdminShippingService = {
+  getWarehouse: async (): Promise<WarehouseStatus> => {
+    const res = await api.get("/admin/shipping/warehouse");
+    return res.data.data;
+  },
+  registerWarehouse: async (): Promise<{ created: boolean; alreadyRegistered: boolean }> => {
+    const res = await api.post("/admin/shipping/warehouse");
     return res.data.data;
   },
 };

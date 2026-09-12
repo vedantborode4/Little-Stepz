@@ -10,6 +10,7 @@ import { Button } from "../../components/ui/Button";
 import { UserService } from "../../lib/services/user.service";
 import { toast } from "../../store/toast.store";
 import { colors } from "../../theme/tokens";
+import { getErrorMessage } from "../../lib/utils/errors";
 
 export default function ChangePassword() {
   const [currentPassword, setCurrent] = useState("");
@@ -30,7 +31,7 @@ export default function ChangePassword() {
       toast.success("Password changed");
       router.back();
     } catch (e: any) {
-      toast.error(e?.response?.data?.message || "Could not change password");
+      toast.error(getErrorMessage(e, "Could not change password"));
     } finally {
       setSaving(false);
     }

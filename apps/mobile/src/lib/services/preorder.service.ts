@@ -78,6 +78,12 @@ export const PreOrderService = {
     return savePdfAndShare(`/pre-orders/${id}/receipt`, `receipt-${id.slice(0, 8)}.pdf`);
   },
 
+  // ── Balance (token-gated, public — reached from the emailed link) ──
+  getByToken: async (token: string): Promise<PreOrderSummary> => {
+    const res = await api.get(`/pre-orders/pay/${token}`);
+    return res.data.data;
+  },
+
   createBalancePayment: async (token: string) => {
     const res = await api.post(`/pre-orders/pay/${token}/create-payment`);
     return res.data.data as RazorpayInit;

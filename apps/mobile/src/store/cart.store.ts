@@ -6,6 +6,7 @@ import { CouponService } from "../lib/services/coupon.service";
 import { getChargedPrice } from "../lib/pricing";
 import { toast } from "./toast.store";
 import type { CartItem } from "../types/cart";
+import { getErrorMessage } from "../lib/utils/errors";
 
 interface AddItemPayload {
   productId: string;
@@ -209,7 +210,7 @@ export const useCartStore = create<CartState>()(
             set({ items: prev, subtotal: prevSubtotal, total: prevSubtotal - get().discount });
             // Surface the server's reason (e.g. "Only 2 left in stock") rather than
             // a blanket failure the user can do nothing about.
-            toast.error(err?.response?.data?.message || "Failed to add to cart");
+            toast.error(getErrorMessage(err, "Failed to add to cart"));
             return false;
           }
         }),
@@ -241,7 +242,7 @@ export const useCartStore = create<CartState>()(
           } catch (err: any) {
             const prevSubtotal = calcSubtotal(prev);
             set({ items: prev, subtotal: prevSubtotal, total: prevSubtotal - get().discount });
-            toast.error(err?.response?.data?.message || "Update failed");
+            toast.error(getErrorMessage(err, "Update failed"));
           } finally {
             // Only the newest pending change owns the spinner.
             if (get().updatingKey === key) set({ updatingKey: null });
@@ -271,7 +272,7 @@ export const useCartStore = create<CartState>()(
           } catch (err: any) {
             const prevSubtotal = calcSubtotal(prev);
             set({ items: prev, subtotal: prevSubtotal, total: prevSubtotal - get().discount });
-            toast.error(err?.response?.data?.message || "Remove failed");
+            toast.error(getErrorMessage(err, "Remove failed"));
           } finally {
             if (get().updatingKey === key) set({ updatingKey: null });
           }

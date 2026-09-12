@@ -6,6 +6,7 @@ import * as AppleAuthentication from "expo-apple-authentication";
 import { useAuth } from "./useAuth";
 import { AuthService } from "../lib/services/auth.service";
 import { toast } from "../store/toast.store";
+import { getErrorMessage } from "../lib/utils/errors";
 
 /**
  * Whether Sign in with Apple can run here. False on Android, and false in Expo Go
@@ -69,7 +70,7 @@ export function useAppleAuth(redirectTo: string = "/(tabs)/home") {
     } catch (err: any) {
       // Dismissing the sheet is not an error worth surfacing.
       if (err?.code === "ERR_REQUEST_CANCELED") return;
-      toast.error(err?.response?.data?.message || "Apple sign-in failed");
+      toast.error(getErrorMessage(err, "Apple sign-in failed"));
     } finally {
       setLoading(false);
     }

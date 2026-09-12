@@ -11,6 +11,7 @@ import { Input } from "../../components/ui/Input";
 import { Button } from "../../components/ui/Button";
 import { AuthService } from "../../lib/services/auth.service";
 import { toast } from "../../store/toast.store";
+import { getErrorMessage } from "../../lib/utils/errors";
 
 export default function VerifyResetCode() {
   const { email } = useLocalSearchParams<{ email?: string }>();
@@ -35,7 +36,7 @@ export default function VerifyResetCode() {
       router.replace({ pathname: "/(auth)/reset-password", params: { token } });
     } catch (err: any) {
       setError("code", {
-        message: err?.response?.data?.message || "That code is invalid or has expired",
+        message: getErrorMessage(err, "That code is invalid or has expired"),
       });
     } finally {
       setSubmitting(false);
@@ -49,7 +50,7 @@ export default function VerifyResetCode() {
       await AuthService.forgotPassword({ email: email as string });
       toast.success("New code sent");
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Could not resend the code");
+      toast.error(getErrorMessage(err, "Could not resend the code"));
     } finally {
       setResending(false);
     }

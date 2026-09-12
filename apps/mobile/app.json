@@ -9,7 +9,7 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "bundleIdentifier": "in.littlestepz",
-      "icon": "./assets/images/ios-icon.png",
+      "icon": "./assets/images/ios-icon-curve-2.png",
       "supportsTablet": false,
       "usesAppleSignIn": true,
       "infoPlist": {
@@ -29,6 +29,11 @@
               "scheme": "https",
               "host": "littlestepz.in",
               "pathPrefix": "/ref"
+            },
+            {
+              "scheme": "https",
+              "host": "littlestepz.in",
+              "pathPrefix": "/pre-orders/pay"
             }
           ],
           "category": ["BROWSABLE", "DEFAULT"]
@@ -40,10 +45,10 @@
         "android.permission.CAMERA"
       ],
       "adaptiveIcon": {
-        "backgroundColor": "#FFFFFF",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "backgroundColor": "#E31E26",
+        "foregroundImage": "./assets/images/android-icon-foreground-curve-2.png",
+        "backgroundImage": "./assets/images/android-icon-background-curve-2.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome-curve-2.png"
       },
       "predictiveBackGestureEnabled": false
     },
@@ -65,7 +70,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/images/android-icon-monochrome.png",
+          "icon": "./assets/images/android-icon-monochrome-curve-2.png",
           "color": "#FF383C"
         }
       ],
@@ -73,20 +78,20 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#FFFFFF",
-          "image": "./assets/images/icon.png",
+          "image": "./assets/images/splash-curve-1.png",
           "imageWidth": 140,
           "dark": {
             "backgroundColor": "#0B0B0F",
-            "image": "./assets/images/icon.png",
+            "image": "./assets/images/splash-curve-1.png",
             "imageWidth": 140
           },
           "android": {
             "backgroundColor": "#FFFFFF",
-            "image": "./assets/images/icon.png",
+            "image": "./assets/images/splash-curve-1.png",
             "imageWidth": 140,
             "dark": {
               "backgroundColor": "#0B0B0F",
-              "image": "./assets/images/icon.png",
+              "image": "./assets/images/splash-curve-1.png",
               "imageWidth": 140
             }
           }

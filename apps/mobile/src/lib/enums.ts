@@ -40,6 +40,8 @@ export const ORDER_STATUS: Record<string, { label: string; color: BadgeColor }> 
 export const PAYMENT_STATUS: Record<string, { label: string; color: BadgeColor }> = {
   PENDING: { label: "Pending", color: palette.amber },
   INITIATED: { label: "Initiated", color: palette.blue },
+  // A partial-payment order whose deposit is captured; the balance is still to come.
+  PARTIALLY_PAID: { label: "Deposit paid", color: palette.teal },
   SUCCESS: { label: "Paid", color: palette.green },
   FAILED: { label: "Failed", color: palette.red },
   REFUND_INITIATED: { label: "Refund initiated", color: palette.purple },
@@ -67,17 +69,39 @@ export const WITHDRAWAL_STATUS: Record<string, { label: string; color: BadgeColo
   REJECTED: { label: "Rejected", color: palette.red },
 };
 
+export const PREORDER_STATUS: Record<string, { label: string; color: BadgeColor }> = {
+  PENDING_BOOKING: { label: "Pending", color: palette.amber },
+  BOOKED: { label: "Awaiting restock", color: palette.blue },
+  AWAITING_BALANCE: { label: "Balance due", color: palette.amber },
+  COMPLETED: { label: "Completed", color: palette.green },
+  EXPIRED: { label: "Expired", color: palette.gray },
+  CANCELLED: { label: "Cancelled", color: palette.red },
+  REFUNDED: { label: "Refunded", color: palette.purple },
+};
+
 export const ORDER_STATUS_VALUES = Object.keys(ORDER_STATUS);
 
 export const COUPON_TYPES = ["PERCENTAGE", "FIXED_AMOUNT"] as const;
 export const BANNER_POSITIONS = [
   "HOME_HERO",
+  // The app's own home carousel (components/home/HeroBanner.tsx requests it).
+  "MOBILE_HERO",
   "HOME_MID",
   "CATEGORY_TOP",
   "PRODUCT_SIDEBAR",
   "CHECKOUT_TOP",
 ] as const;
 export const PAYMENT_METHODS = ["ONLINE", "COD"] as const;
+
+/** Readable names for the banner position picker and list. */
+export const BANNER_POSITION_LABELS: Record<string, string> = {
+  HOME_HERO: "Home hero (website)",
+  MOBILE_HERO: "Home hero (mobile app)",
+  HOME_MID: "Home middle",
+  CATEGORY_TOP: "Category page top",
+  PRODUCT_SIDEBAR: "Product page sidebar",
+  CHECKOUT_TOP: "Checkout top",
+};
 
 export function badgeFor(
   map: Record<string, { label: string; color: BadgeColor }>,

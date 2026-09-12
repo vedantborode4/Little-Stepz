@@ -13,6 +13,7 @@ import { AffiliateService } from "../../features/affiliate/services/affiliate.se
 import { qk } from "../../lib/api/query-client";
 import { toast } from "../../store/toast.store";
 import { colors } from "../../theme/tokens";
+import { getErrorMessage } from "../../lib/utils/errors";
 
 const BENEFITS = [
   { icon: "cash-outline", title: "Earn commissions", text: "Get paid for every sale you refer." },
@@ -40,7 +41,7 @@ export default function AffiliateApply() {
       toast.success("Application submitted");
       qc.invalidateQueries({ queryKey: qk.affiliateMe });
     } catch (e: any) {
-      toast.error(e?.response?.data?.message || "Could not submit application");
+      toast.error(getErrorMessage(e, "Could not submit application"));
     } finally {
       setSubmitting(false);
     }

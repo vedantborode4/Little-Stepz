@@ -20,10 +20,11 @@ import {
   type CreateBannerBody,
 } from "../../features/admin/services/admin.services";
 import { pickImage, uploadToCloudinary } from "../../lib/upload/uploadToCloudinary";
-import { BANNER_POSITIONS } from "../../lib/enums";
+import { BANNER_POSITIONS, BANNER_POSITION_LABELS } from "../../lib/enums";
 import { qk } from "../../lib/api/query-client";
 import { toast } from "../../store/toast.store";
 import { colors } from "../../theme/tokens";
+import { getErrorMessage } from "../../lib/utils/errors";
 
 export default function AdminBanners() {
   const qc = useQueryClient();
@@ -95,7 +96,7 @@ export default function AdminBanners() {
       setOpen(false);
       qc.invalidateQueries({ queryKey: qk.adminBanners });
     } catch (e: any) {
-      toast.error(e?.response?.data?.message || "Could not save banner");
+      toast.error(getErrorMessage(e, "Could not save banner"));
     } finally {
       setSaving(false);
     }
@@ -145,7 +146,7 @@ export default function AdminBanners() {
               <Image source={{ uri: item.imageUrl }} style={{ width: "100%", height: 120 }} contentFit="cover" />
               <View className="gap-1 p-3">
                 <Text className="font-jakarta-semibold text-text">{item.title}</Text>
-                <Text className="text-xs text-muted">{item.position}</Text>
+                <Text className="text-xs text-muted">{BANNER_POSITION_LABELS[item.position] ?? item.position}</Text>
                 <View className="mt-1 flex-row items-center justify-between">
                   <View className="flex-row items-center gap-2">
                     <Text className="text-sm text-text">Active</Text>
@@ -170,7 +171,7 @@ export default function AdminBanners() {
           <Input label="Subtitle" value={subtitle} onChangeText={setSubtitle} />
           <Input label="Link URL" value={linkUrl} onChangeText={setLinkUrl} autoCapitalize="none" />
           <Input label="Alt Text" value={altText} onChangeText={setAltText} placeholder="Image description (accessibility)" />
-          <SelectSheet label="Position" value={position} options={BANNER_POSITIONS.map((p) => ({ label: p, value: p }))} onChange={setPosition} />
+          <SelectSheet label="Position" value={position} options={BANNER_POSITIONS.map((p) => ({ label: BANNER_POSITION_LABELS[p] ?? p, value: p }))} onChange={setPosition} />
           <Input label="Sort Order" keyboardType="numeric" value={sortOrder} onChangeText={setSortOrder} placeholder="0" />
           <View className="flex-row gap-2">
             <View className="flex-1"><DateField label="Starts At" value={startsAt} onChange={setStartsAt} placeholder="Immediately" /></View>

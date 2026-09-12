@@ -17,6 +17,7 @@ import {
 import { toast } from "../../store/toast.store";
 import { useThemeColors } from "../../theme/useThemeColors";
 import type { TargetSearchKind, TargetSearchResult } from "../../types/notification";
+import { getErrorMessage } from "../../lib/utils/errors";
 
 type TargetType = BroadcastTarget["type"];
 type Tab = "send" | "history";
@@ -84,7 +85,7 @@ function Compose() {
       setBody("");
       setEntity(null);
     } catch (e: any) {
-      toast.error(e?.response?.data?.message || "Failed to send notification");
+      toast.error(getErrorMessage(e, "Failed to send notification"));
     } finally {
       setSending(false);
     }

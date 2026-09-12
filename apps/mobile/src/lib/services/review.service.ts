@@ -6,7 +6,7 @@ export const ReviewService = {
     const res = await api.get(`/products/${productId}/reviews?page=${page}`);
     return res.data.data;
   },
-  create: async (data: { productId: string; rating: number; comment: string }) => {
+  create: async (data: { productId: string; rating: number; comment?: string }) => {
     const res = await api.post("/reviews", data);
     return res.data.data;
   },

@@ -1,10 +1,10 @@
 import { ActivityIndicator, Text, View } from "react-native";
 import { WebView } from "react-native-webview";
 
-import { ScreenContainer } from "../components/layout/ScreenContainer";
-import { Header } from "../components/layout/Header";
-import { TAWK_CHAT_URL } from "../lib/env";
-import { colors } from "../theme/tokens";
+import { ScreenContainer } from "../../components/layout/ScreenContainer";
+import { Header } from "../../components/layout/Header";
+import { TAWK_CHAT_URL } from "../../lib/env";
+import { colors } from "../../theme/tokens";
 
 /**
  * Live chat (tawk.to) in a WebView. Anonymous — no user data is injected, and the
@@ -13,7 +13,7 @@ import { colors } from "../theme/tokens";
 export default function Support() {
   return (
     <ScreenContainer edges={["top", "left", "right"]}>
-      <Header title="Chat with us" />
+      <Header title="Live chat" />
       {TAWK_CHAT_URL ? (
         <View className="flex-1">
           <WebView

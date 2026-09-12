@@ -60,8 +60,8 @@ function ChatWithUsCard() {
       >
         <Ionicons name="chatbubbles-outline" size={20} color={colors.primary} />
         <View className="flex-1">
-          <Text className="text-base font-jakarta-semibold text-text">Chat with us</Text>
-          <Text className="text-xs text-muted">Questions about an order or a product? We&apos;re here to help.</Text>
+          <Text className="text-base font-jakarta-semibold text-text">Help &amp; Support</Text>
+          <Text className="text-xs text-muted">Chat, WhatsApp, call or email us about an order or a product.</Text>
         </View>
         <Ionicons name="chevron-forward" size={18} color={colors.muted} />
       </Pressable>

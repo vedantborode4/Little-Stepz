@@ -148,6 +148,10 @@ export async function getAffiliateProfileService(userId: string) {
       approvedAt:      true,
       adminNote:       true,
       createdAt:       true,
+      // The affiliate's own saved bank/UPI details. Both payout screens read this from
+      // here to show and pre-fill them; without it saved details never appeared and the
+      // form always looked empty. It only ever goes to the affiliate who entered it.
+      payoutDetails:   true,
     },
   });
 

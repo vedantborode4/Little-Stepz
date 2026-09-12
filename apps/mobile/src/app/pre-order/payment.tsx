@@ -11,6 +11,7 @@ import { toast } from "../../store/toast.store";
 import { RAZORPAY_CHECKOUT_JS, RAZORPAY_ORIGIN } from "../../lib/env";
 import { scriptJson } from "../../lib/utils/scriptJson";
 import { colors } from "../../theme/tokens";
+import { getErrorMessage } from "../../lib/utils/errors";
 
 export default function PreOrderPayment() {
   const params = useLocalSearchParams<{
@@ -86,17 +87,25 @@ export default function PreOrderPayment() {
         razorpayPaymentId: msg.response.razorpay_payment_id,
         razorpaySignature: msg.response.razorpay_signature,
       };
+      // A balance is paid against its token, and the payer may not be signed in (the link
+      // comes from an email), so it returns to the token screen — which shows the result
+      // — rather than the sign-in-only pre-orders list.
+      const balanceToken = params.mode === "balance" ? params.token : undefined;
+      const afterPayment = () =>
+        balanceToken
+          ? router.replace({ pathname: "/pre-orders/pay/[token]", params: { token: balanceToken } } as never)
+          : router.replace("/pre-orders");
       try {
-        if (params.mode === "balance" && params.token) {
-          await PreOrderService.verifyBalance(params.token, body);
+        if (balanceToken) {
+          await PreOrderService.verifyBalance(balanceToken, body);
         } else if (params.preOrderId) {
           await PreOrderService.verifyBooking(params.preOrderId, body);
         }
-        toast.success(params.mode === "balance" ? "Payment complete 🎉" : "Pre-order confirmed 🎉");
-        router.replace("/pre-orders");
+        toast.success(balanceToken ? "Payment complete 🎉" : "Pre-order confirmed 🎉");
+        afterPayment();
       } catch (err: any) {
-        toast.error(err?.response?.data?.message || "Payment verification failed");
-        router.replace("/pre-orders");
+        toast.error(getErrorMessage(err, "Payment verification failed"));
+        afterPayment();
       }
     } else if (msg.type === "failed") {
       handled.current = true;

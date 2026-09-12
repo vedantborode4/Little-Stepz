@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Linking, Pressable, ScrollView, Text, View } from "react-native";
+import { Linking, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
@@ -25,10 +25,14 @@ import {
   balanceAtDoorText,
   cancelForfeitWarning,
   depositForfeitedText,
+  codDueAtDoorText,
 } from "@repo/content/index";
+import { getErrorMessage } from "../../lib/utils/errors";
 
 // Aligned with web (apps/web/app/account/orders/[id]/page.tsx)
 const CANCELLABLE = ["PENDING", "CONFIRMED"];
+/** COD orders the courier has yet to collect cash for. */
+const COD_AWAITING_COLLECTION = ["CONFIRMED", "PROCESSING", "SHIPPED", "OUT_FOR_DELIVERY"];
 const RETURNABLE = ["DELIVERED"];
 
 const CANCEL_REASONS = [
@@ -45,6 +49,9 @@ const RETURN_REASONS = [
   "Changed my mind",
   "Other",
 ];
+
+/** The API requires a return reason of at least this many characters. */
+const MIN_RETURN_REASON = 10;
 
 const STATUS_STEPS = ["PENDING", "CONFIRMED", "PROCESSING", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED"];
 const STEP_LABELS = ["Pending", "Confirmed", "Processing", "Shipped", "Out for delivery", "Delivered"];
@@ -91,6 +98,8 @@ export default function OrderDetail() {
 
   const [actionMode, setActionMode] = useState<"cancel" | "return" | null>(null);
   const [reason, setReason] = useState("");
+  /** Free-text reason, required when a return is requested for "Other". */
+  const [otherReason, setOtherReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [downloadingInvoice, setDownloadingInvoice] = useState(false);
   const [downloadingReceipt, setDownloadingReceipt] = useState(false);
@@ -104,18 +113,28 @@ export default function OrderDetail() {
 
   const openAction = (mode: "cancel" | "return") => {
     setReason("");
+    setOtherReason("");
     setActionMode(mode);
   };
+
+  // "Other" on its own is too short for the API's return reason, so a return for "Other"
+  // sends what the customer typed instead.
+  const needsOtherText = actionMode === "return" && reason === "Other";
+  const otherTextValid = otherReason.trim().length >= MIN_RETURN_REASON;
 
   const submitAction = async () => {
     if (!reason) {
       toast.error("Please select a reason");
       return;
     }
+    if (needsOtherText && !otherTextValid) {
+      toast.error(`Please describe the reason in at least ${MIN_RETURN_REASON} characters`);
+      return;
+    }
     setSubmitting(true);
     try {
       if (actionMode === "return") {
-        await OrderService.requestReturn(id, reason);
+        await OrderService.requestReturn(id, needsOtherText ? otherReason.trim() : reason);
         toast.success("Return requested");
         setActionMode(null);
       } else {
@@ -135,7 +154,7 @@ export default function OrderDetail() {
       }
       refresh();
     } catch (e: any) {
-      toast.error(e?.response?.data?.message || "Something went wrong");
+      toast.error(getErrorMessage(e, "Something went wrong"));
     } finally {
       setSubmitting(false);
     }
@@ -277,6 +296,17 @@ export default function OrderDetail() {
           </Card>
         ) : null}
 
+        {/* Cash on Delivery still to be collected — the amount to keep ready at the door. */}
+        {!order.partial && order.paymentMethod === "COD" && COD_AWAITING_COLLECTION.includes(order.status) ? (
+          <Card className="gap-2 border border-warning/40">
+            <View className="flex-row items-center gap-2">
+              <Ionicons name="cash-outline" size={18} color={colors.warning} />
+              <Text className="font-jakarta-semibold text-text">Pay on delivery</Text>
+            </View>
+            <Text className="text-sm text-muted">{codDueAtDoorText(Number(order.total))}</Text>
+          </Card>
+        ) : null}
+
         {order.partial?.depositForfeited ? (
           <Card className="gap-2 border border-border">
             <Text className="text-sm text-muted">
@@ -403,12 +433,32 @@ export default function OrderDetail() {
             </Pressable>
           );
         })}
+        {needsOtherText ? (
+          <View className="mt-1 gap-1">
+            <TextInput
+              value={otherReason}
+              onChangeText={setOtherReason}
+              placeholder="Tell us what went wrong"
+              placeholderTextColor={colors.muted}
+              maxLength={500}
+              multiline
+              autoFocus
+              textAlignVertical="top"
+              className="min-h-20 rounded-lg border border-border bg-surface p-3 text-text"
+            />
+            <Text className={`text-xs ${otherTextValid ? "text-muted" : "text-warning"}`}>
+              {otherTextValid
+                ? `${otherReason.trim().length}/500`
+                : `At least ${MIN_RETURN_REASON} characters (${otherReason.trim().length}/${MIN_RETURN_REASON})`}
+            </Text>
+          </View>
+        ) : null}
         <View className="mt-2">
           <Button
             label={actionMode === "return" ? "Request Return" : "Cancel Order"}
             variant={actionMode === "return" ? "primary" : "danger"}
             loading={submitting}
-            disabled={!reason}
+            disabled={!reason || (needsOtherText && !otherTextValid)}
             onPress={submitAction}
           />
         </View>

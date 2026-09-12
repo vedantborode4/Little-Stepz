@@ -12,6 +12,7 @@ import { useAuthStore } from "../../store/auth.store";
 import { toast } from "../../store/toast.store";
 import { formatDate } from "../../lib/utils/format";
 import { colors } from "../../theme/tokens";
+import { getErrorMessage } from "../../lib/utils/errors";
 
 const RATING_WORDS = ["", "Poor", "Fair", "Good", "Very Good", "Excellent"];
 
@@ -50,7 +51,8 @@ export function ReviewSection({ productId }: { productId: string }) {
   const loadedCount = reviews.length;
 
   const mutation = useMutation({
-    mutationFn: () => ReviewService.create({ productId, rating, comment }),
+    // A blank comment is omitted: the API accepts no comment, but rejects an empty string.
+    mutationFn: () => ReviewService.create({ productId, rating, comment: comment.trim() || undefined }),
     onSuccess: () => {
       toast.success("Review submitted");
       setComment("");
@@ -58,7 +60,7 @@ export function ReviewSection({ productId }: { productId: string }) {
       qc.invalidateQueries({ queryKey: qk.productReviews(productId) });
     },
     onError: (err: any) => {
-      toast.error(err?.response?.data?.message || "Could not submit review");
+      toast.error(getErrorMessage(err, "Could not submit review"));
     },
   });
 
@@ -103,8 +105,9 @@ export function ReviewSection({ productId }: { productId: string }) {
           <TextInput
             value={comment}
             onChangeText={setComment}
-            placeholder="Share your experience"
+            placeholder="Share your experience (optional)"
             placeholderTextColor={colors.muted}
+            maxLength={500}
             multiline
             className="min-h-16 rounded-lg border border-border bg-surface p-3 text-text"
             textAlignVertical="top"

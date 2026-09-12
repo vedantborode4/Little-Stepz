@@ -60,7 +60,15 @@ export default function EditProduct() {
             <View className="h-px bg-border" />
             <VariantMatrixGenerator productId={product.id} options={product.options ?? []} onGenerated={reload} />
             <View className="h-px bg-border" />
-            <VariantManager productId={product.id} variants={product.variants ?? []} onChange={reload} />
+            <VariantManager
+              productId={product.id}
+              variants={product.variants ?? []}
+              onChange={reload}
+              productPreOrderEnabled={!!product.preOrderEnabled}
+              productBookingAmount={product.bookingAmount != null ? String(product.bookingAmount) : undefined}
+              productPartialPaymentEnabled={!!product.partialPaymentEnabled}
+              productCodEnabled={!!product.codEnabled}
+            />
             <View className="h-px bg-border" />
             <ProductImageManager productId={product.id} images={product.images ?? []} onChange={reload} />
             <View className="h-px bg-border" />

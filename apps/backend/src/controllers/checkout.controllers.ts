@@ -14,8 +14,6 @@ async function calculateCheckout(req: Request, res: Response) {
 }
 
 async function checkServiceability(req: Request, res: Response) {
-  const userId = req.user?.userId;
-  if (!userId) throw new ApiError(401, "Unauthorized");
   const { pincode } = serviceabilityQuerySchema.parse(req.query);
 
   const result = await checkServiceabilityService(pincode);

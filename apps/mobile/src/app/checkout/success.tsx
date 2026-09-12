@@ -118,9 +118,24 @@ export default function CheckoutSuccess() {
               <View className="flex-1 rounded-2xl border border-border bg-surface p-4">
                 <Text className="mb-1 text-xs text-muted">Order Total</Text>
                 <Text className="text-xl font-jakarta-bold text-text">{formatPrice(order.total)}</Text>
-                <Text className="mt-1 text-xs capitalize text-muted">
-                  via {order.paymentMethod === "COD" ? "Cash on Delivery" : "Online"}
-                </Text>
+                {/* Never present the order total as "paid" on a deposit order — part of it
+                    was charged now and the rest is owed at the door. */}
+                {order.partial ? (
+                  <>
+                    <Text className="mt-1 text-xs text-muted">
+                      Paid now {formatPrice(order.partial.depositAmount)}
+                    </Text>
+                    <Text className="mt-0.5 text-xs font-jakarta-semibold text-warning">
+                      {formatPrice(order.partial.balanceAmount)} due at delivery
+                    </Text>
+                  </>
+                ) : (
+                  <Text className="mt-1 text-xs text-muted">
+                    {order.paymentMethod === "COD"
+                      ? `Pay ${formatPrice(order.total)} in cash on delivery`
+                      : "Paid online"}
+                  </Text>
+                )}
               </View>
               <View className="flex-1 rounded-2xl border border-border bg-surface p-4">
                 <View className="mb-1 flex-row items-center gap-1.5">

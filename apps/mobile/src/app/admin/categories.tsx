@@ -17,6 +17,7 @@ import { pickImage, uploadToCloudinary } from "../../lib/upload/uploadToCloudina
 import { qk } from "../../lib/api/query-client";
 import { toast } from "../../store/toast.store";
 import { colors } from "../../theme/tokens";
+import { getErrorMessage } from "../../lib/utils/errors";
 
 const slugify = (s: string) => s.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 
@@ -74,7 +75,7 @@ export default function AdminCategories() {
       setOpen(false);
       qc.invalidateQueries({ queryKey: qk.adminCategories });
     } catch (e: any) {
-      toast.error(e?.response?.data?.message || "Could not save category");
+      toast.error(getErrorMessage(e, "Could not save category"));
     } finally {
       setSaving(false);
     }

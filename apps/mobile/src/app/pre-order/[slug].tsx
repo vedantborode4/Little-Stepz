@@ -22,6 +22,7 @@ import { toast } from "../../store/toast.store";
 import { useAuthStore } from "../../store/auth.store";
 import { colors } from "../../theme/tokens";
 import type { Product, Variant } from "../../types/product";
+import { getErrorMessage } from "../../lib/utils/errors";
 
 // Mirrors the backend's customer shipping charge (FREE_SHIPPING) — delivery is on us.
 const SHIPPING = 0;
@@ -153,7 +154,7 @@ export default function PreOrderCheckout() {
         },
       });
     } catch (e: any) {
-      toast.error(e?.response?.data?.message || "Pre-order failed");
+      toast.error(getErrorMessage(e, "Pre-order failed"));
     } finally {
       setPlacing(false);
     }

@@ -27,8 +27,12 @@ export function DeliveryCheck() {
     setLoading(true);
     try {
       setResult(await CheckoutService.checkServiceability(pincode));
-    } catch {
-      setError("Couldn't check right now. Please try again.");
+    } catch (e: any) {
+      setError(
+        e?.response?.status === 429
+          ? "Too many checks in a row. Please wait a minute and try again."
+          : "Couldn't check right now. Please try again."
+      );
       setResult(null);
     } finally {
       setLoading(false);

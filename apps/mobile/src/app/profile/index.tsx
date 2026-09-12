@@ -12,6 +12,7 @@ import { useAuth } from "../../hooks/useAuth";
 import { useAuthStore } from "../../store/auth.store";
 import { setUser as persistUser } from "../../lib/api/token";
 import { toast } from "../../store/toast.store";
+import { getErrorMessage } from "../../lib/utils/errors";
 import { colors } from "../../theme/tokens";
 
 export default function Profile() {
@@ -31,15 +32,37 @@ export default function Profile() {
     .toUpperCase();
 
   const onSave = async () => {
+    const trimmedName = name.trim();
+    const trimmedPhone = (phone ?? "").trim();
+    if (trimmedName.length < 2) {
+      toast.error("Please enter your name (at least 2 characters)");
+      return;
+    }
+    if (trimmedPhone && !/^[6-9]\d{9}$/.test(trimmedPhone)) {
+      toast.error("Enter a valid 10-digit mobile number");
+      return;
+    }
     setSaving(true);
     try {
-      const updated = await UserService.updateMe({ name, phone });
-      const next = { ...user!, name: updated?.name ?? name, phone: updated?.phone ?? phone };
+      // The phone is only sent when there is one: the API validates it as an Indian
+      // mobile number, so an empty string blocked every name change for accounts with no
+      // phone (most Google and Apple sign-ups).
+      const updated = await UserService.updateMe({
+        name: trimmedName,
+        ...(trimmedPhone ? { phone: trimmedPhone } : {}),
+      });
+      const next = {
+        ...user!,
+        name: updated?.name ?? trimmedName,
+        phone: updated?.phone ?? user?.phone ?? null,
+      };
       setUserOnly(next);
       await persistUser(next);
+      setName(next.name);
+      setPhone(next.phone ?? "");
       toast.success("Profile updated");
     } catch (e: any) {
-      toast.error(e?.response?.data?.message || "Could not update profile");
+      toast.error(getErrorMessage(e, "Could not update profile"));
     } finally {
       setSaving(false);
     }
@@ -78,7 +101,7 @@ export default function Profile() {
       // signOut clears the session and routes to sign-in.
       await signOut();
     } catch (e: any) {
-      toast.error(e?.response?.data?.message || "Could not delete your account");
+      toast.error(getErrorMessage(e, "Could not delete your account"));
     } finally {
       setDeleting(false);
     }

@@ -20,6 +20,8 @@ export function notificationRoute(
       return "/affiliate";
     case "AdminWithdrawals":
       return "/admin/withdrawals";
+    case "AdminPreOrders":
+      return "/admin/pre-orders";
     default:
       return null;
   }

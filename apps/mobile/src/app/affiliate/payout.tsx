@@ -13,6 +13,7 @@ import { AffiliateService } from "../../features/affiliate/services/affiliate.se
 import { qk } from "../../lib/api/query-client";
 import { formatPrice } from "../../lib/utils/format";
 import { toast } from "../../store/toast.store";
+import { getErrorMessage } from "../../lib/utils/errors";
 
 export default function AffiliatePayout() {
   const me = useAffiliateMe();
@@ -68,7 +69,7 @@ export default function AffiliatePayout() {
       setEditing(false);
       qc.invalidateQueries({ queryKey: qk.affiliateMe });
     } catch (e: any) {
-      toast.error(e?.response?.data?.message || "Could not save details");
+      toast.error(getErrorMessage(e, "Could not save details"));
     } finally {
       setSavingDetails(false);
     }
@@ -88,7 +89,7 @@ export default function AffiliatePayout() {
       qc.invalidateQueries({ queryKey: qk.affiliateStats });
       qc.invalidateQueries({ queryKey: qk.affiliateCommissions });
     } catch (e: any) {
-      toast.error(e?.response?.data?.message || "Could not request withdrawal");
+      toast.error(getErrorMessage(e, "Could not request withdrawal"));
     } finally {
       setWithdrawing(false);
     }

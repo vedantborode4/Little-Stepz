@@ -8,6 +8,15 @@ export const OrderService = {
     return res.data.data;
   },
 
+  /** One page of the customer's orders, newest first. */
+  getPage: async (
+    page: number,
+    limit = 20
+  ): Promise<{ orders: Order[]; total: number; page: number; limit: number; pages: number }> => {
+    const res = await api.get("/orders", { params: { page, limit } });
+    return res.data.data;
+  },
+
   getById: async (id: string): Promise<Order> => {
     const res = await api.get(`/orders/${id}`);
     return res.data.data;
