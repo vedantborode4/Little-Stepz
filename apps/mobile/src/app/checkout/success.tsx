@@ -8,6 +8,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { ScreenContainer } from "../../components/layout/ScreenContainer";
 import { Button } from "../../components/ui/Button";
 import { useCartStore } from "../../store/cart.store";
+import { useCheckoutStore } from "../../store/checkout.store";
 import { OrderService } from "../../lib/services/order.service";
 import { qk } from "../../lib/api/query-client";
 import { formatPrice } from "../../lib/utils/format";
@@ -17,6 +18,7 @@ export default function CheckoutSuccess() {
   const { orderId, state } = useLocalSearchParams<{ orderId: string; state?: string }>();
   const failed = state === "failed";
   const fetchCart = useCartStore((s) => s.fetchCart);
+  const resetSession = useCheckoutStore((s) => s.resetSession);
 
   const { data: order, isLoading } = useQuery({
     queryKey: qk.order(orderId),
@@ -27,6 +29,15 @@ export default function CheckoutSuccess() {
   useEffect(() => {
     if (!failed) fetchCart();
   }, [failed, fetchCart]);
+
+  // Retire the checkout session here rather than at the call site, so the reset lands
+  // in a tick after the navigation has committed. Doing it alongside `router.replace`
+  // fused the step reset and the screen swap into one Fabric commit, which crashed
+  // Android (see the COD branch in ./index.tsx). Idempotent — the online flow also
+  // resets in verifying.tsx.
+  useEffect(() => {
+    if (!failed) resetSession();
+  }, [failed, resetSession]);
 
   if (failed) {
     return (
