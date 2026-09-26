@@ -4,20 +4,28 @@ import { QueryClient, focusManager, onlineManager, type Query } from "@tanstack/
 import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+import { guard } from "../boot-trace";
+
 /**
  * React Query has no idea about React Native's lifecycle out of the box: it uses
  * browser `window` focus and `navigator.onLine`, neither of which exists here.
  * Without this wiring, queries fail outright when offline instead of pausing, and
  * nothing ever refreshes when the app comes back from the background.
  */
-onlineManager.setEventListener((setOnline) =>
-  NetInfo.addEventListener((state) => {
-    setOnline(Boolean(state.isConnected && state.isInternetReachable !== false));
-  })
-);
+// Both of these run at import time, before any error boundary exists, so an
+// throw here would abort the process with no diagnostic. See ../boot-trace.
+guard("query-client:netinfo-listener", () => {
+  onlineManager.setEventListener((setOnline) =>
+    NetInfo.addEventListener((state) => {
+      setOnline(Boolean(state.isConnected && state.isInternetReachable !== false));
+    })
+  );
+});
 
-AppState.addEventListener("change", (status: AppStateStatus) => {
-  focusManager.setFocused(status === "active");
+guard("query-client:appstate-listener", () => {
+  AppState.addEventListener("change", (status: AppStateStatus) => {
+    focusManager.setFocused(status === "active");
+  });
 });
 
 /** 4xx responses are the client's fault — retrying them just delays the error. */

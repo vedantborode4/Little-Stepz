@@ -30,16 +30,29 @@ import { useIsDark, useThemeColors } from "../theme/useThemeColors";
 import { usePushNotifications } from "../hooks/usePushNotifications";
 import { useGoogleOAuthCallback } from "../hooks/useGoogleOAuthCallback";
 import { configureNotificationHandler, ensureAndroidChannel } from "../lib/push";
+import {
+  completeBootTrace,
+  guard,
+  guardAsync,
+  mark,
+  previousCrashTrace,
+} from "../lib/boot-trace";
+import { BootTraceScreen } from "../components/BootTraceScreen";
 
-SplashScreen.preventAutoHideAsync().catch(() => {});
-configureNotificationHandler();
+mark("layout:module-scope");
+
+// Everything here runs at import time — above ErrorBoundary, above any React
+// tree — so an unguarded throw aborts the process with no diagnostic at all.
+guardAsync("splash:preventAutoHide", () => SplashScreen.preventAutoHideAsync());
+guard("notifications:configureHandler", () => configureNotificationHandler());
 // Create the Android channel at launch, not only inside the authenticated
 // registration path: a push that arrives for a channel the app has never declared
 // falls back to Android's default importance and shows no heads-up banner.
-void ensureAndroidChannel();
+guardAsync("notifications:ensureAndroidChannel", () => ensureAndroidChannel());
 
 /** Runs push wiring inside the QueryClientProvider (needs useQueryClient). */
 function PushBridge() {
+  mark("bridge:push");
   usePushNotifications();
   return null;
 }
@@ -58,12 +71,15 @@ export default function RootLayout() {
   const isHydrated = useAuthStore((s) => s.isHydrated);
   const [authReady, setAuthReady] = useState(false);
 
+  // Non-null only when the previous launch never reached `boot:complete`.
+  const [crashTrace, setCrashTrace] = useState<string | null>(() => previousCrashTrace());
+
   const themeColors = useThemeColors();
   const isDark = useIsDark();
 
   // Apply the persisted theme preference to NativeWind on boot.
   useEffect(() => {
-    useThemeStore.getState().apply();
+    guard("theme:apply", () => useThemeStore.getState().apply());
   }, []);
 
   // Type system (matches the intended web spec):
@@ -83,7 +99,9 @@ export default function RootLayout() {
     (async () => {
       // One pass hydrates the access token, refresh token, guest cart session
       // and the persisted user — everything the API client needs synchronously.
+      mark("session:loadSession");
       const { token, user } = await loadSession();
+      mark(`session:loaded token=${token ? "yes" : "no"} user=${user ? "yes" : "no"}`);
       if (token && user) {
         useAuthStore.setState({ user, isAuthenticated: true });
         // Refresh the profile so role changes (e.g. promoted to ADMIN) are picked
@@ -104,16 +122,39 @@ export default function RootLayout() {
       // Without this the tab-bar badge showed 0 on every launch until the user
       // happened to open the Cart tab, and product cards rendered unfilled hearts.
       // Guests have a cart too — it's keyed by the stored cart session.
-      void useCartStore.getState().fetchCart();
-      if (token && user) void useWishlistStore.getState().fetchWishlist();
+      guardAsync("cart:fetchCart", () => useCartStore.getState().fetchCart());
+      if (token && user) {
+        guardAsync("wishlist:fetchWishlist", () =>
+          useWishlistStore.getState().fetchWishlist()
+        );
+      }
     })();
   }, [setHydrated]);
 
   const ready = authReady && fontsLoaded && isHydrated;
 
   useEffect(() => {
-    if (ready) SplashScreen.hideAsync().catch(() => {});
+    mark(
+      `layout:gate authReady=${authReady} fontsLoaded=${fontsLoaded} isHydrated=${isHydrated}`
+    );
+  }, [authReady, fontsLoaded, isHydrated]);
+
+  useEffect(() => {
+    if (!ready) return;
+    guardAsync("splash:hide", () => SplashScreen.hideAsync());
+    // Startup finished, so the next launch has nothing to report.
+    completeBootTrace();
   }, [ready]);
+
+  useEffect(() => {
+    if (crashTrace) guardAsync("splash:hide-for-trace", () => SplashScreen.hideAsync());
+  }, [crashTrace]);
+
+  // The previous launch died mid-startup: show how far it got before rendering
+  // the app, since that trace is the only record of where it failed.
+  if (crashTrace) {
+    return <BootTraceScreen trace={crashTrace} onContinue={() => setCrashTrace(null)} />;
+  }
 
   if (!ready) return null;
 
