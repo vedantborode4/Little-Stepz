@@ -15,7 +15,7 @@ import { AuthCard, Button, Input } from "@repo/ui/index"
 import PasswordInput from "../../../components/common/PasswordInput"
 import GoogleAuthButton from "../../../components/auth/GoogleAuthButton"
 import { friendlyError } from "../../../lib/errorMessages"
-import { safeRedirectTarget } from "../../../lib/utils/redirect"
+import { safeRedirectTarget, withActiveRedirect } from "../../../lib/utils/redirect"
 
 const SignupFormSchema = SignupSchema.extend({
   confirmPassword: z.string(),
@@ -58,7 +58,11 @@ export default function SignUpPage() {
       try {
         const res = await AuthService.signup(signupData)
         await login(res)
-        router.push("/")
+        // Return the customer to where they were sent from (e.g. /checkout), never the
+        // homepage. Sign-up is mandatory to order, so this is the common path off checkout.
+        // safeRedirectTarget re-reads and re-validates ?redirect= here; GuestGuard resolves
+        // to the same target, so the two no longer race to different destinations.
+        router.push(safeRedirectTarget())
         return
       } catch (err) {
         if ((err as { response?: { status?: number } })?.response?.status !== 426) throw err
@@ -93,7 +97,9 @@ export default function SignUpPage() {
             resendAfterSeconds={pending.resendAfterSeconds}
             onVerified={async (res) => {
               await login(res)
-              router.push("/")
+              // Same as the one-step path: honour ?redirect= so a verified sign-up started
+              // from checkout lands back on /checkout. The URL still carries the param here.
+              router.push(safeRedirectTarget())
             }}
             onBack={() => setPending(null)}
           />
@@ -180,7 +186,7 @@ export default function SignUpPage() {
         <p className="text-center text-sm text-muted">
           Already have an account?{" "}
           <span
-            onClick={() => router.push("/signin")}
+            onClick={() => router.push(withActiveRedirect("/signin"))}
             className="text-primary font-semibold cursor-pointer"
           >
             Sign in

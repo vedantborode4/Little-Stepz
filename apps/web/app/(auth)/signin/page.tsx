@@ -13,7 +13,7 @@ import { Button, Input, AuthCard } from "@repo/ui/index"
 import PasswordInput from "../../../components/common/PasswordInput"
 import GoogleAuthButton from "../../../components/auth/GoogleAuthButton"
 import { friendlyError } from "../../../lib/errorMessages"
-import { safeRedirectTarget } from "../../../lib/utils/redirect"
+import { safeRedirectTarget, withActiveRedirect } from "../../../lib/utils/redirect"
 
 export default function SignInPage() {
   const router = useRouter()
@@ -135,7 +135,7 @@ export default function SignInPage() {
         <p className="text-center text-sm text-muted">
           Don't have an account?{" "}
           <span
-            onClick={() => router.push("/signup")}
+            onClick={() => router.push(withActiveRedirect("/signup"))}
             className="text-primary font-semibold cursor-pointer"
           >
             Sign up
