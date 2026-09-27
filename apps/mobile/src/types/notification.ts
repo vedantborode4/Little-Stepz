@@ -25,7 +25,12 @@ export type NotificationType =
   | "MARKETING"
   | "ADMIN_NEW_ORDER"
   | "ADMIN_WITHDRAWAL_REQUEST"
-  | "ADMIN_CUSTOM";
+  | "ADMIN_CUSTOM"
+  | "RETURN_REQUESTED"
+  | "RETURN_APPROVED"
+  | "RETURN_REJECTED"
+  | "RETURN_PICKED_UP"
+  | "RETURN_RECEIVED";
 
 export interface AppNotification {
   id: string;

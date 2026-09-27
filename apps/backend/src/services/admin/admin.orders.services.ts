@@ -30,6 +30,16 @@ const statusTransitions: Record<OrderStatus, OrderStatus[]> = {
 };
 
 
+/**
+ * The return an admin should act on: the open (PENDING) one if any, else the newest.
+ * Expects `returns` ordered newest first. An order can carry several returns, so
+ * blindly taking the first row could point "Resolve Return" at a resolved request.
+ */
+function actionableReturn<T extends { status: string }>(returns: T[]): T | undefined {
+  return returns.find((r) => r.status === "PENDING") ?? returns[0];
+}
+
+
 export async function getAdminOrdersService(
   page: number,
   limit: number,
@@ -94,8 +104,9 @@ export async function getAdminOrdersService(
         // The admin "Resolve Return" action addresses the Return, not the Order —
         // `PUT /admin/returns/:id/resolve`. The row was never sent one, so the button
         // posted `undefined` as the id and the flow could not work at all.
-        // Return.orderId is @unique, so there is at most one.
-        returns: { select: { id: true, status: true }, take: 1 },
+        // An order can hold several returns, so fetch the newest few and let
+        // `actionableReturn` pick the open one rather than an old resolved row.
+        returns: { select: { id: true, status: true }, orderBy: { createdAt: "desc" }, take: 5 },
       },
     }),
     prisma.order.count({ where }),
@@ -115,28 +126,31 @@ export async function getAdminOrdersService(
   });
 
   return {
-    orders: orders.map(({ returns, ...order }) => ({
-      ...order,
-      subtotal: order.subtotal.toNumber(),
-      discount: order.discount.toNumber(),
-      shippingCharges: order.shippingCharges.toNumber(),
-      total: order.total.toNumber(),
-      returnId: returns[0]?.id ?? null,
-      returnStatus: returns[0]?.status ?? null,
-      // Surfaced on the list so outstanding money is visible without opening each order.
-      balanceOutstanding:
-        order.paymentPlan === "PARTIAL" &&
-        order.payment?.status !== "SUCCESS" &&
-        !order.payment?.balanceSettledAt
-          ? Number(order.balanceAmount ?? 0)
-          : 0,
-      payment: order.payment
-        ? {
-            ...order.payment,
-            amount: order.payment.amount.toNumber(),
-          }
-        : null,
-    })),
+    orders: orders.map(({ returns, ...order }) => {
+      const actionable = actionableReturn(returns);
+      return {
+        ...order,
+        subtotal: order.subtotal.toNumber(),
+        discount: order.discount.toNumber(),
+        shippingCharges: order.shippingCharges.toNumber(),
+        total: order.total.toNumber(),
+        returnId: actionable?.id ?? null,
+        returnStatus: actionable?.status ?? null,
+        // Surfaced on the list so outstanding money is visible without opening each order.
+        balanceOutstanding:
+          order.paymentPlan === "PARTIAL" &&
+          order.payment?.status !== "SUCCESS" &&
+          !order.payment?.balanceSettledAt
+            ? Number(order.balanceAmount ?? 0)
+            : 0,
+        payment: order.payment
+          ? {
+              ...order.payment,
+              amount: order.payment.amount.toNumber(),
+            }
+          : null,
+      };
+    }),
     total,
     page,
     limit,
@@ -244,10 +258,11 @@ export async function getAdminOrderByIdService(id: string) {
           variant: { select: { id: true, name: true } },
         },
       },
-      // The "Resolve Return" action addresses the Return, not the Order.
+      // The "Resolve Return" action addresses the Return, not the Order. Every return
+      // is listed; `returnId` points at the actionable one.
       returns: {
         select: { id: true, status: true, reason: true, refundAmount: true, createdAt: true },
-        take: 1,
+        orderBy: { createdAt: "desc" },
       },
     },
   });
@@ -283,8 +298,8 @@ export async function getAdminOrderByIdService(id: string) {
             manualRefundSettledAt: order.payment?.manualRefundSettledAt ?? null,
           }
         : null,
-    returnId:     order.returns[0]?.id ?? null,
-    returnStatus: order.returns[0]?.status ?? null,
+    returnId:     actionableReturn(order.returns)?.id ?? null,
+    returnStatus: actionableReturn(order.returns)?.status ?? null,
     returns: order.returns.map((r) => ({
       ...r,
       refundAmount: r.refundAmount?.toNumber() ?? null,

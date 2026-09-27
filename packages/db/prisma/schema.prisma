@@ -300,6 +300,10 @@ model Product {
   /// gates still apply on top.
   codEnabled Boolean @default(false)
 
+  /// Whether a customer may request an item-level return. Checked live at request time,
+  /// so default true keeps every existing product returnable exactly as before.
+  returnable Boolean @default(true)
+
   category     Category      @relation(fields: [categoryId], references: [id])
   images       ProductImage[]
   variants     Variant[]
@@ -692,6 +696,7 @@ model Order {
   affiliateConversions AffiliateConversion[]
   commissions          Commission[]
   returns              Return[]
+  returnRefunds        ReturnRefund[]
   shipments            Shipment[]
   preOrder             PreOrder?
 
@@ -866,6 +871,8 @@ model OrderItem {
   productName String?
   variantName String?
 
+  returnItems ReturnItem[]
+
   deletedAt DateTime?
 }
 
@@ -898,9 +905,15 @@ model AuditLog {
   @@index([createdAt])
 }
 
+/// One customer return request.
+///
+/// A row with no `items` is a legacy whole-order return and is resolved by the original
+/// path in `resolveReturnService`. A row with `items` is an item-level return: it moves
+/// money only after the goods are received, through the `ReturnRefund` ledger — never
+/// through the single refund slot on each `Payment` leg.
 model Return {
   id      String @id @default(uuid())
-  orderId String @unique
+  orderId String
   order   Order  @relation(fields: [orderId], references: [id])
   userId  String
 
@@ -908,16 +921,41 @@ model Return {
   description String?
   status      ReturnStatus @default(PENDING)
 
+  reasonCode String?
+  /// Array of { url, publicId, type: "image" | "video" } under returns/{userId}/{orderId}/.
+  media      Json?
+  /// Where a manual (cash) refund is paid. Only collected when part of the order was paid in cash.
+  refundUpiId    String?
+  idempotencyKey String? @unique
+
   adminNote  String?
   resolvedBy String?
   resolvedAt DateTime?
 
+  /// MANUAL | DELHIVERY. The reverse-pickup AWB lives here and never in `Shipment`:
+  /// the forward webhook treats a RETURNED/DTO scan as an RTO and would restore stock.
+  pickupMode        String?
+  pickupAwb         String? @unique
+  pickupTrackingUrl String?
+  pickupStatus      String?
+  pickedUpAt        DateTime?
+
+  receivedAt     DateTime?
+  receivedBy     String?
+  inspectionNote String?
+  shippingRefund Decimal? @db.Decimal(12,2)
+  cancelledAt    DateTime?
+
   refundAmount Decimal?
   refundedAt   DateTime?
+
+  items   ReturnItem[]
+  refunds ReturnRefund[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([orderId])
   @@index([userId])
   @@index([status])
 }
@@ -927,6 +965,72 @@ enum ReturnStatus {
   APPROVED
   REJECTED
   REFUNDED
+  PICKED_UP
+  RECEIVED
+  INSPECTION_FAILED
+  CANCELLED
+}
+
+model ReturnItem {
+  id       String @id @default(uuid())
+  returnId String
+  return   Return @relation(fields: [returnId], references: [id], onDelete: Cascade)
+
+  orderItemId String
+  orderItem   OrderItem @relation(fields: [orderItemId], references: [id])
+
+  quantity         Int
+  /// Set at inspection; units requested but not accepted are neither refunded nor restocked.
+  acceptedQuantity Int?
+  /// Set inside the claimed transition to RECEIVED, so a replay cannot restock twice.
+  restocked        Boolean  @default(false)
+  refundAmount     Decimal? @db.Decimal(12,2)
+
+  @@unique([returnId, orderItemId])
+  @@index([orderItemId])
+}
+
+enum ReturnRefundChannel {
+  RAZORPAY_PRIMARY
+  RAZORPAY_BALANCE
+  MANUAL
+}
+
+enum ReturnRefundStatus {
+  PENDING
+  INITIATED
+  PROCESSED
+  FAILED
+}
+
+/// Ledger of money returned for item-level returns — one row per channel per return.
+///
+/// Exists because each Payment leg holds a single refund id/amount that the refund
+/// webhook treats as final once settled, so a second partial refund on the same order
+/// would be dropped. Rows here never touch those legacy columns.
+model ReturnRefund {
+  id       String @id @default(uuid())
+  returnId String
+  return   Return @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  orderId  String
+  order    Order  @relation(fields: [orderId], references: [id])
+
+  channel ReturnRefundChannel
+  amount  Decimal             @db.Decimal(12,2)
+  status  ReturnRefundStatus  @default(PENDING)
+
+  razorpayRefundId String? @unique
+  manualReference  String?
+  settledBy        String?
+  failureReason    String?
+  processedAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([returnId, channel])
+  @@index([orderId])
+  @@index([status])
 }
 
 model Shipment {
@@ -1225,6 +1329,11 @@ enum NotificationType {
   ADMIN_NEW_ORDER
   ADMIN_WITHDRAWAL_REQUEST
   ADMIN_CUSTOM
+  RETURN_REQUESTED
+  RETURN_APPROVED
+  RETURN_REJECTED
+  RETURN_PICKED_UP
+  RETURN_RECEIVED
 }
 
 model DeviceToken {

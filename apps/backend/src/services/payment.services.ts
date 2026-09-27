@@ -1490,6 +1490,11 @@ export async function createReturnRequestService(
   req?:    Request
 ) {
   return prisma.$transaction(async (tx) => {
+    // Serialise requests for the same order. Return.orderId is no longer UNIQUE (an order
+    // may hold several item-level returns), so the `returns.length` check below is the
+    // only guard — without this lock a double-tap or client retry creates two returns.
+    await tx.$queryRaw`SELECT id FROM "Order" WHERE id = ${orderId} AND "userId" = ${userId} FOR UPDATE`;
+
     const order = await tx.order.findFirst({
       where: { id: orderId, userId, deletedAt: null },
       include: {

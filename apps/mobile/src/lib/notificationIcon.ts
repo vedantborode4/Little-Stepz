@@ -38,6 +38,12 @@ export function notificationIcon(type: NotificationType): keyof typeof Ionicons.
       return "receipt-outline";
     case "ADMIN_WITHDRAWAL_REQUEST":
       return "cash-outline";
+    case "RETURN_REQUESTED":
+    case "RETURN_APPROVED":
+    case "RETURN_REJECTED":
+    case "RETURN_PICKED_UP":
+    case "RETURN_RECEIVED":
+      return "return-down-back-outline";
     default:
       return "notifications-outline";
   }
