@@ -44,7 +44,7 @@ export async function adminGetStatsService(query: AdminStatsQuery) {
     totalProducts, lowStockProducts,
     totalAffiliates, pendingAffiliates,
     commissionsPending, commissionsApproved,
-    pendingReturns, revenueChart, topProducts,
+    pendingReturns, revenueChart, topProducts, returnRefundsInRange,
   ] = await Promise.all([
     prisma.order.count({ where: { deletedAt: null } }),
     prisma.order.count({ where: { deletedAt: null, createdAt: { gte: today } } }),
@@ -68,7 +68,11 @@ export async function adminGetStatsService(query: AdminStatsQuery) {
     prisma.return.count({ where: { status: "PENDING" } }),
     prisma.$queryRaw<Array<{ day: string; revenue: string; orders: string }>>`
       SELECT DATE(o."createdAt") AS day,
-             COALESCE(SUM(o.total),0)::TEXT AS revenue,
+             -- Net of settled item-return refunds: those orders stay DELIVERED.
+             COALESCE(SUM(o.total - COALESCE((
+               SELECT SUM(rr.amount) FROM "ReturnRefund" rr
+               WHERE rr."orderId" = o.id AND rr.status = 'PROCESSED'
+             ), 0)),0)::TEXT AS revenue,
              COUNT(o.id)::TEXT             AS orders
       FROM "Order" o
       WHERE o."deletedAt" IS NULL
@@ -89,7 +93,19 @@ export async function adminGetStatsService(query: AdminStatsQuery) {
       by: ["productId"], _sum: { quantity: true }, _count: { id: true },
       orderBy: { _sum: { quantity: "desc" } }, take: 5,
     }),
+    // Item returns leave the order in a revenue status while part of its money goes
+    // back, so settled return refunds on those same orders are netted out.
+    prisma.returnRefund.aggregate({
+      where: {
+        status: "PROCESSED",
+        order: { deletedAt: null, createdAt: rangeFilter, status: { in: REVENUE_ORDER_STATUSES }, ...SETTLED_MONEY_WHERE },
+      },
+      _sum: { amount: true },
+    }),
   ]);
+
+  const refundedInRange = returnRefundsInRange._sum.amount?.toNumber() ?? 0;
+  const grossRevenue = ordersRevenue._sum.total?.toNumber() ?? 0;
 
   const topProductIds = topProducts.map((p) => p.productId);
   const productNames  = await prisma.product.findMany({
@@ -101,9 +117,9 @@ export async function adminGetStatsService(query: AdminStatsQuery) {
   return {
     kpis: {
       totalOrders, ordersToday, ordersThisWeek,
-      totalRevenue:   ordersRevenue._sum.total?.toNumber()   ?? 0,
-      avgOrderValue:  ordersRevenue._avg.total?.toNumber()   ?? 0,
-      revenueLast30d: revenueLast30d._sum.total?.toNumber() ?? 0,
+      totalRevenue:   grossRevenue - refundedInRange,
+      avgOrderValue:  ordersRevenue._count.id > 0 ? (grossRevenue - refundedInRange) / ordersRevenue._count.id : 0,
+      revenueLast30d: (revenueLast30d._sum.total?.toNumber() ?? 0) - refundedInRange,
       totalUsers, newUsersToday, newUsersThisWeek,
       totalProducts, lowStockProducts,
       totalAffiliates, pendingAffiliates, pendingReturns,

@@ -409,6 +409,82 @@ export function sendOrderDeliveredEmail(to: string, p: {
   });
 }
 
+function orderLink(orderId: string, label: string) {
+  const base = publicSiteUrl();
+  return base
+    ? `<p style="margin:24px 0"><a href="${base}/account/orders/${orderId}" style="background:#111;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600">${label}</a></p>`
+    : "";
+}
+
+export function sendReturnRequestedEmail(to: string, p: {
+  orderId: string;
+  items: Array<{ name: string; quantity: number }>;
+  estimatedRefund: number;
+}) {
+  const ref = p.orderId.slice(-8).toUpperCase();
+  const list = p.items.map((i) => `<li>${escapeHtml(i.name)} × ${i.quantity}</li>`).join("");
+  return sendEmail({
+    to,
+    subject: `Return requested — order #${ref}`,
+    html: shell("We've received your return request", `
+      <p>You asked to return these items from order <strong>#${ref}</strong>:</p>
+      <ul>${list}</ul>
+      <p>Estimated refund: <strong>${money(p.estimatedRefund)}</strong>. The final amount is confirmed once the items reach us and pass inspection.</p>
+      <p style="font-size:13px;color:#666">Our team reviews requests within 2–3 business days. Please keep the items in their original packaging until they are collected.</p>
+      ${orderLink(p.orderId, "Track your return")}
+    `),
+  });
+}
+
+const RETURN_STATUS_COPY: Record<string, { subject: string; title: string; body: string }> = {
+  APPROVED: {
+    subject: "Return approved",
+    title: "Your return has been approved",
+    body: "We'll arrange collection of the items. Please keep them packed and ready.",
+  },
+  REJECTED: {
+    subject: "Return request update",
+    title: "We couldn't approve your return",
+    body: "After reviewing your request we were unable to approve this return.",
+  },
+  RECEIVED: {
+    subject: "Returned items received",
+    title: "We've received your returned items",
+    body: "Your items have arrived and been inspected. Any refund due is now being processed.",
+  },
+  INSPECTION_FAILED: {
+    subject: "Return inspection result",
+    title: "Your returned items did not pass inspection",
+    body: "The returned items did not meet our returns policy, so no refund is due for this return.",
+  },
+  REFUNDED: {
+    subject: "Return refund complete",
+    title: "Your refund is complete",
+    body: "The refund for your returned items has been completed.",
+  },
+};
+
+export function sendReturnStatusEmail(to: string, p: {
+  orderId: string;
+  status: keyof typeof RETURN_STATUS_COPY;
+  note?: string | null;
+  refundAmount?: number | null;
+}) {
+  const copy = RETURN_STATUS_COPY[p.status];
+  if (!copy) return Promise.resolve(false);
+  const ref = p.orderId.slice(-8).toUpperCase();
+  return sendEmail({
+    to,
+    subject: `${copy.subject} — order #${ref}`,
+    html: shell(copy.title, `
+      <p>Order <strong>#${ref}</strong>: ${copy.body}</p>
+      ${p.refundAmount ? `<p>Refund amount: <strong>${money(p.refundAmount)}</strong></p>` : ""}
+      ${p.note ? `<p style="font-size:13px;color:#444"><strong>Note from our team:</strong> ${escapeHtml(p.note)}</p>` : ""}
+      ${orderLink(p.orderId, "View your order")}
+    `),
+  });
+}
+
 /** Acknowledges an affiliate application so the applicant is not left guessing. */
 export function sendAffiliateAppliedEmail(to: string, p: { name: string }) {
   return sendEmail({

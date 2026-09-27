@@ -14,6 +14,9 @@ import Link from "next/link"
 import { toast } from "sonner"
 import { friendlyError } from "../../../../lib/errorMessages"
 import { pdfErrorMessage } from "../../../../lib/download-pdf"
+import { ReturnService, RETURN_STATUS_LABEL, RETURN_STATUS_CLASS, type OrderReturns } from "../../../../lib/services/return.service"
+import ReturnItemsModal from "../../../../components/orders/returns/ReturnItemsModal"
+import OrderReturnsSection from "../../../../components/orders/returns/OrderReturnsSection"
 import {
   refundMessage,
   REFUND_INITIATED_TEXT,
@@ -207,17 +210,26 @@ export default function OrderDetailsPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const { currentOrder, fetchOrderById, loading } = useOrderStore()
-  const [modal, setModal] = useState<"return" | "cancel" | null>(null)
+  const [modal, setModal] = useState<"return" | "cancel" | "items" | null>(null)
+  // Item-level returns. Null while loading, and stays null against a backend without the
+  // endpoint — the legacy whole-order return button is shown in that case.
+  const [returns, setReturns] = useState<OrderReturns | null>(null)
   const [downloading, setDownloading] = useState(false)
   const [downloadingReceipt, setDownloadingReceipt] = useState(false)
 
+  const loadReturns = () => {
+    ReturnService.getForOrder(id).then(setReturns).catch(() => setReturns(null))
+  }
+
   useEffect(() => {
     fetchOrderById(id)
+    loadReturns()
   }, [id])
 
   const refresh = () => {
     setModal(null)
     fetchOrderById(id)
+    loadReturns()
   }
 
   if (loading || !currentOrder) {
@@ -239,7 +251,14 @@ export default function OrderDetailsPage() {
   const statusStep = STATUS_STEPS.indexOf(status)
   const isActive = statusStep !== -1
   const canCancel = CAN_CANCEL.has(status)
-  const canReturn = CAN_RETURN.has(status)
+  const itemReturns = returns?.enabled ? returns : null
+  // With item returns on, the whole-order button gives way to per-item returns.
+  const canReturn = !itemReturns && CAN_RETURN.has(status)
+  const canReturnItems = Boolean(itemReturns?.eligible)
+  const latestReturnFor = (orderItemId: string) =>
+    itemReturns?.returns.find(
+      (r) => !["CANCELLED", "REJECTED"].includes(r.status) && r.items.some((i) => i.orderItemId === orderItemId)
+    )
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-10 space-y-5">
@@ -328,11 +347,20 @@ export default function OrderDetailsPage() {
               <p className="text-sm font-medium text-text truncate">{item.product?.name}</p>
               {item.variant && <p className="text-xs text-muted mt-0.5">{item.variant.name}</p>}
               <p className="text-xs text-muted mt-0.5">Qty: {item.quantity}</p>
+              {latestReturnFor(item.id) && (
+                <span className={`inline-block mt-1 text-[10px] px-2 py-0.5 rounded-full font-semibold ${RETURN_STATUS_CLASS[latestReturnFor(item.id)!.status]}`}>
+                  Return {RETURN_STATUS_LABEL[latestReturnFor(item.id)!.status].toLowerCase()}
+                </span>
+              )}
             </div>
             <p className="text-sm font-semibold text-text">₹{(Number(item.price) * Number(item.quantity)).toLocaleString("en-IN")}</p>
           </div>
         ))}
       </div>
+
+      {itemReturns && (
+        <OrderReturnsSection orderId={o.id} returns={itemReturns.returns} onChanged={refresh} />
+      )}
 
       {/* Price Summary */}
       <div className="bg-surface border border-border rounded-2xl p-6 shadow-card space-y-3">
@@ -509,7 +537,7 @@ export default function OrderDetailsPage() {
       )}
 
       {/* Actions */}
-      {(canCancel || canReturn) && (
+      {(canCancel || canReturn || canReturnItems) && (
         <div className="bg-surface border border-border rounded-2xl p-5 shadow-card">
           <h2 className="font-semibold text-text text-sm mb-3">Order Actions</h2>
           <div className="flex flex-wrap gap-3">
@@ -519,6 +547,14 @@ export default function OrderDetailsPage() {
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-red-200 dark:border-red-500/30 text-red-600 dark:text-red-400 text-sm font-medium hover:bg-red-50 dark:hover:bg-red-500/15 transition"
               >
                 <XCircle size={15} /> Cancel Order
+              </button>
+            )}
+            {canReturnItems && (
+              <button
+                onClick={() => setModal("items")}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-orange-200 dark:border-orange-500/30 text-orange-600 dark:text-orange-400 text-sm font-medium hover:bg-orange-50 dark:hover:bg-orange-500/15 transition"
+              >
+                <RotateCcw size={15} /> Return Items
               </button>
             )}
             {canReturn && (
@@ -533,11 +569,17 @@ export default function OrderDetailsPage() {
           <p className="text-xs text-muted mt-2">
             {canCancel && "Orders can be cancelled while in Pending or Confirmed status."}
             {canReturn && "Returns can be requested within the return window after delivery."}
+            {canReturnItems && itemReturns?.windowEndsAt &&
+              `Return one or more items until ${new Date(itemReturns.windowEndsAt).toLocaleDateString("en-IN", { day: "numeric", month: "long" })}.`}
           </p>
         </div>
       )}
 
-      {modal && (
+      {modal === "items" && itemReturns && (
+        <ReturnItemsModal orderId={o.id} data={itemReturns} onClose={() => setModal(null)} onDone={refresh} />
+      )}
+
+      {(modal === "return" || modal === "cancel") && (
         <ReturnCancelModal
           mode={modal}
           orderId={o.id}

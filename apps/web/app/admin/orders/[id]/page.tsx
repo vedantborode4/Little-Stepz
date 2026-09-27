@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { ArrowLeft, Package, MapPin, CreditCard, Truck, FileText, Loader2, Wallet } from "lucide-react"
+import Link from "next/link"
+import { ArrowLeft, Package, MapPin, CreditCard, Truck, FileText, Loader2, Wallet, RotateCcw, ChevronRight } from "lucide-react"
 import MarkBalancePaidModal from "../../../../components/admin/orders/MarkBalancePaidModal"
 import { toast } from "sonner"
 import { AdminOrderService, type AdminOrderDetail } from "../../../../lib/services/admin-order.service"
@@ -220,6 +221,29 @@ export default function AdminOrderDetailPage() {
           <OrderTimeline status={order.status} createdAt={order.createdAt} />
         </div>
       </div>
+
+      {/* Item-level returns open in their own screen; legacy whole-order returns keep
+          the Resolve Return action on the orders list. */}
+      {order.returns?.some((r) => r.kind === "ITEM") && (
+        <div className="bg-surface border border-border rounded-2xl overflow-hidden">
+          <div className="px-4 sm:px-5 py-4 border-b border-border flex items-center gap-2">
+            <RotateCcw size={16} className="text-primary" />
+            <h3 className="font-semibold text-text">Returns</h3>
+          </div>
+          <div className="divide-y divide-border">
+            {order.returns.filter((r) => r.kind === "ITEM").map((r) => (
+              <Link key={r.id} href={`/admin/returns/${r.id}`} className="flex items-center gap-3 p-4 hover:bg-surface-2/50 transition text-sm">
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-text truncate">{r.reason}</p>
+                  <p className="text-xs text-muted">{new Date(r.createdAt).toLocaleDateString("en-IN")} · {r.status.toLowerCase().replace(/_/g, " ")}</p>
+                </div>
+                {r.refundAmount != null && <span className="font-semibold text-text">₹{r.refundAmount.toLocaleString("en-IN")}</span>}
+                <ChevronRight size={16} className="text-faint" />
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Items table */}
       <div className="bg-surface border border-border rounded-2xl overflow-hidden">

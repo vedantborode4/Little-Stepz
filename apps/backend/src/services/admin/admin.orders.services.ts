@@ -10,6 +10,7 @@ import { refundOrderMoney, type RefundScope } from "../refund.services";
 import { settleOnDeliverySafe, emailOrderDelivered } from "../codSettlement.services";
 import { issueInvoiceForOrder } from "../invoice.services";
 import { createAuditLog } from "../../utils/auditLog";
+import { openReturnCounts } from "../returns.services";
 import type { Request } from "express";
 
 
@@ -112,6 +113,8 @@ export async function getAdminOrdersService(
     prisma.order.count({ where }),
   ]);
 
+  const openReturns = await openReturnCounts(orders.map((o) => o.id));
+
   // What the whole filtered set still owes — the number an operator actually wants,
   // rather than the sum of whatever happens to be on this page.
   const outstanding = await prisma.order.aggregate({
@@ -136,6 +139,8 @@ export async function getAdminOrdersService(
         total: order.total.toNumber(),
         returnId: actionable?.id ?? null,
         returnStatus: actionable?.status ?? null,
+        // Item returns leave the order DELIVERED, so the list needs its own signal.
+        openReturns: openReturns.get(order.id) ?? 0,
         // Surfaced on the list so outstanding money is visible without opening each order.
         balanceOutstanding:
           order.paymentPlan === "PARTIAL" &&
@@ -261,7 +266,10 @@ export async function getAdminOrderByIdService(id: string) {
       // The "Resolve Return" action addresses the Return, not the Order. Every return
       // is listed; `returnId` points at the actionable one.
       returns: {
-        select: { id: true, status: true, reason: true, refundAmount: true, createdAt: true },
+        select: {
+          id: true, status: true, reason: true, refundAmount: true, createdAt: true,
+          _count: { select: { items: true } },
+        },
         orderBy: { createdAt: "desc" },
       },
     },
@@ -300,8 +308,9 @@ export async function getAdminOrderByIdService(id: string) {
         : null,
     returnId:     actionableReturn(order.returns)?.id ?? null,
     returnStatus: actionableReturn(order.returns)?.status ?? null,
-    returns: order.returns.map((r) => ({
+    returns: order.returns.map(({ _count, ...r }) => ({
       ...r,
+      kind: _count.items > 0 ? "ITEM" : "LEGACY",
       refundAmount: r.refundAmount?.toNumber() ?? null,
     })),
     subtotal:        order.subtotal.toNumber(),

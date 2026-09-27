@@ -25,6 +25,7 @@ const baseProductSelect = {
   partialPaymentEnabled: true,
   depositPercent: true,
   codEnabled: true,
+  returnable: true,
   metaTitle: true,
   metaDescription: true,
   ogImage: true,
@@ -95,6 +96,7 @@ export async function createProductService(data: {
   partialPaymentEnabled?: boolean;
   depositPercent?: number | null;
   codEnabled?: boolean;
+  returnable?: boolean;
   metaTitle?: string;
   metaDescription?: string;
   ogImage?: string;
@@ -165,6 +167,7 @@ export async function updateProductService(
     partialPaymentEnabled: boolean;
     depositPercent: number | null;
     codEnabled: boolean;
+    returnable?: boolean;
     metaTitle: string | null;
     metaDescription: string | null;
     ogImage: string | null;

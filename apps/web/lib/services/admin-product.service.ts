@@ -89,6 +89,7 @@ export interface AdminProduct {
   partialPaymentEnabled?: boolean
   depositPercent?: number | null
   codEnabled?: boolean
+  returnable?: boolean
   categoryId?: string
   category?: { id: string; name: string; slug: string }
   images: ProductImage[]

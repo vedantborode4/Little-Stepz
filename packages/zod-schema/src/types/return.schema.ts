@@ -93,7 +93,7 @@ export const createItemReturnBodySchema = z
     }
   });
 
-export const returnParamsSchema = z.object({ returnId: uuidSchema }).strict();
+export const orderReturnParamsSchema = z.object({ id: uuidSchema, returnId: uuidSchema }).strict();
 
 export const returnRefundParamsSchema = z.object({ id: uuidSchema }).strict();
 

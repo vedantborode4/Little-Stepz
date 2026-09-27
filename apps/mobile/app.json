@@ -2,7 +2,7 @@
   "expo": {
     "name": "Little Stepz",
     "slug": "mobile",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "littlestepz",
@@ -62,7 +62,7 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Little Stepz needs access to your photos so you can add pictures to a product review or set your profile picture.",
+          "photosPermission": "Little Stepz needs access to your photos and videos so you can attach pictures or a short video of an item when requesting a return, add pictures to a product review, or set your profile picture.",
           "cameraPermission": false,
           "microphonePermission": false
         }

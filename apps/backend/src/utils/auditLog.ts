@@ -57,13 +57,26 @@ export type AuditAction =
   /// Resets the auto-ship failure count so a recoverable problem (corrected address,
   /// balance moved online, pincode that regained COD) can be retried. Without it the
   /// permanent SHIPMENT_FAILED trail strands a paid order after three attempts.
-  | "SHIPMENT_RETRY_CLEARED";
+  | "SHIPMENT_RETRY_CLEARED"
+  // Item-level returns. Money moves through the ReturnRefund ledger, so each step of a
+  // return is audited on its own row for reconciliation.
+  | "RETURN_CANCELLED"
+  | "RETURN_PICKUP_SCHEDULED"
+  | "RETURN_PICKUP_FAILED"
+  | "RETURN_PICKED_UP"
+  | "RETURN_RECEIVED"
+  | "RETURN_STOCK_SKIPPED"
+  | "RETURN_REFUND_SETTLED"
+  | "RETURN_REFUND_RETRIED"
+  | "COMMISSION_ADJUSTED"
+  | "COMMISSION_CLAWBACK_NEEDED";
 
 export type AuditEntity =
   | "Payment"
   | "Order"
   | "Commission"
   | "Return"
+  | "ReturnRefund"
   | "Shipment"
   | "WebhookEvent"
   | "Affiliate"

@@ -59,6 +59,10 @@ const productBaseSchema = z.object({
     // Cash on Delivery for this product. The product switch is the master.
     codEnabled: z.boolean().optional().default(false),
 
+    // Item-level returns. No default: the column defaults to true, and a default here
+    // would reset the flag on any partial update that leaves it out.
+    returnable: z.boolean().optional(),
+
     // ── SEO overrides (admin SEO panel; fall back to generated metadata) ──
     metaTitle: z.string().max(70, "Keep the SEO title under ~70 characters").optional(),
     metaDescription: z.string().max(160, "Keep the meta description under ~160 characters").optional(),

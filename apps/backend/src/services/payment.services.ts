@@ -50,6 +50,13 @@ import { releasePendingOrderStock } from "../utils/pendingRelease";
 import { settleOnDeliverySafe, emailOrderDelivered } from "./codSettlement.services";
 import { refundOrderMoney, type RefundScope } from "./refund.services";
 import { restoreOrderStock } from "../utils/stock";
+import { itemReturnsEnabled } from "../utils/returns";
+import {
+  createReturnFromLegacyRequest,
+  resolveItemReturnService,
+  handleReturnRefundWebhook,
+  handleReturnPickupScan,
+} from "./returns.services";
 
 const MAX_PAYMENT_ATTEMPTS = 3;
 const TX_RETRIES           = 3;
@@ -1278,6 +1285,10 @@ async function handleRefundProcessed(payload: any): Promise<void> {
 
   if (!paymentId) return;
 
+  // Item-return refunds live in the ReturnRefund ledger and never touch the legacy leg
+  // columns below — this handler treats a leg as final once settled.
+  if (await handleReturnRefundWebhook("processed", refundEntity)) return;
+
   const refunded = await prisma.$transaction(async (tx) => {
     // Match on BOTH capture ids and let the matching column name the leg. A balance-leg
     // refund carries its own payment id, so keying on `razorpayPaymentId` alone found no
@@ -1420,6 +1431,8 @@ async function handleRefundFailed(payload: any): Promise<void> {
 
   if (!paymentId) return;
 
+  if (await handleReturnRefundWebhook("failed", refundEntity)) return;
+
   // Same OR-lookup as handleRefundProcessed: a failed refund on the balance leg carries
   // the balance capture's payment id, which `razorpayPaymentId` alone never matches.
   const payment = await prisma.payment.findFirst({
@@ -1489,6 +1502,10 @@ export async function createReturnRequestService(
   data:    CreateReturnBody,
   req?:    Request
 ) {
+  // Published app binaries still call this endpoint; with item returns on, their
+  // request becomes an item return for every remaining unit.
+  if (itemReturnsEnabled()) return createReturnFromLegacyRequest(userId, orderId, data, req);
+
   return prisma.$transaction(async (tx) => {
     // Serialise requests for the same order. Return.orderId is no longer UNIQUE (an order
     // may hold several item-level returns), so the `returns.length` check below is the
@@ -1570,6 +1587,11 @@ export async function resolveReturnService(
   data:        ResolveReturnBody,
   req?:        Request
 ) {
+  // An item return moves no money on approval — refunds follow inspection at receipt.
+  if ((await prisma.returnItem.count({ where: { returnId } })) > 0) {
+    return resolveItemReturnService(adminUserId, returnId, data, req);
+  }
+
   const result = await withRetry(async () => {
     return prisma.$transaction(async (tx) => {
       // Filled inside the transaction, actioned after it commits. Returned rather
@@ -2241,6 +2263,12 @@ export async function handleDelhiveryWebhookService(
   const statusDateTime = firstNonEmpty(statusNode.StatusDateTime, payload?.status_datetime, payload?.timestamp);
 
   if (!waybill) return { processed: false, message: "Webhook missing waybill" };
+
+  // Reverse-pickup waybills belong to returns, never to Shipment. Routed away first:
+  // the forward handling below reads a returned/DTO scan as an RTO and restores stock.
+  if (await handleReturnPickupScan(waybill, statusText, statusType)) {
+    return { processed: true, message: "Return pickup scan processed" };
+  }
 
   const provider  = "delhivery";
   const eventId   = `${waybill}:${statusDateTime || statusText || statusType}`;

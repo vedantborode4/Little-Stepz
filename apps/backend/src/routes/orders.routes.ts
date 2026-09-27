@@ -15,6 +15,14 @@ import {
   requestReturnController,
   trackOrderController,
 } from '../controllers/payment.controllers';
+import {
+  getOrderReturnsController,
+  quoteReturnController,
+  returnUploadSignatureController,
+  createReturnController,
+  cancelReturnController,
+} from '../controllers/returns.controllers';
+import { returnRateLimiter } from '../middlewares/returnRateLimiter.middleware';
 
 export const ordersRouter: Router = Router();
 
@@ -29,6 +37,13 @@ ordersRouter.get('/:id/invoice', documentRateLimiter, getOrderInvoiceController)
 ordersRouter.get('/:id/receipt', documentRateLimiter, getOrderReceiptController);
 
 ordersRouter.post('/:id/return', requestReturnController);
+// Item-level returns. `/:id/return` above is the legacy whole-order endpoint that
+// published app binaries still call.
+ordersRouter.get('/:id/returns', returnRateLimiter, getOrderReturnsController);
+ordersRouter.post('/:id/returns/quote', returnRateLimiter, quoteReturnController);
+ordersRouter.post('/:id/returns/upload-signature', returnRateLimiter, returnUploadSignatureController);
+ordersRouter.post('/:id/returns', returnRateLimiter, createReturnController);
+ordersRouter.post('/:id/returns/:returnId/cancel', returnRateLimiter, cancelReturnController);
 ordersRouter.get('/:id/track',   trackOrderController);
 ordersRouter.post('/:id/cancel', orderRateLimiter, cancelOrderController);
 ordersRouter.post('/:id/abandon', orderRateLimiter, abandonOrderController);

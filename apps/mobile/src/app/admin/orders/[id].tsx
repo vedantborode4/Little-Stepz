@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Alert, Image, Linking, ScrollView, Text, View } from "react-native";
-import { useLocalSearchParams } from "expo-router";
+import { Alert, Image, Linking, Pressable, ScrollView, Text, View } from "react-native";
+import { router, useLocalSearchParams } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -20,7 +20,7 @@ import {
   type BalanceCollectionMethod,
   type CancellationParty,
 } from "../../../features/admin/services/admin.services";
-import { ORDER_STATUS, PAYMENT_STATUS } from "../../../lib/enums";
+import { ORDER_STATUS, PAYMENT_STATUS, RETURN_STATUS } from "../../../lib/enums";
 import { formatDate, formatDateTime, formatPrice, shortId } from "../../../lib/utils/format";
 import { getErrorMessage } from "../../../lib/utils/errors";
 import { pdfErrorMessage } from "../../../lib/pdf";
@@ -320,6 +320,24 @@ export default function AdminOrderDetail() {
               </Text>
             ) : null}
           </Card>
+
+          {/* Item-level returns open in their own screen; a legacy whole-order return keeps
+              the Approve/Reject buttons below. */}
+          {order.returns?.some((ret) => ret.kind === "ITEM") ? (
+            <Card className="gap-2">
+              <Text className="mb-1 font-jakarta-semibold text-text">Returns</Text>
+              {order.returns.filter((ret) => ret.kind === "ITEM").map((ret) => (
+                <Pressable key={ret.id} onPress={() => router.push(`/admin/returns/${ret.id}` as any)} className="flex-row items-center gap-2 py-1">
+                  <View className="flex-1">
+                    <Text numberOfLines={1} className="text-sm text-text">{ret.reason}</Text>
+                    <Text className="text-xs text-muted">{formatDate(ret.createdAt)}</Text>
+                  </View>
+                  <StatusBadge value={ret.status} map={RETURN_STATUS} />
+                  <Ionicons name="chevron-forward" size={16} color={colors.muted} />
+                </Pressable>
+              ))}
+            </Card>
+          ) : null}
 
           {/* Deposit / balance — a partial order's money moves in two legs. */}
           {partial ? (

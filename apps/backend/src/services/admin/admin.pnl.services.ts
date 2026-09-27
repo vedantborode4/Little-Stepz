@@ -41,6 +41,12 @@ const orderWhere = (from: Date | null) => ({
   ...(from ? { createdAt: { gte: from } } : {}),
 });
 
+// Item-level returns leave an order DELIVERED (so still counted) while part of its money
+// goes back; only refunds that actually settled reduce revenue.
+const settledReturnRefunds = { where: { status: "PROCESSED" as const }, select: { amount: true } };
+const netOf = (o: { total: unknown; returnRefunds: Array<{ amount: unknown }> }) =>
+  Number(o.total) - o.returnRefunds.reduce((s, r) => s + Number(r.amount), 0);
+
 type CostItem = { quantity: number; price: unknown; product: { costPrice: unknown } | null };
 
 /** Actual purchase cost (costPrice × qty) when set, otherwise the estimate (line revenue × COST_RATIO). */
@@ -64,12 +70,13 @@ export async function getPnlService(range: PnlRange) {
     select: {
       total: true,
       discount: true,
+      returnRefunds: settledReturnRefunds,
       items: { select: { quantity: true, price: true, product: { select: { costPrice: true } } } },
     },
   });
 
   const orderCount = orders.length;
-  const revenue = orders.reduce((s, o) => s + Number(o.total), 0);
+  const revenue = orders.reduce((s, o) => s + netOf(o), 0);
   const discounts = orders.reduce((s, o) => s + Number(o.discount), 0);
   const gst = gstOf(revenue);
   const taxable = revenue - gst;
@@ -102,6 +109,7 @@ export async function getPnlService(range: PnlRange) {
     select: {
       total: true,
       createdAt: true,
+      returnRefunds: settledReturnRefunds,
       items: { select: { quantity: true, price: true, product: { select: { costPrice: true } } } },
     },
   });
@@ -121,7 +129,7 @@ export async function getPnlService(range: PnlRange) {
     const dt = new Date(o.createdAt);
     const idx = indexByKey.get(`${dt.getFullYear()}-${dt.getMonth()}`);
     if (idx === undefined) continue;
-    const rev = Number(o.total);
+    const rev = netOf(o);
     const bucket = buckets[idx]!;
     bucket.revenue += rev;
     bucket.grossProfit += rev - gstOf(rev) - itemsCost(o.items);

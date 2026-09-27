@@ -148,6 +148,14 @@ export type CancellationParty = "MERCHANT" | "CUSTOMER";
 
 export interface AdminOrderDetail extends AdminOrder {
   partial: AdminOrderPartial | null;
+  returns?: Array<{
+    id: string;
+    kind: "ITEM" | "LEGACY";
+    status: string;
+    reason: string;
+    refundAmount: number | null;
+    createdAt: string;
+  }>;
   user: { id: string; name: string; email: string; phone: string | null };
   address: AdminOrderAddress | null;
   items: AdminOrderItem[];
@@ -321,6 +329,7 @@ export interface AdminProduct {
   partialPaymentEnabled?: boolean;
   depositPercent?: number | string | null;
   codEnabled?: boolean;
+  returnable?: boolean;
   // SEO + Google Shopping
   metaTitle?: string | null;
   metaDescription?: string | null;
@@ -345,6 +354,7 @@ type ProductPricingFields = {
   partialPaymentEnabled?: boolean;
   depositPercent?: number | null;
   codEnabled?: boolean;
+  returnable?: boolean;
   metaTitle?: string;
   metaDescription?: string;
   ogImage?: string;

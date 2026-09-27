@@ -119,3 +119,41 @@ export async function restoreOrderStock(
   // Returning stock can bring a sold-out product back in stock.
   await syncProductStockFlags(tx, items.map((i) => i.productId));
 }
+
+/**
+ * Put the accepted units of an item-level return back on sale.
+ *
+ * Unlike `restoreOrderStock` this moves only what inspection accepted and marked
+ * resaleable. A variant or product deleted since the sale is skipped rather than
+ * revived — its units are reported back so the caller can audit them.
+ */
+export async function restoreReturnedUnits(
+  tx: Prisma.TransactionClient,
+  units: Array<{ productId: string; variantId: string | null; quantity: number }>
+): Promise<Array<{ productId: string; variantId: string | null; quantity: number }>> {
+  const skipped: typeof units = [];
+  const restored: string[] = [];
+
+  for (const u of units) {
+    if (u.quantity <= 0) continue;
+    if (u.variantId) {
+      const moved = await tx.variant.updateMany({
+        where: { id: u.variantId, deletedAt: null },
+        data: { stock: { increment: u.quantity } },
+      });
+      if (moved.count === 0) { skipped.push(u); continue; }
+    } else {
+      const moved = await tx.product.updateMany({
+        where: { id: u.productId, deletedAt: null },
+        data: { quantity: { increment: u.quantity } },
+      });
+      if (moved.count === 0) { skipped.push(u); continue; }
+    }
+    restored.push(u.productId);
+  }
+
+  // Skipping this leaves `quantity > 0` with `inStock: false`, which every buy path
+  // gates on — the product would stay unbuyable.
+  await syncProductStockFlags(tx, restored);
+  return skipped;
+}

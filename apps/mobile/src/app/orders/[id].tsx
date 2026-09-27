@@ -13,8 +13,11 @@ import { Sheet } from "../../components/ui/Sheet";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { StatusBadge } from "../../components/ui/StatusBadge";
 import { EmptyState } from "../../components/ui/EmptyState";
-import { ORDER_STATUS, PAYMENT_STATUS } from "../../lib/enums";
+import { ORDER_STATUS, PAYMENT_STATUS, RETURN_STATUS } from "../../lib/enums";
 import { OrderService } from "../../lib/services/order.service";
+import { ReturnService } from "../../lib/services/return.service";
+import { ReturnItemsSheet } from "../../components/order/ReturnItemsSheet";
+import { OrderReturnsCard } from "../../components/order/OrderReturnsCard";
 import { qk } from "../../lib/api/query-client";
 import { formatPrice, formatDate, shortId } from "../../lib/utils/format";
 import { toast } from "../../store/toast.store";
@@ -96,6 +99,17 @@ export default function OrderDetail() {
     enabled: !!id,
   });
 
+  // Item-level returns. Errors (e.g. a backend without the endpoint) leave this undefined,
+  // which falls back to the legacy whole-order return button.
+  const { data: returnsData } = useQuery({
+    queryKey: qk.orderReturns(id),
+    queryFn: () => ReturnService.getForOrder(id),
+    enabled: !!id,
+    retry: false,
+  });
+  const itemReturns = returnsData?.enabled ? returnsData : null;
+  const [returnSheet, setReturnSheet] = useState(false);
+
   const [actionMode, setActionMode] = useState<"cancel" | "return" | null>(null);
   const [reason, setReason] = useState("");
   /** Free-text reason, required when a return is requested for "Other". */
@@ -161,6 +175,12 @@ export default function OrderDetail() {
   };
 
   const reasons = actionMode === "return" ? RETURN_REASONS : CANCEL_REASONS;
+  // With item returns on, the whole-order button gives way to per-item returns.
+  const canReturnLegacy = !itemReturns && RETURNABLE.includes(order?.status ?? "");
+  const latestReturnFor = (orderItemId: string) =>
+    itemReturns?.returns.find(
+      (r) => r.status !== "CANCELLED" && r.status !== "REJECTED" && r.items.some((i) => i.orderItemId === orderItemId)
+    );
 
   if (isLoading) {
     return (
@@ -232,11 +252,20 @@ export default function OrderDetail() {
                 <Text numberOfLines={2} className="text-sm font-jakarta-medium text-text">{it.product?.name ?? "Item"}</Text>
                 {it.variant?.name ? <Text className="text-xs text-muted">{it.variant.name}</Text> : null}
                 <Text className="text-xs text-muted">Qty {it.quantity}</Text>
+                {it.id && latestReturnFor(it.id) ? (
+                  <View className="mt-1 self-start">
+                    <StatusBadge value={latestReturnFor(it.id)!.status} map={RETURN_STATUS} />
+                  </View>
+                ) : null}
               </View>
               <Text className="text-sm font-jakarta-medium text-text">{formatPrice(Number(it.price) * it.quantity)}</Text>
             </View>
           ))}
         </Card>
+
+        {itemReturns ? (
+          <OrderReturnsCard orderId={order.id} returns={itemReturns.returns} onChanged={refresh} />
+        ) : null}
 
         {/* Address */}
         {order.address ? (
@@ -363,17 +392,33 @@ export default function OrderDetail() {
           {CANCELLABLE.includes(order.status) ? (
             <Button label="Cancel Order" variant="danger" onPress={() => openAction("cancel")} />
           ) : null}
-          {RETURNABLE.includes(order.status) ? (
+          {canReturnLegacy ? (
             <Button label="Request Return" variant="outline" onPress={() => openAction("return")} />
+          ) : null}
+          {itemReturns?.eligible ? (
+            <Button label="Return Items" variant="outline" onPress={() => setReturnSheet(true)} />
           ) : null}
           {CANCELLABLE.includes(order.status) ? (
             <Text className="text-center text-xs text-muted">Orders can be cancelled while Pending or Confirmed.</Text>
           ) : null}
-          {RETURNABLE.includes(order.status) ? (
+          {canReturnLegacy ? (
             <Text className="text-center text-xs text-muted">Returns can be requested within the return window after delivery.</Text>
+          ) : null}
+          {itemReturns?.eligible && itemReturns.windowEndsAt ? (
+            <Text className="text-center text-xs text-muted">Return one or more items until {formatDate(itemReturns.windowEndsAt)}.</Text>
           ) : null}
         </View>
       </ScrollView>
+
+      {itemReturns ? (
+        <ReturnItemsSheet
+          visible={returnSheet}
+          orderId={order.id}
+          data={itemReturns}
+          onClose={() => setReturnSheet(false)}
+          onDone={() => { setReturnSheet(false); refresh(); }}
+        />
+      ) : null}
 
       <Sheet
         visible={actionMode !== null}

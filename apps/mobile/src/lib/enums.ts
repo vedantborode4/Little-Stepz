@@ -49,6 +49,18 @@ export const PAYMENT_STATUS: Record<string, { label: string; color: BadgeColor }
   PARTIALLY_REFUNDED: { label: "Partially refunded", color: palette.purple },
 };
 
+/** Item-level return request status (a Return row, not the order). */
+export const RETURN_STATUS: Record<string, { label: string; color: BadgeColor }> = {
+  PENDING: { label: "Requested", color: palette.amber },
+  APPROVED: { label: "Approved", color: palette.teal },
+  REJECTED: { label: "Rejected", color: palette.red },
+  PICKED_UP: { label: "Picked up", color: palette.purple },
+  RECEIVED: { label: "Received", color: palette.indigo },
+  INSPECTION_FAILED: { label: "Inspection failed", color: palette.red },
+  REFUNDED: { label: "Refunded", color: palette.green },
+  CANCELLED: { label: "Cancelled", color: palette.gray },
+};
+
 export const AFFILIATE_STATUS: Record<string, { label: string; color: BadgeColor }> = {
   PENDING: { label: "Pending", color: palette.amber },
   APPROVED: { label: "Approved", color: palette.green },

@@ -305,3 +305,113 @@ export async function refundOrderMoney(
   return { status: "initiated", amount: refundedTotal };
 }
 
+
+
+/**
+ * Send the gateway part of an item-level return's refund.
+ *
+ * The receive transaction has already committed one `ReturnRefund` ledger row per channel
+ * (status PENDING); this only acts on the Razorpay rows — MANUAL rows wait for an admin
+ * payout. It never touches the single refund slot on each Payment leg, which the refund
+ * webhook treats as final once settled: that slot is why a second partial refund on an
+ * order would otherwise be dropped.
+ *
+ * Each row is claimed PENDING → INITIATED before its call, so two concurrent invocations
+ * produce one call. The row id rides in the refund's `notes`, which lets the webhook find
+ * the row even if it arrives before the refund id is written back here.
+ *
+ * Runs outside any transaction and never throws. A failed call leaves the row FAILED for
+ * a human: Razorpay refunds are not idempotent, so nothing here retries on its own.
+ */
+export async function refundReturnMoney(
+  returnId: string,
+  reason: string
+): Promise<{ initiated: number; failed: number }> {
+  const rows = await prisma.returnRefund.findMany({
+    where: { returnId, status: "PENDING", channel: { in: ["RAZORPAY_PRIMARY", "RAZORPAY_BALANCE"] } },
+    select: {
+      id: true, orderId: true, channel: true, amount: true,
+      order: {
+        select: {
+          userId: true,
+          payment: { select: { razorpayPaymentId: true, balanceRazorpayPaymentId: true } },
+        },
+      },
+    },
+  });
+
+  let initiated = 0;
+  let failed = 0;
+  let userId: string | null = null;
+  let orderId: string | null = null;
+
+  for (const row of rows) {
+    const claimed = await prisma.returnRefund.updateMany({
+      where: { id: row.id, status: "PENDING" },
+      data:  { status: "INITIATED" },
+    });
+    if (claimed.count === 0) continue;
+
+    userId = row.order.userId;
+    orderId = row.orderId;
+    const amount = Number(row.amount);
+    const paymentId =
+      row.channel === "RAZORPAY_PRIMARY"
+        ? row.order.payment?.razorpayPaymentId
+        : row.order.payment?.balanceRazorpayPaymentId;
+
+    try {
+      if (!paymentId) throw new Error("No gateway capture on this leg");
+
+      const refund = await initiateRazorpayRefund({
+        paymentId,
+        amount,
+        notes: { orderId: row.orderId, returnId, returnRefundId: row.id, reason },
+      });
+
+      // Only the id is written: the webhook may already have marked the row PROCESSED.
+      await prisma.returnRefund.updateMany({
+        where: { id: row.id, razorpayRefundId: null },
+        data:  { razorpayRefundId: refund.id },
+      });
+      await createAuditLog({
+        action: "REFUND_INITIATED",
+        entity: "ReturnRefund",
+        entityId: row.id,
+        newValue: { refundId: refund.id, amount, channel: row.channel, returnId, orderId: row.orderId, source: "item_return" },
+      });
+      initiated += amount;
+    } catch (err: any) {
+      failed += amount;
+      const message = String(err?.message ?? err).slice(0, 300);
+      await prisma.returnRefund.updateMany({
+        where: { id: row.id, status: "INITIATED" },
+        data:  { status: "FAILED", failureReason: message },
+      });
+      await createAuditLog({
+        action: "REFUND_FAILED",
+        entity: "ReturnRefund",
+        entityId: row.id,
+        newValue: { amount, channel: row.channel, returnId, orderId: row.orderId, error: message },
+      });
+      void notifyAdmins({
+        type: "ADMIN_CUSTOM",
+        title: "Return refund failed ⚠️",
+        body: `The ${money(amount)} refund for a return on order #${orderShortRef(row.orderId)} failed at Razorpay. Check the dashboard, then retry it or mark it settled.`,
+        data: { screen: "AdminOrder", orderId: row.orderId },
+      });
+    }
+  }
+
+  if (initiated > 0 && userId && orderId) {
+    void notify({
+      userId,
+      type: "REFUND_PROCESSED",
+      title: "Refund on its way 💸",
+      body: `Your refund of ${money(initiated)} for returned items on order #${orderShortRef(orderId)} has been initiated. It should reach you within ${REFUND_WORKING_DAYS} working days.`,
+      data: { screen: "Order", orderId },
+    });
+  }
+
+  return { initiated, failed };
+}

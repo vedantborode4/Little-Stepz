@@ -23,6 +23,7 @@ const SECTIONS: { title: string; items: NavItem[] }[] = [
     title: "Commerce",
     items: [
       { key: "orders", label: "Orders", icon: "receipt-outline", route: "/admin/orders" },
+      { key: "returns", label: "Returns", icon: "return-down-back-outline", route: "/admin/returns" },
       { key: "pre-orders", label: "Pre-Orders", icon: "time-outline", route: "/admin/pre-orders" },
       { key: "coupons", label: "Coupons", icon: "ticket-outline", route: "/admin/coupons" },
       { key: "reviews", label: "Reviews", icon: "star-outline", route: "/admin/reviews" },

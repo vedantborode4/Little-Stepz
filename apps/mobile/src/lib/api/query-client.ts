@@ -128,6 +128,8 @@ export const qk = {
   orders: ["orders"] as const,
   order: (id: string) => ["order", id] as const,
   orderTrack: (id: string) => ["order", id, "track"] as const,
+  /** Under the order key, so invalidating an order refreshes its returns too. */
+  orderReturns: (id: string) => ["order", id, "returns"] as const,
   addresses: ["addresses"] as const,
   me: ["me"] as const,
   // notifications
@@ -156,4 +158,6 @@ export const qk = {
   adminWithdrawals: ["admin", "withdrawals"] as const,
   adminCommissions: ["admin", "commissions"] as const,
   adminPreOrders: (params?: unknown) => ["admin", "pre-orders", params] as const,
+  adminReturns: (status?: string) => ["admin", "returns", status ?? "ALL"] as const,
+  adminReturn: (id: string) => ["admin", "return", id] as const,
 };

@@ -346,6 +346,111 @@ export async function createDelhiveryShipment(
   };
 }
 
+// ─── Reverse pickup (customer → our warehouse) ────────────────────────────────
+//
+// Same create endpoint as a forward manifest with `payment_mode: "Pickup"`. The shipment
+// address is the CUSTOMER (where the courier collects), and `pickup_location` names our
+// registered warehouse, which for a reverse shipment is where the parcel is delivered.
+// Reverse pickup is a separate enablement on many Delhivery accounts — confirm it on
+// staging before turning DELHIVERY_RVP_ENABLED on. The waybill is stored on the Return,
+// never in Shipment: the forward webhook reads a returned/DTO scan as an RTO.
+export interface DelhiveryReversePickupInput {
+  returnRef: string;
+  name: string;
+  add: string;
+  city: string;
+  state: string;
+  country: string;
+  pin: string;
+  phone: string;
+  totalAmount: number;
+  productsDesc: string;
+  quantity: number;
+}
+
+export async function createDelhiveryReversePickup(
+  input: DelhiveryReversePickupInput
+): Promise<DelhiveryCreateResult> {
+  const pickupName = process.env.DELHIVERY_PICKUP_NAME;
+  if (!pickupName) throw new ApiError(500, "DELHIVERY_PICKUP_NAME not configured");
+
+  const payload = {
+    shipments: [
+      {
+        name: input.name,
+        add: input.add,
+        pin: input.pin,
+        city: input.city,
+        state: input.state,
+        country: input.country,
+        phone: input.phone,
+        order: input.returnRef,
+        payment_mode: "Pickup",
+        cod_amount: "0",
+        total_amount: String(input.totalAmount),
+        products_desc: input.productsDesc.substring(0, 200),
+        quantity: String(input.quantity),
+        weight: String(getDefaultPackageWeightGrams()),
+        shipment_length: String(Number(process.env.DELHIVERY_PKG_LENGTH ?? "20")),
+        shipment_width: String(Number(process.env.DELHIVERY_PKG_BREADTH ?? "15")),
+        shipment_height: String(Number(process.env.DELHIVERY_PKG_HEIGHT ?? "10")),
+      },
+    ],
+    pickup_location: { name: pickupName },
+  };
+
+  const res = await fetch(`${DELHIVERY_API}/api/cmu/create.json`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/x-www-form-urlencoded" }),
+    body: `format=json&data=${encodeURIComponent(JSON.stringify(payload))}`,
+  });
+
+  const data = (await res.json().catch(() => ({}))) as any;
+  const pkg = data?.packages?.[0];
+  const ok =
+    res.ok && data?.success !== false && pkg?.waybill && !/fail/i.test(String(pkg?.status ?? ""));
+
+  if (!ok) {
+    const remarks = [
+      ...(Array.isArray(pkg?.remarks) ? pkg.remarks : [pkg?.remarks]),
+      data?.rmk,
+      data?.error,
+    ]
+      .filter(Boolean)
+      .map(String)
+      .join("; ");
+    console.error("[delhivery] reverse pickup failed", {
+      httpStatus: res.status, returnRef: input.returnRef, pin: input.pin, response: data,
+    });
+    throw new ApiError(
+      502,
+      remarks
+        ? `${PaymentErrorCode.DELHIVERY_ORDER_FAILED}: ${remarks}`
+        : `${PaymentErrorCode.DELHIVERY_ORDER_FAILED} (HTTP ${res.status})`
+    );
+  }
+
+  return {
+    waybill: String(pkg.waybill),
+    refnum: String(pkg.refnum ?? input.returnRef),
+    status: String(pkg.status ?? "Success"),
+    raw: data,
+  };
+}
+
+/** Where a reverse-pickup scan leaves the return. Deliberately separate from the forward mapping. */
+export function mapReversePickupStatus(
+  status: string,
+  statusType: string
+): "PENDING" | "PICKED_UP" | "ARRIVED" | "CANCELLED" {
+  const s = (status ?? "").toLowerCase();
+  const t = (statusType ?? "").toUpperCase();
+  if (t === "DL" || s.includes("dto") || s.includes("delivered")) return "ARRIVED";
+  if (t === "CN" || s.includes("cancel") || s.includes("closed") || s.includes("lost")) return "CANCELLED";
+  if (t === "PU" || s.includes("picked") || s.includes("in transit") || s.includes("dispatched")) return "PICKED_UP";
+  return "PENDING";
+}
+
 // ─── Track by waybill ─────────────────────────────────────────────────────────
 export interface DelhiveryTrackResult {
   status: string;

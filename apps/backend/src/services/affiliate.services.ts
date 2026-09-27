@@ -1152,3 +1152,80 @@ export async function reverseAffiliateCommissionsService(params: {
     data:  { status: "CANCELLED" },
   });
 }
+
+
+/**
+ * Shrink an order's affiliate commission in proportion to money refunded for returned items.
+ *
+ * Commission was earned on `order.total`, so a refund of R removes `amount × R / total`.
+ * Proportional to the commission itself rather than re-applying today's rate, which may
+ * have changed since the sale. A fully returned order cancels the commission outright
+ * through `reverseAffiliateCommissionsService`, which also drops the conversion count.
+ *
+ * A commission that is PAID, or sits in an unpaid withdrawal, is never mutated: the money
+ * has left or its withdrawal total would silently stop matching its lines. That case is
+ * returned as `clawback` for the post-commit caller to raise with the admins.
+ */
+export async function reduceAffiliateCommissionForReturn(params: {
+  tx:           Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
+  orderId:      string;
+  orderTotal:   Decimal;
+  refundAmount: Decimal;
+  fullyReturned: boolean;
+  adminUserId:  string;
+}): Promise<{ clawback: { commissionId: string; amount: number } | null }> {
+  const { tx, orderId, orderTotal, refundAmount, fullyReturned, adminUserId } = params;
+  if (refundAmount.lte(0) || orderTotal.lte(0)) return { clawback: null };
+
+  const commission = await tx.commission.findFirst({
+    where: { orderId, deletedAt: null, status: { not: "CANCELLED" } },
+    select: { id: true, affiliateId: true, amount: true, status: true, withdrawalId: true },
+  });
+  if (!commission) return { clawback: null };
+
+  const delta = Decimal.min(
+    new Decimal(commission.amount.toString())
+      .mul(refundAmount)
+      .div(orderTotal)
+      .toDecimalPlaces(2, Decimal.ROUND_HALF_UP),
+    new Decimal(commission.amount.toString())
+  );
+  if (delta.lte(0)) return { clawback: null };
+
+  if (commission.status === "PAID" || commission.withdrawalId) {
+    await createAuditLogInTx(tx, {
+      userId:   adminUserId,
+      action:   "COMMISSION_CLAWBACK_NEEDED",
+      entity:   "Commission",
+      entityId: commission.id,
+      newValue: { orderId, amount: delta.toNumber(), status: commission.status, withdrawalId: commission.withdrawalId },
+    });
+    return { clawback: { commissionId: commission.id, amount: delta.toNumber() } };
+  }
+
+  if (fullyReturned) {
+    await reverseAffiliateCommissionsService({ tx, orderId, adminUserId });
+    return { clawback: null };
+  }
+
+  await tx.commission.update({
+    where: { id: commission.id },
+    data:  { amount: { decrement: delta } },
+  });
+  await tx.affiliate.update({
+    where: { id: commission.affiliateId },
+    data: {
+      totalCommission: { decrement: delta },
+      pendingBalance:  { decrement: delta },
+    },
+  });
+  await createAuditLogInTx(tx, {
+    userId:   adminUserId,
+    action:   "COMMISSION_ADJUSTED",
+    entity:   "Commission",
+    entityId: commission.id,
+    oldValue: { amount: Number(commission.amount) },
+    newValue: { amount: new Decimal(commission.amount.toString()).minus(delta).toNumber(), reason: "Item return refunded" },
+  });
+  return { clawback: null };
+}

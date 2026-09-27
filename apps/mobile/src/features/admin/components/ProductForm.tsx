@@ -95,6 +95,7 @@ export function ProductForm({
   const [partialPaymentEnabled, setPartialPaymentEnabled] = useState(product?.partialPaymentEnabled ?? false);
   const [depositPercent, setDepositPercent] = useState(str(product?.depositPercent));
   const [codEnabled, setCodEnabled] = useState(product?.codEnabled ?? false);
+  const [returnable, setReturnable] = useState(product?.returnable ?? true);
   // SEO + Google Shopping
   const [metaTitle, setMetaTitle] = useState(product?.metaTitle ?? "");
   const [metaDescription, setMetaDescription] = useState(product?.metaDescription ?? "");
@@ -160,6 +161,7 @@ export function ProductForm({
       partialPaymentEnabled,
       depositPercent: depositPercent ? Number(depositPercent) : null,
       codEnabled,
+      returnable,
       metaTitle: metaTitle.trim() || undefined,
       metaDescription: metaDescription.trim() || undefined,
       ogImage: ogImage.trim() || undefined,
@@ -285,6 +287,16 @@ export function ProductForm({
             order is within the COD order-value limit, and the customer has no previously refused COD delivery.
           </Text>
         ) : null}
+      </View>
+
+      {/* Item-level returns */}
+      <View className="gap-2 rounded-lg border border-border bg-surface p-3">
+        <ToggleRow title="Returnable" value={returnable} onChange={setReturnable} />
+        <Text className="text-xs text-faint">
+          {returnable
+            ? "Customers can request a return of this item within the return window."
+            : "Customers can't request an online return of this item (e.g. hygiene or customised products)."}
+        </Text>
       </View>
 
       {/* SEO + Google Shopping — collapsed by default; most edits never touch it. */}

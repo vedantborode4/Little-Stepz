@@ -22,7 +22,9 @@ export interface AdminOrder {
   payment: { status: string; amount: number } | null
   /** Id of the Return raised against this order, if any — what `resolveReturn` addresses. */
   returnId: string | null
-  returnStatus: "PENDING" | "APPROVED" | "REJECTED" | "REFUNDED" | null
+  returnStatus: string | null
+  /** Returns still being worked. Item returns leave the order DELIVERED, so this is the signal. */
+  openReturns?: number
   paymentPlan?: "FULL" | "PARTIAL"
   /** Delivered by hand rather than Delhivery — skipped by auto-ship. */
   manualFulfilment?: boolean
@@ -78,6 +80,14 @@ export interface AdminOrderDetail extends Omit<AdminOrder, "shippingAddress" | "
   address: AdminOrderAddress | null
   items: AdminOrderItem[]
   coupon: { code: string; type: string; value: number } | null
+  returns?: Array<{
+    id: string
+    kind: "ITEM" | "LEGACY"
+    status: string
+    reason: string
+    refundAmount: number | null
+    createdAt: string
+  }>
   payment: {
     id: string
     method: string

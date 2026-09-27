@@ -15,6 +15,7 @@ import { formatPrice } from "../../lib/utils/format";
 
 const QUICK_LINKS: { label: string; route: string; icon: keyof typeof Ionicons.glyphMap; tint: string }[] = [
   { label: "Orders", route: "/admin/orders", icon: "receipt-outline", tint: "#2563EB" },
+  { label: "Returns", route: "/admin/returns", icon: "return-down-back-outline", tint: "#EA580C" },
   { label: "Products", route: "/admin/products", icon: "cube-outline", tint: "#16A34A" },
   { label: "Profit & Loss", route: "/admin/profit-loss", icon: "trending-up-outline", tint: "#16A34A" },
   { label: "Affiliates", route: "/admin/affiliates", icon: "people-outline", tint: "#7E22CE" },

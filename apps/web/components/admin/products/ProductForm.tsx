@@ -50,6 +50,7 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
     preOrderEnabled: false, bookingAmount: "", preOrderLimit: "", preOrderNote: "",
     partialPaymentEnabled: false, depositPercent: "",
     codEnabled: false,
+    returnable: true,
     metaTitle: "", metaDescription: "", ogImage: "", noindex: false, brand: "", gtin: "", mpn: "", condition: "new",
   })
   const [images, setImages] = useState<any[]>([])
@@ -83,6 +84,7 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
         partialPaymentEnabled: initialData.partialPaymentEnabled ?? false,
         depositPercent: initialData.depositPercent != null ? String(initialData.depositPercent) : "",
         codEnabled: initialData.codEnabled ?? false,
+        returnable: initialData.returnable ?? true,
         metaTitle: initialData.metaTitle ?? "",
         metaDescription: initialData.metaDescription ?? "",
         ogImage: initialData.ogImage ?? "",
@@ -423,6 +425,24 @@ export default function ProductForm({ mode = "create", initialData }: Props) {
               and the customer has no previously refused COD delivery.
             </p>
           )}
+        </div>
+
+        {/* Item-level returns */}
+        <div className="pt-4 border-t border-border space-y-2">
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.returnable}
+              onChange={e => onChange("returnable", e.target.checked)}
+              className="w-4 h-4 rounded accent-primary"
+            />
+            <span className="text-sm font-medium text-muted">Returnable</span>
+          </label>
+          <p className="text-xs text-faint pl-7">
+            {form.returnable
+              ? "Customers can request a return of this item within the return window."
+              : "Customers can't request an online return of this item (e.g. hygiene or customised products)."}
+          </p>
         </div>
 
         {/* SEO + Google Shopping */}

@@ -71,7 +71,7 @@ export const returns: PolicyPage = {
         {
           type: "list",
           items: [
-            "Issue must be reported within 48 hours of delivery",
+            "Return requests must be raised within 7 days of delivery",
             "Product must be unused and in original condition",
             "Original packaging, manuals, accessories, tags, inserts, cables, chargers, and included parts must be retained",
             "Product must not show signs of physical damage, forced handling, tampering, misuse, accidental breakage, water damage, or unauthorized repair",
@@ -132,6 +132,14 @@ export const returns: PolicyPage = {
             "Refunds (if approved) will be processed to original payment method",
             "Processing time depends on payment providers / banks",
           ],
+        },
+        {
+          type: "paragraph",
+          text: "You can return individual items from an order, or some of the units of an item, from your order page. Each return is refunded at that item's share of what you actually paid, after any coupon or discount on the order. Refunds are issued once the items reach us and pass inspection. Original shipping charges are refunded only when the entire order is returned because of an error on our part.",
+        },
+        {
+          type: "paragraph",
+          text: "Where part of an order was paid in cash (Cash on Delivery, or a balance collected at the door), that portion is refunded to the UPI ID you provide when requesting the return.",
         },
         { type: "paragraph", text: "On an approved return of a Partial Payment order, the deposit you paid online is refunded automatically to the original payment method. The balance, where it was collected in cash by the delivery agent, cannot be reversed through the payment gateway and is refunded separately by our team — we will contact you to arrange it." },
       ],
