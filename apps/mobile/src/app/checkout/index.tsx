@@ -81,11 +81,9 @@ export default function Checkout() {
   const [couponInput, setCouponInput] = useState("");
   const [addrSheet, setAddrSheet] = useState<{ open: boolean; editing?: Address }>({ open: false });
   const orderPlacedRef = useRef(false);
-  // Set just before the COD flow navigates away. This screen is then on its way out,
-  // so what it renders is frozen: a late store change must not swap its subtrees while
-  // the navigator is still mounting the next screen, or Android's Fabric mount resolves
-  // the result as reparenting host views and throws. COD always leaves from step 2.
-  const leavingForCodRef = useRef(false);
+  // The confirmed COD order this screen is leaving for. While set, the screen renders a
+  // static placeholder and navigates in an effect — see the COD branch of onPlaceOrder.
+  const [leavingForCodOrderId, setLeavingForCodOrderId] = useState<string | null>(null);
 
   const onApplyCoupon = async () => {
     const code = couponInput.trim();
@@ -208,7 +206,12 @@ export default function Checkout() {
   const isPartial = !isCod && paymentPlan === "PARTIAL" && Boolean(partialQuote?.eligible);
   const isFull = !isCod && !isPartial;
 
-  const renderStep = leavingForCodRef.current ? 2 : step;
+  // Runs after the commit that collapsed this screen to its placeholder, so the
+  // navigation never shares a Fabric mount transaction with a restructure of this tree.
+  useEffect(() => {
+    if (!leavingForCodOrderId) return;
+    router.replace({ pathname: "/checkout/success", params: { orderId: leavingForCodOrderId } });
+  }, [leavingForCodOrderId]);
 
   const view = serverTotals ?? {
     subtotal,
@@ -235,17 +238,18 @@ export default function Checkout() {
     orderPlacedRef.current = true;
     // Cash on Delivery is already confirmed — there is no payment sheet to open.
     if (result.kind === "cod") {
-      // Navigate only. The session reset happens on arrival, in success.tsx.
+      // Collapse to a static placeholder first; the effect above navigates once that
+      // commit has landed.
       //
-      // Resetting here used to crash Android: `resetSession()` sets `step` back to 0,
-      // and this screen renders a different subtree per step, so React batched the
-      // step 2 -> 0 swap into the very same commit as the screen swap. Fabric then
-      // resolved that as moving host views to a new parent and Android threw
-      // IllegalStateException "The specified child already has a parent" out of
-      // SurfaceMountingManager.addViewAt. Keeping the two in separate ticks means
-      // checkout is already unmounted when the reset lands, so nothing reparents.
-      leavingForCodRef.current = true;
-      router.replace({ pathname: "/checkout/success", params: { orderId: result.orderId } });
+      // Android crashed here with IllegalStateException "The specified child already has
+      // a parent" out of SurfaceMountingManager.addViewAt: Fabric resolved a restructure
+      // of this tree, racing the navigation, as moving host views to a new parent. This
+      // screen subscribes to the whole cart and checkout stores, and a native-stack
+      // replace keeps it mounted until its closing animation ends — so the success
+      // screen's resetSession() and fetchCart() used to reshape it mid-transition (COD
+      // card to online card, item list emptied). Freezing only `step` was not enough.
+      // The placeholder reads no store state, so later updates produce no host mutations.
+      setLeavingForCodOrderId(result.orderId);
       return;
     }
     router.push({
@@ -264,6 +268,19 @@ export default function Checkout() {
       },
     });
   };
+
+  // Leaving for a confirmed COD order. Deliberately reads no store state, so nothing
+  // that changes while the closing animation runs can alter these host views.
+  if (leavingForCodOrderId) {
+    return (
+      <ScreenContainer edges={["top", "left", "right", "bottom"]}>
+        <Header title="Checkout" />
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator color={colors.primary} />
+        </View>
+      </ScreenContainer>
+    );
+  }
 
   // Nothing to check out yet: either the first cart fetch is still in flight or the
   // guard above is about to redirect. Either way, never render the stepper.
@@ -342,11 +359,11 @@ export default function Checkout() {
       <View className="flex-row items-center justify-between px-6 py-3">
         {STEPS.map((label, i) => (
           <View key={label} className="flex-1 flex-row items-center">
-            <View className={`h-7 w-7 items-center justify-center rounded-full ${i <= renderStep ? "bg-primary" : "bg-border"}`}>
-              <Text className={`text-xs font-jakarta-bold ${i <= renderStep ? "text-white" : "text-muted"}`}>{i + 1}</Text>
+            <View className={`h-7 w-7 items-center justify-center rounded-full ${i <= step ? "bg-primary" : "bg-border"}`}>
+              <Text className={`text-xs font-jakarta-bold ${i <= step ? "text-white" : "text-muted"}`}>{i + 1}</Text>
             </View>
-            <Text className={`ml-1.5 text-xs ${i <= renderStep ? "font-jakarta-semibold text-text" : "text-muted"}`}>{label}</Text>
-            {i < STEPS.length - 1 ? <View className={`mx-1 h-0.5 flex-1 ${i < renderStep ? "bg-primary" : "bg-border"}`} /> : null}
+            <Text className={`ml-1.5 text-xs ${i <= step ? "font-jakarta-semibold text-text" : "text-muted"}`}>{label}</Text>
+            {i < STEPS.length - 1 ? <View className={`mx-1 h-0.5 flex-1 ${i < step ? "bg-primary" : "bg-border"}`} /> : null}
           </View>
         ))}
       </View>
@@ -357,8 +374,8 @@ export default function Checkout() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ padding: 16, paddingBottom: 340, gap: 12 }}
       >
-        {renderStep === 0 ? <PromoSlot position="CHECKOUT_TOP" height={110} /> : null}
-        {renderStep === 0 ? (
+        {step === 0 ? <PromoSlot position="CHECKOUT_TOP" height={110} /> : null}
+        {step === 0 ? (
           <>
             {addresses.length === 0 && addressError ? (
               // A failed load is not "no addresses" — don't invite the user to
@@ -411,7 +428,7 @@ export default function Checkout() {
           </>
         ) : null}
 
-        {renderStep === 1 ? (
+        {step === 1 ? (
           <>
             {items.map((it) => (
               <Card key={`${it.productId}-${it.variantId ?? "x"}`} className="flex-row items-center gap-3">
@@ -456,7 +473,7 @@ export default function Checkout() {
           </>
         ) : null}
 
-        {renderStep === 2 ? (
+        {step === 2 ? (
           <>
             {/* Pay in full — always available. */}
             <Pressable onPress={() => setPaymentChoice("FULL")}>
@@ -602,7 +619,7 @@ export default function Checkout() {
         ) : null}
 
         {/* Order summary (review + payment steps) */}
-        {renderStep >= 1 ? (
+        {step >= 1 ? (
           <Card className="gap-2">
             <View className="mb-1 flex-row items-center justify-between">
               <Text className="font-jakarta-semibold text-text">Order Summary</Text>
@@ -667,7 +684,7 @@ export default function Checkout() {
               <Text className="font-jakarta-bold text-text">Total</Text>
               <Text className="text-base font-jakarta-bold text-primary">{formatPrice(view.total)}</Text>
             </View>
-            {renderStep === 2 && isPartial && partialQuote ? (
+            {step === 2 && isPartial && partialQuote ? (
               <>
                 <View className="flex-row items-center justify-between">
                   <Text className="text-sm font-jakarta-semibold text-primary">
@@ -683,7 +700,7 @@ export default function Checkout() {
                 </View>
               </>
             ) : null}
-            {renderStep === 2 ? (
+            {step === 2 ? (
               <View className="mt-1 flex-row items-center justify-between rounded-lg bg-bg px-2.5 py-1.5">
                 <Text className="text-xs text-muted">Payment</Text>
                 <Text className="text-xs font-jakarta-semibold text-text">
@@ -705,7 +722,7 @@ export default function Checkout() {
         style={{ paddingBottom: 12 + extraBottomInset, bottom: keyboardHeight }}
         className="absolute bottom-0 left-0 right-0 gap-2 border-t border-border bg-surface px-4 pt-3"
       >
-        {renderStep === 0 && !selectedAddressId ? (
+        {step === 0 && !selectedAddressId ? (
           <View className="flex-row items-center gap-1.5 rounded-lg bg-warning/10 px-3 py-2">
             <Ionicons name="alert-circle-outline" size={16} color={colors.warning} />
             <Text className="text-xs text-warning">Please select a delivery address to continue</Text>
@@ -716,7 +733,7 @@ export default function Checkout() {
           <Text className="text-lg font-jakarta-bold text-text">{formatPrice(view.total)}</Text>
         </View>
         {/* The number under the thumb has to match the number on the button. */}
-        {renderStep === 2 && isPartial && partialQuote ? (
+        {step === 2 && isPartial && partialQuote ? (
           <View className="flex-row items-center justify-between">
             <Text className="text-sm font-jakarta-semibold text-primary">Pay now</Text>
             <Text className="text-sm font-jakarta-bold text-primary">
@@ -724,17 +741,17 @@ export default function Checkout() {
             </Text>
           </View>
         ) : null}
-        {renderStep === 2 && isCod && codQuote ? (
+        {step === 2 && isCod && codQuote ? (
           <View className="flex-row items-center justify-between">
             <Text className="text-sm font-jakarta-semibold text-warning">Pay on delivery</Text>
             <Text className="text-sm font-jakarta-bold text-warning">{formatPrice(codQuote.amountDue)}</Text>
           </View>
         ) : null}
-        {renderStep === 2 && !isCod ? <PaymentBadges label="" /> : null}
-        {renderStep < 2 ? (
+        {step === 2 && !isCod ? <PaymentBadges label="" /> : null}
+        {step < 2 ? (
           <Button
             label="Continue"
-            disabled={renderStep === 0 && !selectedAddressId}
+            disabled={step === 0 && !selectedAddressId}
             onPress={() => setStep(Math.min(2, step + 1))}
           />
         ) : (
@@ -751,7 +768,7 @@ export default function Checkout() {
             onPress={onPlaceOrder}
           />
         )}
-        {renderStep > 0 ? <Button label="Back" variant="ghost" onPress={() => setStep(Math.max(0, renderStep - 1))} /> : null}
+        {step > 0 ? <Button label="Back" variant="ghost" onPress={() => setStep(Math.max(0, step - 1))} /> : null}
       </View>
 
       <AddressFormSheet

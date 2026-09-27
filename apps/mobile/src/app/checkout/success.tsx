@@ -30,11 +30,10 @@ export default function CheckoutSuccess() {
     if (!failed) fetchCart();
   }, [failed, fetchCart]);
 
-  // Retire the checkout session here rather than at the call site, so the reset lands
-  // in a tick after the navigation has committed. Doing it alongside `router.replace`
-  // fused the step reset and the screen swap into one Fabric commit, which crashed
-  // Android (see the COD branch in ./index.tsx). Idempotent — the online flow also
-  // resets in verifying.tsx.
+  // Retire the checkout session on arrival. The checkout screen can still be mounted
+  // here — a native-stack replace keeps it until its closing animation ends — which is
+  // why it renders a store-independent placeholder while leaving (see the COD branch in
+  // ./index.tsx). Idempotent — the online flow also resets in verifying.tsx.
   useEffect(() => {
     if (!failed) resetSession();
   }, [failed, resetSession]);
