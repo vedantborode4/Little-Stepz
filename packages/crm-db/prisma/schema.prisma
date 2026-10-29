@@ -42,6 +42,7 @@ model User {
 
   refreshTokens RefreshToken[]
   auditLogs     AuditLog[]
+  priceChanges  PriceChange[]
 }
 
 /// Opaque refresh tokens, stored only as a SHA-256 hash. Each login starts a
@@ -140,4 +141,196 @@ model ReceivingAccount {
   isActive   Boolean       @default(true)
   createdAt  DateTime      @default(now())
   updatedAt  DateTime      @updatedAt
+}
+
+// ─── Document numbering ──────────────────────────────────────────────────────
+
+/// Gapless per-prefix counters (PRD, PUR, ...). Incremented inside the
+/// document's own transaction, so a rolled-back create never burns a number.
+model Sequence {
+  key   String @id
+  value Int
+}
+
+// ─── Catalog ─────────────────────────────────────────────────────────────────
+
+/// `nameKey` is the trimmed, lower-cased name: uniqueness is case-insensitive.
+model Category {
+  id        String    @id @default(uuid())
+  name      String
+  nameKey   String    @unique
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  products  Product[]
+}
+
+model Brand {
+  id        String    @id @default(uuid())
+  name      String
+  nameKey   String    @unique
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  products  Product[]
+}
+
+model Supplier {
+  id          String    @id @default(uuid())
+  name        String
+  nameKey     String    @unique
+  country     String?
+  /// ISO code of the currency the supplier invoices in (CNY for RMB).
+  currency    String    @default("INR")
+  contactName String?
+  phone       String?
+  email       String?
+  address     String?
+  gstin       String?
+  notes       String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  products    Product[]
+}
+
+enum ProductStatus {
+  DRAFT
+  ACTIVE
+  DISCONTINUED
+  ARCHIVED
+}
+
+enum VariantStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+/// Products are never deleted (stock and sales reference them); they are archived.
+/// Every product has at least one Variant — a simple product has a single
+/// "Default" variant — so SKU, price and stock always live on the variant.
+model Product {
+  id               String        @id @default(uuid())
+  code             String        @unique
+  name             String
+  categoryId       String
+  category         Category      @relation(fields: [categoryId], references: [id])
+  brandId          String?
+  brand            Brand?        @relation(fields: [brandId], references: [id])
+  supplierId       String?
+  supplier         Supplier?     @relation(fields: [supplierId], references: [id])
+  scale            String?
+  status           ProductStatus @default(ACTIVE)
+  imageUrl         String?
+  description      String?
+  notes            String?
+  hsnCode          String?
+  gstRate          Decimal       @db.Decimal(5, 2)
+  /// Read-only reference to the website's product id. Never used to write to the website.
+  websiteProductId String?       @unique
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  options  ProductOption[]
+  variants Variant[]
+
+  @@index([categoryId])
+  @@index([brandId])
+  @@index([status])
+  @@index([name])
+}
+
+model ProductOption {
+  id        String               @id @default(uuid())
+  productId String
+  product   Product              @relation(fields: [productId], references: [id])
+  name      String
+  position  Int
+  values    ProductOptionValue[]
+
+  @@unique([productId, name])
+}
+
+model ProductOptionValue {
+  id       String               @id @default(uuid())
+  optionId String
+  option   ProductOption        @relation(fields: [optionId], references: [id])
+  value    String
+  position Int
+  variants VariantOptionValue[]
+
+  @@unique([optionId, value])
+}
+
+model Variant {
+  id               String        @id @default(uuid())
+  productId        String
+  product          Product       @relation(fields: [productId], references: [id])
+  /// Stored upper-case, so uniqueness is case-insensitive.
+  sku              String        @unique
+  name             String
+  /// Sorted option-value ids joined by "|" ("" for a simple product's only variant).
+  /// Unique per product: the same combination can't exist twice.
+  optionKey        String
+  regularPrice     Decimal       @db.Decimal(14, 2)
+  offerPrice       Decimal?      @db.Decimal(14, 2)
+  wholesalePrice   Decimal?      @db.Decimal(14, 2)
+  reorderLevel     Int           @default(0)
+  websiteVariantId String?       @unique
+  status           VariantStatus @default(ACTIVE)
+  position         Int           @default(0)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  optionValues VariantOptionValue[]
+  priceTiers   PriceTier[]
+  priceChanges PriceChange[]
+
+  @@unique([productId, optionKey])
+  @@index([productId])
+}
+
+model VariantOptionValue {
+  variantId     String
+  variant       Variant            @relation(fields: [variantId], references: [id])
+  optionValueId String
+  optionValue   ProductOptionValue @relation(fields: [optionValueId], references: [id])
+
+  @@id([variantId, optionValueId])
+}
+
+/// Quantity-break wholesale pricing: buying >= minQty units costs `price` each.
+model PriceTier {
+  id        String  @id @default(uuid())
+  variantId String
+  variant   Variant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  minQty    Int
+  price     Decimal @db.Decimal(14, 2)
+
+  @@unique([variantId, minQty])
+}
+
+enum PriceField {
+  REGULAR
+  OFFER
+  WHOLESALE
+}
+
+/// Append-only price history (single edits and bulk batches). Completed sales
+/// keep their own price snapshot; this records what the list price was and when.
+model PriceChange {
+  id          String     @id @default(uuid())
+  variantId   String
+  variant     Variant    @relation(fields: [variantId], references: [id])
+  field       PriceField
+  oldPrice    Decimal?   @db.Decimal(14, 2)
+  newPrice    Decimal?   @db.Decimal(14, 2)
+  batchId     String?
+  reason      String?
+  changedById String?
+  changedBy   User?      @relation(fields: [changedById], references: [id])
+  createdAt   DateTime   @default(now())
+
+  @@index([variantId, createdAt])
+  @@index([batchId])
 }

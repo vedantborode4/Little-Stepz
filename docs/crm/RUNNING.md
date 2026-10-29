@@ -29,6 +29,8 @@ pnpm --filter @repo/crm-schema build
 pnpm --filter crm-api seed                    # business profile, Store/Godown, accounts, owner admin
 ```
 
+Optional demo catalog (products and variants marked SAMPLE, refused in production): `pnpm --filter crm-api seed:demo`.
+
 `SEED_DEMO_USERS=true` also creates `cashier@demo.local` and `ops@demo.local` (password `Demo-pass-123`). This is refused when `NODE_ENV=production`.
 
 ## 4. Run

@@ -68,7 +68,11 @@ export default function CrmShell({ children }: { children: React.ReactNode }) {
           </div>
           <div className="flex items-center gap-1">
             <ThemeToggle />
-            <button onClick={() => setDrawerOpen(true)} className="p-2 rounded-xl text-muted hover:bg-surface-2 transition" aria-label="Open menu">
+            <button
+              onClick={() => setDrawerOpen(true)}
+              className="p-2 rounded-xl text-muted hover:bg-surface-2 transition"
+              aria-label="Open menu"
+            >
               <Menu size={20} />
             </button>
           </div>

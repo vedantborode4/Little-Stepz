@@ -12,7 +12,10 @@ import { requestContext, sendData } from "../../core/http";
 import * as settingsService from "./settings.service";
 
 const includeInactiveQuery = z.object({
-  includeInactive: z.enum(["true", "false"]).default("false").transform((v) => v === "true"),
+  includeInactive: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
 });
 
 export async function getBusinessProfile(_req: Request, res: Response) {

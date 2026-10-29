@@ -8,7 +8,11 @@ export const userKeys = {
 }
 
 export const useUsers = (params: object) =>
-  useQuery({ queryKey: userKeys.list(params), queryFn: () => getData<Paginated<UserDto>>("/users", params), placeholderData: keepPreviousData })
+  useQuery({
+    queryKey: userKeys.list(params),
+    queryFn: () => getData<Paginated<UserDto>>("/users", params),
+    placeholderData: keepPreviousData,
+  })
 
 function useUserMutation<TInput>(fn: (input: TInput) => Promise<UserDto>) {
   const queryClient = useQueryClient()
@@ -19,7 +23,9 @@ export const useCreateUser = () => useUserMutation((input: CreateUserInput) => s
 export const useUpdateUser = () =>
   useUserMutation(({ id, input }: { id: string; input: UpdateUserInput }) => sendData<UserDto>("patch", `/users/${id}`, input))
 export const useResetPassword = () =>
-  useUserMutation(({ id, input }: { id: string; input: ResetPasswordInput }) => sendData<UserDto>("post", `/users/${id}/reset-password`, input))
+  useUserMutation(({ id, input }: { id: string; input: ResetPasswordInput }) =>
+    sendData<UserDto>("post", `/users/${id}/reset-password`, input),
+  )
 
 /** Readable temporary password that satisfies the policy (letters + digits, 12 chars). */
 export function generateTemporaryPassword() {

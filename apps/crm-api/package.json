@@ -10,6 +10,7 @@
     "dev": "tsx watch src/index.ts",
     "check-types": "tsc --noEmit",
     "seed": "tsx src/scripts/seed.ts",
+    "seed:demo": "tsx src/scripts/demo-data.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },

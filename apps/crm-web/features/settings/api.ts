@@ -22,7 +22,10 @@ export const useBusinessProfile = () =>
   useQuery({ queryKey: settingsKeys.profile(), queryFn: () => getData<BusinessProfileDto | null>("/settings/business-profile") })
 
 export const useLocations = (includeInactive = false) =>
-  useQuery({ queryKey: settingsKeys.locations(includeInactive), queryFn: () => getData<LocationDto[]>("/settings/locations", { includeInactive }) })
+  useQuery({
+    queryKey: settingsKeys.locations(includeInactive),
+    queryFn: () => getData<LocationDto[]>("/settings/locations", { includeInactive }),
+  })
 
 export const useReceivingAccounts = (includeInactive = false) =>
   useQuery({

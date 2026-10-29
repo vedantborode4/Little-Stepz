@@ -33,7 +33,11 @@ function ChangePasswordForm() {
         </p>
         <form onSubmit={onSubmit} className="space-y-4" noValidate>
           <FormError message={formError} />
-          <Field label={forced ? "Temporary password" : "Current password"} htmlFor="currentPassword" error={formState.errors.currentPassword?.message}>
+          <Field
+            label={forced ? "Temporary password" : "Current password"}
+            htmlFor="currentPassword"
+            error={formState.errors.currentPassword?.message}
+          >
             <Input id="currentPassword" type="password" autoComplete="current-password" {...register("currentPassword")} />
           </Field>
           <Field

@@ -19,7 +19,11 @@ const ENTITIES = ["User", "BusinessProfile", "Location", "ReceivingAccount"]
 type AuditFilters = { entity?: string; action?: string; from?: string; to?: string; entityId?: string }
 
 function useAudit(params: object) {
-  return useQuery({ queryKey: ["audit", params], queryFn: () => getData<Paginated<AuditDto>>("/audit", params), placeholderData: keepPreviousData })
+  return useQuery({
+    queryKey: ["audit", params],
+    queryFn: () => getData<Paginated<AuditDto>>("/audit", params),
+    placeholderData: keepPreviousData,
+  })
 }
 
 function actionTone(action: string) {
@@ -34,7 +38,14 @@ function AuditDiff({ entry }: { entry: AuditDto }) {
   const before = (entry.before ?? {}) as Record<string, unknown>
   const after = (entry.after ?? {}) as Record<string, unknown>
   const keys = [...new Set([...Object.keys(before), ...Object.keys(after)])]
-  const show = (v: unknown) => (v === null || v === undefined || v === "" ? <span className="text-faint">—</span> : typeof v === "object" ? JSON.stringify(v) : String(v))
+  const show = (v: unknown) =>
+    v === null || v === undefined || v === "" ? (
+      <span className="text-faint">—</span>
+    ) : typeof v === "object" ? (
+      JSON.stringify(v)
+    ) : (
+      String(v)
+    )
 
   if (keys.length === 0) return <p className="text-sm text-muted">No field changes recorded for this event.</p>
 
@@ -72,19 +83,45 @@ export default function AuditExplorer() {
   const f = state.filters
 
   const columns: ColumnDef<AuditDto>[] = [
-    { id: "createdAt", header: "When", meta: { sortKey: "createdAt", cellClassName: "whitespace-nowrap text-muted" }, cell: ({ row }) => formatDateTime(row.original.createdAt) },
+    {
+      id: "createdAt",
+      header: "When",
+      meta: { sortKey: "createdAt", cellClassName: "whitespace-nowrap text-muted" },
+      cell: ({ row }) => formatDateTime(row.original.createdAt),
+    },
     { id: "user", header: "User", cell: ({ row }) => row.original.userName ?? <span className="text-faint">System</span> },
-    { id: "action", header: "Action", meta: { sortKey: "action" }, cell: ({ row }) => <Badge tone={actionTone(row.original.action)}>{row.original.action}</Badge> },
-    { id: "entity", header: "Record", meta: { sortKey: "entity" }, cell: ({ row }) => <span>{row.original.entity} <span className="font-mono text-xs text-faint">{row.original.entityId.slice(0, 8)}</span></span> },
+    {
+      id: "action",
+      header: "Action",
+      meta: { sortKey: "action" },
+      cell: ({ row }) => <Badge tone={actionTone(row.original.action)}>{row.original.action}</Badge>,
+    },
+    {
+      id: "entity",
+      header: "Record",
+      meta: { sortKey: "entity" },
+      cell: ({ row }) => (
+        <span>
+          {row.original.entity} <span className="font-mono text-xs text-faint">{row.original.entityId.slice(0, 8)}</span>
+        </span>
+      ),
+    },
   ]
 
   return (
     <div>
-      <PageHeader title="Audit History" subtitle="Every change, sign-in and correction. Entries are permanent and cannot be edited or deleted." />
+      <PageHeader
+        title="Audit History"
+        subtitle="Every change, sign-in and correction. Entries are permanent and cannot be edited or deleted."
+      />
       <ListToolbar actions={<ExportMenu onExport={(format) => downloadExport("/audit", params, format)} />}>
         <FilterSelect label="Record type" value={f.entity} onChange={(entity) => update({ filters: { entity } })}>
           <option value="">All records</option>
-          {ENTITIES.map((e) => <option key={e} value={e}>{e}</option>)}
+          {ENTITIES.map((e) => (
+            <option key={e} value={e}>
+              {e}
+            </option>
+          ))}
         </FilterSelect>
         <FilterSelect label="Action" value={f.action} onChange={(action) => update({ filters: { action } })}>
           <option value="">All actions</option>
@@ -95,8 +132,20 @@ export default function AuditExplorer() {
           <option value="business_profile.">Business profile</option>
         </FilterSelect>
         <div className="flex gap-2">
-          <Input type="date" aria-label="From date" value={f.from ?? ""} onChange={(e) => update({ filters: { from: e.target.value || undefined } })} className="py-2 sm:w-40" />
-          <Input type="date" aria-label="To date" value={f.to ?? ""} onChange={(e) => update({ filters: { to: e.target.value || undefined } })} className="py-2 sm:w-40" />
+          <Input
+            type="date"
+            aria-label="From date"
+            value={f.from ?? ""}
+            onChange={(e) => update({ filters: { from: e.target.value || undefined } })}
+            className="py-2 sm:w-40"
+          />
+          <Input
+            type="date"
+            aria-label="To date"
+            value={f.to ?? ""}
+            onChange={(e) => update({ filters: { to: e.target.value || undefined } })}
+            className="py-2 sm:w-40"
+          />
         </div>
       </ListToolbar>
       <DataTable
@@ -118,7 +167,9 @@ export default function AuditExplorer() {
               <Badge tone={actionTone(r.action)}>{r.action}</Badge>
               <span className="text-xs text-faint">{formatDateTime(r.createdAt)}</span>
             </div>
-            <p className="text-xs text-muted">{r.userName ?? "System"} · {r.entity}</p>
+            <p className="text-xs text-muted">
+              {r.userName ?? "System"} · {r.entity}
+            </p>
           </div>
         )}
       />
@@ -126,10 +177,22 @@ export default function AuditExplorer() {
         <Modal title={selected.action} onClose={() => setSelected(null)} width="max-w-2xl">
           <div className="space-y-4">
             <dl className="grid grid-cols-2 gap-3 text-sm">
-              <div><dt className="text-muted text-xs">When</dt><dd>{formatDateTime(selected.createdAt)}</dd></div>
-              <div><dt className="text-muted text-xs">By</dt><dd>{selected.userName ?? "System"}</dd></div>
-              <div><dt className="text-muted text-xs">Record</dt><dd>{selected.entity}</dd></div>
-              <div><dt className="text-muted text-xs">Record ID</dt><dd className="font-mono text-xs break-all">{selected.entityId}</dd></div>
+              <div>
+                <dt className="text-muted text-xs">When</dt>
+                <dd>{formatDateTime(selected.createdAt)}</dd>
+              </div>
+              <div>
+                <dt className="text-muted text-xs">By</dt>
+                <dd>{selected.userName ?? "System"}</dd>
+              </div>
+              <div>
+                <dt className="text-muted text-xs">Record</dt>
+                <dd>{selected.entity}</dd>
+              </div>
+              <div>
+                <dt className="text-muted text-xs">Record ID</dt>
+                <dd className="font-mono text-xs break-all">{selected.entityId}</dd>
+              </div>
             </dl>
             <AuditDiff entry={selected} />
           </div>

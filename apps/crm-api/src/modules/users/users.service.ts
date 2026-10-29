@@ -63,7 +63,8 @@ export async function updateUser(id: string, input: UpdateUserInput, ctx: Reques
     const before = await tx.user.findUnique({ where: { id } });
     if (!before) throw notFound("User");
 
-    const losesAdmin = before.role === "ADMIN" && before.isActive && (input.isActive === false || (input.role !== undefined && input.role !== "ADMIN"));
+    const losesAdmin =
+      before.role === "ADMIN" && before.isActive && (input.isActive === false || (input.role !== undefined && input.role !== "ADMIN"));
     if (losesAdmin) await assertAnotherActiveAdmin(tx, id);
 
     const after = await tx.user.update({ where: { id }, data: input });
@@ -73,7 +74,13 @@ export async function updateUser(id: string, input: UpdateUserInput, ctx: Reques
       await tx.refreshToken.updateMany({ where: { userId: id, revokedAt: null }, data: { revokedAt: new Date() } });
     }
 
-    await recordAudit(tx, ctx, { action: "user.updated", entity: "User", entityId: id, before: toUserDto(before), after: toUserDto(after) });
+    await recordAudit(tx, ctx, {
+      action: "user.updated",
+      entity: "User",
+      entityId: id,
+      before: toUserDto(before),
+      after: toUserDto(after),
+    });
     return toUserDto(after);
   });
 }

@@ -24,10 +24,15 @@ export function useApiForm<S extends z.ZodType<FieldValues, FieldValues>>(schema
         await action(values)
       } catch (err) {
         const fieldErrors = isApiError(err) ? Object.entries(err.fieldErrors) : []
+        const current = form.getValues() as Record<string, unknown>
+        let unplaced = fieldErrors.length === 0
         for (const [field, messages] of fieldErrors) {
-          if (messages?.[0]) form.setError(field as Path<z.input<S>>, { message: messages[0] })
+          if (!messages?.[0]) continue
+          // Errors for fields this form doesn't render (e.g. a SKU inside a list) would be invisible.
+          if (field.split(".")[0]! in current) form.setError(field as Path<z.input<S>>, { message: messages[0] })
+          else unplaced = true
         }
-        if (fieldErrors.length === 0) setFormError(errorMessage(err))
+        if (unplaced) setFormError(errorMessage(err))
       }
     })
 

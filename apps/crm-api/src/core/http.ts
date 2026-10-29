@@ -17,8 +17,7 @@ export class ApiError extends Error {
 }
 
 export const notFound = (entity: string) => new ApiError(404, "NOT_FOUND", `${entity} not found`);
-export const forbidden = (message = "You do not have permission to do this") =>
-  new ApiError(403, "FORBIDDEN", message);
+export const forbidden = (message = "You do not have permission to do this") => new ApiError(403, "FORBIDDEN", message);
 
 /** Success envelope: `{ data }`. Errors use `{ error: { code, message, details } }`. */
 export function sendData(res: Response, data: unknown, status = 200) {

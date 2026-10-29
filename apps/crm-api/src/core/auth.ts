@@ -68,10 +68,17 @@ export const requirePermission =
     next();
   };
 
+export const requireAnyPermission =
+  (...permissions: Permission[]) =>
+  (req: Request, _res: Response, next: NextFunction) => {
+    const user = currentUser(req);
+    if (!permissions.some((p) => hasPermission(user.role, p))) throw forbidden();
+    next();
+  };
+
 export function currentUser(req: Request): NonNullable<Request["user"]> {
   if (!req.user) throw new ApiError(401, "UNAUTHENTICATED", "Please sign in");
   return req.user;
 }
 
-export const can = (req: Request, permission: Permission) =>
-  req.user ? hasPermission(req.user.role, permission) : false;
+export const can = (req: Request, permission: Permission) => (req.user ? hasPermission(req.user.role, permission) : false);

@@ -27,9 +27,23 @@ const ROLE_HINTS = {
   OPS: "Receiving, stock moves, counts and shipping. No financials.",
 } as const
 
-function TemporaryPasswordField({ registration, error, onGenerate }: { registration: UseFormRegisterReturn; error?: string; onGenerate: () => void }) {
+function TemporaryPasswordField({
+  registration,
+  error,
+  onGenerate,
+}: {
+  registration: UseFormRegisterReturn
+  error?: string
+  onGenerate: () => void
+}) {
   return (
-    <Field label="Temporary password" htmlFor="temporaryPassword" required error={error} hint="Share it privately. They must replace it at first sign-in.">
+    <Field
+      label="Temporary password"
+      htmlFor="temporaryPassword"
+      required
+      error={error}
+      hint="Share it privately. They must replace it at first sign-in."
+    >
       <div className="flex gap-2">
         <Input id="temporaryPassword" autoComplete="off" className="font-mono" {...registration} />
         <Button variant="secondary" icon={<Wand2 size={15} />} onClick={onGenerate} aria-label="Generate password" />
@@ -40,7 +54,12 @@ function TemporaryPasswordField({ registration, error, onGenerate }: { registrat
 
 function CreateUserModal({ onClose }: { onClose: () => void }) {
   const create = useCreateUser()
-  const { form, formError, submitWith } = useApiForm(createUserSchema, { name: "", email: "", role: "CASHIER", temporaryPassword: generateTemporaryPassword() })
+  const { form, formError, submitWith } = useApiForm(createUserSchema, {
+    name: "",
+    email: "",
+    role: "CASHIER",
+    temporaryPassword: generateTemporaryPassword(),
+  })
   const { register, formState, watch, setValue } = form
 
   const onSubmit = submitWith(async (values) => {
@@ -55,8 +74,12 @@ function CreateUserModal({ onClose }: { onClose: () => void }) {
       onClose={onClose}
       footer={
         <>
-          <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button type="submit" form="user-form" loading={formState.isSubmitting}>Create user</Button>
+          <Button variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" form="user-form" loading={formState.isSubmitting}>
+            Create user
+          </Button>
         </>
       }
     >
@@ -71,7 +94,9 @@ function CreateUserModal({ onClose }: { onClose: () => void }) {
         <Field label="Role" htmlFor="role" required hint={ROLE_HINTS[watch("role") as keyof typeof ROLE_HINTS]}>
           <Select id="role" {...register("role")}>
             {ROLES.map((r) => (
-              <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+              <option key={r} value={r}>
+                {ROLE_LABELS[r]}
+              </option>
             ))}
           </Select>
         </Field>
@@ -103,8 +128,12 @@ function EditUserModal({ user, onClose }: { user: UserDto; onClose: () => void }
       onClose={onClose}
       footer={
         <>
-          <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button type="submit" form="edit-user-form" loading={formState.isSubmitting}>Save</Button>
+          <Button variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" form="edit-user-form" loading={formState.isSubmitting}>
+            Save
+          </Button>
         </>
       }
     >
@@ -116,11 +145,17 @@ function EditUserModal({ user, onClose }: { user: UserDto; onClose: () => void }
         <Field
           label="Role"
           htmlFor="role"
-          hint={isSelf ? "You can't change your own role." : `${ROLE_HINTS[(watch("role") ?? user.role) as keyof typeof ROLE_HINTS]} Changing the role signs them out.`}
+          hint={
+            isSelf
+              ? "You can't change your own role."
+              : `${ROLE_HINTS[(watch("role") ?? user.role) as keyof typeof ROLE_HINTS]} Changing the role signs them out.`
+          }
         >
           <Select id="role" disabled={isSelf} {...register("role")}>
             {ROLES.map((r) => (
-              <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+              <option key={r} value={r}>
+                {ROLE_LABELS[r]}
+              </option>
             ))}
           </Select>
         </Field>
@@ -145,14 +180,20 @@ function ResetPasswordModal({ user, onClose }: { user: UserDto; onClose: () => v
       onClose={onClose}
       footer={
         <>
-          <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button type="submit" form="reset-form" variant="danger" loading={form.formState.isSubmitting}>Reset password</Button>
+          <Button variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" form="reset-form" variant="danger" loading={form.formState.isSubmitting}>
+            Reset password
+          </Button>
         </>
       }
     >
       <form id="reset-form" onSubmit={onSubmit} className="space-y-4" noValidate>
         <FormError message={formError} />
-        <p className="text-sm text-muted">This unlocks the account, signs it out on every device and requires a new password at next sign-in.</p>
+        <p className="text-sm text-muted">
+          This unlocks the account, signs it out on every device and requires a new password at next sign-in.
+        </p>
         <TemporaryPasswordField
           registration={form.register("temporaryPassword")}
           error={form.formState.errors.temporaryPassword?.message}
@@ -187,12 +228,24 @@ export default function UsersPanel() {
       meta: { sortKey: "name" },
       cell: ({ row }) => (
         <div>
-          <p className="font-medium">{row.original.name}{row.original.id === currentUserId && <span className="text-xs text-faint"> (you)</span>}</p>
+          <p className="font-medium">
+            {row.original.name}
+            {row.original.id === currentUserId && <span className="text-xs text-faint"> (you)</span>}
+          </p>
           <p className="text-xs text-muted">{row.original.email}</p>
         </div>
       ),
     },
-    { id: "role", header: "Role", meta: { sortKey: "role" }, cell: ({ row }) => <Badge tone={row.original.role === "ADMIN" ? "red" : row.original.role === "CASHIER" ? "blue" : "purple"}>{ROLE_LABELS[row.original.role]}</Badge> },
+    {
+      id: "role",
+      header: "Role",
+      meta: { sortKey: "role" },
+      cell: ({ row }) => (
+        <Badge tone={row.original.role === "ADMIN" ? "red" : row.original.role === "CASHIER" ? "blue" : "purple"}>
+          {ROLE_LABELS[row.original.role]}
+        </Badge>
+      ),
+    },
     {
       id: "status",
       header: "Status",
@@ -204,7 +257,12 @@ export default function UsersPanel() {
         return <Badge tone="green">Active</Badge>
       },
     },
-    { id: "lastLoginAt", header: "Last sign-in", meta: { sortKey: "lastLoginAt" }, cell: ({ row }) => <span className="text-muted">{formatDateTime(row.original.lastLoginAt)}</span> },
+    {
+      id: "lastLoginAt",
+      header: "Last sign-in",
+      meta: { sortKey: "lastLoginAt" },
+      cell: ({ row }) => <span className="text-muted">{formatDateTime(row.original.lastLoginAt)}</span>,
+    },
     {
       id: "actions",
       meta: { align: "right" },
@@ -213,8 +271,14 @@ export default function UsersPanel() {
         const isSelf = u.id === currentUserId
         return (
           <div className="flex justify-end gap-1">
-            <Button variant="ghost" size="sm" icon={<Pencil size={14} />} onClick={() => setModal({ kind: "edit", user: u })}>Edit</Button>
-            {!isSelf && <Button variant="ghost" size="sm" icon={<KeyRound size={14} />} onClick={() => setModal({ kind: "reset", user: u })}>Reset</Button>}
+            <Button variant="ghost" size="sm" icon={<Pencil size={14} />} onClick={() => setModal({ kind: "edit", user: u })}>
+              Edit
+            </Button>
+            {!isSelf && (
+              <Button variant="ghost" size="sm" icon={<KeyRound size={14} />} onClick={() => setModal({ kind: "reset", user: u })}>
+                Reset
+              </Button>
+            )}
             {!isSelf && (
               <Button variant="ghost" size="sm" onClick={() => setModal({ kind: "toggle", user: u })}>
                 {u.isActive ? "Deactivate" : "Reactivate"}
@@ -232,7 +296,9 @@ export default function UsersPanel() {
         actions={
           <>
             <ExportMenu onExport={(format) => downloadExport("/users", params, format)} />
-            <Button icon={<Plus size={16} />} onClick={() => setModal({ kind: "create" })}>Add user</Button>
+            <Button icon={<Plus size={16} />} onClick={() => setModal({ kind: "create" })}>
+              Add user
+            </Button>
           </>
         }
       >
@@ -255,9 +321,13 @@ export default function UsersPanel() {
             <div className="min-w-0">
               <p className="text-sm font-semibold text-text truncate">{u.name}</p>
               <p className="text-xs text-muted truncate">{u.email}</p>
-              <div className="mt-1.5"><Badge>{ROLE_LABELS[u.role]}</Badge></div>
+              <div className="mt-1.5">
+                <Badge>{ROLE_LABELS[u.role]}</Badge>
+              </div>
             </div>
-            <Button variant="secondary" size="sm" onClick={() => setModal({ kind: "edit", user: u })}>Edit</Button>
+            <Button variant="secondary" size="sm" onClick={() => setModal({ kind: "edit", user: u })}>
+              Edit
+            </Button>
           </div>
         )}
       />

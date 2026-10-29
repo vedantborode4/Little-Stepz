@@ -7,7 +7,9 @@
  */
 import "dotenv/config";
 import { prisma, type PaymentMethod } from "@repo/crm-db/client";
+import { DEFAULT_CATEGORIES } from "@repo/crm-schema";
 import { hashPassword } from "../core/password";
+import { nameKey } from "../core/sequence";
 
 const SAMPLE_PROFILE = {
   legalName: "Little Stepz (SAMPLE — update in Settings)",
@@ -88,6 +90,11 @@ async function main() {
     await prisma.receivingAccount.upsert({ where: { name: account.name }, create: account, update: {} });
   }
   console.log(`• Receiving accounts: ${ACCOUNTS.length}`);
+
+  for (const name of DEFAULT_CATEGORIES) {
+    await prisma.category.upsert({ where: { nameKey: nameKey(name) }, create: { name, nameKey: nameKey(name) }, update: {} });
+  }
+  console.log(`• Categories: ${DEFAULT_CATEGORIES.join(", ")}`);
 
   await seedAdmin();
   await seedDemoUsers();

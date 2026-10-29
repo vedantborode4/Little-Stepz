@@ -34,10 +34,7 @@ export function Field({ label, htmlFor, error, hint, required, className, childr
   )
 }
 
-export const Input = forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(function Input(
-  { className, ...rest },
-  ref,
-) {
+export const Input = forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(function Input({ className, ...rest }, ref) {
   return <input ref={ref} className={clsx(controlClass, className)} {...rest} />
 })
 
@@ -52,21 +49,19 @@ export const Select = forwardRef<HTMLSelectElement, React.SelectHTMLAttributes<H
   )
 })
 
-export const Textarea = forwardRef<HTMLTextAreaElement, React.TextareaHTMLAttributes<HTMLTextAreaElement>>(
-  function Textarea({ className, ...rest }, ref) {
-    return <textarea ref={ref} className={clsx(controlClass, "min-h-20", className)} {...rest} />
-  },
-)
+export const Textarea = forwardRef<HTMLTextAreaElement, React.TextareaHTMLAttributes<HTMLTextAreaElement>>(function Textarea(
+  { className, ...rest },
+  ref,
+) {
+  return <textarea ref={ref} className={clsx(controlClass, "min-h-20", className)} {...rest} />
+})
 
 interface CheckboxProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "type"> {
   label: string
   description?: string
 }
 
-export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(function Checkbox(
-  { label, description, className, id, ...rest },
-  ref,
-) {
+export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(function Checkbox({ label, description, className, id, ...rest }, ref) {
   return (
     <label htmlFor={id} className={clsx("flex items-start gap-3 cursor-pointer select-none", className)}>
       <input ref={ref} id={id} type="checkbox" className="mt-0.5 h-4 w-4 rounded accent-[var(--color-primary)]" {...rest} />
@@ -81,7 +76,10 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(function Che
 export function FormError({ message }: { message?: string | null }) {
   if (!message) return null
   return (
-    <div role="alert" className="rounded-xl border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 px-4 py-3 text-sm text-red-600 dark:text-red-400">
+    <div
+      role="alert"
+      className="rounded-xl border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 px-4 py-3 text-sm text-red-600 dark:text-red-400"
+    >
       {message}
     </div>
   )

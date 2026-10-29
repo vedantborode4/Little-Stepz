@@ -32,7 +32,13 @@ function LoginForm() {
         <Input id="email" type="email" autoComplete="username" autoFocus aria-invalid={!!formState.errors.email} {...register("email")} />
       </Field>
       <Field label="Password" htmlFor="password" error={formState.errors.password?.message}>
-        <Input id="password" type="password" autoComplete="current-password" aria-invalid={!!formState.errors.password} {...register("password")} />
+        <Input
+          id="password"
+          type="password"
+          autoComplete="current-password"
+          aria-invalid={!!formState.errors.password}
+          {...register("password")}
+        />
       </Field>
       <Button type="submit" className="w-full" loading={formState.isSubmitting}>
         Sign in

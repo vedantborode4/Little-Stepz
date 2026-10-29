@@ -4,13 +4,20 @@ import clsx from "clsx"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
+export interface LinkTab {
+  label: string
+  href: string
+  /** Match only this exact path, so a parent tab isn't active on its children. */
+  exact?: boolean
+}
+
 /** Route-based tabs; scrolls horizontally on phones instead of wrapping. */
-export default function LinkTabs({ tabs }: { tabs: { label: string; href: string }[] }) {
+export default function LinkTabs({ tabs }: { tabs: LinkTab[] }) {
   const pathname = usePathname()
   return (
     <div className="flex gap-1 overflow-x-auto scrollbar-none border-b border-border mb-5 -mx-4 px-4 sm:mx-0 sm:px-0">
       {tabs.map((tab) => {
-        const active = pathname === tab.href || pathname.startsWith(`${tab.href}/`)
+        const active = pathname === tab.href || (!tab.exact && pathname.startsWith(`${tab.href}/`))
         return (
           <Link
             key={tab.href}

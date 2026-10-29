@@ -30,8 +30,20 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-5">
         <StatCard title="Business" value={profile.data?.tradeName ?? "—"} hint={profile.data?.city} icon={<Store size={18} />} />
-        <StatCard title="Stock locations" value={locations.data?.length ?? "—"} hint={locations.data?.map((l) => l.name).join(" · ")} icon={<MapPin size={18} />} color="bg-blue-50 dark:bg-blue-500/15 text-blue-600" />
-        <StatCard title="Receiving accounts" value={accounts.data?.length ?? "—"} hint="Cash, UPI, gateway and bank" icon={<CreditCard size={18} />} color="bg-green-50 dark:bg-green-500/15 text-green-600" />
+        <StatCard
+          title="Stock locations"
+          value={locations.data?.length ?? "—"}
+          hint={locations.data?.map((l) => l.name).join(" · ")}
+          icon={<MapPin size={18} />}
+          color="bg-blue-50 dark:bg-blue-500/15 text-blue-600"
+        />
+        <StatCard
+          title="Receiving accounts"
+          value={accounts.data?.length ?? "—"}
+          hint="Cash, UPI, gateway and bank"
+          icon={<CreditCard size={18} />}
+          color="bg-green-50 dark:bg-green-500/15 text-green-600"
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-5">
@@ -53,13 +65,15 @@ export default function DashboardPage() {
 
         <Card title="Module roadmap">
           <ul className="divide-y divide-border">
-            {upcoming.filter((i) => can(i.permission)).map((item) => (
-              <li key={item.href} className="flex items-center gap-3 py-2">
-                <item.icon size={16} className="text-faint" />
-                <span className="text-sm text-text flex-1">{item.label}</span>
-                <span className="text-xs text-muted">Phase {item.phase}</span>
-              </li>
-            ))}
+            {upcoming
+              .filter((i) => can(i.permission))
+              .map((item) => (
+                <li key={item.href} className="flex items-center gap-3 py-2">
+                  <item.icon size={16} className="text-faint" />
+                  <span className="text-sm text-text flex-1">{item.label}</span>
+                  <span className="text-xs text-muted">Phase {item.phase}</span>
+                </li>
+              ))}
           </ul>
         </Card>
       </div>

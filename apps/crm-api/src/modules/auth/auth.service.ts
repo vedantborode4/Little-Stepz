@@ -65,12 +65,16 @@ export async function login(input: LoginInput, ctx: RequestContext): Promise<Ses
           lockedUntil: lock ? new Date(Date.now() + LOCK_MINUTES * 60_000) : null,
         },
       });
-      await recordAudit(tx, { ...ctx, userId: null }, {
-        action: "auth.login_failed",
-        entity: "User",
-        entityId: user.id,
-        metadata: { failures, locked: lock },
-      });
+      await recordAudit(
+        tx,
+        { ...ctx, userId: null },
+        {
+          action: "auth.login_failed",
+          entity: "User",
+          entityId: user.id,
+          metadata: { failures, locked: lock },
+        },
+      );
     });
     throw invalidCredentials();
   }
@@ -132,12 +136,16 @@ export async function refresh(presented: string | undefined, ctx: RequestContext
 async function revokeFamilyForReuse(familyId: string, userId: string, ctx: RequestContext) {
   await withTransaction(async (tx) => {
     await tx.refreshToken.updateMany({ where: { familyId, revokedAt: null }, data: { revokedAt: new Date() } });
-    await recordAudit(tx, { ...ctx, userId }, {
-      action: "auth.refresh_reuse_detected",
-      entity: "User",
-      entityId: userId,
-      metadata: { familyId },
-    });
+    await recordAudit(
+      tx,
+      { ...ctx, userId },
+      {
+        action: "auth.refresh_reuse_detected",
+        entity: "User",
+        entityId: userId,
+        metadata: { familyId },
+      },
+    );
   });
 }
 
@@ -165,7 +173,9 @@ export async function changePassword(
 ): Promise<SessionUser> {
   const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
   if (!(await verifyPassword(input.currentPassword, user.passwordHash))) {
-    throw new ApiError(400, "WRONG_PASSWORD", "Current password is incorrect", { fieldErrors: { currentPassword: ["Current password is incorrect"] } });
+    throw new ApiError(400, "WRONG_PASSWORD", "Current password is incorrect", {
+      fieldErrors: { currentPassword: ["Current password is incorrect"] },
+    });
   }
 
   const passwordHash = await hashPassword(input.newPassword);

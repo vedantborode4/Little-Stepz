@@ -16,9 +16,32 @@ export type AuditAction =
   | "location.created"
   | "location.updated"
   | "receiving_account.created"
-  | "receiving_account.updated";
+  | "receiving_account.updated"
+  | "category.created"
+  | "category.updated"
+  | "brand.created"
+  | "brand.updated"
+  | "supplier.created"
+  | "supplier.updated"
+  | "product.created"
+  | "product.updated"
+  | "variant.created"
+  | "variant.updated"
+  | "variant.tiers_updated"
+  | "variant.mapping_updated"
+  | "price.bulk_updated";
 
-export type AuditEntity = "User" | "BusinessProfile" | "Location" | "ReceivingAccount";
+export type AuditEntity =
+  | "User"
+  | "BusinessProfile"
+  | "Location"
+  | "ReceivingAccount"
+  | "Category"
+  | "Brand"
+  | "Supplier"
+  | "Product"
+  | "Variant"
+  | "PriceBatch";
 
 export interface AuditEntry {
   action: AuditAction;
@@ -44,7 +67,10 @@ export async function recordAudit(tx: Tx, ctx: RequestContext, entry: AuditEntry
       entityId: entry.entityId,
       before: jsonOrUndefined(entry.before),
       after: jsonOrUndefined(entry.after),
-      metadata: toJsonSafe({ ...entry.metadata, ip: ctx.ip, userAgent: ctx.userAgent, requestId: ctx.requestId }, SECRET_KEYS) as Prisma.InputJsonObject,
+      metadata: toJsonSafe(
+        { ...entry.metadata, ip: ctx.ip, userAgent: ctx.userAgent, requestId: ctx.requestId },
+        SECRET_KEYS,
+      ) as Prisma.InputJsonObject,
     },
   });
 }

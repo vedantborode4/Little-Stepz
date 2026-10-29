@@ -1,12 +1,29 @@
 import type { Permission } from "@repo/crm-schema"
 import {
-  BarChart3, Boxes, Calculator, CalendarClock, ClipboardCheck, CreditCard, FileSpreadsheet, History,
-  LayoutDashboard, Package, Receipt, RotateCcw, Settings, ShoppingBag, ShoppingCart, Tags, Truck, Users, Wallet,
+  BarChart3,
+  Boxes,
+  Calculator,
+  CalendarClock,
+  ClipboardCheck,
+  CreditCard,
+  FileSpreadsheet,
+  History,
+  LayoutDashboard,
+  Package,
+  Receipt,
+  RotateCcw,
+  Settings,
+  ShoppingBag,
+  ShoppingCart,
+  Tags,
+  Truck,
+  Users,
+  Wallet,
   type LucideIcon,
 } from "lucide-react"
 
 /** Highest phase whose modules are live. Bump as each phase ships. */
-export const SHIPPED_PHASE = 1
+export const SHIPPED_PHASE = 2
 
 export interface NavItem {
   label: string

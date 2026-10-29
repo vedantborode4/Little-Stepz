@@ -3,4 +3,5 @@ export * from "./enums";
 export * from "./permissions";
 export * from "./auth";
 export * from "./settings";
+export * from "./catalog";
 export * from "./dto";

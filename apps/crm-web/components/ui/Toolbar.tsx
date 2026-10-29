@@ -10,7 +10,15 @@ import clsx from "clsx"
 
 const SEARCH_DEBOUNCE_MS = 400
 
-export function SearchInput({ value, onChange, placeholder = "Search…" }: { value?: string; onChange: (q: string) => void; placeholder?: string }) {
+export function SearchInput({
+  value,
+  onChange,
+  placeholder = "Search…",
+}: {
+  value?: string
+  onChange: (q: string) => void
+  placeholder?: string
+}) {
   const [text, setText] = useState(value ?? "")
   const onChangeRef = useRef(onChange)
   onChangeRef.current = onChange
@@ -33,7 +41,11 @@ export function SearchInput({ value, onChange, placeholder = "Search…" }: { va
         className={clsx(controlClass, "pl-9 py-2")}
       />
       {text && (
-        <button aria-label="Clear search" onClick={() => setText("")} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-faint hover:text-text">
+        <button
+          aria-label="Clear search"
+          onClick={() => setText("")}
+          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-faint hover:text-text"
+        >
           <X size={14} />
         </button>
       )}
@@ -41,7 +53,17 @@ export function SearchInput({ value, onChange, placeholder = "Search…" }: { va
   )
 }
 
-export function FilterSelect({ value, onChange, children, label }: { value?: string; onChange: (v: string | undefined) => void; children: React.ReactNode; label: string }) {
+export function FilterSelect({
+  value,
+  onChange,
+  children,
+  label,
+}: {
+  value?: string
+  onChange: (v: string | undefined) => void
+  children: React.ReactNode
+  label: string
+}) {
   return (
     <select
       aria-label={label}
@@ -75,7 +97,10 @@ export function ExportMenu({ onExport }: { onExport: (format: ExportFormat) => P
           key={format}
           onClick={() => run(format)}
           disabled={busy !== null}
-          className={clsx("inline-flex items-center gap-1.5 px-3 h-10 text-xs text-muted hover:bg-surface-2 hover:text-text disabled:opacity-50", i > 0 && "border-l border-border")}
+          className={clsx(
+            "inline-flex items-center gap-1.5 px-3 h-10 text-xs text-muted hover:bg-surface-2 hover:text-text disabled:opacity-50",
+            i > 0 && "border-l border-border",
+          )}
           title={`Export all matching rows as ${format.toUpperCase()}`}
         >
           {busy === format ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}

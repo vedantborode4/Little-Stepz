@@ -7,7 +7,7 @@ Conventions: `docs/crm/CONVENTIONS.md`.
 ## Phases
 
 - [x] **1. Foundation** — workspaces, crm-postgres, auth + roles, audit (append-only), app shell + UI kit, settings (business, locations, accounts), users
-- [ ] **2. Products & Variants** — categories, brands, products, variant matrix, SKUs, pricing (regular/offer/wholesale/tiers), GST/HSN, images, website ID mapping, bulk price edit
+- [x] **2. Products & Variants** — categories, brands, products, variant matrix, SKUs, pricing (regular/offer/wholesale/tiers), GST/HSN, images, website ID mapping, bulk price edit
 - [ ] **3. Inventory ledger** — movements + balances, opening stock, Store↔Godown transfers, buckets (damaged/demo), write-offs, low-stock alerts
 - [ ] **4. Purchases & landed cost** — suppliers, shipments, FX, charges, allocation, input-GST split, receiving, weighted average, cost adjustments, purchase returns (Scenario A)
 - [ ] **5. Customers** — profiles, phone lookup, dedupe + merge, wholesale terms, customer prices, PII masking
@@ -36,3 +36,18 @@ Conventions: `docs/crm/CONVENTIONS.md`.
 - 23 API tests pass: auth (lockout, rotation, reuse detection, forced password change, instant deactivation), role gates, last-admin and last-location guards, audit before/after, append-only trigger (UPDATE/DELETE/TRUNCATE rejected), no secrets in audit, CSV formula neutralisation.
 - Browser walkthrough (headless Chrome): login, dashboard, all settings tabs, add-user modal, audit explorer, upcoming-module page, mobile (390px) and dark theme; cashier sees no admin modules and gets "no access" on Settings/Audit. No console errors or 5xx.
 - Decision: `prisma migrate reset` is blocked for AI agents, so the test DB is migrated (`migrate deploy`) and tests never assume an empty DB.
+
+## Phase 2 — Products & Variants
+
+- [x] Catalog schema: Sequence, Category, Brand, Supplier, Product, options/values, Variant, PriceTier, PriceChange (append-only) + DB price CHECKs
+- [x] API: categories/brands, suppliers, products (list/detail/create/update), variants (add/edit/archive), quantity tiers, price history, bulk price preview/apply, website mapping
+- [x] Web: product list (filters, sort, export), create with option matrix + fill-all + SKU suggestions, duplicate, edit, detail with variant/tier/history modals, categories & brands, bulk price editor, variant mapping screen
+- [x] Seeds: 7 owner categories in base seed; SAMPLE catalog (YEGAO 1:64 ×4 colours, MJX RC, Hot Wheels, Stanley ×3) in `seed:demo`
+- [x] Tests: 13 catalog tests (36 total, all re-runnable)
+
+### Phase 2 review
+- Exit criteria met: YEGAO 1:64 has 4 colour variants with their own SKUs; the bulk edit previews old→new per variant and applies only on confirmation, refusing stale previews.
+- Browser: created a 2-colour product through the matrix form, product list and detail, categories, bulk preview, mapping screen, mobile list. No console errors.
+- Found while verifying: an "All brands" filter sent `""` and silently failed UUID validation, which is now fixed in the contracts. The product detail table was cramped at 1366px; the details card now stacks below it until 2xl.
+- Deferred, with reason: image **upload** (URL field for now) until storage on the VPS is decided; customer-specific prices move to phase 5 (needs customers).
+- Added `.prettierrc.json` per CRM package (the root has none) and formatted all CRM files.

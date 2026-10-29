@@ -12,7 +12,17 @@ export function PageHeader({ title, subtitle, action }: { title: string; subtitl
   )
 }
 
-export function Card({ title, action, className, children }: { title?: string; action?: React.ReactNode; className?: string; children: React.ReactNode }) {
+export function Card({
+  title,
+  action,
+  className,
+  children,
+}: {
+  title?: string
+  action?: React.ReactNode
+  className?: string
+  children: React.ReactNode
+}) {
   return (
     <section className={clsx("bg-surface border border-border rounded-2xl", className)}>
       {title && (
@@ -60,10 +70,24 @@ const tones: Record<BadgeTone, string> = {
 }
 
 export function Badge({ tone = "gray", children }: { tone?: BadgeTone; children: React.ReactNode }) {
-  return <span className={clsx("inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap", tones[tone])}>{children}</span>
+  return (
+    <span className={clsx("inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap", tones[tone])}>
+      {children}
+    </span>
+  )
 }
 
-export function EmptyState({ icon, title, hint, action }: { icon?: React.ReactNode; title: string; hint?: string; action?: React.ReactNode }) {
+export function EmptyState({
+  icon,
+  title,
+  hint,
+  action,
+}: {
+  icon?: React.ReactNode
+  title: string
+  hint?: string
+  action?: React.ReactNode
+}) {
   return (
     <div className="flex flex-col items-center justify-center text-center py-12 px-4">
       {icon && <div className="w-12 h-12 rounded-2xl bg-surface-2 text-faint flex items-center justify-center mb-3">{icon}</div>}

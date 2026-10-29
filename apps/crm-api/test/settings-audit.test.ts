@@ -1,9 +1,11 @@
+import { randomUUID } from "crypto";
 import { describe, expect, it } from "vitest";
 import { prisma } from "@repo/crm-db/client";
 import { updateLocation } from "../src/modules/settings/settings.service";
 import { api, sessionAs } from "./helpers";
 
 const systemCtx = { userId: null, ip: null, userAgent: null, requestId: null };
+const uid = () => randomUUID().slice(0, 6).toUpperCase();
 
 describe("settings", () => {
   it("saves the business profile and validates GSTIN and PIN", async () => {
@@ -21,7 +23,10 @@ describe("settings", () => {
     expect(res.status).toBe(200);
     expect(res.body.data.gstin).toBe("36ABCDE1234F1Z5");
 
-    const bad = await api().put("/api/v1/settings/business-profile").set(admin.auth).send({ ...valid, gstin: "123", pincode: "50001" });
+    const bad = await api()
+      .put("/api/v1/settings/business-profile")
+      .set(admin.auth)
+      .send({ ...valid, gstin: "123", pincode: "50001" });
     expect(bad.status).toBe(400);
     expect(Object.keys(bad.body.error.details.fieldErrors)).toEqual(expect.arrayContaining(["gstin", "pincode"]));
   });
@@ -31,24 +36,28 @@ describe("settings", () => {
     const ok = await api()
       .post("/api/v1/settings/receiving-accounts")
       .set(admin.auth)
-      .send({ name: "Gateway Test", method: "GATEWAY", feePercent: "2.5" });
+      .send({ name: `Gateway ${uid()}`, method: "GATEWAY", feePercent: "2.5" });
     expect(ok.status).toBe(201);
     expect(ok.body.data.feePercent).toBe("2.50");
 
     const bad = await api()
       .post("/api/v1/settings/receiving-accounts")
       .set(admin.auth)
-      .send({ name: "Gateway Bad", method: "GATEWAY", feePercent: "1.234" });
+      .send({ name: `Gateway ${uid()}`, method: "GATEWAY", feePercent: "1.234" });
     expect(bad.status).toBe(400);
   });
 
   it("keeps location codes unique and at least one location active", async () => {
     const admin = await sessionAs("ADMIN");
-    const created = await api().post("/api/v1/settings/locations").set(admin.auth).send({ code: "store", name: "Store", type: "STORE" });
+    const code = `S${uid()}`;
+    const created = await api()
+      .post("/api/v1/settings/locations")
+      .set(admin.auth)
+      .send({ code: code.toLowerCase(), name: "Store", type: "STORE" });
     expect(created.status).toBe(201);
-    expect(created.body.data.code).toBe("STORE");
+    expect(created.body.data.code).toBe(code);
 
-    const dup = await api().post("/api/v1/settings/locations").set(admin.auth).send({ code: "STORE", name: "Store 2", type: "STORE" });
+    const dup = await api().post("/api/v1/settings/locations").set(admin.auth).send({ code, name: "Store 2", type: "STORE" });
     expect(dup.status).toBe(409);
 
     const others = await prisma.location.findMany({ where: { isActive: true, id: { not: created.body.data.id } } });
@@ -64,7 +73,10 @@ describe("settings", () => {
 describe("audit trail", () => {
   it("records who changed what, with before and after values", async () => {
     const admin = await sessionAs("ADMIN");
-    const created = await api().post("/api/v1/settings/locations").set(admin.auth).send({ code: "GODOWN2", name: "Godown 2", type: "WAREHOUSE" });
+    const created = await api()
+      .post("/api/v1/settings/locations")
+      .set(admin.auth)
+      .send({ code: `G${uid()}`, name: "Godown 2", type: "WAREHOUSE" });
     const id = created.body.data.id;
     await api().patch(`/api/v1/settings/locations/${id}`).set(admin.auth).send({ name: "Back Godown" }).expect(200);
 
@@ -104,10 +116,10 @@ describe("exports", () => {
     await api()
       .post("/api/v1/users")
       .set(admin.auth)
-      .send({ name: "=HYPERLINK(1)", email: "formula@test.local", role: "OPS", temporaryPassword: "Temp-pass-123" })
+      .send({ name: "=HYPERLINK(1)", email: `formula-${uid()}@test.local`.toLowerCase(), role: "OPS", temporaryPassword: "Temp-pass-123" })
       .expect(201);
 
-    const res = await api().get("/api/v1/users?format=csv&q=formula@test.local").set(admin.auth);
+    const res = await api().get("/api/v1/users?format=csv&q=HYPERLINK").set(admin.auth);
     expect(res.text).toContain("'=HYPERLINK(1)");
     expect(res.text).not.toMatch(/(^|,)=HYPERLINK/m);
   });

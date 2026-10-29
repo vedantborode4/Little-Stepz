@@ -39,14 +39,24 @@ function LocationFormModal({ location, onClose }: { location: LocationDto | null
       onClose={onClose}
       footer={
         <>
-          <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button type="submit" form="location-form" loading={formState.isSubmitting}>Save</Button>
+          <Button variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" form="location-form" loading={formState.isSubmitting}>
+            Save
+          </Button>
         </>
       }
     >
       <form id="location-form" onSubmit={onSubmit} className="space-y-4" noValidate>
         <FormError message={formError} />
-        <Field label="Code" htmlFor="code" required error={formState.errors.code?.message} hint={location ? "Codes can't change once stock documents use them." : "Short unique code, e.g. STORE or GODOWN."}>
+        <Field
+          label="Code"
+          htmlFor="code"
+          required
+          error={formState.errors.code?.message}
+          hint={location ? "Codes can't change once stock documents use them." : "Short unique code, e.g. STORE or GODOWN."}
+        >
           <Input id="code" className="uppercase" disabled={!!location} {...register("code")} />
         </Field>
         <Field label="Name" htmlFor="name" required error={formState.errors.name?.message}>
@@ -55,7 +65,9 @@ function LocationFormModal({ location, onClose }: { location: LocationDto | null
         <Field label="Type" htmlFor="type" required>
           <Select id="type" {...register("type")}>
             {LOCATION_TYPES.map((t) => (
-              <option key={t} value={t}>{LOCATION_TYPE_LABELS[t]}</option>
+              <option key={t} value={t}>
+                {LOCATION_TYPE_LABELS[t]}
+              </option>
             ))}
           </Select>
         </Field>
@@ -90,13 +102,18 @@ export default function LocationsPanel() {
     { header: "Name", accessorKey: "name", meta: { cellClassName: "font-medium" } },
     { header: "Type", cell: ({ row }) => LOCATION_TYPE_LABELS[row.original.type] },
     { header: "Address", cell: ({ row }) => row.original.address ?? <span className="text-faint">—</span> },
-    { header: "Status", cell: ({ row }) => <Badge tone={row.original.isActive ? "green" : "gray"}>{row.original.isActive ? "Active" : "Inactive"}</Badge> },
+    {
+      header: "Status",
+      cell: ({ row }) => <Badge tone={row.original.isActive ? "green" : "gray"}>{row.original.isActive ? "Active" : "Inactive"}</Badge>,
+    },
     {
       id: "actions",
       meta: { align: "right" },
       cell: ({ row }) => (
         <div className="flex justify-end gap-1">
-          <Button variant="ghost" size="sm" icon={<Pencil size={14} />} onClick={() => setEditing(row.original)}>Edit</Button>
+          <Button variant="ghost" size="sm" icon={<Pencil size={14} />} onClick={() => setEditing(row.original)}>
+            Edit
+          </Button>
           <Button variant="ghost" size="sm" onClick={() => setToggling(row.original)}>
             {row.original.isActive ? "Deactivate" : "Reactivate"}
           </Button>
@@ -107,7 +124,13 @@ export default function LocationsPanel() {
 
   return (
     <>
-      <ListToolbar actions={<Button icon={<Plus size={16} />} onClick={() => setEditing(null)}>Add location</Button>}>
+      <ListToolbar
+        actions={
+          <Button icon={<Plus size={16} />} onClick={() => setEditing(null)}>
+            Add location
+          </Button>
+        }
+      >
         <Checkbox id="loc-inactive" label="Show inactive" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
       </ListToolbar>
       <DataTable
@@ -124,10 +147,14 @@ export default function LocationsPanel() {
           <div className="flex items-start gap-3">
             <MapPin size={18} className="text-faint mt-0.5" />
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-text">{l.name} <span className="font-mono text-xs text-faint">{l.code}</span></p>
+              <p className="text-sm font-semibold text-text">
+                {l.name} <span className="font-mono text-xs text-faint">{l.code}</span>
+              </p>
               <p className="text-xs text-muted">{LOCATION_TYPE_LABELS[l.type]}</p>
             </div>
-            <Button variant="secondary" size="sm" onClick={() => setEditing(l)}>Edit</Button>
+            <Button variant="secondary" size="sm" onClick={() => setEditing(l)}>
+              Edit
+            </Button>
           </div>
         )}
       />

@@ -50,7 +50,13 @@ function ProfileForm({ profile }: { profile: BusinessProfileDto | null }) {
             <Field label="GSTIN" htmlFor="gstin" error={err.gstin?.message} hint="15 characters. Leave blank if not applicable.">
               <Input id="gstin" className="uppercase" maxLength={15} {...register("gstin")} />
             </Field>
-            <Field label="State (GST)" htmlFor="stateCode" required error={err.stateCode?.message} hint="Decides CGST+SGST vs IGST on sales.">
+            <Field
+              label="State (GST)"
+              htmlFor="stateCode"
+              required
+              error={err.stateCode?.message}
+              hint="Decides CGST+SGST vs IGST on sales."
+            >
               <Select id="stateCode" {...register("stateCode")}>
                 {INDIAN_STATES.map((s) => (
                   <option key={s.code} value={s.code}>

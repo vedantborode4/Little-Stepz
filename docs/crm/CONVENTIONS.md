@@ -52,6 +52,8 @@ Services take a `RequestContext`, not an Express `req`, so scripts and jobs can 
 - Every table has a `mobileCard`.
 - Page titles go through `PageHeader`.
 
+**Formatting.** Each CRM package has its own `.prettierrc.json`: the web app has no semicolons (matching the website), the API and packages use semicolons, and lines are 140 characters. Run `npx prettier --write` on the files you touch.
+
 **Comments.** Explain *why* (an accounting rule, a race, a security decision), never *what*.
 
 **Tests.** `apps/crm-api/test/*.test.ts` (Vitest + supertest) runs against `<db>_test`, brought up to date with `prisma migrate deploy`. Tests create uniquely named data and never assume an empty database. Each phase adds tests for its rules.

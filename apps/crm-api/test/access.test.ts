@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { describe, expect, it } from "vitest";
 import { prisma } from "@repo/crm-db/client";
 import { updateUser } from "../src/modules/users/users.service";
@@ -18,9 +19,7 @@ describe("role gates", () => {
 
     expect((await api().get("/api/v1/users").set(cashier.auth)).status).toBe(403);
     expect((await api().get("/api/v1/audit").set(ops.auth)).status).toBe(403);
-    expect(
-      (await api().post("/api/v1/settings/locations").set(ops.auth).send({ code: "X1", name: "X", type: "STORE" })).status,
-    ).toBe(403);
+    expect((await api().post("/api/v1/settings/locations").set(ops.auth).send({ code: "X1", name: "X", type: "STORE" })).status).toBe(403);
 
     // Reads that POS and stock screens depend on stay open.
     expect((await api().get("/api/v1/settings/locations").set(cashier.auth)).status).toBe(200);
@@ -31,19 +30,20 @@ describe("role gates", () => {
 describe("user management", () => {
   it("creates a user who must set their own password", async () => {
     const admin = await sessionAs("ADMIN");
+    const local = `New.Cashier.${randomUUID().slice(0, 6)}`;
     const res = await api()
       .post("/api/v1/users")
       .set(admin.auth)
-      .send({ name: "New Cashier", email: "New.Cashier@Test.local", role: "CASHIER", temporaryPassword: "Temp-pass-123" });
+      .send({ name: "New Cashier", email: `${local}@Test.local`, role: "CASHIER", temporaryPassword: "Temp-pass-123" });
 
     expect(res.status).toBe(201);
-    expect(res.body.data).toMatchObject({ email: "new.cashier@test.local", mustChangePassword: true });
+    expect(res.body.data).toMatchObject({ email: `${local.toLowerCase()}@test.local`, mustChangePassword: true });
     expect(res.body.data.passwordHash).toBeUndefined();
 
     const dup = await api()
       .post("/api/v1/users")
       .set(admin.auth)
-      .send({ name: "Dup", email: "new.cashier@test.local", role: "OPS", temporaryPassword: "Temp-pass-123" });
+      .send({ name: "Dup", email: `${local.toLowerCase()}@test.local`, role: "OPS", temporaryPassword: "Temp-pass-123" });
     expect(dup.status).toBe(409);
   });
 
@@ -52,7 +52,7 @@ describe("user management", () => {
     const res = await api()
       .post("/api/v1/users")
       .set(admin.auth)
-      .send({ name: "Weak", email: "weak@test.local", role: "OPS", temporaryPassword: "short" });
+      .send({ name: "Weak", email: `weak-${randomUUID().slice(0, 6)}@test.local`, role: "OPS", temporaryPassword: "short" });
     expect(res.status).toBe(400);
     expect(res.body.error.details.fieldErrors.temporaryPassword).toBeDefined();
   });

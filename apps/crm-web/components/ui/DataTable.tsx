@@ -1,13 +1,6 @@
 "use client"
 
-import {
-  flexRender,
-  getCoreRowModel,
-  useReactTable,
-  type ColumnDef,
-  type RowData,
-  type VisibilityState,
-} from "@tanstack/react-table"
+import { flexRender, getCoreRowModel, useReactTable, type ColumnDef, type RowData, type VisibilityState } from "@tanstack/react-table"
 import clsx from "clsx"
 import { ArrowDown, ArrowUp, ArrowUpDown, Columns3, Inbox } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
@@ -124,10 +117,21 @@ export default function DataTable<T>({
                           <button
                             type="button"
                             onClick={() => onSortChange(nextSort(sort, sortKey))}
-                            className={clsx("inline-flex items-center gap-1 font-[inherit] uppercase hover:text-text", active && "text-text")}
+                            className={clsx(
+                              "inline-flex items-center gap-1 font-[inherit] uppercase hover:text-text",
+                              active && "text-text",
+                            )}
                           >
                             {label}
-                            {active ? sort?.endsWith(":asc") ? <ArrowUp size={12} /> : <ArrowDown size={12} /> : <ArrowUpDown size={12} className="opacity-40" />}
+                            {active ? (
+                              sort?.endsWith(":asc") ? (
+                                <ArrowUp size={12} />
+                              ) : (
+                                <ArrowDown size={12} />
+                              )
+                            ) : (
+                              <ArrowUpDown size={12} className="opacity-40" />
+                            )}
                           </button>
                         ) : (
                           label
@@ -228,7 +232,12 @@ function ColumnMenu<T>({ table }: { table: ReturnType<typeof useReactTable<T>> }
         <div className="absolute right-0 mt-1 w-52 bg-surface border border-border rounded-xl shadow-card p-2 z-20">
           {hideable.map((column) => (
             <label key={column.id} className="flex items-center gap-2 px-2 py-1.5 text-sm rounded-lg hover:bg-surface-2 cursor-pointer">
-              <input type="checkbox" checked={column.getIsVisible()} onChange={column.getToggleVisibilityHandler()} className="accent-[var(--color-primary)]" />
+              <input
+                type="checkbox"
+                checked={column.getIsVisible()}
+                onChange={column.getToggleVisibilityHandler()}
+                className="accent-[var(--color-primary)]"
+              />
               {column.columnDef.header as string}
             </label>
           ))}

@@ -17,7 +17,10 @@ export const businessProfileSchema = z.object({
   stateCode: z.enum(STATE_CODES),
   addressLine: requiredText(240),
   city: requiredText(80),
-  pincode: z.string().trim().regex(/^\d{6}$/, "Enter a 6-digit PIN code"),
+  pincode: z
+    .string()
+    .trim()
+    .regex(/^\d{6}$/, "Enter a 6-digit PIN code"),
   phone: optionalText(20),
   email: z
     .string()

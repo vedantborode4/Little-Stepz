@@ -40,8 +40,12 @@ function AccountFormModal({ account, onClose }: { account: ReceivingAccountDto |
       onClose={onClose}
       footer={
         <>
-          <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button type="submit" form="account-form" loading={formState.isSubmitting}>Save</Button>
+          <Button variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" form="account-form" loading={formState.isSubmitting}>
+            Save
+          </Button>
         </>
       }
     >
@@ -53,14 +57,26 @@ function AccountFormModal({ account, onClose }: { account: ReceivingAccountDto |
         <Field label="Method" htmlFor="method" required>
           <Select id="method" {...register("method")}>
             {PAYMENT_METHODS.map((m) => (
-              <option key={m} value={m}>{PAYMENT_METHOD_LABELS[m]}</option>
+              <option key={m} value={m}>
+                {PAYMENT_METHOD_LABELS[m]}
+              </option>
             ))}
           </Select>
         </Field>
-        <Field label="Processing fee %" htmlFor="feePercent" error={formState.errors.feePercent?.message} hint="Default fee the provider deducts (used for contribution profit). 0 for cash/UPI.">
+        <Field
+          label="Processing fee %"
+          htmlFor="feePercent"
+          error={formState.errors.feePercent?.message}
+          hint="Default fee the provider deducts (used for contribution profit). 0 for cash/UPI."
+        >
           <Input id="feePercent" inputMode="decimal" {...register("feePercent")} />
         </Field>
-        <Field label="Details" htmlFor="details" error={formState.errors.details?.message} hint="UPI ID, bank name or last 4 digits — no full account numbers.">
+        <Field
+          label="Details"
+          htmlFor="details"
+          error={formState.errors.details?.message}
+          hint="UPI ID, bank name or last 4 digits — no full account numbers."
+        >
           <Input id="details" {...register("details")} />
         </Field>
         <Checkbox
@@ -95,16 +111,26 @@ export default function ReceivingAccountsPanel() {
   const columns: ColumnDef<ReceivingAccountDto>[] = [
     { header: "Name", accessorKey: "name", meta: { cellClassName: "font-medium" } },
     { header: "Method", cell: ({ row }) => PAYMENT_METHOD_LABELS[row.original.method] },
-    { header: "Ownership", cell: ({ row }) => <Badge tone={row.original.isPersonal ? "purple" : "blue"}>{row.original.isPersonal ? "Personal" : "Business"}</Badge> },
+    {
+      header: "Ownership",
+      cell: ({ row }) => (
+        <Badge tone={row.original.isPersonal ? "purple" : "blue"}>{row.original.isPersonal ? "Personal" : "Business"}</Badge>
+      ),
+    },
     { header: "Fee %", accessorKey: "feePercent", meta: { align: "right", cellClassName: "tabular" } },
     { header: "Details", cell: ({ row }) => row.original.details ?? <span className="text-faint">—</span> },
-    { header: "Status", cell: ({ row }) => <Badge tone={row.original.isActive ? "green" : "gray"}>{row.original.isActive ? "Active" : "Inactive"}</Badge> },
+    {
+      header: "Status",
+      cell: ({ row }) => <Badge tone={row.original.isActive ? "green" : "gray"}>{row.original.isActive ? "Active" : "Inactive"}</Badge>,
+    },
     {
       id: "actions",
       meta: { align: "right" },
       cell: ({ row }) => (
         <div className="flex justify-end gap-1">
-          <Button variant="ghost" size="sm" icon={<Pencil size={14} />} onClick={() => setEditing(row.original)}>Edit</Button>
+          <Button variant="ghost" size="sm" icon={<Pencil size={14} />} onClick={() => setEditing(row.original)}>
+            Edit
+          </Button>
           <Button variant="ghost" size="sm" onClick={() => setToggling(row.original)}>
             {row.original.isActive ? "Deactivate" : "Reactivate"}
           </Button>
@@ -115,7 +141,13 @@ export default function ReceivingAccountsPanel() {
 
   return (
     <>
-      <ListToolbar actions={<Button icon={<Plus size={16} />} onClick={() => setEditing(null)}>Add account</Button>}>
+      <ListToolbar
+        actions={
+          <Button icon={<Plus size={16} />} onClick={() => setEditing(null)}>
+            Add account
+          </Button>
+        }
+      >
         <Checkbox id="acc-inactive" label="Show inactive" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
       </ListToolbar>
       <DataTable
@@ -133,9 +165,13 @@ export default function ReceivingAccountsPanel() {
             <Wallet size={18} className="text-faint mt-0.5" />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-text">{a.name}</p>
-              <p className="text-xs text-muted">{PAYMENT_METHOD_LABELS[a.method]} · {a.isPersonal ? "Personal" : "Business"}</p>
+              <p className="text-xs text-muted">
+                {PAYMENT_METHOD_LABELS[a.method]} · {a.isPersonal ? "Personal" : "Business"}
+              </p>
             </div>
-            <Button variant="secondary" size="sm" onClick={() => setEditing(a)}>Edit</Button>
+            <Button variant="secondary" size="sm" onClick={() => setEditing(a)}>
+              Edit
+            </Button>
           </div>
         )}
       />

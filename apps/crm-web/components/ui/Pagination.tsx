@@ -51,7 +51,17 @@ export default function Pagination({ page, totalPages, total, onPageChange }: Pr
   )
 }
 
-function PagerButton({ label, disabled, onClick, children }: { label: string; disabled: boolean; onClick: () => void; children: React.ReactNode }) {
+function PagerButton({
+  label,
+  disabled,
+  onClick,
+  children,
+}: {
+  label: string
+  disabled: boolean
+  onClick: () => void
+  children: React.ReactNode
+}) {
   return (
     <button
       aria-label={label}
