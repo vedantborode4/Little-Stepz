@@ -1,0 +1,143 @@
+// Little Stepz CRM database. Independent of the website database: its own
+// container, credentials and generated client (output below), so the two
+// Prisma clients can never overwrite each other.
+//
+// Conventions: UUID ids, money Decimal(14,2), unit costs / FX Decimal(18,6),
+// UTC timestamps. Ledger-style tables are append-only (enforced by triggers in
+// the migrations), so corrections are always new rows, never edits.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("CRM_DATABASE_URL")
+}
+
+// ─── Identity ────────────────────────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  CASHIER
+  OPS
+}
+
+model User {
+  id                 String    @id @default(uuid())
+  name               String
+  email              String    @unique
+  passwordHash       String
+  role               Role
+  isActive           Boolean   @default(true)
+  /// Set when an admin creates the account or resets its password; the user must
+  /// choose their own password before using the CRM.
+  mustChangePassword Boolean   @default(true)
+  failedLoginCount   Int       @default(0)
+  lockedUntil        DateTime?
+  lastLoginAt        DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  refreshTokens RefreshToken[]
+  auditLogs     AuditLog[]
+}
+
+/// Opaque refresh tokens, stored only as a SHA-256 hash. Each login starts a
+/// family; rotation keeps the family, and presenting an already-rotated token
+/// revokes the whole family (token theft detection).
+model RefreshToken {
+  id           String    @id @default(uuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash    String    @unique
+  familyId     String
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  replacedById String?
+  userAgent    String?
+  ip           String?
+  createdAt    DateTime  @default(now())
+
+  @@index([userId])
+  @@index([familyId])
+}
+
+/// Append-only: UPDATE, DELETE and TRUNCATE are rejected by a trigger.
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Restrict)
+  action    String
+  entity    String
+  entityId  String
+  before    Json?
+  after     Json?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+// ─── Settings ────────────────────────────────────────────────────────────────
+
+/// Single row (id = "default").
+model BusinessProfile {
+  id            String   @id @default("default")
+  legalName     String
+  tradeName     String
+  gstin         String?
+  /// GST state code, e.g. "36" for Telangana. Decides CGST+SGST vs IGST.
+  stateCode     String
+  addressLine   String
+  city          String
+  pincode       String
+  phone         String?
+  email         String?
+  receiptFooter String?
+  updatedAt     DateTime @updatedAt
+}
+
+enum LocationType {
+  STORE
+  WAREHOUSE
+}
+
+model Location {
+  id        String       @id @default(uuid())
+  /// Immutable once created — stock documents reference it.
+  code      String       @unique
+  name      String
+  type      LocationType
+  address   String?
+  isActive  Boolean      @default(true)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+}
+
+enum PaymentMethod {
+  CASH
+  UPI
+  GATEWAY
+  BANK
+  OTHER
+}
+
+/// Where money lands: cash drawer, business/personal PhonePe, bank, gateway.
+/// Personal accounts are still business collections, but reported separately.
+model ReceivingAccount {
+  id         String        @id @default(uuid())
+  name       String        @unique
+  method     PaymentMethod
+  isPersonal Boolean       @default(false)
+  /// Default processing fee charged by the provider (e.g. gateway %), used for contribution profit.
+  feePercent Decimal       @default(0) @db.Decimal(5, 2)
+  details    String?
+  isActive   Boolean       @default(true)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+}

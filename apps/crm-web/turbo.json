@@ -1,0 +1,9 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "build": {
+      "env": ["CRM_API_ORIGIN", "NEXT_PUBLIC_DEMO_MODE"]
+    }
+  }
+}

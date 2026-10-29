@@ -1,0 +1,113 @@
+@import "tailwindcss";
+
+/* Class-based dark mode — next-themes toggles `class="dark"` on <html>. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Design tokens copied from the Little Stepz admin panel (apps/web/app/globals.css)
+ * so the CRM reads as its sibling. Change colours here, never as hex in components.
+ */
+:root {
+  --color-primary: #FF383C;
+  --color-secondary: #4ECDC4;
+
+  --color-bg: #FFF7F7;
+  --color-surface: #FFFFFF;
+  --color-surface-2: #F5F6F8;
+  --color-surface-3: #E9EBEF;
+
+  --color-text: #1F2937;
+  --color-muted: #6B7280;
+  --color-faint: #9CA3AF;
+  --color-border: #E5E7EB;
+
+  --shadow-card: 0 10px 30px rgba(0, 0, 0, 0.06);
+}
+
+.dark {
+  --color-primary: #FF4D50;
+  --color-secondary: #4ECDC4;
+
+  --color-bg: #0B0B0F;
+  --color-surface: #16161C;
+  --color-surface-2: #1E1E26;
+  --color-surface-3: #2A2A34;
+
+  --color-text: #F3F4F6;
+  --color-muted: #A1A1AA;
+  --color-faint: #71717A;
+  --color-border: #2C2C36;
+
+  --shadow-card: 0 10px 30px rgba(0, 0, 0, 0.55);
+}
+
+@theme inline {
+  --font-sans: var(--font-manrope);
+  --font-heading: var(--font-manrope);
+
+  --color-primary: var(--color-primary);
+  --color-secondary: var(--color-secondary);
+  --color-bg: var(--color-bg);
+  --color-surface: var(--color-surface);
+  --color-surface-2: var(--color-surface-2);
+  --color-surface-3: var(--color-surface-3);
+  --color-text: var(--color-text);
+  --color-muted: var(--color-muted);
+  --color-faint: var(--color-faint);
+  --color-border: var(--color-border);
+
+  --shadow-card: var(--shadow-card);
+}
+
+@theme {
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+}
+
+body {
+  font-family: var(--font-manrope), system-ui, -apple-system, sans-serif;
+  font-weight: 500;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: clip;
+  background-color: var(--color-surface-2);
+  color: var(--color-text);
+}
+
+@layer base {
+  h1, h2 {
+    font-family: var(--font-manrope), sans-serif;
+    letter-spacing: -0.01em;
+    font-weight: 700;
+  }
+
+  h3, h4 {
+    font-family: var(--font-manrope), sans-serif;
+    letter-spacing: -0.01em;
+    font-weight: 600;
+  }
+
+  button {
+    font-family: var(--font-sora), sans-serif;
+    font-weight: 600;
+  }
+
+  /* Figures line up in tables and KPI cards. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.safe-area-pb {
+  padding-bottom: env(safe-area-inset-bottom, 12px);
+}
+
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}

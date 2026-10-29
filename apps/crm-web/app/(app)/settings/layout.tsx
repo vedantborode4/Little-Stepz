@@ -1,0 +1,20 @@
+import RequirePermission from "@/components/shell/RequirePermission"
+import { PageHeader } from "@/components/ui/Display"
+import LinkTabs from "@/components/ui/Tabs"
+
+const tabs = [
+  { label: "Business", href: "/settings/business" },
+  { label: "Locations", href: "/settings/locations" },
+  { label: "Receiving accounts", href: "/settings/accounts" },
+  { label: "Users & roles", href: "/settings/users" },
+]
+
+export default function SettingsLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <RequirePermission permission="settings.manage">
+      <PageHeader title="Settings" subtitle="Business details, stock locations, payment accounts and team access." />
+      <LinkTabs tabs={tabs} />
+      {children}
+    </RequirePermission>
+  )
+}
