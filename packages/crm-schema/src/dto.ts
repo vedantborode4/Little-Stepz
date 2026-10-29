@@ -1,6 +1,7 @@
 import type { CurrencyCode, MappingState, PriceField, ProductStatus, VariantStatus } from "./catalog";
 import type { LocationType, PaymentMethod, Role } from "./enums";
 import type { StockBucket, StockDocumentType, StockReasonCode, StockState } from "./inventory";
+import type { AllocationMethod, ChargeType, PurchaseStatus } from "./purchases";
 import type { Permission } from "./permissions";
 
 /**
@@ -339,6 +340,122 @@ export interface VariantSearchResultDto {
   productName: string;
   imageUrl: string | null;
   status: VariantStatus;
+}
+
+// ─── Purchasing ──────────────────────────────────────────────────────────────
+
+/** All money below is INR unless the field says otherwise. Cost fields are omitted for roles without `costs.view`. */
+export interface LandedCostLineDto {
+  unitPriceInr: string;
+  allocatedCharges: string;
+  landedUnitCost: string;
+  landedTotal: string;
+}
+
+export interface LandedCostTotalsDto {
+  goodsForeign: string;
+  goodsInr: string;
+  /** Charges that become part of inventory cost. */
+  capitalisedCharges: string;
+  /** Claimable input GST / IGST, kept out of inventory cost. */
+  inputTaxCredit: string;
+  landedTotal: string;
+  units: number;
+}
+
+export interface LandedCostPreviewDto {
+  lines: LandedCostLineDto[];
+  totals: LandedCostTotalsDto;
+}
+
+export interface PurchaseListItemDto {
+  id: string;
+  code: string;
+  status: PurchaseStatus;
+  supplier: RefDto;
+  invoiceNumber: string | null;
+  invoiceDate: string;
+  currency: string;
+  locationName: string;
+  lineCount: number;
+  units: number;
+  landedTotal?: string | null;
+  receivedAt: string | null;
+}
+
+export interface PurchaseLineDto {
+  id: string;
+  variantId: string;
+  sku: string;
+  productName: string;
+  variantName: string;
+  quantity: number;
+  returnedQty: number;
+  weightKg: string | null;
+  cbm: string | null;
+  unitPrice?: string;
+  costs?: LandedCostLineDto | null;
+}
+
+export interface ShipmentChargeDto {
+  id: string;
+  type: ChargeType;
+  description: string | null;
+  amount: string;
+  currency: string;
+  amountInr: string;
+  isRecoverableTax: boolean;
+}
+
+export interface CostAdjustmentDto {
+  id: string;
+  code: string;
+  type: ChargeType;
+  description: string | null;
+  amountInr: string;
+  isRecoverableTax: boolean;
+  allocationMethod: AllocationMethod;
+  businessDate: string;
+  createdByName: string | null;
+  createdAt: string;
+  lines: { variantId: string; sku: string; allocated: string; toInventory: string; toCostOfSales: string }[];
+}
+
+export interface PurchaseReturnDto {
+  id: string;
+  code: string;
+  businessDate: string;
+  reason: string;
+  locationName: string;
+  stockDocumentId: string;
+  createdByName: string | null;
+  lines: { sku: string; productName: string; variantName: string; quantity: number }[];
+}
+
+export interface PurchaseDetailDto {
+  id: string;
+  code: string;
+  status: PurchaseStatus;
+  supplier: RefDto;
+  invoiceNumber: string | null;
+  shipmentRef: string | null;
+  invoiceDate: string;
+  currency: string;
+  exchangeRate?: string;
+  allocationMethod: AllocationMethod;
+  location: RefDto;
+  notes: string | null;
+  receivedAt: string | null;
+  receivedDate: string | null;
+  receivedByName: string | null;
+  createdByName: string | null;
+  stockDocument: { id: string; code: string } | null;
+  lines: PurchaseLineDto[];
+  charges?: ShipmentChargeDto[];
+  /** Frozen figures once received; a live preview while still a draft. */
+  totals?: LandedCostTotalsDto | null;
+  costAdjustments?: CostAdjustmentDto[];
+  returns: PurchaseReturnDto[];
 }
 
 /** Error envelope returned with every non-2xx response. */

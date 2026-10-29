@@ -12,9 +12,24 @@ const uid = () => randomUUID().slice(0, 6).toUpperCase();
 
 beforeAll(async () => {
   admin = await sessionAs("ADMIN");
-  categoryId = (await api().post("/api/v1/categories").set(admin.auth).send({ name: `Stock ${uid()}` })).body.data.id;
-  store = (await api().post("/api/v1/settings/locations").set(admin.auth).send({ code: `ST${uid()}`, name: "Store", type: "STORE" })).body.data.id;
-  godown = (await api().post("/api/v1/settings/locations").set(admin.auth).send({ code: `GD${uid()}`, name: "Godown", type: "WAREHOUSE" })).body.data.id;
+  categoryId = (
+    await api()
+      .post("/api/v1/categories")
+      .set(admin.auth)
+      .send({ name: `Stock ${uid()}` })
+  ).body.data.id;
+  store = (
+    await api()
+      .post("/api/v1/settings/locations")
+      .set(admin.auth)
+      .send({ code: `ST${uid()}`, name: "Store", type: "STORE" })
+  ).body.data.id;
+  godown = (
+    await api()
+      .post("/api/v1/settings/locations")
+      .set(admin.auth)
+      .send({ code: `GD${uid()}`, name: "Godown", type: "WAREHOUSE" })
+  ).body.data.id;
 });
 
 /** A YEGAO-style product: one variant per colour. Returns variant ids keyed by colour. */
@@ -114,7 +129,13 @@ describe("damaged and demo stock is never counted twice", () => {
     const moved = await api()
       .post("/api/v1/inventory/status-changes")
       .set(admin.auth)
-      .send({ locationId: store, fromBucket: "SELLABLE", toBucket: "DAMAGED", reason: "Box crushed", lines: [{ variantId: ids.Blue!, quantity: 2 }] });
+      .send({
+        locationId: store,
+        fromBucket: "SELLABLE",
+        toBucket: "DAMAGED",
+        reason: "Box crushed",
+        lines: [{ variantId: ids.Blue!, quantity: 2 }],
+      });
     expect(moved.status).toBe(201);
 
     let stock = (await card(ids.Blue!)).stock;
@@ -123,7 +144,13 @@ describe("damaged and demo stock is never counted twice", () => {
     await api()
       .post("/api/v1/inventory/write-offs")
       .set(admin.auth)
-      .send({ locationId: store, bucket: "DAMAGED", reasonCode: "DAMAGED", reason: "Unrepairable", lines: [{ variantId: ids.Blue!, quantity: 2 }] })
+      .send({
+        locationId: store,
+        bucket: "DAMAGED",
+        reasonCode: "DAMAGED",
+        reason: "Unrepairable",
+        lines: [{ variantId: ids.Blue!, quantity: 2 }],
+      })
       .expect(201);
 
     const c = await card(ids.Blue!);
@@ -185,7 +212,13 @@ describe("transfers and negative stock", () => {
         api()
           .post("/api/v1/inventory/write-offs")
           .set(admin.auth)
-          .send({ locationId: store, bucket: "SELLABLE", reasonCode: "MISSING", reason: "Race", lines: [{ variantId: ids.Red!, quantity: 2 }] }),
+          .send({
+            locationId: store,
+            bucket: "SELLABLE",
+            reasonCode: "MISSING",
+            reason: "Race",
+            lines: [{ variantId: ids.Red!, quantity: 2 }],
+          }),
       ),
     );
     expect(attempts.filter((r) => r.status === 201)).toHaveLength(2);
@@ -211,7 +244,13 @@ describe("costing", () => {
     const out = await api()
       .post("/api/v1/inventory/write-offs")
       .set(admin.auth)
-      .send({ locationId: store, bucket: "SELLABLE", reasonCode: "MISSING", reason: "Lost", lines: [{ variantId: ids.White!, quantity: 2 }] });
+      .send({
+        locationId: store,
+        bucket: "SELLABLE",
+        reasonCode: "MISSING",
+        reason: "Lost",
+        lines: [{ variantId: ids.White!, quantity: 2 }],
+      });
     expect(out.body.data.lines[0]).toMatchObject({ quantity: -2, unitCost: null });
     c = await card(ids.White!);
     expect(c.stock.unvaluedQty).toBe(2);
@@ -227,16 +266,25 @@ describe("reversals", () => {
       .set(admin.auth)
       .send({ fromLocationId: store, toLocationId: godown, reason: "Oops", lines: [{ variantId: ids.Black!, quantity: 4 }] });
 
-    const reversal = await api().post(`/api/v1/inventory/documents/${transfer.body.data.id}/reverse`).set(admin.auth).send({ reason: "Wrong location" });
+    const reversal = await api()
+      .post(`/api/v1/inventory/documents/${transfer.body.data.id}/reverse`)
+      .set(admin.auth)
+      .send({ reason: "Wrong location" });
     expect(reversal.status).toBe(201);
     expect(reversal.body.data).toMatchObject({ type: "REVERSAL", reversalOf: { code: transfer.body.data.code } });
 
     const { stock } = await card(ids.Black!);
     expect(stock.byLocation).toEqual([expect.objectContaining({ locationId: store, sellable: 4 })]);
 
-    const again = await api().post(`/api/v1/inventory/documents/${transfer.body.data.id}/reverse`).set(admin.auth).send({ reason: "Again" });
+    const again = await api()
+      .post(`/api/v1/inventory/documents/${transfer.body.data.id}/reverse`)
+      .set(admin.auth)
+      .send({ reason: "Again" });
     expect(again.body.error.code).toBe("ALREADY_REVERSED");
-    const ofReversal = await api().post(`/api/v1/inventory/documents/${reversal.body.data.id}/reverse`).set(admin.auth).send({ reason: "Undo" });
+    const ofReversal = await api()
+      .post(`/api/v1/inventory/documents/${reversal.body.data.id}/reverse`)
+      .set(admin.auth)
+      .send({ reason: "Undo" });
     expect(ofReversal.body.error.code).toBe("CANNOT_REVERSE_REVERSAL");
   });
 
@@ -246,12 +294,25 @@ describe("reversals", () => {
     const writeOff = await api()
       .post("/api/v1/inventory/write-offs")
       .set(admin.auth)
-      .send({ locationId: store, bucket: "SELLABLE", reasonCode: "MISSING", reason: "Missing", lines: [{ variantId: ids.Red!, quantity: 3 }] });
+      .send({
+        locationId: store,
+        bucket: "SELLABLE",
+        reasonCode: "MISSING",
+        reason: "Missing",
+        lines: [{ variantId: ids.Red!, quantity: 3 }],
+      });
 
-    const blocked = await api().post(`/api/v1/inventory/documents/${open.body.data.id}/reverse`).set(admin.auth).send({ reason: "Undo opening" });
+    const blocked = await api()
+      .post(`/api/v1/inventory/documents/${open.body.data.id}/reverse`)
+      .set(admin.auth)
+      .send({ reason: "Undo opening" });
     expect(blocked.body.error.code).toBe("STOCK_INSUFFICIENT");
 
-    await api().post(`/api/v1/inventory/documents/${writeOff.body.data.id}/reverse`).set(admin.auth).send({ reason: "Found them" }).expect(201);
+    await api()
+      .post(`/api/v1/inventory/documents/${writeOff.body.data.id}/reverse`)
+      .set(admin.auth)
+      .send({ reason: "Found them" })
+      .expect(201);
     const c = await card(ids.Red!);
     expect(c.stock).toMatchObject({ physical: 4, stockValue: "1000.00" });
     expect(c.reconciliation).toMatchObject({ writeOffs: 0, computedPhysical: 4, actualPhysical: 4 });

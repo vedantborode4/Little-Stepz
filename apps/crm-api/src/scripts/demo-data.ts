@@ -8,10 +8,12 @@
 import "dotenv/config";
 import { prisma } from "@repo/crm-db/client";
 import type { CreateProductInput } from "@repo/crm-schema";
+import { todayIST } from "../core/dates";
 import { createNamed } from "../modules/catalog/catalog.service";
 import { createProduct } from "../modules/products/products.service";
 import { createSupplier } from "../modules/suppliers/suppliers.service";
 import { recordOpeningStock } from "../modules/inventory/inventory.service";
+import { createDraft, receivePurchase } from "../modules/purchases/purchases.service";
 
 const SYSTEM = { userId: null, ip: null, userAgent: null, requestId: "seed-demo" };
 const SAMPLE_GST = "18" as const;
@@ -141,8 +143,45 @@ async function seedStock() {
   ]);
 }
 
+/**
+ * Scenario A: 10 MJX RC cars bought from China at ¥900, SAMPLE rate ₹12/¥, with ₹8,000
+ * freight and ₹9,000 duty → ₹12,500 landed each. Import IGST is recoverable, so it
+ * stays out of stock cost.
+ */
+async function seedScenarioA() {
+  const mjx = await prisma.variant.findUnique({ where: { sku: "MJX-HG-14" }, include: { purchaseLines: true } });
+  if (!mjx || mjx.purchaseLines.length) return;
+  const supplier = await prisma.supplier.findUniqueOrThrow({ where: { nameKey: "shantou toys trading (sample)" } });
+  const store = await prisma.location.findUniqueOrThrow({ where: { code: "STORE" } });
+  const visibility = { costs: true };
+  const draft = await createDraft(
+    {
+      supplierId: supplier.id,
+      invoiceNumber: "SAMPLE-INV-001",
+      shipmentRef: "SAMPLE-BL-001",
+      invoiceDate: todayIST(),
+      locationId: store.id,
+      notes: "SAMPLE purchase for Scenario A",
+      currency: "CNY",
+      exchangeRate: "12",
+      allocationMethod: "VALUE",
+      lines: [{ variantId: mjx.id, quantity: 10, unitPrice: "900" }],
+      charges: [
+        { type: "FREIGHT", amount: "8000", currency: "INR", isRecoverableTax: false },
+        { type: "CUSTOMS_DUTY", amount: "9000", currency: "INR", isRecoverableTax: false },
+        { type: "IGST", amount: "22860", currency: "INR", isRecoverableTax: true },
+      ],
+    },
+    SYSTEM,
+    visibility,
+  );
+  const received = await receivePurchase(draft.id, {}, SYSTEM, visibility);
+  console.log(`• Scenario A: ${received.code} received — 10 × MJX at ${received.lines[0]?.costs?.landedUnitCost} landed`);
+}
+
 main()
   .then(seedStock)
+  .then(seedScenarioA)
   .catch((err) => {
     console.error(err);
     process.exitCode = 1;

@@ -9,7 +9,7 @@ interface FieldProps {
   label: string
   htmlFor?: string
   error?: string
-  hint?: string
+  hint?: React.ReactNode
   required?: boolean
   className?: string
   children: React.ReactNode

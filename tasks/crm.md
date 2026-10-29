@@ -9,7 +9,7 @@ Conventions: `docs/crm/CONVENTIONS.md`.
 - [x] **1. Foundation** — workspaces, crm-postgres, auth + roles, audit (append-only), app shell + UI kit, settings (business, locations, accounts), users
 - [x] **2. Products & Variants** — categories, brands, products, variant matrix, SKUs, pricing (regular/offer/wholesale/tiers), GST/HSN, images, website ID mapping, bulk price edit
 - [x] **3. Inventory ledger** — movements + balances, opening stock, Store↔Godown transfers, buckets (damaged/demo), write-offs, low-stock alerts
-- [ ] **4. Purchases & landed cost** — suppliers, shipments, FX, charges, allocation, input-GST split, receiving, weighted average, cost adjustments, purchase returns (Scenario A)
+- [x] **4. Purchases & landed cost** — suppliers, shipments, FX, charges, allocation, input-GST split, receiving, weighted average, cost adjustments, purchase returns (Scenario A)
 - [ ] **5. Customers** — profiles, phone lookup, dedupe + merge, wholesale terms, customer prices, PII masking
 - [ ] **6. Sales / POS** — POS + order form, price resolution, discounts, GST back-out, reserve→deduct flow, COGS snapshot, receipts (Scenarios B, F)
 - [ ] **7. Payments & collections** — split tender, installments, allocation limits, customer credit, collections dashboard, ageing, transfers (Scenarios C, D)
@@ -67,3 +67,18 @@ Conventions: `docs/crm/CONVENTIONS.md`.
 - Exit criteria met: 5/8/4/3 gives a parent total of 20. Moving 2 to damaged keeps physical stock at 8 and lowers sellable to 6. Negative stock is blocked, including under 5 parallel requests.
 - Found in the browser: the stock list's default sort referred to table aliases from inside a CTE, which caused a 500. It's now fixed and covered by a test for every sort. Internal moves showed "Unknown" cost, which was misleading, so they now show "—"; "Unknown" is reserved for genuinely missing costs.
 - Costing note: costs follow posting order. Backdating changes report dates, not costs already recorded.
+
+## Phase 4 — Purchases & landed cost
+
+- [x] Schema: PurchaseShipment, PurchaseLine, ShipmentCharge, CostAdjustment(+lines), PurchaseReturn(+lines); triggers lock received purchases (header, lines, charges) and make adjustments/returns append-only
+- [x] Landed-cost engine (pure, unit-tested): FX per purchase, allocation by value/quantity/weight/volume with exact remainder, recoverable GST/IGST → input tax credit
+- [x] API: drafts (create/edit/cancel), live preview, last-used rate suggestion, receive (row-locked, posts PURCHASE stock doc at landed cost), late charges (on-hand share revalues stock, sold share → cost of sales), returns to supplier; costs stripped for Ops
+- [x] Web: purchases list, purchase form with live server preview per line, detail with landed-cost breakdown, receive/cancel/late-charge/return dialogs, suppliers screen
+- [x] Demo: Scenario A seeded as SAMPLE (PUR-0001: 10 × MJX at ₹12,500 landed, ₹22,860 IGST as credit)
+- [x] Tests: 16 new (73 total) — Scenario A figures and stock/value effect, receive-once under a race, weighted average across batches, DB locks, draft edit/cancel, validation, FX charges, late charges, recoverable tax, returns, Ops/cashier access
+
+### Phase 4 review
+- Exit criteria met (**Scenario A**): 10 MJX at ¥900 × 12 + ₹17,000 charges = ₹12,500 landed each. Stock +10, inventory value +₹1,25,000, IGST kept out of cost.
+- Browser: Scenario A detail, a new INR purchase built in the form (live preview ₹5,760), saved, received through the confirm dialog, suppliers screen, mobile list. No console errors.
+- Found while verifying: the demo seed and export filenames used the UTC date (a day behind IST before 05:30). Both now use `todayIST()`, and this is recorded in lessons.md.
+- Not in scope (decided in planning): supplier payables. Returns record goods only, not supplier credit.

@@ -1,6 +1,7 @@
 import type { Response } from "express";
 import ExcelJS from "exceljs";
 import type { ExportFormat } from "@repo/crm-schema";
+import { todayIST } from "./dates";
 
 export interface ExportColumn<T> {
   header: string;
@@ -31,7 +32,7 @@ function csvCell(value: unknown): string {
 }
 
 export async function sendExport<T>(res: Response, { filename, format, columns, rows }: ExportOptions<T>) {
-  const stamp = new Date().toISOString().slice(0, 10);
+  const stamp = todayIST();
   const base = `${filename}-${stamp}`;
 
   if (format === "csv") {

@@ -16,13 +16,13 @@ import { postStockDocument, type EngineLine } from "./stock-engine";
 /** Documents whose units only move around; their reversal needs no cost effect. */
 const INTERNAL_TYPES: StockDocumentType[] = ["TRANSFER", "BUCKET_MOVE"];
 
-async function assertActiveLocations(tx: Tx, ids: string[]) {
+export async function assertActiveLocations(tx: Tx, ids: string[]) {
   const found = await tx.location.findMany({ where: { id: { in: ids }, isActive: true }, select: { id: true } });
   if (found.length !== new Set(ids).size) throw new ApiError(400, "INVALID_LOCATION", "Choose an active location");
 }
 
 /** New stock may only be posted against active variants of products that aren't archived. */
-async function assertSellableVariants(tx: Tx, ids: string[]) {
+export async function assertSellableVariants(tx: Tx, ids: string[]) {
   const rows = await tx.variant.findMany({
     where: { id: { in: ids } },
     select: { id: true, sku: true, status: true, product: { select: { status: true } } },

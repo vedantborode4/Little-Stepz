@@ -21,7 +21,8 @@ import {
 import Button from "@/components/ui/Button"
 import { Card, PageHeader } from "@/components/ui/Display"
 import { controlClass, Field, FormError, Input, Select, Textarea } from "@/components/ui/Form"
-import { errorMessage, isApiError } from "@/lib/api-error"
+import { errorMessage } from "@/lib/api-error"
+import { apiErrorsToMap, issuesToErrors } from "@/lib/validation"
 import { todayIST } from "@/lib/format"
 import { useCan } from "@/store/auth.store"
 import { useLocations } from "../settings/api"
@@ -143,15 +144,6 @@ function buildPayload(kind: MovementKind, h: ReturnType<typeof emptyHeader>, lin
   }
 }
 
-function issuesToErrors(issues: { path: PropertyKey[]; message: string }[]) {
-  const out: Record<string, string> = {}
-  for (const issue of issues) {
-    const key = issue.path.map(String).join(".")
-    out[key] ??= issue.message
-  }
-  return out
-}
-
 export default function MovementForm({ initialKind }: { initialKind?: MovementKind }) {
   const can = useCan()
   const allowed = KINDS.filter((k) => can(k.permission))
@@ -203,7 +195,7 @@ export default function MovementForm({ initialKind }: { initialKind?: MovementKi
       setHeader((h) => ({ ...emptyHeader(), locationId: h.locationId, fromLocationId: h.fromLocationId, toLocationId: h.toLocationId }))
     } catch (err) {
       setFormError(errorMessage(err))
-      if (isApiError(err)) setErrors(Object.fromEntries(Object.entries(err.fieldErrors).map(([k, v]) => [k, v?.[0] ?? ""])))
+      setErrors(apiErrorsToMap(err))
     }
   }
 

@@ -185,3 +185,18 @@ export async function postStockDocument(tx: Tx, ctx: RequestContext, input: Post
 
   return document;
 }
+
+/**
+ * Changes the value of a variant's stock without moving units (a late purchase
+ * charge). Returns the amount actually applied: value can only attach to units
+ * that already carry a known cost, so with none on hand nothing is applied and
+ * the caller expenses the charge instead.
+ */
+export async function revalueStock(tx: Tx, variantId: string, delta: Decimal): Promise<Decimal> {
+  const states = await lockCostStates(tx, [variantId]);
+  const state = states.get(variantId)!;
+  if (state.valuedQty === 0 || delta.isZero()) return new Decimal(0);
+  const applied = delta.isNegative() ? Decimal.max(delta, state.totalValue.neg()) : delta;
+  await tx.variantCost.update({ where: { variantId }, data: { totalValue: state.totalValue.add(applied) } });
+  return applied;
+}

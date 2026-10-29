@@ -18,4 +18,7 @@ export type EnumParity = [
   Assert<Same<Db.StockBucket, Schema.StockBucket>>,
   Assert<Same<Db.StockDocumentType, Schema.StockDocumentType>>,
   Assert<Same<Db.StockReasonCode, Schema.StockReasonCode>>,
+  Assert<Same<Db.PurchaseStatus, Schema.PurchaseStatus>>,
+  Assert<Same<Db.AllocationMethod, Schema.AllocationMethod>>,
+  Assert<Same<Db.ChargeType, Schema.ChargeType>>,
 ];

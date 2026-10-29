@@ -5,4 +5,5 @@ export * from "./auth";
 export * from "./settings";
 export * from "./catalog";
 export * from "./inventory";
+export * from "./purchases";
 export * from "./dto";

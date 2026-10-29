@@ -31,7 +31,13 @@ export type AuditAction =
   | "variant.mapping_updated"
   | "price.bulk_updated"
   | "stock.posted"
-  | "stock.reversed";
+  | "stock.reversed"
+  | "purchase.created"
+  | "purchase.updated"
+  | "purchase.cancelled"
+  | "purchase.received"
+  | "purchase.cost_adjusted"
+  | "purchase.returned";
 
 export type AuditEntity =
   | "User"
@@ -44,7 +50,8 @@ export type AuditEntity =
   | "Product"
   | "Variant"
   | "PriceBatch"
-  | "StockDocument";
+  | "StockDocument"
+  | "PurchaseShipment";
 
 export interface AuditEntry {
   action: AuditAction;

@@ -54,3 +54,21 @@ Source of truth: `packages/crm-db/prisma/schema.prisma`. This page explains the 
 **Single writer.** Only `postStockDocument` (in `modules/inventory/stock-engine.ts`) writes stock tables. Purchases and sales will call it.
 
 **Integrity tests assert** that the sum of movements equals the balances for every key, and that costed units equal physical units for every variant.
+
+## Phase 4: purchasing and landed cost
+
+| Model | Purpose | Key rules |
+|---|---|---|
+| `PurchaseShipment` | One supplier invoice or shipment: supplier, invoice and BL/AWB refs, invoice date, **currency + exchange rate entered per purchase**, allocation method, receiving location | `DRAFT` (editable) → `RECEIVED` or `CANCELLED`. After `DRAFT`, a trigger rejects every UPDATE and DELETE. Receiving runs under a row lock, so a purchase can't be received twice. |
+| `PurchaseLine` | Variant, quantity, unit price in the purchase currency, optional kg/CBM per unit | Unique per variant in a purchase. At receipt it freezes `unitPriceInr`, `allocatedCharges` and `landedUnitCost`. A trigger locks it once the parent is no longer a draft. |
+| `ShipmentCharge` | Freight, customs duty, clearing, IGST, GST, transport, insurance, other; in INR or the purchase currency (converted at the purchase rate) | `isRecoverableTax` charges (IGST/GST by default) are **kept out of inventory cost** and reported as input tax credit. Locked with the parent. |
+| `CostAdjustment` (+ lines) | A charge that arrived after receipt | **Append-only.** Split by the chosen method. For each line, the share for units still on hand revalues stock (`revalueStock`) and the rest goes to cost of sales. Recoverable tax is only recorded. |
+| `PurchaseReturn` (+ lines) | Goods sent back to the supplier from a received purchase | **Append-only.** Can't exceed received − already returned. Posts a `PURCHASE_RETURN` stock document at the current average cost. |
+
+**Landed unit cost** = unit price × exchange rate + (allocated non-recoverable charges ÷ quantity).
+- Charges are split **by purchase value** by default (duty is value-based), or by quantity, weight or volume.
+- The last line takes the rounding remainder, so the parts always add up to exactly the charge total.
+- Receiving posts a `PURCHASE` stock document (`sourceType = PURCHASE`) at the landed cost, which feeds the weighted average.
+- Purchase stock documents can only be corrected from the purchase (a late charge or a return), never reversed in Inventory.
+
+**Exchange rates** are never hard-coded. The form offers the last rate used for that currency as a one-click suggestion, never applying it automatically.

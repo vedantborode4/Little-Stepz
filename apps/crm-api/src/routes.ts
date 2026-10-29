@@ -5,6 +5,7 @@ import { authRoutes } from "./modules/auth/auth.routes";
 import { brandsRoutes, categoriesRoutes } from "./modules/catalog/catalog.routes";
 import { inventoryRoutes } from "./modules/inventory/inventory.routes";
 import { mappingRoutes, pricingRoutes, productsRoutes, variantsRoutes } from "./modules/products/products.routes";
+import { purchasesRoutes } from "./modules/purchases/purchases.routes";
 import { settingsRoutes } from "./modules/settings/settings.routes";
 import { suppliersRoutes } from "./modules/suppliers/suppliers.routes";
 import { usersRoutes } from "./modules/users/users.routes";
@@ -27,5 +28,6 @@ protectedRoutes.use("/variants", variantsRoutes);
 protectedRoutes.use("/pricing", pricingRoutes);
 protectedRoutes.use("/website-mapping", mappingRoutes);
 protectedRoutes.use("/inventory", inventoryRoutes);
+protectedRoutes.use("/purchases", purchasesRoutes);
 
 apiRoutes.use(protectedRoutes);
