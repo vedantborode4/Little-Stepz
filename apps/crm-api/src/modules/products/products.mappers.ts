@@ -2,6 +2,9 @@ import type { Prisma } from "@repo/crm-db/client";
 import type { MappingState, ProductDetailDto, ProductListItemDto, VariantDto } from "@repo/crm-schema";
 import { money, moneyOrNull } from "../../core/money";
 
+export type StockTotals = Map<string, { physical: number; available: number }>;
+const NO_STOCK = { physical: 0, available: 0 };
+
 export const productDetailInclude = {
   category: { select: { id: true, name: true } },
   brand: { select: { id: true, name: true } },
@@ -18,7 +21,7 @@ export const productListInclude = {
   brand: { select: { id: true, name: true } },
   variants: {
     where: { status: "ACTIVE" },
-    select: { regularPrice: true, offerPrice: true, websiteVariantId: true },
+    select: { id: true, regularPrice: true, offerPrice: true, websiteVariantId: true },
   },
 } satisfies Prisma.ProductInclude;
 
@@ -34,7 +37,7 @@ export function mappingState(productMapped: boolean, variantsMapped: boolean[]):
   return "PARTIAL";
 }
 
-export const toVariantDto = (v: VariantRow): VariantDto => ({
+export const toVariantDto = (v: VariantRow, stock: StockTotals): VariantDto => ({
   id: v.id,
   sku: v.sku,
   name: v.name,
@@ -46,9 +49,11 @@ export const toVariantDto = (v: VariantRow): VariantDto => ({
   websiteVariantId: v.websiteVariantId,
   status: v.status,
   priceTiers: v.priceTiers.map((t) => ({ minQty: t.minQty, price: money(t.price) })),
+  physicalQty: (stock.get(v.id) ?? NO_STOCK).physical,
+  availableQty: (stock.get(v.id) ?? NO_STOCK).available,
 });
 
-export const toProductDetailDto = (p: DetailRow): ProductDetailDto => ({
+export const toProductDetailDto = (p: DetailRow, stock: StockTotals): ProductDetailDto => ({
   id: p.id,
   code: p.code,
   name: p.name,
@@ -64,12 +69,12 @@ export const toProductDetailDto = (p: DetailRow): ProductDetailDto => ({
   gstRate: p.gstRate.toString(),
   websiteProductId: p.websiteProductId,
   options: p.options.map((o) => ({ id: o.id, name: o.name, values: o.values.map((v) => ({ id: v.id, value: v.value })) })),
-  variants: p.variants.map(toVariantDto),
+  variants: p.variants.map((v) => toVariantDto(v, stock)),
   createdAt: p.createdAt.toISOString(),
   updatedAt: p.updatedAt.toISOString(),
 });
 
-export function toProductListItemDto(p: ListRow): ProductListItemDto {
+export function toProductListItemDto(p: ListRow, stock: StockTotals): ProductListItemDto {
   const regular = p.variants.map((v) => v.regularPrice);
   const offers = p.variants.flatMap((v) => (v.offerPrice ? [v.offerPrice] : []));
   const min = (xs: Prisma.Decimal[]) => xs.reduce((a, b) => (b.lt(a) ? b : a));
@@ -92,6 +97,8 @@ export function toProductListItemDto(p: ListRow): ProductListItemDto {
       !!p.websiteProductId,
       p.variants.map((v) => !!v.websiteVariantId),
     ),
+    physicalQty: p.variants.reduce((sum, v) => sum + (stock.get(v.id) ?? NO_STOCK).physical, 0),
+    availableQty: p.variants.reduce((sum, v) => sum + (stock.get(v.id) ?? NO_STOCK).available, 0),
     updatedAt: p.updatedAt.toISOString(),
   };
 }

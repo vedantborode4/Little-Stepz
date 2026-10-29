@@ -6,6 +6,7 @@ import { ApiError, notFound, type RequestContext } from "../../core/http";
 import { buildOrderBy, pageWindow, paginated } from "../../core/list";
 import { dec } from "../../core/money";
 import { nextCode } from "../../core/sequence";
+import { physicalStockOf, stockTotals } from "../inventory/inventory.service";
 import {
   productAuditSnapshot,
   productDetailInclude,
@@ -41,14 +42,22 @@ export async function listProducts(query: ProductListQuery) {
     }),
     prisma.product.count({ where }),
   ]);
-  return paginated(rows.map(toProductListItemDto), total, query);
+  const stock = await stockTotals(rows.flatMap((p) => p.variants.map((v) => v.id)));
+  return paginated(
+    rows.map((p) => toProductListItemDto(p, stock)),
+    total,
+    query,
+  );
 }
 
-export async function getProduct(id: string) {
-  const product = await prisma.product.findUnique({ where: { id }, include: productDetailInclude });
+/** Product detail with live stock per variant; every product response goes through here. */
+export async function loadProductDetail(db: Tx | typeof prisma, id: string) {
+  const product = await db.product.findUnique({ where: { id }, include: productDetailInclude });
   if (!product) throw notFound("Product");
-  return toProductDetailDto(product);
+  return toProductDetailDto(product, await stockTotals(product.variants.map((v) => v.id)));
 }
+
+export const getProduct = (id: string) => loadProductDetail(prisma, id);
 
 /** Category must be active for new assignments; brand and supplier must exist. */
 async function assertReferences(tx: Tx, input: { categoryId?: string; brandId?: string | null; supplierId?: string | null }) {
@@ -161,8 +170,7 @@ export async function createProduct(input: CreateProductInput, ctx: RequestConte
       after: { code: product.code, ...productAuditSnapshot(product), variants: variants.map((v) => v.sku) },
     });
 
-    const full = await tx.product.findUniqueOrThrow({ where: { id: product.id }, include: productDetailInclude });
-    return toProductDetailDto(full);
+    return loadProductDetail(tx, product.id);
   });
 }
 
@@ -172,6 +180,16 @@ export async function updateProduct(id: string, input: UpdateProductInput, ctx: 
     if (!before) throw notFound("Product");
     await assertReferences(tx, { ...input, categoryId: input.categoryId !== before.categoryId ? input.categoryId : undefined });
     await assertWebsiteProductIdFree(tx, input.websiteProductId, id);
+    if (input.status === "ARCHIVED" && before.status !== "ARCHIVED") {
+      const onHand = await physicalStockOf(tx, { variant: { productId: id } });
+      if (onHand > 0) {
+        throw new ApiError(
+          409,
+          "PRODUCT_HAS_STOCK",
+          `${before.code} still has ${onHand} units in stock. Sell, transfer or write them off first.`,
+        );
+      }
+    }
 
     const after = await tx.product.update({
       where: { id },
@@ -184,7 +202,6 @@ export async function updateProduct(id: string, input: UpdateProductInput, ctx: 
       before: productAuditSnapshot(before),
       after: productAuditSnapshot(after),
     });
-    const full = await tx.product.findUniqueOrThrow({ where: { id }, include: productDetailInclude });
-    return toProductDetailDto(full);
+    return loadProductDetail(tx, id);
   });
 }

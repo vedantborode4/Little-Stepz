@@ -13,6 +13,7 @@ productsRoutes.patch("/:id", manage, controller.update);
 productsRoutes.post("/:id/variants", manage, controller.addVariant);
 
 export const variantsRoutes = Router();
+variantsRoutes.get("/search", view, controller.searchVariants);
 variantsRoutes.patch("/:id", manage, controller.updateVariant);
 variantsRoutes.put("/:id/tiers", manage, controller.setTiers);
 variantsRoutes.get("/:id/price-history", view, controller.priceHistory);

@@ -11,6 +11,7 @@ import type { CreateProductInput } from "@repo/crm-schema";
 import { createNamed } from "../modules/catalog/catalog.service";
 import { createProduct } from "../modules/products/products.service";
 import { createSupplier } from "../modules/suppliers/suppliers.service";
+import { recordOpeningStock } from "../modules/inventory/inventory.service";
 
 const SYSTEM = { userId: null, ip: null, userAgent: null, requestId: "seed-demo" };
 const SAMPLE_GST = "18" as const;
@@ -108,7 +109,40 @@ async function main() {
   });
 }
 
+/** SAMPLE opening stock, only for items that have no stock history yet. */
+async function ensureOpeningStock(locationCode: string, lines: { sku: string; quantity: number; unitCost?: string }[]) {
+  const location = await prisma.location.findUniqueOrThrow({ where: { code: locationCode } });
+  const variants = await prisma.variant.findMany({ where: { sku: { in: lines.map((l) => l.sku) }, stockMovements: { none: {} } } });
+  const fresh = lines.flatMap((l) => {
+    const variant = variants.find((v) => v.sku === l.sku);
+    return variant ? [{ variantId: variant.id, quantity: l.quantity, unitCost: l.unitCost ?? null }] : [];
+  });
+  if (fresh.length === 0) return;
+  const doc = await recordOpeningStock(
+    { locationId: location.id, bucket: "SELLABLE", reference: "SAMPLE opening stock", lines: fresh },
+    SYSTEM,
+  );
+  console.log(`  ${doc.code} opening stock at ${locationCode}: ${fresh.length} items`);
+}
+
+async function seedStock() {
+  console.log("• Sample opening stock:");
+  await ensureOpeningStock("STORE", [
+    { sku: "YG64-RED", quantity: 5, unitCost: "300" },
+    { sku: "YG64-BLUE", quantity: 8, unitCost: "300" },
+    { sku: "YG64-BLACK", quantity: 4, unitCost: "300" },
+    { sku: "YG64-WHITE", quantity: 3, unitCost: "300" },
+    { sku: "HW-BASIC", quantity: 24 }, // cost deliberately unknown: shows how missing costs are handled
+  ]);
+  await ensureOpeningStock("GODOWN", [
+    { sku: "STN-Q40-CREAM", quantity: 6, unitCost: "2900" },
+    { sku: "STN-Q40-BLACK", quantity: 4, unitCost: "2900" },
+    { sku: "STN-Q40-ROSE", quantity: 2, unitCost: "2900" },
+  ]);
+}
+
 main()
+  .then(seedStock)
   .catch((err) => {
     console.error(err);
     process.exitCode = 1;

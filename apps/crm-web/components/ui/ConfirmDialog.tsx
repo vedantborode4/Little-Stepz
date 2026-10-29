@@ -10,12 +10,23 @@ interface Props {
   confirmLabel: string
   tone?: "danger" | "primary"
   loading?: boolean
+  /** Keeps the confirm button off until required input (e.g. a reason) is filled. */
+  confirmDisabled?: boolean
   onConfirm: () => void
   onCancel: () => void
 }
 
 /** Required before every destructive or hard-to-reverse action. */
-export default function ConfirmDialog({ title, message, confirmLabel, tone = "danger", loading, onConfirm, onCancel }: Props) {
+export default function ConfirmDialog({
+  title,
+  message,
+  confirmLabel,
+  tone = "danger",
+  loading,
+  confirmDisabled,
+  onConfirm,
+  onCancel,
+}: Props) {
   return (
     <Modal
       title={title}
@@ -26,7 +37,7 @@ export default function ConfirmDialog({ title, message, confirmLabel, tone = "da
           <Button variant="secondary" onClick={onCancel} disabled={loading}>
             Cancel
           </Button>
-          <Button variant={tone} onClick={onConfirm} loading={loading}>
+          <Button variant={tone} onClick={onConfirm} loading={loading} disabled={confirmDisabled}>
             {confirmLabel}
           </Button>
         </>

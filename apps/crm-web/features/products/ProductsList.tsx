@@ -57,6 +57,19 @@ export default function ProductsList() {
       cell: ({ row }) => row.original.variantCount,
     },
     {
+      id: "stock",
+      header: "Available",
+      meta: { align: "right", cellClassName: "tabular" },
+      cell: ({ row }) => (
+        <span title={`${row.original.physicalQty} physical`}>
+          <strong>{row.original.availableQty}</strong>
+          {row.original.physicalQty !== row.original.availableQty && (
+            <span className="text-xs text-faint"> / {row.original.physicalQty}</span>
+          )}
+        </span>
+      ),
+    },
+    {
       id: "price",
       header: "Regular price",
       meta: { align: "right" },

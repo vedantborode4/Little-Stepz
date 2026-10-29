@@ -40,9 +40,10 @@ model User {
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
-  refreshTokens RefreshToken[]
-  auditLogs     AuditLog[]
-  priceChanges  PriceChange[]
+  refreshTokens  RefreshToken[]
+  auditLogs      AuditLog[]
+  priceChanges   PriceChange[]
+  stockDocuments StockDocument[]
 }
 
 /// Opaque refresh tokens, stored only as a SHA-256 hash. Each login starts a
@@ -118,6 +119,9 @@ model Location {
   isActive  Boolean      @default(true)
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
+
+  stockMovements StockMovement[]
+  stockBalances  StockBalance[]
 }
 
 enum PaymentMethod {
@@ -282,9 +286,12 @@ model Variant {
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
-  optionValues VariantOptionValue[]
-  priceTiers   PriceTier[]
-  priceChanges PriceChange[]
+  optionValues   VariantOptionValue[]
+  priceTiers     PriceTier[]
+  priceChanges   PriceChange[]
+  stockMovements StockMovement[]
+  stockBalances  StockBalance[]
+  cost           VariantCost?
 
   @@unique([productId, optionKey])
   @@index([productId])
@@ -333,4 +340,116 @@ model PriceChange {
 
   @@index([variantId, createdAt])
   @@index([batchId])
+}
+
+// ─── Inventory ledger ────────────────────────────────────────────────────────
+
+/// Physical stock is the sum of all buckets; only SELLABLE stock can be sold.
+/// Moving a unit between buckets never changes physical stock, so damaged or
+/// demo units are never counted twice.
+enum StockBucket {
+  SELLABLE
+  DAMAGED
+  DEMO
+  QUARANTINE
+}
+
+enum StockDocumentType {
+  OPENING
+  PURCHASE
+  SALE
+  SALE_RETURN
+  PURCHASE_RETURN
+  TRANSFER
+  BUCKET_MOVE
+  WRITE_OFF
+  ADJUSTMENT
+  REVERSAL
+}
+
+enum StockReasonCode {
+  MISSING
+  DAMAGED
+  DEMO_USE
+  THEFT
+  COUNT_CORRECTION
+  FOUND
+  DATA_ENTRY_ERROR
+  OTHER
+}
+
+/// One stock event (an opening entry, a transfer, a write-off...). Append-only:
+/// a mistake is corrected by a REVERSAL document pointing at it, at most once.
+model StockDocument {
+  id           String            @id @default(uuid())
+  code         String            @unique
+  type         StockDocumentType
+  /// The business day the movement happened (IST calendar date).
+  businessDate DateTime          @db.Date
+  reasonCode   StockReasonCode?
+  reason       String
+  reference    String?
+  notes        String?
+  /// The purchase, sale or count that produced this document, when there is one.
+  sourceType   String?
+  sourceId     String?
+  reversalOfId String?           @unique
+  reversalOf   StockDocument?    @relation("StockReversal", fields: [reversalOfId], references: [id])
+  reversedBy   StockDocument?    @relation("StockReversal")
+  createdById  String?
+  createdBy    User?             @relation(fields: [createdById], references: [id])
+  createdAt    DateTime          @default(now())
+
+  lines StockMovement[]
+
+  @@index([type, businessDate])
+  @@index([sourceType, sourceId])
+  @@index([createdAt])
+}
+
+/// A signed quantity change for one variant, location and bucket. `unitCost` is
+/// the cost the units moved at (null when unknown — never guessed).
+model StockMovement {
+  id         String        @id @default(uuid())
+  documentId String
+  document   StockDocument @relation(fields: [documentId], references: [id])
+  variantId  String
+  variant    Variant       @relation(fields: [variantId], references: [id])
+  locationId String
+  location   Location      @relation(fields: [locationId], references: [id])
+  bucket     StockBucket
+  quantity   Int
+  unitCost   Decimal?      @db.Decimal(18, 6)
+  createdAt  DateTime      @default(now())
+
+  @@index([variantId, createdAt])
+  @@index([locationId])
+  @@index([documentId])
+}
+
+/// Running balance cache, written only in the same transaction as the movement
+/// that changes it. A CHECK keeps it from ever going negative.
+model StockBalance {
+  variantId  String
+  variant    Variant     @relation(fields: [variantId], references: [id])
+  locationId String
+  location   Location    @relation(fields: [locationId], references: [id])
+  bucket     StockBucket
+  quantity   Int         @default(0)
+  updatedAt  DateTime    @updatedAt
+
+  @@id([variantId, locationId, bucket])
+  @@index([locationId, bucket])
+}
+
+/// Moving weighted-average cost per variant (across locations). Units whose cost
+/// is unknown (e.g. opening stock entered without a cost) are tracked separately
+/// so they never distort the average or get an invented value.
+model VariantCost {
+  variantId   String   @id
+  variant     Variant  @relation(fields: [variantId], references: [id])
+  valuedQty   Int      @default(0)
+  totalValue  Decimal  @default(0) @db.Decimal(20, 6)
+  unvaluedQty Int      @default(0)
+  updatedAt   DateTime @updatedAt
 }

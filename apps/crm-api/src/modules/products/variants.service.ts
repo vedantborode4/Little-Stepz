@@ -1,12 +1,13 @@
 import { prisma } from "@repo/crm-db/client";
-import type { PriceChangeDto, PriceTiersInput, UpdateVariantInput, VariantInput } from "@repo/crm-schema";
+import type { PriceChangeDto, PriceTiersInput, UpdateVariantInput, VariantInput, VariantSearchResultDto } from "@repo/crm-schema";
 import { recordAudit } from "../../core/audit";
+import { physicalStockOf } from "../inventory/inventory.service";
 import { withTransaction } from "../../core/db";
 import { ApiError, notFound, type RequestContext } from "../../core/http";
 import { dec, moneyOrNull } from "../../core/money";
-import { productDetailInclude, toProductDetailDto, variantAuditSnapshot } from "./products.mappers";
+import { variantAuditSnapshot } from "./products.mappers";
 import { recordPriceChanges } from "./price-history";
-import { assertSkusFree, assertWebsiteVariantIdFree, optionKeyOf } from "./products.service";
+import { assertSkusFree, assertWebsiteVariantIdFree, loadProductDetail, optionKeyOf } from "./products.service";
 
 /**
  * Adds a variant for a new option combination. Values that don't exist yet on an
@@ -67,7 +68,7 @@ export async function addVariant(productId: string, input: VariantInput, ctx: Re
       after: variantAuditSnapshot(variant),
     });
 
-    return toProductDetailDto(await tx.product.findUniqueOrThrow({ where: { id: productId }, include: productDetailInclude }));
+    return loadProductDetail(tx, productId);
   });
 }
 
@@ -95,6 +96,14 @@ export async function updateVariant(id: string, input: UpdateVariantInput, ctx: 
     }
 
     if (changes.status === "ARCHIVED" && before.status !== "ARCHIVED") {
+      const onHand = await physicalStockOf(tx, { variantId: id });
+      if (onHand > 0) {
+        throw new ApiError(
+          409,
+          "VARIANT_HAS_STOCK",
+          `${before.sku} still has ${onHand} units in stock. Sell, transfer or write them off first.`,
+        );
+      }
       const othersActive = await tx.variant.count({ where: { productId: before.productId, status: "ACTIVE", id: { not: id } } });
       if (othersActive === 0) {
         throw new ApiError(409, "LAST_ACTIVE_VARIANT", "A product needs at least one active variant. Archive the product instead.");
@@ -122,7 +131,7 @@ export async function updateVariant(id: string, input: UpdateVariantInput, ctx: 
       after: variantAuditSnapshot(after),
       metadata: reason ? { reason } : undefined,
     });
-    return toProductDetailDto(await tx.product.findUniqueOrThrow({ where: { id: after.productId }, include: productDetailInclude }));
+    return loadProductDetail(tx, after.productId);
   });
 }
 
@@ -149,7 +158,7 @@ export async function setPriceTiers(id: string, input: PriceTiersInput, ctx: Req
       before: { sku: variant.sku, tiers: snapshot(variant.priceTiers) },
       after: { sku: variant.sku, tiers: snapshot(input.tiers) },
     });
-    return toProductDetailDto(await tx.product.findUniqueOrThrow({ where: { id: variant.productId }, include: productDetailInclude }));
+    return loadProductDetail(tx, variant.productId);
   });
 }
 
@@ -169,5 +178,35 @@ export async function getPriceHistory(variantId: string): Promise<PriceChangeDto
     batchId: r.batchId,
     changedByName: r.changedBy?.name ?? null,
     createdAt: r.createdAt.toISOString(),
+  }));
+}
+
+const SEARCH_LIMIT = 20;
+
+/** Typeahead for stock and sales forms: matches SKU, variant or product name. */
+export async function searchVariants(q: string, includeArchived: boolean): Promise<VariantSearchResultDto[]> {
+  const rows = await prisma.variant.findMany({
+    where: {
+      ...(includeArchived ? {} : { status: "ACTIVE", product: { status: { not: "ARCHIVED" } } }),
+      OR: [
+        { sku: { contains: q, mode: "insensitive" } },
+        { name: { contains: q, mode: "insensitive" } },
+        { product: { name: { contains: q, mode: "insensitive" } } },
+        { product: { code: { contains: q, mode: "insensitive" } } },
+      ],
+    },
+    include: { product: { select: { id: true, code: true, name: true, imageUrl: true } } },
+    orderBy: [{ product: { name: "asc" } }, { position: "asc" }],
+    take: SEARCH_LIMIT,
+  });
+  return rows.map((v) => ({
+    id: v.id,
+    sku: v.sku,
+    name: v.name,
+    productId: v.product.id,
+    productCode: v.product.code,
+    productName: v.product.name,
+    imageUrl: v.product.imageUrl,
+    status: v.status,
   }));
 }

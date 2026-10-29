@@ -15,9 +15,14 @@ import { formatDateTime, formatMoney } from "@/lib/format"
 import { useCan } from "@/store/auth.store"
 import { useProduct, useUpdateProduct, useUpdateVariant } from "./api"
 import { MappingBadge, productMappingState, ProductStatusBadge, ProductThumb } from "./shared"
+import { StockCardModal, StockDocumentModal } from "../inventory/StockModals"
 import { AddVariantModal, EditVariantModal, PriceHistoryModal, PriceTiersModal } from "./VariantModals"
 
-type VariantModal = { kind: "edit" | "tiers" | "history" | "archive"; variant: VariantDto } | { kind: "add" } | { kind: "archive-product" }
+type VariantModal =
+  | { kind: "edit" | "tiers" | "history" | "archive" | "stock"; variant: VariantDto }
+  | { kind: "add" }
+  | { kind: "archive-product" }
+  | { kind: "document"; documentId: string }
 
 const money = (v: string | null) => (v ? formatMoney(v) : <span className="text-faint">—</span>)
 
@@ -133,6 +138,23 @@ function ProductView({ product }: { product: ProductDetailDto }) {
         ),
     },
     {
+      id: "stock",
+      header: "Available",
+      meta: { align: "right" },
+      cell: ({ row }) => (
+        <button
+          className="tabular font-semibold text-primary hover:underline"
+          title={`${row.original.physicalQty} physical — open stock card`}
+          onClick={() => setModal({ kind: "stock", variant: row.original })}
+        >
+          {row.original.availableQty}
+          {row.original.physicalQty !== row.original.availableQty && (
+            <span className="text-xs text-faint font-normal"> / {row.original.physicalQty}</span>
+          )}
+        </button>
+      ),
+    },
+    {
       id: "reorder",
       header: "Reorder at",
       meta: { align: "right", cellClassName: "tabular" },
@@ -199,7 +221,13 @@ function ProductView({ product }: { product: ProductDetailDto }) {
         <div className="2xl:col-span-2 space-y-4 sm:space-y-5">
           <section>
             <div className="flex items-center justify-between gap-3 mb-3">
-              <h2 className="text-sm font-semibold text-text">Variants ({product.variants.length})</h2>
+              <h2 className="text-sm font-semibold text-text">
+                Variants ({product.variants.length})
+                <span className="ml-2 font-normal text-muted">
+                  · {product.variants.reduce((n, v) => n + v.availableQty, 0)} available,{" "}
+                  {product.variants.reduce((n, v) => n + v.physicalQty, 0)} physical in total
+                </span>
+              </h2>
               {manage && !archived && product.options.length > 0 && (
                 <Button size="sm" icon={<Plus size={14} />} onClick={() => setModal({ kind: "add" })}>
                   Add variant
@@ -287,6 +315,20 @@ function ProductView({ product }: { product: ProductDetailDto }) {
       {modal?.kind === "edit" && <EditVariantModal variant={modal.variant} onClose={close} />}
       {modal?.kind === "tiers" && <PriceTiersModal variant={modal.variant} onClose={close} />}
       {modal?.kind === "history" && <PriceHistoryModal variant={modal.variant} onClose={close} />}
+      {modal?.kind === "stock" && (
+        <StockCardModal
+          variantId={modal.variant.id}
+          onClose={close}
+          onOpenDocument={(documentId) => setModal({ kind: "document", documentId })}
+        />
+      )}
+      {modal?.kind === "document" && (
+        <StockDocumentModal
+          documentId={modal.documentId}
+          onClose={close}
+          onOpenDocument={(documentId) => setModal({ kind: "document", documentId })}
+        />
+      )}
       {modal?.kind === "add" && <AddVariantModal product={product} onClose={close} />}
       {modal?.kind === "archive" && (
         <ConfirmDialog

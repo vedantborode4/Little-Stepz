@@ -1,5 +1,6 @@
 import type { CurrencyCode, MappingState, PriceField, ProductStatus, VariantStatus } from "./catalog";
 import type { LocationType, PaymentMethod, Role } from "./enums";
+import type { StockBucket, StockDocumentType, StockReasonCode, StockState } from "./inventory";
 import type { Permission } from "./permissions";
 
 /**
@@ -123,6 +124,8 @@ export interface ProductListItemDto {
   regularPriceMax: string | null;
   offerPriceMin: string | null;
   mapping: MappingState;
+  physicalQty: number;
+  availableQty: number;
   updatedAt: string;
 }
 
@@ -143,6 +146,8 @@ export interface VariantDto {
   websiteVariantId: string | null;
   status: VariantStatus;
   priceTiers: PriceTierDto[];
+  physicalQty: number;
+  availableQty: number;
 }
 
 export interface ProductOptionDto {
@@ -204,6 +209,136 @@ export interface BulkPricePreviewRowDto {
   oldPrice: string | null;
   newPrice: string | null;
   error: string | null;
+}
+
+// ─── Inventory ───────────────────────────────────────────────────────────────
+
+/**
+ * Cost fields are omitted (undefined) for roles without `costs.view`; the API
+ * strips them, the client only renders what it receives.
+ */
+export interface CostFieldsDto {
+  avgUnitCost?: string | null;
+  stockValue?: string | null;
+  unvaluedQty?: number;
+}
+
+export interface BucketQuantitiesDto {
+  sellable: number;
+  damaged: number;
+  demo: number;
+  quarantine: number;
+}
+
+export interface StockRowDto extends BucketQuantitiesDto, CostFieldsDto {
+  variantId: string;
+  sku: string;
+  variantName: string;
+  productId: string;
+  productCode: string;
+  productName: string;
+  categoryName: string;
+  imageUrl: string | null;
+  reorderLevel: number;
+  byLocation: (BucketQuantitiesDto & { locationId: string; locationCode: string; locationName: string })[];
+  physical: number;
+  reserved: number;
+  available: number;
+  state: StockState;
+}
+
+export interface StockSummaryDto extends CostFieldsDto {
+  variants: number;
+  physical: number;
+  available: number;
+  damaged: number;
+  demo: number;
+  lowStock: number;
+  outOfStock: number;
+}
+
+export interface LedgerRowDto {
+  id: string;
+  documentId: string;
+  documentCode: string;
+  type: StockDocumentType;
+  /** The type a reversal undoes, so reports attribute it correctly. */
+  effectiveType: StockDocumentType;
+  businessDate: string;
+  createdAt: string;
+  variantId: string;
+  sku: string;
+  productName: string;
+  variantName: string;
+  locationCode: string;
+  bucket: StockBucket;
+  quantity: number;
+  unitCost?: string | null;
+  reference: string | null;
+  reason: string;
+  reasonCode: StockReasonCode | null;
+  createdByName: string | null;
+}
+
+export interface StockDocumentDto {
+  id: string;
+  code: string;
+  type: StockDocumentType;
+  /** For a reversal, the type it undoes; otherwise the same as `type`. */
+  effectiveType: StockDocumentType;
+  businessDate: string;
+  reason: string;
+  reasonCode: StockReasonCode | null;
+  reference: string | null;
+  notes: string | null;
+  sourceType: string | null;
+  createdByName: string | null;
+  createdAt: string;
+  reversalOf: { id: string; code: string } | null;
+  reversedBy: { id: string; code: string } | null;
+  canReverse: boolean;
+  lines: {
+    variantId: string;
+    sku: string;
+    productName: string;
+    variantName: string;
+    locationCode: string;
+    bucket: StockBucket;
+    quantity: number;
+    unitCost?: string | null;
+  }[];
+}
+
+/** Closing physical stock = opening + purchases + sales returns − sales − purchase returns − write-offs ± adjustments. */
+export interface StockReconciliationDto {
+  opening: number;
+  purchases: number;
+  salesReturns: number;
+  sales: number;
+  purchaseReturns: number;
+  writeOffs: number;
+  adjustments: number;
+  /** Transfers and status changes move units around without changing the total; always 0 overall. */
+  internalNet: number;
+  computedPhysical: number;
+  actualPhysical: number;
+}
+
+export interface VariantStockCardDto {
+  stock: StockRowDto;
+  reconciliation: StockReconciliationDto;
+  recent: LedgerRowDto[];
+}
+
+export interface VariantSearchResultDto {
+  id: string;
+  sku: string;
+  name: string;
+  productId: string;
+  productCode: string;
+  productName: string;
+  imageUrl: string | null;
+  status: VariantStatus;
 }
 
 /** Error envelope returned with every non-2xx response. */

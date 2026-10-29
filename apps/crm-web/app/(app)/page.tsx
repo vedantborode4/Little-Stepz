@@ -1,9 +1,11 @@
 "use client"
 
-import { CheckCircle2, Circle, CreditCard, MapPin, Store, UserCog } from "lucide-react"
+import { AlertTriangle, Boxes, CheckCircle2, Circle, CreditCard, MapPin, Store, UserCog, Wallet } from "lucide-react"
 import Link from "next/link"
 import { Card, PageHeader, StatCard } from "@/components/ui/Display"
+import { useStockSummary } from "@/features/inventory/api"
 import { useBusinessProfile, useLocations, useReceivingAccounts } from "@/features/settings/api"
+import { formatMoney, formatQty } from "@/lib/format"
 import { allNavItems, SHIPPED_PHASE } from "@/lib/nav"
 import { useAuthStore, useCan } from "@/store/auth.store"
 
@@ -14,6 +16,8 @@ export default function DashboardPage() {
   const profile = useBusinessProfile()
   const locations = useLocations()
   const accounts = useReceivingAccounts()
+  const canStock = can("inventory.view")
+  const stock = useStockSummary()
 
   const profileIsSample = profile.data?.legalName.includes("SAMPLE") ?? true
   const checklist = [
@@ -27,6 +31,44 @@ export default function DashboardPage() {
   return (
     <div className="space-y-5 sm:space-y-6">
       <PageHeader title={`Welcome, ${user?.name ?? ""}`} subtitle="Overview dashboard with live KPIs arrives in phase 13." />
+
+      {canStock && stock.data && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
+          <StatCard
+            title="Available units"
+            value={formatQty(stock.data.available)}
+            hint={`${formatQty(stock.data.physical)} physical`}
+            icon={<Boxes size={18} />}
+          />
+          <Link href="/inventory">
+            <StatCard
+              title="Low / out of stock"
+              value={`${stock.data.lowStock} / ${stock.data.outOfStock}`}
+              hint="Open inventory"
+              icon={<AlertTriangle size={18} />}
+              color="bg-yellow-50 dark:bg-yellow-500/15 text-yellow-600"
+            />
+          </Link>
+          <StatCard
+            title="Variants tracked"
+            value={stock.data.variants}
+            hint={`${stock.data.damaged} damaged · ${stock.data.demo} demo`}
+            icon={<MapPin size={18} />}
+            color="bg-blue-50 dark:bg-blue-500/15 text-blue-600"
+          />
+          {stock.data.stockValue !== undefined && (
+            <StatCard
+              title="Inventory cost value"
+              value={formatMoney(stock.data.stockValue)}
+              hint={
+                stock.data.unvaluedQty ? `${stock.data.unvaluedQty} units with unknown cost excluded` : "At weighted average landed cost"
+              }
+              icon={<Wallet size={18} />}
+              color="bg-green-50 dark:bg-green-500/15 text-green-600"
+            />
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-5">
         <StatCard title="Business" value={profile.data?.tradeName ?? "—"} hint={profile.data?.city} icon={<Store size={18} />} />

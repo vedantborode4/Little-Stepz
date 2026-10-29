@@ -12,6 +12,7 @@ import type {
 import { recordAudit } from "../../core/audit";
 import { withTransaction } from "../../core/db";
 import { ApiError, notFound, type RequestContext } from "../../core/http";
+import { physicalStockOf } from "../inventory/inventory.service";
 
 const PROFILE_ID = "default";
 
@@ -100,6 +101,10 @@ export async function updateLocation(id: string, input: UpdateLocationInput, ctx
     if (before.isActive && input.isActive === false) {
       const otherActive = await tx.location.count({ where: { isActive: true, id: { not: id } } });
       if (otherActive === 0) throw new ApiError(409, "LAST_LOCATION", "At least one active location is required");
+      const onHand = await physicalStockOf(tx, { locationId: id });
+      if (onHand > 0) {
+        throw new ApiError(409, "LOCATION_HAS_STOCK", `${before.name} still holds ${onHand} units. Transfer them out first.`);
+      }
     }
 
     const after = await tx.location.update({ where: { id }, data: input });

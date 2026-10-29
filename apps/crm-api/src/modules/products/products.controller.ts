@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import { z } from "zod";
 import {
   addVariantSchema,
   bulkPriceApplySchema,
@@ -123,4 +124,17 @@ export async function setMapping(req: Request, res: Response) {
   const { id } = idParam.parse(req.params);
   const input = setMappingSchema.parse(req.body);
   sendData(res, await mapping.setMapping(id, input, requestContext(req)));
+}
+
+const searchQuery = z.object({
+  q: z.string().trim().min(1).max(60),
+  includeArchived: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
+});
+
+export async function searchVariants(req: Request, res: Response) {
+  const { q, includeArchived } = searchQuery.parse(req.query);
+  sendData(res, await variants.searchVariants(q, includeArchived));
 }

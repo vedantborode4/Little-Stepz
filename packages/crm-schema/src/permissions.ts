@@ -13,6 +13,8 @@ export const PERMISSIONS = [
   "costs.view",
   "inventory.view",
   "inventory.move",
+  /** Opening stock, write-offs, adjustments and reversals — corrections that change physical stock. */
+  "inventory.adjust",
   "purchases.view",
   "purchases.manage",
   "purchases.receive",

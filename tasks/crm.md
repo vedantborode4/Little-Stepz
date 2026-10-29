@@ -8,7 +8,7 @@ Conventions: `docs/crm/CONVENTIONS.md`.
 
 - [x] **1. Foundation** — workspaces, crm-postgres, auth + roles, audit (append-only), app shell + UI kit, settings (business, locations, accounts), users
 - [x] **2. Products & Variants** — categories, brands, products, variant matrix, SKUs, pricing (regular/offer/wholesale/tiers), GST/HSN, images, website ID mapping, bulk price edit
-- [ ] **3. Inventory ledger** — movements + balances, opening stock, Store↔Godown transfers, buckets (damaged/demo), write-offs, low-stock alerts
+- [x] **3. Inventory ledger** — movements + balances, opening stock, Store↔Godown transfers, buckets (damaged/demo), write-offs, low-stock alerts
 - [ ] **4. Purchases & landed cost** — suppliers, shipments, FX, charges, allocation, input-GST split, receiving, weighted average, cost adjustments, purchase returns (Scenario A)
 - [ ] **5. Customers** — profiles, phone lookup, dedupe + merge, wholesale terms, customer prices, PII masking
 - [ ] **6. Sales / POS** — POS + order form, price resolution, discounts, GST back-out, reserve→deduct flow, COGS snapshot, receipts (Scenarios B, F)
@@ -51,3 +51,19 @@ Conventions: `docs/crm/CONVENTIONS.md`.
 - Found while verifying: an "All brands" filter sent `""` and silently failed UUID validation, which is now fixed in the contracts. The product detail table was cramped at 1366px; the details card now stacks below it until 2xl.
 - Deferred, with reason: image **upload** (URL field for now) until storage on the VPS is decided; customer-specific prices move to phase 5 (needs customers).
 - Added `.prettierrc.json` per CRM package (the root has none) and formatted all CRM files.
+
+## Phase 3 — Inventory ledger
+
+- [x] Schema: StockDocument + StockMovement (append-only), StockBalance (CHECK ≥ 0), VariantCost; buckets SELLABLE/DAMAGED/DEMO/QUARANTINE
+- [x] Engine: single writer, sorted row locks per variant, guarded decrements, weighted average with unknown-cost units kept apart, reversal at original cost
+- [x] Operations: opening stock (once per item; cost optional), Store↔Godown transfers, status changes, write-offs, adjustments, reversals; new `inventory.adjust` permission (admin)
+- [x] Queries: stock levels (SQL, filters/sort/state, CSV/XLSX), summary, ledger, document detail, variant stock card with reconciliation; costs stripped for roles without `costs.view`
+- [x] Guards: can't archive a variant/product or deactivate a location that holds stock
+- [x] Web: stock levels (per-location columns, low/out filters, cost value), movements ledger, record-movement form with item search (+ "all variants of product"), stock card, document modal with reversal; stock shown on products list/detail; dashboard KPIs
+- [x] Demo: SAMPLE opening stock (YEGAO 5/8/4/3 = 20, Hot Wheels 24 with unknown cost, Stanley 12 at Godown)
+- [x] Tests: 21 new (57 total) — cost maths, 20-unit parent total, damaged not double counted, transfers, atomic failure, concurrent removals never negative, unknown cost handling, reversals, guards, role visibility, ledger invariants
+
+### Phase 3 review
+- Exit criteria met: 5/8/4/3 gives a parent total of 20. Moving 2 to damaged keeps physical stock at 8 and lowers sellable to 6. Negative stock is blocked, including under 5 parallel requests.
+- Found in the browser: the stock list's default sort referred to table aliases from inside a CTE, which caused a 500. It's now fixed and covered by a test for every sort. Internal moves showed "Unknown" cost, which was misleading, so they now show "—"; "Unknown" is reserved for genuinely missing costs.
+- Costing note: costs follow posting order. Backdating changes report dates, not costs already recorded.
