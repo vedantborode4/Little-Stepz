@@ -8,13 +8,15 @@ import { toast } from "sonner"
 import { formatMobile, INDIAN_STATES, type CustomerContactDto, type CustomerDetailDto, type CustomerListItemDto } from "@repo/crm-schema"
 import Button from "@/components/ui/Button"
 import ConfirmDialog from "@/components/ui/ConfirmDialog"
-import { Badge, Card, DetailRow, EmptyState, PageHeader, Skeleton } from "@/components/ui/Display"
+import { Badge, Card, DetailRow, EmptyState, PageHeader, Skeleton, StatCard } from "@/components/ui/Display"
 import { Field, Input, Textarea } from "@/components/ui/Form"
 import Modal from "@/components/ui/Modal"
 import { errorMessage } from "@/lib/api-error"
 import { formatDate, formatMoney } from "@/lib/format"
 import { useCan } from "@/store/auth.store"
 import VariantPicker from "../inventory/VariantPicker"
+import { useOrders } from "../sales/api"
+import { OrderStatusBadge } from "../sales/shared"
 import { revealContact, useCustomer, useMergeCustomer, useRemoveCustomerPrice, useSaveCustomer, useSetCustomerPrice } from "./api"
 import CustomerForm from "./CustomerForm"
 import CustomerPicker from "./CustomerPicker"
@@ -311,6 +313,31 @@ function MergeModal({ customer, onClose }: { customer: CustomerDetailDto; onClos
   )
 }
 
+function RecentOrders({ customerId }: { customerId: string }) {
+  const { data } = useOrders({ customerId, limit: 10, sort: "orderDate:desc" })
+  return (
+    <Card title={data && data.total > 10 ? `Recent orders (10 of ${data.total})` : "Recent orders"}>
+      {!data?.items.length ? (
+        <p className="text-sm text-muted">No orders yet.</p>
+      ) : (
+        <ul className="divide-y divide-border -my-2">
+          {data.items.map((o) => (
+            <li key={o.id}>
+              <Link href={`/sales/${o.id}`} className="flex items-center gap-3 py-2 text-sm hover:text-primary">
+                <span className="font-mono text-xs">{o.code}</span>
+                <span className="text-muted">{formatDate(o.orderDate)}</span>
+                <span className="flex-1" />
+                <span className="tabular font-medium">{formatMoney(o.grandTotal)}</span>
+                <OrderStatusBadge status={o.status} />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
+  )
+}
+
 function CustomerView({ customer }: { customer: CustomerDetailDto }) {
   const can = useCan()
   const save = useSaveCustomer()
@@ -378,6 +405,12 @@ function CustomerView({ customer }: { customer: CustomerDetailDto }) {
 
       <div className="grid grid-cols-1 2xl:grid-cols-3 gap-4 sm:gap-5 items-start">
         <div className="2xl:col-span-2 space-y-4 sm:space-y-5">
+          <div className="grid grid-cols-3 gap-3 sm:gap-5">
+            <StatCard title="Orders" value={customer.stats.orders} />
+            <StatCard title="Lifetime value" value={formatMoney(customer.stats.lifetimeValue)} hint="Fulfilled orders, incl. GST" />
+            <StatCard title="Last order" value={<span className="text-base">{formatDate(customer.stats.lastOrderDate)}</span>} />
+          </div>
+          {can("sales.view") && <RecentOrders customerId={customer.id} />}
           <PricesCard customer={customer} />
         </div>
         <div className="space-y-4 sm:space-y-5">

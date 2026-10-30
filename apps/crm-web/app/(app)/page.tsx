@@ -1,11 +1,24 @@
 "use client"
 
-import { AlertTriangle, Boxes, CheckCircle2, Circle, CreditCard, MapPin, Store, UserCog, Wallet } from "lucide-react"
+import {
+  AlertTriangle,
+  Boxes,
+  CheckCircle2,
+  Circle,
+  CreditCard,
+  IndianRupee,
+  MapPin,
+  Store,
+  TrendingUp,
+  UserCog,
+  Wallet,
+} from "lucide-react"
 import Link from "next/link"
 import { Card, PageHeader, StatCard } from "@/components/ui/Display"
 import { useStockSummary } from "@/features/inventory/api"
+import { useSalesSummary } from "@/features/sales/api"
 import { useBusinessProfile, useLocations, useReceivingAccounts } from "@/features/settings/api"
-import { formatMoney, formatQty } from "@/lib/format"
+import { formatMoney, formatQty, todayIST } from "@/lib/format"
 import { allNavItems, SHIPPED_PHASE } from "@/lib/nav"
 import { useAuthStore, useCan } from "@/store/auth.store"
 
@@ -18,6 +31,8 @@ export default function DashboardPage() {
   const accounts = useReceivingAccounts()
   const canStock = can("inventory.view")
   const stock = useStockSummary()
+  const today = todayIST()
+  const sales = useSalesSummary({ from: today, to: today }, can("sales.view"))
 
   const profileIsSample = profile.data?.legalName.includes("SAMPLE") ?? true
   const checklist = [
@@ -31,6 +46,39 @@ export default function DashboardPage() {
   return (
     <div className="space-y-5 sm:space-y-6">
       <PageHeader title={`Welcome, ${user?.name ?? ""}`} subtitle="Overview dashboard with live KPIs arrives in phase 13." />
+
+      {sales.data && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
+          <Link href="/sales">
+            <StatCard
+              title="Today's sales"
+              value={formatMoney(sales.data.grossSales)}
+              hint={`${sales.data.orders} orders · ${sales.data.units} items, incl. GST`}
+              icon={<IndianRupee size={18} />}
+            />
+          </Link>
+          <StatCard
+            title="Net sales today"
+            value={formatMoney(sales.data.netSales)}
+            hint={`Excl. ${formatMoney(sales.data.gst)} GST`}
+            icon={<IndianRupee size={18} />}
+            color="bg-blue-50 dark:bg-blue-500/15 text-blue-600"
+          />
+          {sales.data.grossProfit !== undefined && (
+            <StatCard
+              title="Gross profit today"
+              value={formatMoney(sales.data.grossProfit)}
+              hint={
+                sales.data.unknownCostUnits
+                  ? `${sales.data.unknownCostUnits} units with unknown cost left out`
+                  : "Net sales − cost of goods"
+              }
+              icon={<TrendingUp size={18} />}
+              color="bg-green-50 dark:bg-green-500/15 text-green-600"
+            />
+          )}
+        </div>
+      )}
 
       {canStock && stock.data && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">

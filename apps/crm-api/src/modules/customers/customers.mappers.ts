@@ -1,5 +1,5 @@
 import type { Prisma } from "@repo/crm-db/client";
-import type { CustomerContactDto, CustomerDetailDto, CustomerListItemDto } from "@repo/crm-schema";
+import type { CustomerContactDto, CustomerDetailDto, CustomerListItemDto, CustomerStatsDto } from "@repo/crm-schema";
 import { moneyOrNull, money } from "../../core/money";
 import { maskEmail, maskMobile } from "../../core/pii";
 
@@ -39,7 +39,7 @@ export const toCustomerListItemDto = (c: ListRow): CustomerListItemDto => ({
   createdAt: c.createdAt.toISOString(),
 });
 
-export const toCustomerDetailDto = (c: DetailRow): CustomerDetailDto => ({
+export const toCustomerDetailDto = (c: DetailRow, stats: CustomerStatsDto): CustomerDetailDto => ({
   ...toCustomerListItemDto(c),
   whatsapp: maskMobile(c.whatsapp),
   addressLine: c.addressLine,
@@ -57,6 +57,7 @@ export const toCustomerDetailDto = (c: DetailRow): CustomerDetailDto => ({
     wholesalePrice: moneyOrNull(p.variant.wholesalePrice),
     updatedAt: p.updatedAt.toISOString(),
   })),
+  stats,
   updatedAt: c.updatedAt.toISOString(),
 });
 

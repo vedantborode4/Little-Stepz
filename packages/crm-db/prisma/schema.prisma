@@ -48,6 +48,8 @@ model User {
   purchasesReceived PurchaseShipment[] @relation("PurchaseReceivedBy")
   costAdjustments   CostAdjustment[]
   purchaseReturns   PurchaseReturn[]
+  salesOrders       SalesOrder[]
+  salesOrderEvents  SalesOrderEvent[]
 }
 
 /// Opaque refresh tokens, stored only as a SHA-256 hash. Each login starts a
@@ -128,6 +130,8 @@ model Location {
   stockBalances   StockBalance[]
   purchases       PurchaseShipment[]
   purchaseReturns PurchaseReturn[]
+  salesOrders     SalesOrder[]
+  reservations    Reservation[]
 }
 
 enum PaymentMethod {
@@ -303,6 +307,8 @@ model Variant {
   costAdjustmentLines CostAdjustmentLine[]
   purchaseReturnLines PurchaseReturnLine[]
   customerPrices      CustomerPrice[]
+  salesOrderLines     SalesOrderLine[]
+  reservations        Reservation[]
 
   @@unique([productId, optionKey])
   @@index([productId])
@@ -412,6 +418,7 @@ model StockDocument {
   createdAt    DateTime          @default(now())
 
   lines          StockMovement[]
+  salesOrder     SalesOrder?       @relation("SalesOrderStockDocument")
   purchase       PurchaseShipment? @relation("PurchaseStockDocument")
   purchaseReturn PurchaseReturn?   @relation("PurchaseReturnStockDocument")
 
@@ -671,7 +678,8 @@ model Customer {
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 
-  prices CustomerPrice[]
+  prices      CustomerPrice[]
+  salesOrders SalesOrder[]
 
   @@index([nameKey(ops: raw("gin_trgm_ops"))], type: Gin)
   @@index([pincode])
@@ -690,4 +698,169 @@ model CustomerPrice {
 
   @@id([customerId, variantId])
   @@index([variantId])
+}
+
+// ─── Sales ───────────────────────────────────────────────────────────────────
+
+enum SalesOrderType {
+  REGULAR
+  PRE_ORDER
+}
+
+enum SalesChannel {
+  STORE
+  WEBSITE
+  WHATSAPP
+  INSTAGRAM
+  FACEBOOK
+  WHOLESALE
+  OTHER
+}
+
+enum SalesOrderStatus {
+  DRAFT
+  CONFIRMED
+  PACKED
+  DISPATCHED
+  DELIVERED
+  COMPLETED
+  CANCELLED
+}
+
+enum FulfilmentMethod {
+  COUNTER
+  DELIVERY
+}
+
+enum PriceSource {
+  CUSTOMER
+  TIER
+  WHOLESALE
+  OFFER
+  REGULAR
+  MANUAL
+}
+
+/// A sale or order. All amounts are GST-inclusive except the taxable totals.
+/// Revenue is recognised at `fulfilledAt` (handover or dispatch) — never before,
+/// so money taken earlier is an advance. Once past DRAFT the amounts are frozen
+/// by a trigger; corrections are returns and refunds, never edits.
+model SalesOrder {
+  id              String           @id @default(uuid())
+  /// SO-<financial year>-00001, e.g. SO-2627-00001 for FY 2026-27.
+  code            String           @unique
+  type            SalesOrderType   @default(REGULAR)
+  channel         SalesChannel
+  fulfilment      FulfilmentMethod
+  status          SalesOrderStatus @default(DRAFT)
+  /// Null for walk-in sales.
+  customerId      String?
+  customer        Customer?        @relation(fields: [customerId], references: [id])
+  /// Name printed on the receipt, frozen at sale.
+  customerName    String?
+  locationId      String
+  location        Location         @relation(fields: [locationId], references: [id])
+  /// Wholesale price rules applied (wholesale customer or channel).
+  wholesale       Boolean          @default(false)
+  isInterState    Boolean          @default(false)
+  orderDate       DateTime         @db.Date
+  dueDate         DateTime?        @db.Date
+  expectedArrival DateTime?        @db.Date
+  subtotal        Decimal          @db.Decimal(14, 2)
+  lineDiscounts   Decimal          @default(0) @db.Decimal(14, 2)
+  orderDiscount   Decimal          @default(0) @db.Decimal(14, 2)
+  shippingCharged Decimal          @default(0) @db.Decimal(14, 2)
+  grandTotal      Decimal          @db.Decimal(14, 2)
+  taxableTotal    Decimal          @db.Decimal(14, 2)
+  gstTotal        Decimal          @db.Decimal(14, 2)
+  externalRef     String?
+  notes           String?
+  /// Client-generated per POS checkout; a retry returns the same sale.
+  idempotencyKey  String?          @unique
+  confirmedAt     DateTime?
+  fulfilledAt     DateTime?
+  fulfilledDate   DateTime?        @db.Date
+  cancelledAt     DateTime?
+  cancelReason    String?
+  stockDocumentId String?          @unique
+  stockDocument   StockDocument?   @relation("SalesOrderStockDocument", fields: [stockDocumentId], references: [id])
+  createdById     String?
+  createdBy       User?            @relation(fields: [createdById], references: [id])
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  lines  SalesOrderLine[]
+  events SalesOrderEvent[]
+
+  @@index([status, orderDate])
+  @@index([customerId])
+  @@index([fulfilledDate])
+  @@index([channel])
+  @@index([type, status])
+}
+
+/// Price snapshot per item. `cogs` is fixed when the stock leaves (null until then).
+model SalesOrderLine {
+  id                 String      @id @default(uuid())
+  orderId            String
+  order              SalesOrder  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  variantId          String
+  variant            Variant     @relation(fields: [variantId], references: [id])
+  position           Int
+  quantity           Int
+  /// List regular price at the time of sale.
+  regularPrice       Decimal     @db.Decimal(14, 2)
+  /// Price per unit charged, before discounts.
+  unitPrice          Decimal     @db.Decimal(14, 2)
+  priceSource        PriceSource
+  lineDiscount       Decimal     @default(0) @db.Decimal(14, 2)
+  orderDiscountShare Decimal     @default(0) @db.Decimal(14, 2)
+  lineTotal          Decimal     @db.Decimal(14, 2)
+  gstRate            Decimal     @db.Decimal(5, 2)
+  taxableValue       Decimal     @db.Decimal(14, 2)
+  gstAmount          Decimal     @db.Decimal(14, 2)
+  /// Cost of the units with a known cost, fixed at deduction.
+  cogs               Decimal?    @db.Decimal(18, 6)
+  /// Units that left with an unknown cost (excluded from margin, never guessed).
+  unknownCostQty     Int         @default(0)
+
+  reservation Reservation?
+
+  @@unique([orderId, variantId])
+  @@index([variantId])
+}
+
+/// Units held for a confirmed order. Not a stock movement: physical stock is
+/// unchanged and only "available" drops. Released (never deleted) when the
+/// order is fulfilled or cancelled.
+model Reservation {
+  id            String         @id @default(uuid())
+  orderLineId   String         @unique
+  orderLine     SalesOrderLine @relation(fields: [orderLineId], references: [id])
+  variantId     String
+  variant       Variant        @relation(fields: [variantId], references: [id])
+  locationId    String
+  location      Location       @relation(fields: [locationId], references: [id])
+  quantity      Int
+  createdAt     DateTime       @default(now())
+  releasedAt    DateTime?
+  /// FULFILLED or CANCELLED.
+  releaseReason String?
+
+  @@index([variantId, locationId, releasedAt])
+}
+
+/// Status history shown as the order timeline. Append-only.
+model SalesOrderEvent {
+  id          String            @id @default(uuid())
+  orderId     String
+  order       SalesOrder        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  action      String
+  status      SalesOrderStatus?
+  note        String?
+  createdById String?
+  createdBy   User?             @relation(fields: [createdById], references: [id])
+  createdAt   DateTime          @default(now())
+
+  @@index([orderId, createdAt])
 }

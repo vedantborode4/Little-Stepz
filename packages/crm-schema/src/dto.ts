@@ -1,5 +1,6 @@
 import type { CurrencyCode, MappingState, PriceField, ProductStatus, VariantStatus } from "./catalog";
 import type { CustomerType, DuplicateReason } from "./customers";
+import type { FulfilmentMethod, PriceSource, SalesChannel, SalesOrderStatus, SalesOrderType } from "./sales";
 import type { LocationType, PaymentMethod, Role } from "./enums";
 import type { StockBucket, StockDocumentType, StockReasonCode, StockState } from "./inventory";
 import type { AllocationMethod, ChargeType, PurchaseStatus } from "./purchases";
@@ -499,6 +500,13 @@ export interface CustomerPriceDto {
   updatedAt: string;
 }
 
+/** Lifetime value counts fulfilled orders only (money for unfulfilled orders is an advance). */
+export interface CustomerStatsDto {
+  orders: number;
+  lifetimeValue: string;
+  lastOrderDate: string | null;
+}
+
 export interface CustomerDetailDto extends CustomerListItemDto {
   whatsapp: string | null;
   addressLine: string | null;
@@ -506,6 +514,7 @@ export interface CustomerDetailDto extends CustomerListItemDto {
   notes: string | null;
   mergedFrom: { id: string; code: string; name: string }[];
   prices: CustomerPriceDto[];
+  stats: CustomerStatsDto;
   updatedAt: string;
 }
 
@@ -524,6 +533,141 @@ export interface DuplicatePairDto {
   b: DuplicateMatchDto;
   reason: DuplicateReason;
   similarity: number;
+}
+
+// ─── Sales ───────────────────────────────────────────────────────────────────
+
+/** An item as POS sees it: list prices and what can be sold from the chosen location now. */
+export interface SellableItemDto {
+  variantId: string;
+  sku: string;
+  productName: string;
+  variantName: string;
+  imageUrl: string | null;
+  regularPrice: string;
+  offerPrice: string | null;
+  gstRate: string;
+  /** Sellable at the location minus units reserved for confirmed orders. */
+  available: number;
+}
+
+/** Every amount is GST-inclusive except `taxableValue` (net of GST). */
+export interface SaleLinePricingDto {
+  variantId: string;
+  sku: string;
+  productName: string;
+  variantName: string;
+  quantity: number;
+  regularPrice: string;
+  unitPrice: string;
+  priceSource: PriceSource;
+  lineDiscount: string;
+  orderDiscountShare: string;
+  lineTotal: string;
+  gstRate: string;
+  taxableValue: string;
+  gstAmount: string;
+}
+
+export interface SaleTotalsDto {
+  units: number;
+  /** Σ quantity × unit price, before any discount. */
+  subtotal: string;
+  lineDiscounts: string;
+  orderDiscount: string;
+  shippingCharged: string;
+  grandTotal: string;
+  taxableTotal: string;
+  gstTotal: string;
+}
+
+export interface SaleQuoteDto {
+  lines: (SaleLinePricingDto & { available: number })[];
+  totals: SaleTotalsDto;
+  /** Wholesale pricing applies (wholesale customer or channel). */
+  wholesale: boolean;
+  isInterState: boolean;
+}
+
+export interface SalesOrderListItemDto {
+  id: string;
+  code: string;
+  type: SalesOrderType;
+  channel: SalesChannel;
+  fulfilment: FulfilmentMethod;
+  status: SalesOrderStatus;
+  customer: { id: string; code: string; name: string } | null;
+  orderDate: string;
+  units: number;
+  grandTotal: string;
+  fulfilledAt: string | null;
+  createdAt: string;
+}
+
+/**
+ * Profit is only known once stock has left (the cost is fixed at that moment).
+ * `grossProfit` is net of GST; `profitBeforeGst` is the simple price − cost figure.
+ */
+export interface OrderProfitDto {
+  netSales: string;
+  cogs: string;
+  grossProfit: string;
+  marginPercent: string | null;
+  profitBeforeGst: string;
+  /** Units whose cost is unknown; their profit is left out rather than guessed. */
+  unknownCostUnits: number;
+}
+
+export interface SalesOrderLineDto extends SaleLinePricingDto {
+  id: string;
+  reservedQty: number;
+  cogs?: string | null;
+  unknownCostQty?: number;
+}
+
+export interface SalesOrderEventDto {
+  id: string;
+  action: string;
+  status: SalesOrderStatus | null;
+  note: string | null;
+  userName: string | null;
+  createdAt: string;
+}
+
+export interface SalesOrderDetailDto extends SalesOrderListItemDto {
+  location: RefDto;
+  customerName: string | null;
+  dueDate: string | null;
+  expectedArrival: string | null;
+  isInterState: boolean;
+  externalRef: string | null;
+  notes: string | null;
+  confirmedAt: string | null;
+  fulfilledDate: string | null;
+  cancelledAt: string | null;
+  cancelReason: string | null;
+  createdByName: string | null;
+  stockDocument: { id: string; code: string } | null;
+  lines: SalesOrderLineDto[];
+  totals: SaleTotalsDto;
+  profit?: OrderProfitDto | null;
+  events: SalesOrderEventDto[];
+}
+
+/** Revenue counts once, when an order is fulfilled (handed over or dispatched). */
+export interface SalesSummaryDto {
+  from: string;
+  to: string;
+  orders: number;
+  units: number;
+  grossSales: string;
+  netSales: string;
+  gst: string;
+  discounts: string;
+  cogs?: string;
+  grossProfit?: string;
+  unknownCostUnits?: number;
+  byChannel: { channel: SalesChannel; orders: number; grossSales: string }[];
 }
 
 /** Error envelope returned with every non-2xx response. */

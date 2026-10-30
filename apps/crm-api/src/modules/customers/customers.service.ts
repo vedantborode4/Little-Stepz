@@ -14,7 +14,8 @@ import { recordAudit } from "../../core/audit";
 import { withTransaction } from "../../core/db";
 import { ApiError, notFound, type RequestContext } from "../../core/http";
 import { buildOrderBy, pageWindow, paginated } from "../../core/list";
-import { dec } from "../../core/money";
+import { fromDbDate } from "../../core/dates";
+import { dec, Decimal, money } from "../../core/money";
 import { maskMobile } from "../../core/pii";
 import { nameKey, nextCode } from "../../core/sequence";
 import {
@@ -95,9 +96,21 @@ export async function exportCustomersWithContacts(query: CustomerListQuery, ctx:
 }
 
 export async function getCustomer(id: string) {
-  const row = await prisma.customer.findUnique({ where: { id }, include: customerDetailInclude });
+  const [row, orders, fulfilled] = await Promise.all([
+    prisma.customer.findUnique({ where: { id }, include: customerDetailInclude }),
+    prisma.salesOrder.aggregate({
+      where: { customerId: id, status: { notIn: ["DRAFT", "CANCELLED"] } },
+      _count: true,
+      _max: { orderDate: true },
+    }),
+    prisma.salesOrder.aggregate({ where: { customerId: id, fulfilledAt: { not: null } }, _sum: { grandTotal: true } }),
+  ]);
   if (!row) throw notFound("Customer");
-  return toCustomerDetailDto(row);
+  return toCustomerDetailDto(row, {
+    orders: orders._count,
+    lastOrderDate: orders._max.orderDate ? fromDbDate(orders._max.orderDate) : null,
+    lifetimeValue: money(new Decimal((fulfilled._sum.grandTotal ?? 0).toString())),
+  });
 }
 
 export async function revealContact(id: string, ctx: RequestContext) {
@@ -283,8 +296,9 @@ async function reassignCustomerReferences(tx: Tx, fromId: string, toId: string) 
   const movable = fromPrices.filter((p) => !kept.has(p.variantId)).map((p) => p.variantId);
   await tx.customerPrice.updateMany({ where: { customerId: fromId, variantId: { in: movable } }, data: { customerId: toId } });
   const dropped = await tx.customerPrice.deleteMany({ where: { customerId: fromId } });
+  const orders = await tx.salesOrder.updateMany({ where: { customerId: fromId }, data: { customerId: toId } });
 
-  return { pricesMoved: movable.length, pricesDropped: dropped.count };
+  return { pricesMoved: movable.length, pricesDropped: dropped.count, ordersMoved: orders.count };
 }
 
 export async function mergeCustomer(sourceId: string, input: MergeCustomerInput, ctx: RequestContext) {

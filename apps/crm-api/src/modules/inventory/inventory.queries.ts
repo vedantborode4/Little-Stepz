@@ -43,17 +43,19 @@ interface StockSqlRow {
   demo: number;
   quarantine: number;
   physical: number;
+  reserved: number;
   available: number;
   state: StockState;
 }
 
 /**
  * Stock per variant in one SQL pass, so state filters (low / out) and sorting
- * by quantity happen in the database and paginate correctly. Reservations are
- * added by the sales module; until then available = sellable.
+ * by quantity happen in the database and paginate correctly. Available is
+ * sellable minus units reserved for confirmed orders.
  */
 function stockSql(query: Pick<StockListQuery, "categoryId" | "locationId" | "state" | "q" | "includeEmpty">, variantId?: string) {
   const locationFilter = query.locationId ? Prisma.sql`WHERE "locationId" = ${query.locationId}` : Prisma.empty;
+  const reservationFilter = query.locationId ? Prisma.sql`AND "locationId" = ${query.locationId}` : Prisma.empty;
   // A single-variant lookup (the stock card) shows archived items too; lists hide them unless they still hold stock.
   const conditions: Prisma.Sql[] = variantId
     ? [Prisma.sql`v.id = ${variantId}`]
@@ -76,16 +78,22 @@ function stockSql(query: Pick<StockListQuery, "categoryId" | "locationId" | "sta
       FROM "StockBalance" ${locationFilter}
       GROUP BY "variantId"
     ),
+    res AS (
+      SELECT "variantId", SUM(quantity)::int AS reserved
+      FROM "Reservation" WHERE "releasedAt" IS NULL ${reservationFilter}
+      GROUP BY "variantId"
+    ),
     rows AS (
       SELECT v.id AS "variantId", v.sku, v.name AS "variantName", v.position, v."reorderLevel",
         p.id AS "productId", p.code AS "productCode", p.name AS "productName", p."imageUrl", c.name AS "categoryName",
         COALESCE(b.sellable, 0) AS sellable, COALESCE(b.damaged, 0) AS damaged, COALESCE(b.demo, 0) AS demo,
         COALESCE(b.quarantine, 0) AS quarantine, COALESCE(b.physical, 0) AS physical,
-        COALESCE(b.sellable, 0) AS available
+        COALESCE(r.reserved, 0) AS reserved, COALESCE(b.sellable, 0) - COALESCE(r.reserved, 0) AS available
       FROM "Variant" v
       JOIN "Product" p ON p.id = v."productId"
       JOIN "Category" c ON c.id = p."categoryId"
       LEFT JOIN bal b ON b."variantId" = v.id
+      LEFT JOIN res r ON r."variantId" = v.id
       WHERE ${Prisma.join(conditions, " AND ")}
     ),
     stated AS (
@@ -128,7 +136,6 @@ async function attachLocationsAndCosts(rows: StockSqlRow[], visibility: Visibili
 
     const dto: StockRowDto = {
       ...r,
-      reserved: 0,
       byLocation: [...byLocation.values()].sort((a, b) => a.locationCode.localeCompare(b.locationCode)),
     };
     if (visibility.costs) {

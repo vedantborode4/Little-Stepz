@@ -66,6 +66,44 @@ async function lockCostStates(tx: Tx, variantIds: string[]): Promise<Map<string,
   );
 }
 
+/** Takes the per-variant stock lock without posting anything (reservations need the same serialisation). */
+export async function lockVariants(tx: Tx, variantIds: string[]) {
+  await lockCostStates(tx, variantIds);
+}
+
+/**
+ * Units reserved for confirmed orders can't be taken by anything else: after a
+ * removal from SELLABLE, what remains at that location must still cover the
+ * active reservations there. Fulfilling an order releases its own reservation
+ * first, so it passes; a walk-in sale or write-off of held units does not.
+ */
+async function assertReservationsCovered(tx: Tx, lines: EngineLine[]) {
+  const keys = new Map<string, EngineLine>();
+  for (const l of lines) if (l.quantity < 0 && l.bucket === "SELLABLE") keys.set(`${l.variantId}|${l.locationId}`, l);
+  for (const line of keys.values()) {
+    const [balance, reserved] = await Promise.all([
+      tx.stockBalance.findUnique({
+        where: { variantId_locationId_bucket: { variantId: line.variantId, locationId: line.locationId, bucket: "SELLABLE" } },
+      }),
+      tx.reservation.aggregate({
+        where: { variantId: line.variantId, locationId: line.locationId, releasedAt: null },
+        _sum: { quantity: true },
+      }),
+    ]);
+    const held = reserved._sum.quantity ?? 0;
+    const left = balance?.quantity ?? 0;
+    if (left >= held) continue;
+    const variant = await tx.variant.findUnique({ where: { id: line.variantId }, select: { sku: true } });
+    const free = left + -line.quantity - held;
+    throw new ApiError(
+      409,
+      "STOCK_RESERVED",
+      `Only ${Math.max(free, 0)} of ${variant?.sku} are free; ${held} are reserved for confirmed orders`,
+      { sku: variant?.sku, available: Math.max(free, 0), reserved: held, needed: -line.quantity },
+    );
+  }
+}
+
 async function insufficientStock(tx: Tx, line: EngineLine, needed: number): Promise<never> {
   const [variant, location, balance] = await Promise.all([
     tx.variant.findUnique({ where: { id: line.variantId }, select: { sku: true } }),
@@ -147,6 +185,7 @@ export async function postStockDocument(tx: Tx, ctx: RequestContext, input: Post
   // Removals first, so a document that moves units out and back in never trips the guard on itself.
   const ordered = [...input.lines].sort((a, b) => Math.sign(a.quantity) - Math.sign(b.quantity));
   for (const line of ordered) await applyBalance(tx, line);
+  await assertReservationsCovered(tx, input.lines);
 
   const rows = input.lines.flatMap((line) => applyCost(states, line));
 

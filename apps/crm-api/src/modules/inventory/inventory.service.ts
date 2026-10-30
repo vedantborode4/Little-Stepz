@@ -11,6 +11,7 @@ import { resolveBusinessDate } from "../../core/dates";
 import { withTransaction } from "../../core/db";
 import { ApiError, notFound, type RequestContext } from "../../core/http";
 import { dec } from "../../core/money";
+import { reservedTotals } from "./reservations";
 import { postStockDocument, type EngineLine } from "./stock-engine";
 
 /** Documents whose units only move around; their reversal needs no cost effect. */
@@ -197,14 +198,17 @@ export async function reverseStockDocument(id: string, input: ReverseStockDocume
 
 // ─── Read helpers used by other modules ──────────────────────────────────────
 
-/** Physical and available units per variant (available = sellable − reserved; reservations arrive with sales). */
+/** Physical and available units per variant across locations (available = sellable − reserved). */
 export async function stockTotals(variantIds: string[]): Promise<Map<string, { physical: number; available: number }>> {
   if (variantIds.length === 0) return new Map();
-  const rows = await prisma.stockBalance.groupBy({
-    by: ["variantId", "bucket"],
-    where: { variantId: { in: variantIds } },
-    _sum: { quantity: true },
-  });
+  const [rows, reserved] = await Promise.all([
+    prisma.stockBalance.groupBy({
+      by: ["variantId", "bucket"],
+      where: { variantId: { in: variantIds } },
+      _sum: { quantity: true },
+    }),
+    reservedTotals(prisma, variantIds),
+  ]);
   const totals = new Map(variantIds.map((id) => [id, { physical: 0, available: 0 }]));
   for (const r of rows) {
     const t = totals.get(r.variantId)!;
@@ -212,6 +216,7 @@ export async function stockTotals(variantIds: string[]): Promise<Map<string, { p
     t.physical += qty;
     if (r.bucket === "SELLABLE") t.available += qty;
   }
+  for (const [variantId, held] of reserved) totals.get(variantId)!.available -= held;
   return totals;
 }
 

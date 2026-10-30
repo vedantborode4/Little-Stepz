@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { listQuery, money, optionalText, requiredText } from "./common";
+import { listQuery, money, optionalFilterId, optionalId, optionalText, requiredText } from "./common";
 
 export const PRODUCT_STATUSES = ["DRAFT", "ACTIVE", "DISCONTINUED", "ARCHIVED"] as const;
 export type ProductStatus = (typeof PRODUCT_STATUSES)[number];
@@ -79,11 +79,6 @@ const httpsUrl = z
 const reorderLevel = z.coerce.number().int().min(0).max(1_000_000);
 
 /** Optional reference picked from a select: "" (nothing chosen) means none. */
-const optionalId = z
-  .union([z.literal(""), z.string().uuid()])
-  .transform((v) => (v === "" ? null : v))
-  .nullish();
-
 function checkPriceOrder(v: { regularPrice?: string; offerPrice?: string | null; wholesalePrice?: string | null }, ctx: z.RefinementCtx) {
   if (!v.regularPrice) return;
   const regular = Number(v.regularPrice);
@@ -317,11 +312,6 @@ export const BULK_PRICE_OPERATION_LABELS: Record<BulkPriceOperation, string> = {
 };
 
 /** A filter select's "All" option sends "", which means no filter. */
-const optionalFilterId = z
-  .union([z.literal(""), z.string().uuid()])
-  .transform((v) => v || undefined)
-  .optional();
-
 export const bulkPricePreviewSchema = z
   .object({
     categoryId: optionalFilterId,

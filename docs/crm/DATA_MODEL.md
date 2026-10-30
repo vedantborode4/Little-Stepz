@@ -92,3 +92,34 @@ Source of truth: `packages/crm-db/prisma/schema.prisma`. This page explains the 
 **Contact privacy.** Lists, profiles, pickers and normal exports show masked contacts (`+91 ••••••3210`, `r•••@gmail.com`) for every role.
 - The full values only leave the API through `POST /customers/:id/contact`, which is audited every time, or through an admin's full-contact export, which is also audited.
 - Search matches a full number exactly, or the last four digits that are visible anyway. Other fragments don't match, so the list can't be used to work out whose number is whose.
+
+## Phase 6: sales and POS
+
+| Model | Purpose | Key rules |
+|---|---|---|
+| `SalesOrder` | A sale or order: `SO-<FY>-00001` code (e.g. `SO-2627-00001` for FY 2026-27), type (order / pre-order), channel, fulfilment (counter or delivery), customer (null = walk-in) with the name frozen for receipts, stock location, order/due dates, GST-inclusive totals plus taxable and GST totals | Past `DRAFT` a trigger freezes its amounts, terms, channel, location and dates. Status, fulfilment/cancellation stamps, notes and the customer link (for merges) stay updatable. `fulfilledAt`/`stockDocumentId` can be set once. POS sales carry a unique `idempotencyKey`. |
+| `SalesOrderLine` | Price snapshot per item: list regular price, unit price charged and its **source** (customer / tier / wholesale / offer / regular / manual), line discount, share of the order discount, line total, GST rate, taxable value, GST, and the **cost of goods fixed at deduction** | Unique per variant in an order. After `DRAFT` only `cogs`/`unknownCostQty` may be filled in, and only once. Units that left with an unknown cost are counted, never priced. |
+| `Reservation` | Units held for a confirmed order line at its location | Not a stock movement: physical stock is unchanged, available drops. Released (`FULFILLED`/`CANCELLED`) exactly once, never deleted. |
+| `SalesOrderEvent` | Order timeline (created, edited, confirmed, packed, handed over, dispatched, delivered, cancelled) | **Append-only.** |
+
+**Price resolution** (server only; POS and the order form show what the quote returns): customer price > quantity tier > wholesale price > offer price > regular price.
+- Tiers and the wholesale price apply only to wholesale sales, meaning a wholesale customer or the wholesale channel.
+- A manual price needs `sales.manage` (admin). Cashiers use discounts.
+
+**GST.** Prices include GST: taxable = total ÷ (1 + rate), rounded half-even, and GST = total − taxable, so the two always add up.
+- The order discount is split across lines by value, with the remainder on the last line.
+- Shipping charged follows the highest GST rate on the order.
+- Delivery to another state is flagged inter-state (IGST); otherwise the receipt splits CGST/SGST in paise.
+
+**Stock flow.**
+- **POS:** create, deduct and complete in one transaction.
+- **Counter order:** confirm (reserve), then hand over (deduct).
+- **Delivery order:** confirm (reserve), pack, then dispatch (deduct), then delivered.
+- Fulfilment locks the order row, releases its own reservations, then posts one `SALE` stock document (`sourceType = SALE`) and fixes each line's COGS from the movements.
+- The stock engine now refuses any removal from SELLABLE that would leave less than the units reserved there (`STOCK_RESERVED`). So a walk-in sale, write-off or transfer can't take held stock.
+- Reservations take the same per-variant lock as stock postings, so two orders can't claim the last unit.
+- Cancelling is only allowed before fulfilment and releases reservations. After fulfilment it's a return (phase 9).
+
+**Revenue** is recognised at fulfilment (`fulfilledDate`, IST): handover or dispatch. `GET /sales/summary` reports fulfilled orders only.
+- Gross profit = net sales excl. GST − COGS, over lines whose cost is fully known.
+- The "before GST" figure (price − cost) is shown alongside it, labelled as such.

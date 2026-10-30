@@ -38,6 +38,18 @@ export const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD")
 
 export const idParam = z.object({ id: z.string().uuid() });
 
+/** An optional reference from a select: "" (nothing chosen) becomes null, i.e. "clear it". */
+export const optionalId = z
+  .union([z.literal(""), z.string().uuid()])
+  .transform((v) => (v === "" ? null : v))
+  .nullish();
+
+/** A list filter from a select: "" ("All …") means no filter at all. */
+export const optionalFilterId = z
+  .union([z.literal(""), z.string().uuid()])
+  .transform((v) => v || undefined)
+  .optional();
+
 export const SORT_PATTERN = /^[a-zA-Z][a-zA-Z0-9.]*:(asc|desc)$/;
 
 export const EXPORT_FORMATS = ["csv", "xlsx"] as const;

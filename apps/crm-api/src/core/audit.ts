@@ -45,7 +45,15 @@ export type AuditAction =
   | "customer.merged"
   | "customer.merged_in"
   | "customer.price_set"
-  | "customer.price_removed";
+  | "customer.price_removed"
+  | "sale.created"
+  | "sale.updated"
+  | "sale.confirmed"
+  | "sale.packed"
+  | "sale.fulfilled"
+  | "sale.completed"
+  | "sale.delivered"
+  | "sale.cancelled";
 
 export type AuditEntity =
   | "User"
@@ -60,7 +68,8 @@ export type AuditEntity =
   | "PriceBatch"
   | "StockDocument"
   | "PurchaseShipment"
-  | "Customer";
+  | "Customer"
+  | "SalesOrder";
 
 export interface AuditEntry {
   action: AuditAction;

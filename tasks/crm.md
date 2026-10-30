@@ -11,7 +11,7 @@ Conventions: `docs/crm/CONVENTIONS.md`.
 - [x] **3. Inventory ledger** — movements + balances, opening stock, Store↔Godown transfers, buckets (damaged/demo), write-offs, low-stock alerts
 - [x] **4. Purchases & landed cost** — suppliers, shipments, FX, charges, allocation, input-GST split, receiving, weighted average, cost adjustments, purchase returns (Scenario A)
 - [x] **5. Customers** — profiles, phone lookup, dedupe + merge, wholesale terms, customer prices, PII masking
-- [ ] **6. Sales / POS** — POS + order form, price resolution, discounts, GST back-out, reserve→deduct flow, COGS snapshot, receipts (Scenarios B, F)
+- [x] **6. Sales / POS** — POS + order form, price resolution, discounts, GST back-out, reserve→deduct flow, COGS snapshot, receipts (Scenarios B, F)
 - [ ] **7. Payments & collections** — split tender, installments, allocation limits, customer credit, collections dashboard, ageing, transfers (Scenarios C, D)
 - [ ] **8. Pre-orders & advances** — advances liability, allocation on receipt, balance, fulfilment (Scenario E)
 - [ ] **9. Returns & refunds** — returns by condition, refunds/credit, revenue + COGS reversal (Scenario J)
@@ -97,3 +97,18 @@ Conventions: `docs/crm/CONVENTIONS.md`.
 - Browser: list (masked), new-customer form showing the "may be an existing customer" warning and then the mobile block, saved profile, audited reveal, customer price added through the item search, wholesale terms, merge dialog, duplicates screen, mobile list; cashier list masked, duplicates screen refused. No console errors.
 - Found while verifying: the demo seed called the service directly, so its mobiles skipped normalisation (`9000000101` instead of `+919000000101`) and the duplicate block couldn't see them. The seed now parses through the shared schema. A new DB `CHECK` refuses any non-E.164 phone, so this can't happen silently again. The dev rows were repaired, and the duplicate the UI had created was merged through the real merge service.
 - Permissions added: `customers.merge` and `customers.export` (admin only). Customer prices need `products.manage`, since pricing is an admin decision even though cashiers manage customers.
+
+## Phase 6 — Sales / POS
+
+- [x] Schema: SalesOrder (FY codes, frozen amounts after draft), SalesOrderLine (price snapshot + COGS fixed once), Reservation (release-only), SalesOrderEvent (append-only); triggers and CHECKs
+- [x] Pure engines (unit-tested): price resolution (customer > tier > wholesale > offer > regular), totals with order-discount split and GST back-out, financial-year codes
+- [x] Inventory: reservations module (reserve under the variant lock, release once), engine guard so nothing takes reserved stock, available = sellable − reserved in stock lists and product totals
+- [x] API: sellable item search, live quote, idempotent POS sale, orders (draft/edit/confirm), pack, hand over / dispatch (deducts, fixes COGS), deliver, cancel (releases), list/export, detail with profit (admin), revenue summary; customer stats; merge moves orders
+- [x] Web: POS (search + Enter, quantity stepper, discounts, admin price override, live server totals, checkout, completion screen), order form, orders list, order detail with actions/timeline/profit, printable receipt (80 mm thermal or A4, "not a tax invoice"), customer order history and stats, dashboard sales KPIs
+- [x] Tests: 21 new (109 total) — Scenarios B and F, idempotent POS under concurrency, reservation lifecycle and guards, last-unit race, pricing through the API, frozen records, revenue timing, unknown costs, role rules, merge
+
+### Phase 6 review
+- Exit criteria met. **Scenario B:** ₹18,000 sale of an item costing ₹12,500 shows net sales ₹15,254.24, GST ₹2,745.76, gross profit ₹2,754.24 (18.1%) and ₹5,500 before GST, side by side and labelled. **Scenario F:** selling 2 Blue YEGAO leaves 5/6/4/3, so only Blue drops. **No double deduction:** the same checkout key submitted three times, two of them concurrently, gives one sale and one stock document.
+- Browser: POS cart and checkout, receipt, Scenario B sale with profit card, delivery order (confirm → reserved → packed → dispatched), dashboard, mobile POS. Cashier POS sale with no cost or profit shown. Ops refused at the POS but can see orders. No console errors.
+- Found while verifying: the line discount and price inputs stretched to full width because the shared input's `w-full` beat the width class (now wrapped). CGST/SGST were each half the GST rounded, which can be a paisa off on odd totals; they're now split in paise.
+- Decisions: receipts are a print-styled page (80 mm or A4) rather than a PDF, so any browser-connected thermal printer works. The shell hides itself when printing. Cancelling an order needs `sales.manage` (admin), in line with "non-admin corrections need approval". Payments on a sale arrive in phase 7. Until then the POS completes the sale without recording tender.
