@@ -14,7 +14,7 @@ Conventions: `docs/crm/CONVENTIONS.md`.
 - [x] **6. Sales / POS** — POS + order form, price resolution, discounts, GST back-out, reserve→deduct flow, COGS snapshot, receipts (Scenarios B, F)
 - [x] **7. Payments & collections** — split tender, installments, allocation limits, customer credit, collections dashboard, ageing, transfers (Scenarios C, D)
 - [x] **8. Pre-orders & advances** — advances liability, allocation on receipt, balance, fulfilment (Scenario E)
-- [ ] **9. Returns & refunds** — returns by condition, refunds/credit, revenue + COGS reversal (Scenario J)
+- [x] **9. Returns & refunds** — returns by condition, refunds/credit, revenue + COGS reversal (Scenario J)
 - [ ] **10. Courier & shipping** — shipments, packages/AWBs, status history, courier cost vs charge (Scenario G)
 - [ ] **11. Cash closing & expenses** — expenses, daily cash session, deposits, discrepancy, lock
 - [ ] **12. Stock reconciliation** — count sessions, blind count, approval, adjustments, reversal (Scenario H)
@@ -157,3 +157,30 @@ Conventions: `docs/crm/CONVENTIONS.md`.
   - The receipt didn't list payments, which a pre-order customer needs as proof of their advance (added, and titled "Order confirmation" until handover).
   - A React key warning on the new receipt rows.
 - Website pre-orders are imported read-only in phase 14 and land in this same flow.
+
+## Phase 9 — Returns & refunds
+
+- [x] Schema: SalesReturn (+lines) append-only, with condition per line, revenue/GST/cost reversed, refund method and links to the refund payment, credit entry and stock document; RETURN credit type
+- [x] Engine (pure, unit-tested): proportional line amounts with exact remainders, cost of returned units (known first), required refund = paid − new net value
+- [x] Rules: only fulfilled orders, never more than sold − already returned, resellable → sellable stock at original cost, damaged → damaged bucket, write-off → no stock (cost stays as a loss); money back as refund or credit only when paid exceeds the new value
+- [x] Order net value (total − returns) drives due, payment status, outstanding, allocation limits, lifetime value, profit and the sales summary
+- [x] Exchanges: customer credit usable as tender at the POS
+- [x] Web: return dialog with live preview on the order page, returns list, returns on order/receipt, POS "use credit"
+- [x] Tests: Scenario J, partial and repeated returns, over-return refused, unpaid order returns reduce due, write-off keeps cost, summary nets returns, credit exchange at POS, roles
+
+### Phase 9 review
+- Exit criteria met (**Scenario J**): a paid ₹1,770 sale of two items is returned, one resellable and one damaged, with a cash refund.
+  - The resellable item goes back to sellable stock and the damaged one to the damaged bucket; physical stock is unchanged.
+  - A ₹1,770 refund payment goes out of the cash account, and the order shows Refunded with net value 0.
+  - Today's net sales drop by ₹1,500 (excl. GST), returns show ₹1,770, and cost of goods drops by ₹1,000 because both units came back at the cost they left at.
+- Also tested:
+  - A line returned in two goes reverses exactly what it sold for, and returning a third time is refused.
+  - An unpaid credit sale just owes less.
+  - A part-paid order gives back only the overpaid difference, as credit.
+  - A write-off keeps its cost as a loss.
+  - An unfulfilled order is refused, and the shipping refund is capped.
+  - An exchange is paid from credit at the POS.
+  - Cashiers can see returns but not record them.
+- Browser: POS sale, return with live preview (credit pre-selected for a known customer), order showing "1 returned", a −₹449 credit allocation and the returns card, exchange checkout using the credit ("Fully paid"), returns list and return detail. No console errors.
+- Found while verifying: my browser driver couldn't type into text areas (it was a test-tool fix, not an app bug). The return row in the order's returns card used the bold button font.
+- Decisions: recording a return is admin-only (`sales.manage`, a correction), and cash refunds need `payments.refund`. No separate credit-note document: the receipt shows items returned and the net value.

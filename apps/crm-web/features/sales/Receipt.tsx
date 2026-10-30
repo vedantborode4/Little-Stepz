@@ -87,6 +87,13 @@ function ReceiptBody({ o, business, size }: { o: SalesOrderDetailDto; business: 
           </>
         )}
       </div>
+      {Number(o.returned) > 0 && (
+        <>
+          <div className="my-2 border-t border-dashed border-black" />
+          {row("Items returned", `−${formatMoney(o.returned)}`)}
+          {row("Net value", formatMoney(Number(o.grandTotal) - Number(o.returned)), true)}
+        </>
+      )}
       {o.payments.length > 0 && (
         <>
           <div className="my-2 border-t border-dashed border-black" />

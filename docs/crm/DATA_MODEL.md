@@ -170,3 +170,25 @@ No new tables: a pre-order is a `SalesOrder` with `type = PRE_ORDER`, so its adv
 **Advances** are payments allocated to orders not yet handed over or dispatched (pre-orders and other open orders). They're a liability: shown under Payments → Advances and on the dashboard, never in sales. Cancelling a pre-order with an advance requires a refund or a move into the customer's credit (phase 7).
 
 **Expected arrival** can be changed until fulfilment (timeline: "Expected date changed"). Pre-orders past it are flagged as late. The receipt prints as an **Order confirmation** listing the advance and balance due until the goods are handed over.
+
+## Phase 9: returns and refunds
+
+| Model | Purpose | Key rules |
+|---|---|---|
+| `SalesReturn` | Goods back from a fulfilled order (`RET-xxxxx`): location restocked, date, reason, GST-inclusive value reversed (lines + any shipping refund), taxable and GST reversed, refund method (`NONE` / `REFUND` / `CREDIT`) and amount, links to the refund payment or credit entry and the `SALE_RETURN` stock document | **Append-only.** Only fulfilled orders take returns; before that, cancel. The order row is locked, so two returns can't both take the last units. `refundMethod = NONE` exactly when nothing is refunded. |
+| `SalesReturnLine` | Per order line: quantity, **condition** (resellable / damaged / write-off), amount, taxable value, GST, cost of the returned units with a known cost, unknown-cost units | **Append-only.** Never more than sold − already returned. |
+
+**Amounts.** Each line's share is proportional to its units, and returning the last units takes whatever is left, so a line returned in several goes reverses exactly what it sold for. Shipping refunds are split into taxable value and GST in the proportion they were charged, and can't exceed what's left.
+
+**Stock and cost.**
+- **Resellable** units go back to SELLABLE and **damaged** units to DAMAGED. Both come back at the cost they left at (known-cost units first), so the weighted average isn't disturbed.
+- **Written-off** units don't come back, and their cost stays as a loss (profit shows it).
+
+**Money.** An order's **net value** = grand total − returns. It drives due, payment status, outstanding, allocation limits and the void checks.
+- A return gives money back only when the customer has paid more than the new net value, and only that difference.
+- That money goes as a refund payment from an account (admin) or into the customer's credit (`RETURN` entry).
+- An unpaid credit sale simply owes less.
+
+**Exchanges.** Customer credit can pay (part of) a POS sale (`creditAmount`). It's applied before the money tender, so a return to credit plus a new sale is one checkout.
+
+**Reports.** The sales summary nets returns dated in the period from net sales and GST. Their cost comes back unless written off. Lifetime value is net of returns.

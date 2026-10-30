@@ -53,6 +53,7 @@ model User {
   payments          Payment[]
   creditEntries     CustomerCreditEntry[]
   accountTransfers  AccountTransfer[]
+  salesReturns      SalesReturn[]
 }
 
 /// Opaque refresh tokens, stored only as a SHA-256 hash. Each login starts a
@@ -135,6 +136,7 @@ model Location {
   purchaseReturns PurchaseReturn[]
   salesOrders     SalesOrder[]
   reservations    Reservation[]
+  salesReturns    SalesReturn[]
 }
 
 enum PaymentMethod {
@@ -316,6 +318,7 @@ model Variant {
   customerPrices      CustomerPrice[]
   salesOrderLines     SalesOrderLine[]
   reservations        Reservation[]
+  salesReturnLines    SalesReturnLine[]
 
   @@unique([productId, optionKey])
   @@index([productId])
@@ -426,6 +429,7 @@ model StockDocument {
 
   lines          StockMovement[]
   salesOrder     SalesOrder?       @relation("SalesOrderStockDocument")
+  salesReturn    SalesReturn?      @relation("SalesReturnStockDocument")
   purchase       PurchaseShipment? @relation("PurchaseStockDocument")
   purchaseReturn PurchaseReturn?   @relation("PurchaseReturnStockDocument")
 
@@ -802,6 +806,7 @@ model SalesOrder {
   events        SalesOrderEvent[]
   allocations   PaymentAllocation[]
   creditEntries CustomerCreditEntry[]
+  returns       SalesReturn[]
 
   @@index([status, orderDate])
   @@index([customerId])
@@ -836,6 +841,7 @@ model SalesOrderLine {
   unknownCostQty     Int         @default(0)
 
   reservations Reservation[]
+  returnLines  SalesReturnLine[]
 
   @@unique([orderId, variantId])
   @@index([variantId])
@@ -891,6 +897,7 @@ enum CreditEntryType {
   APPLIED
   REFUNDED
   CANCELLED_ORDER
+  RETURN
   REVERSAL
 }
 
@@ -922,6 +929,7 @@ model Payment {
 
   allocations   PaymentAllocation[]
   creditEntries CustomerCreditEntry[]
+  salesReturn   SalesReturn?
 
   @@index([businessDate])
   @@index([customerId])
@@ -964,7 +972,8 @@ model CustomerCreditEntry {
   createdBy   User?           @relation(fields: [createdById], references: [id])
   createdAt   DateTime        @default(now())
 
-  allocation PaymentAllocation?
+  allocation  PaymentAllocation?
+  salesReturn SalesReturn?
 
   @@index([customerId, createdAt])
 }
@@ -991,4 +1000,76 @@ model AccountTransfer {
   createdAt     DateTime         @default(now())
 
   @@index([businessDate])
+}
+
+// ─── Returns ─────────────────────────────────────────────────────────────────
+
+enum ReturnCondition {
+  RESELLABLE
+  DAMAGED
+  WRITE_OFF
+}
+
+enum RefundMethod {
+  NONE
+  REFUND
+  CREDIT
+}
+
+/// Goods coming back from a fulfilled order. Reverses that share of revenue and
+/// GST; resellable and damaged units go back into stock at the cost they left
+/// at, written-off units don't (their cost stays a loss). If the customer had
+/// paid more than the order is now worth, the difference goes back as a refund
+/// or as credit. The order's net value is its total minus its returns.
+/// Append-only.
+model SalesReturn {
+  id              String               @id @default(uuid())
+  code            String               @unique
+  orderId         String
+  order           SalesOrder           @relation(fields: [orderId], references: [id])
+  locationId      String
+  location        Location             @relation(fields: [locationId], references: [id])
+  businessDate    DateTime             @db.Date
+  reason          String
+  /// GST-inclusive value reversed (lines plus any shipping refund).
+  amount          Decimal              @db.Decimal(14, 2)
+  taxableValue    Decimal              @db.Decimal(14, 2)
+  gstAmount       Decimal              @db.Decimal(14, 2)
+  shippingRefund  Decimal              @default(0) @db.Decimal(14, 2)
+  refundMethod    RefundMethod
+  refundAmount    Decimal              @default(0) @db.Decimal(14, 2)
+  paymentId       String?              @unique
+  payment         Payment?             @relation(fields: [paymentId], references: [id])
+  creditEntryId   String?              @unique
+  creditEntry     CustomerCreditEntry? @relation(fields: [creditEntryId], references: [id])
+  stockDocumentId String?              @unique
+  stockDocument   StockDocument?       @relation("SalesReturnStockDocument", fields: [stockDocumentId], references: [id])
+  createdById     String?
+  createdBy       User?                @relation(fields: [createdById], references: [id])
+  createdAt       DateTime             @default(now())
+
+  lines SalesReturnLine[]
+
+  @@index([orderId])
+  @@index([businessDate])
+}
+
+model SalesReturnLine {
+  id             String          @id @default(uuid())
+  returnId       String
+  salesReturn    SalesReturn     @relation(fields: [returnId], references: [id])
+  orderLineId    String
+  orderLine      SalesOrderLine  @relation(fields: [orderLineId], references: [id])
+  variantId      String
+  variant        Variant         @relation(fields: [variantId], references: [id])
+  quantity       Int
+  condition      ReturnCondition
+  amount         Decimal         @db.Decimal(14, 2)
+  taxableValue   Decimal         @db.Decimal(14, 2)
+  gstAmount      Decimal         @db.Decimal(14, 2)
+  /// Cost of the returned units with a known cost, at what they were sold at.
+  cogs           Decimal         @default(0) @db.Decimal(18, 6)
+  unknownCostQty Int             @default(0)
+
+  @@index([orderLineId])
 }

@@ -15,9 +15,10 @@ type Db = Tx | typeof prisma;
 const d = (v: Prisma.Decimal | null | undefined) => new Decimal((v ?? 0).toString());
 const round2 = (v: Decimal) => v.toDecimalPlaces(2, Decimal.ROUND_HALF_EVEN);
 
+/** `total` is the order's net value: its grand total less anything returned. */
 export function paymentStatus(total: Decimal, paid: Decimal, refunded: boolean): PaymentStatus {
   if (paid.gt(total)) return "OVERPAID";
-  if (paid.isZero()) return refunded && total.gt(0) ? "REFUNDED" : total.isZero() ? "PAID" : "UNPAID";
+  if (paid.isZero()) return refunded ? "REFUNDED" : total.isZero() ? "PAID" : "UNPAID";
   return paid.eq(total) ? "PAID" : "PARTIAL";
 }
 
@@ -35,6 +36,15 @@ export async function orderPayments(db: Db, orderIds: string[]): Promise<Map<str
   return result;
 }
 
+/** GST-inclusive value returned per order; an order's net value is its total less this. */
+export async function orderReturned(db: Db, orderIds: string[]): Promise<Map<string, Decimal>> {
+  const result = new Map(orderIds.map((id) => [id, new Decimal(0)]));
+  if (orderIds.length === 0) return result;
+  const rows = await db.salesReturn.groupBy({ by: ["orderId"], where: { orderId: { in: orderIds } }, _sum: { amount: true } });
+  for (const r of rows) result.set(r.orderId, d(r._sum.amount));
+  return result;
+}
+
 export async function creditBalance(db: Db, customerId: string): Promise<Decimal> {
   const sum = await db.customerCreditEntry.aggregate({ where: { customerId }, _sum: { amount: true } });
   return d(sum._sum.amount);
@@ -49,8 +59,8 @@ async function lockOrders(tx: Tx, ids: string[]) {
     where: { id: { in: sorted } },
     select: { id: true, code: true, status: true, customerId: true, grandTotal: true },
   });
-  const paid = await orderPayments(tx, sorted);
-  return new Map(rows.map((o) => [o.id, { ...o, total: d(o.grandTotal), paid: paid.get(o.id)!.paid }]));
+  const [paid, returned] = await Promise.all([orderPayments(tx, sorted), orderReturned(tx, sorted)]);
+  return new Map(rows.map((o) => [o.id, { ...o, total: d(o.grandTotal).sub(returned.get(o.id)!), paid: paid.get(o.id)!.paid }]));
 }
 
 type LockedOrder = { id: string; code: string; status: string; customerId: string | null; total: Decimal; paid: Decimal };
@@ -263,6 +273,40 @@ export async function refundCredit(
 }
 
 /**
+ * Gives money paid on an order back: as a refund payment from an account, or
+ * into the customer's credit. Either way a negative allocation takes it off the
+ * order, so what the order has been paid stays the sum of its allocations.
+ */
+export async function giveBack(
+  tx: Tx,
+  ctx: RequestContext,
+  order: { id: string; code: string; customerId: string | null },
+  amount: Decimal,
+  settlement: CancelSettlementInput,
+  creditType: "CANCELLED_ORDER" | "RETURN",
+  note: string,
+): Promise<{ paymentId: string | null; creditEntryId: string | null }> {
+  if (settlement.mode === "CREDIT") {
+    if (!order.customerId) throw new ApiError(400, "CUSTOMER_REQUIRED", "A walk-in sale can't hold credit; refund the money instead");
+    await lockCustomer(tx, order.customerId);
+    const entry = await tx.customerCreditEntry.create({
+      data: { customerId: order.customerId, type: creditType, amount, orderId: order.id, note, createdById: ctx.userId },
+    });
+    await tx.paymentAllocation.create({ data: { orderId: order.id, creditEntryId: entry.id, amount: amount.neg() } });
+    return { paymentId: null, creditEntryId: entry.id };
+  }
+  const payment = await outPayment(tx, ctx, {
+    accountId: settlement.accountId,
+    amount,
+    customerId: order.customerId,
+    reference: settlement.reference,
+    notes: note,
+  });
+  await tx.paymentAllocation.create({ data: { orderId: order.id, paymentId: payment.id, amount: amount.neg() } });
+  return { paymentId: payment.id, creditEntryId: null };
+}
+
+/**
  * Money already paid on an order being cancelled has to go somewhere explicit:
  * back to the customer (a refund payment) or into their credit.
  */
@@ -284,23 +328,7 @@ export async function settleCancelledOrder(
       },
     );
   }
-  if (settlement.mode === "CREDIT") {
-    if (!order.customerId) throw new ApiError(400, "CUSTOMER_REQUIRED", "A walk-in sale can't hold credit; refund the money instead");
-    await lockCustomer(tx, order.customerId);
-    const entry = await tx.customerCreditEntry.create({
-      data: { customerId: order.customerId, type: "CANCELLED_ORDER", amount: paid, orderId: order.id, createdById: ctx.userId },
-    });
-    await tx.paymentAllocation.create({ data: { orderId: order.id, creditEntryId: entry.id, amount: paid.neg() } });
-  } else {
-    const payment = await outPayment(tx, ctx, {
-      accountId: settlement.accountId,
-      amount: paid,
-      customerId: order.customerId,
-      reference: settlement.reference,
-      notes: `Refund for cancelled order ${order.code}`,
-    });
-    await tx.paymentAllocation.create({ data: { orderId: order.id, paymentId: payment.id, amount: paid.neg() } });
-  }
+  await giveBack(tx, ctx, order, paid, settlement, "CANCELLED_ORDER", `Refund for cancelled order ${order.code}`);
   await recordAudit(tx, ctx, {
     action: "payment.settled_on_cancel",
     entity: "SalesOrder",

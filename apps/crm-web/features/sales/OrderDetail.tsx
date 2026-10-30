@@ -1,6 +1,6 @@
 "use client"
 
-import { Ban, CheckCircle2, PackageCheck, Pencil, Printer, Send, Truck } from "lucide-react"
+import { Ban, CheckCircle2, PackageCheck, Pencil, Printer, Send, Truck, Undo2 } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
 import { toast } from "sonner"
@@ -15,6 +15,8 @@ import { formatDate, formatDateTime, formatMoney } from "@/lib/format"
 import { useCan } from "@/store/auth.store"
 import { StockDocumentModal } from "../inventory/StockModals"
 import OrderPaymentsCard from "../payments/OrderPayments"
+import ReturnModal from "../returns/ReturnModal"
+import { RefundBadge, ReturnDetailModal } from "../returns/ReturnsList"
 import { AccountSelect } from "../payments/shared"
 import { useCancelOrder, useDeallocate, useExpectedArrival, useOrder, useOrderAction, type OrderAction } from "./api"
 import { OrderStatusBadge, OrderTypeBadge, PriceSourceBadge } from "./shared"
@@ -32,6 +34,7 @@ const EVENT_LABELS: Record<string, string> = {
   allocated: "Stock allocated",
   deallocated: "Allocation released",
   rescheduled: "Expected date changed",
+  returned: "Items returned",
 }
 
 const eventLabel = (action: string, preOrder: boolean) =>
@@ -196,6 +199,9 @@ function OrderView({ o }: { o: SalesOrderDetailDto }) {
   const [cancelling, setCancelling] = useState(false)
   const [releasing, setReleasing] = useState(false)
   const [rescheduling, setRescheduling] = useState(false)
+  const [returning, setReturning] = useState(false)
+  const [openReturn, setOpenReturn] = useState<string | null>(null)
+  const returnable = o.fulfilledAt !== null && o.lines.some((l) => l.quantity > l.returnedQty)
   const [documentId, setDocumentId] = useState<string | null>(null)
   const delivery = o.fulfilment === "DELIVERY"
   const canShip = can("shipping.manage") || can("sales.manage")
@@ -282,6 +288,11 @@ function OrderView({ o }: { o: SalesOrderDetailDto }) {
                 </Button>
               </Link>
             )}
+            {returnable && can("sales.manage") && (
+              <Button variant="secondary" icon={<Undo2 size={15} />} onClick={() => setReturning(true)}>
+                Return items
+              </Button>
+            )}
             {!o.fulfilledAt && o.status !== "CANCELLED" && can("sales.manage") && (
               <Button variant="ghost" icon={<Ban size={15} />} onClick={() => setCancelling(true)}>
                 Cancel
@@ -346,6 +357,7 @@ function OrderView({ o }: { o: SalesOrderDetailDto }) {
                           <p className="text-xs text-faint flex flex-wrap items-center gap-2 mt-0.5">
                             <span className="font-mono">{l.sku}</span>
                             <PriceSourceBadge source={l.priceSource} />
+                            {l.returnedQty > 0 && <span className="text-red-500">{l.returnedQty} returned</span>}
                             {l.reservedQty > 0 && <span className="text-blue-600 dark:text-blue-400">{l.reservedQty} reserved</span>}
                           </p>
                         </td>
@@ -379,6 +391,28 @@ function OrderView({ o }: { o: SalesOrderDetailDto }) {
           </section>
 
           <OrderPaymentsCard order={o} />
+
+          {o.returns.length > 0 && (
+            <Card title={`Returns · ${formatMoney(o.returned)}`}>
+              <ul className="divide-y divide-border -my-2">
+                {o.returns.map((r) => (
+                  <li key={r.id}>
+                    <button
+                      className="w-full flex flex-wrap items-center gap-2 py-2 text-sm font-normal text-left hover:text-primary"
+                      onClick={() => setOpenReturn(r.id)}
+                    >
+                      <span className="font-mono text-xs">{r.code}</span>
+                      <span className="text-muted">{formatDate(r.businessDate)}</span>
+                      <span className="text-muted truncate">{r.reason}</span>
+                      <span className="flex-1" />
+                      <RefundBadge r={r} />
+                      <span className="tabular font-medium">{formatMoney(r.amount)}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
         </div>
 
         <div className="space-y-4 sm:space-y-5">
@@ -478,6 +512,8 @@ function OrderView({ o }: { o: SalesOrderDetailDto }) {
       )}
       {cancelling && <CancelDialog order={o} onClose={() => setCancelling(false)} />}
       {releasing && <ReleaseDialog order={o} onClose={() => setReleasing(false)} />}
+      {returning && <ReturnModal order={o} onClose={() => setReturning(false)} />}
+      {openReturn && <ReturnDetailModal id={openReturn} onClose={() => setOpenReturn(null)} />}
       {rescheduling && <ArrivalModal order={o} onClose={() => setRescheduling(false)} />}
       {documentId && <StockDocumentModal documentId={documentId} onClose={() => setDocumentId(null)} onOpenDocument={setDocumentId} />}
     </div>

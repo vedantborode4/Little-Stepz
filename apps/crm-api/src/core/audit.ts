@@ -63,7 +63,8 @@ export type AuditAction =
   | "credit.applied"
   | "credit.refunded"
   | "transfer.created"
-  | "transfer.reversed";
+  | "transfer.reversed"
+  | "return.created";
 
 export type AuditEntity =
   | "User"
@@ -81,7 +82,8 @@ export type AuditEntity =
   | "Customer"
   | "SalesOrder"
   | "Payment"
-  | "AccountTransfer";
+  | "AccountTransfer"
+  | "SalesReturn";
 
 export interface AuditEntry {
   action: AuditAction;

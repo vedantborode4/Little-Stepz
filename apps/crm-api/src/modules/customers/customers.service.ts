@@ -98,7 +98,7 @@ export async function exportCustomersWithContacts(query: CustomerListQuery, ctx:
 }
 
 export async function getCustomer(id: string) {
-  const [row, orders, fulfilled, outstanding, credit] = await Promise.all([
+  const [row, orders, fulfilled, returned, outstanding, credit] = await Promise.all([
     prisma.customer.findUnique({ where: { id }, include: customerDetailInclude }),
     prisma.salesOrder.aggregate({
       where: { customerId: id, status: { notIn: ["DRAFT", "CANCELLED"] } },
@@ -106,6 +106,7 @@ export async function getCustomer(id: string) {
       _max: { orderDate: true },
     }),
     prisma.salesOrder.aggregate({ where: { customerId: id, fulfilledAt: { not: null } }, _sum: { grandTotal: true } }),
+    prisma.salesReturn.aggregate({ where: { order: { customerId: id } }, _sum: { amount: true } }),
     customerOutstanding(id),
     creditBalance(prisma, id),
   ]);
@@ -113,7 +114,7 @@ export async function getCustomer(id: string) {
   return toCustomerDetailDto(row, {
     orders: orders._count,
     lastOrderDate: orders._max.orderDate ? fromDbDate(orders._max.orderDate) : null,
-    lifetimeValue: money(new Decimal((fulfilled._sum.grandTotal ?? 0).toString())),
+    lifetimeValue: money(new Decimal((fulfilled._sum.grandTotal ?? 0).toString()).sub((returned._sum.amount ?? 0).toString())),
     outstanding: money(outstanding),
     creditBalance: money(credit),
   });

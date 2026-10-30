@@ -6,13 +6,14 @@ export const PAYMENT_DIRECTIONS = ["IN", "OUT"] as const;
 export type PaymentDirection = (typeof PAYMENT_DIRECTIONS)[number];
 export const PAYMENT_DIRECTION_LABELS: Record<PaymentDirection, string> = { IN: "Received", OUT: "Paid out" };
 
-export const CREDIT_ENTRY_TYPES = ["OVERPAYMENT", "APPLIED", "REFUNDED", "CANCELLED_ORDER", "REVERSAL"] as const;
+export const CREDIT_ENTRY_TYPES = ["OVERPAYMENT", "APPLIED", "REFUNDED", "CANCELLED_ORDER", "RETURN", "REVERSAL"] as const;
 export type CreditEntryType = (typeof CREDIT_ENTRY_TYPES)[number];
 export const CREDIT_ENTRY_TYPE_LABELS: Record<CreditEntryType, string> = {
   OVERPAYMENT: "Kept as credit",
   APPLIED: "Used on an order",
   REFUNDED: "Refunded",
   CANCELLED_ORDER: "From a cancelled order",
+  RETURN: "From returned items",
   REVERSAL: "Reversal",
 };
 

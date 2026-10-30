@@ -253,15 +253,17 @@ function outstandingSql(query: Pick<OutstandingQuery, "customerId" | "q">, today
   }
   return Prisma.sql`
     WITH paid AS (SELECT "orderId", SUM(amount) AS paid FROM "PaymentAllocation" GROUP BY "orderId"),
+    returned AS (SELECT "orderId", SUM(amount) AS returned FROM "SalesReturn" GROUP BY "orderId"),
     due AS (
-      SELECT o.id AS "orderId", o.code, o.type, o.status, o."orderDate", o."dueDate", o."grandTotal",
-        COALESCE(p.paid, 0) AS paid, o."grandTotal" - COALESCE(p.paid, 0) AS due,
+      SELECT o.id AS "orderId", o.code, o.type, o.status, o."orderDate", o."dueDate", o."grandTotal" - COALESCE(r.returned, 0) AS "grandTotal",
+        COALESCE(p.paid, 0) AS paid, o."grandTotal" - COALESCE(r.returned, 0) - COALESCE(p.paid, 0) AS due,
         (${toDbDate(today)}::date - o."orderDate")::int AS "ageDays",
         o."fulfilledAt" IS NOT NULL AS fulfilled,
         o."dueDate" IS NOT NULL AND o."dueDate" < ${toDbDate(today)}::date AS overdue,
         c.id AS "customerId", c.code AS "customerCode", c.name AS "customerName"
       FROM "SalesOrder" o
       LEFT JOIN paid p ON p."orderId" = o.id
+      LEFT JOIN returned r ON r."orderId" = o.id
       LEFT JOIN "Customer" c ON c.id = o."customerId"
       WHERE ${Prisma.join(conditions, " AND ")}
     ),

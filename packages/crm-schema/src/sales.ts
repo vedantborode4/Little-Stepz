@@ -113,6 +113,8 @@ export const posSaleSchema = z
     payments: z.array(tenderSchema).max(10).default([]),
     /** Money beyond the total is kept as the customer's credit (needs a customer). */
     excessToCredit: z.boolean().default(false),
+    /** Part of the total paid from the customer's existing credit (e.g. an exchange after a return). */
+    creditAmount: money.default("0"),
   })
   .superRefine((v, ctx) => uniqueLines(v.lines, ctx));
 export type PosSaleInput = z.infer<typeof posSaleSchema>;

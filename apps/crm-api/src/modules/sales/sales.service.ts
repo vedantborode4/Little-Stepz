@@ -19,7 +19,7 @@ import { nextCode } from "../../core/sequence";
 import { assertActiveLocations } from "../inventory/inventory.service";
 import { availableAt, releaseReservations, reserveStock } from "../inventory/reservations";
 import { postStockDocument } from "../inventory/stock-engine";
-import { recordReceipt, settleCancelledOrder } from "../payments/ledger";
+import { applyCredit, recordReceipt, settleCancelledOrder } from "../payments/ledger";
 import { resolveUnitPrice } from "./pricing";
 import { orderDetailInclude, orderListInclude, toOrderDetailDto, toOrderListItemDto, type Visibility } from "./sales.mappers";
 import { computeSaleTotals } from "./totals";
@@ -246,7 +246,14 @@ export async function getOrder(id: string, visibility: Visibility) {
 
 // ─── Writes ──────────────────────────────────────────────────────────────────
 
-async function addEvent(tx: Tx, ctx: RequestContext, orderId: string, action: string, status: SalesOrderStatus | null, note?: string) {
+export async function addEvent(
+  tx: Tx,
+  ctx: RequestContext,
+  orderId: string,
+  action: string,
+  status: SalesOrderStatus | null,
+  note?: string,
+) {
   await tx.salesOrderEvent.create({ data: { orderId, action, status, note: note ?? null, createdById: ctx.userId } });
 }
 
@@ -357,8 +364,15 @@ const wrongStatus = (code: string, status: SalesOrderStatus, action: string) =>
  * excess as credit — but only when that's explicitly chosen.
  */
 function assertTenderCovers(input: PosSaleInput, cart: PricedCart) {
-  const tendered = input.payments.reduce((s, p) => s.add(dec(p.amount)), new Decimal(0));
+  const credit = dec(input.creditAmount);
   const total = cart.totals.grandTotal;
+  if (credit.gt(0) && !cart.customer) throw new ApiError(400, "CUSTOMER_REQUIRED", "Choose the customer whose credit is being used");
+  if (credit.gt(total)) {
+    throw new ApiError(400, "CREDIT_EXCEEDS_TOTAL", "Use no more credit than the sale total", {
+      fieldErrors: { creditAmount: ["More than the total"] },
+    });
+  }
+  const tendered = input.payments.reduce((s, p) => s.add(dec(p.amount)), credit);
   if (tendered.lt(total) && !cart.customer) {
     throw new ApiError(400, "PAYMENT_INCOMPLETE", `Walk-in sales must be paid in full: ${money(total.sub(tendered))} is still due`, {
       due: money(total.sub(tendered)),
@@ -376,9 +390,14 @@ function assertTenderCovers(input: PosSaleInput, cart: PricedCart) {
   }
 }
 
-/** One payment per tender leg, applied to the sale in order; any excess goes to the customer's credit. */
+/**
+ * Customer credit is applied first (an exchange after a return), then one
+ * payment per tender leg in order; any excess goes to the customer's credit.
+ */
 async function recordTender(tx: Tx, ctx: RequestContext, orderId: string, cart: PricedCart, input: PosSaleInput) {
-  let remaining = cart.totals.grandTotal;
+  const credit = dec(input.creditAmount);
+  if (credit.gt(0)) await applyCredit(tx, ctx, cart.customer!.id, orderId, credit);
+  let remaining = cart.totals.grandTotal.sub(credit);
   for (const tender of input.payments) {
     const amount = dec(tender.amount);
     const applied = Decimal.min(amount, remaining);

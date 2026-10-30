@@ -11,6 +11,7 @@ import Modal from "@/components/ui/Modal"
 import { errorMessage } from "@/lib/api-error"
 import { formatMoney } from "@/lib/format"
 import { useCan } from "@/store/auth.store"
+import { useCustomerCredit } from "../payments/api"
 import TenderEditor, { tenderBalance, type TenderLine } from "../payments/TenderEditor"
 import { useLocations } from "../settings/api"
 import { usePosSale } from "./api"
@@ -21,23 +22,30 @@ import { cartPayload, useCart, type Cart } from "./use-cart"
 
 function CheckoutModal({
   cart,
-  hasCustomer,
+  customerId,
   onClose,
   onDone,
 }: {
   cart: Cart
-  hasCustomer: boolean
+  customerId: string | null
   onClose: () => void
   onDone: (sale: SalesOrderDetailDto) => void
 }) {
+  const can = useCan()
+  const hasCustomer = customerId !== null
   const sale = usePosSale()
+  const credit = useCustomerCredit(can("payments.view") ? customerId : null)
+  const [creditAmount, setCreditAmount] = useState("")
   // One key per checkout attempt: resubmitting (double click, retry) returns the same sale.
   const [idempotencyKey] = useState(() => crypto.randomUUID())
   const [tenders, setTenders] = useState<TenderLine[]>([])
   const [excessToCredit, setExcessToCredit] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const total = cart.quote?.totals.grandTotal ?? "0"
+  const grandTotal = cart.quote?.totals.grandTotal ?? "0"
+  // Credit is applied first, so the tender only has to cover what's left.
+  const total = Math.max(Number(grandTotal) - Number(creditAmount || 0), 0).toFixed(2)
   const balance = tenderBalance(total, tenders)
+  const available = Number(credit.data?.balance ?? 0)
   const ready =
     cart.quote !== null && !cart.stale && (balance === 0 || (balance > 0 && hasCustomer) || (balance < 0 && hasCustomer && excessToCredit))
 
@@ -53,6 +61,7 @@ function CheckoutModal({
             .filter((t) => Number(t.amount) > 0)
             .map((t) => ({ accountId: t.accountId, amount: t.amount, reference: t.reference || null })),
           excessToCredit,
+          creditAmount: creditAmount.trim() || "0",
         }),
       )
     } catch (err) {
@@ -71,7 +80,7 @@ function CheckoutModal({
             Back
           </Button>
           <Button onClick={complete} loading={sale.isPending} disabled={!ready}>
-            Complete {formatMoney(total)}
+            Complete {formatMoney(grandTotal)}
           </Button>
         </>
       }
@@ -79,6 +88,27 @@ function CheckoutModal({
       <div className="space-y-4">
         <FormError message={error} />
         <CartTotals cart={cart} />
+        {available > 0 && (
+          <div className="flex items-center gap-3 rounded-xl border border-border px-3 py-2">
+            <div className="flex-1 text-sm">
+              <p className="font-medium">Use customer credit</p>
+              <p className="text-xs text-faint">{formatMoney(available)} available</p>
+            </div>
+            <Button size="sm" variant="ghost" onClick={() => setCreditAmount(Math.min(available, Number(grandTotal)).toFixed(2))}>
+              Use max
+            </Button>
+            <div className="w-28">
+              <Input
+                aria-label="Credit to use"
+                inputMode="decimal"
+                placeholder="0"
+                value={creditAmount}
+                onChange={(e) => setCreditAmount(e.target.value)}
+                className="py-1.5 text-right tabular"
+              />
+            </div>
+          </div>
+        )}
         <TenderEditor
           total={total}
           tenders={tenders}
@@ -242,7 +272,7 @@ function Register({ locations }: { locations: { id: string; name: string }[] }) 
       {checkingOut && (
         <CheckoutModal
           cart={cart}
-          hasCustomer={customer !== null}
+          customerId={customer?.id ?? null}
           onClose={() => setCheckingOut(false)}
           onDone={(sale) => {
             setCheckingOut(false)

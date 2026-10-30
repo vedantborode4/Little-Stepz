@@ -3,6 +3,7 @@ import type { OrderProfitDto, SaleTotalsDto, SalesOrderDetailDto, SalesOrderList
 import { fromDbDate } from "../../core/dates";
 import { Decimal, money } from "../../core/money";
 import { paymentStatus } from "../payments/ledger";
+import { returnListInclude, toReturnListItemDto } from "../returns/returns.mappers";
 
 export interface Visibility {
   costs: boolean;
@@ -12,6 +13,7 @@ export const orderListInclude = {
   customer: { select: { id: true, code: true, name: true } },
   lines: { select: { quantity: true } },
   allocations: { select: { amount: true } },
+  returns: { select: { amount: true } },
 } satisfies Prisma.SalesOrderInclude;
 
 export const orderDetailInclude = {
@@ -23,6 +25,7 @@ export const orderDetailInclude = {
     include: {
       variant: { select: { sku: true, name: true, product: { select: { name: true } } } },
       reservations: { where: { releasedAt: null }, select: { quantity: true } },
+      returnLines: { select: { quantity: true, amount: true, taxableValue: true, cogs: true, condition: true } },
     },
     orderBy: { position: "asc" },
   },
@@ -33,19 +36,27 @@ export const orderDetailInclude = {
     },
     orderBy: { createdAt: "asc" },
   },
+  returns: { include: { ...returnListInclude, lines: { select: { quantity: true, taxableValue: true } } }, orderBy: { createdAt: "asc" } },
 } satisfies Prisma.SalesOrderInclude;
 
 type ListRow = Prisma.SalesOrderGetPayload<{ include: typeof orderListInclude }>;
 type DetailRow = Prisma.SalesOrderGetPayload<{ include: typeof orderDetailInclude }>;
 
 const dec = (v: Prisma.Decimal) => new Decimal(v.toString());
+const sum = <T>(rows: T[], pick: (r: T) => Prisma.Decimal) => rows.reduce((s, r) => s.add(dec(pick(r))), new Decimal(0));
 
-/** Paid, due and status, derived from the order's signed allocations. */
-function paymentState(o: { grandTotal: Prisma.Decimal; allocations: { amount: Prisma.Decimal }[] }) {
-  const total = dec(o.grandTotal);
-  const paid = o.allocations.reduce((s, a) => s.add(dec(a.amount)), new Decimal(0));
+/** Paid, due and status against the order's net value (total less returns), from its signed allocations. */
+function paymentState(o: { grandTotal: Prisma.Decimal; allocations: { amount: Prisma.Decimal }[]; returns: { amount: Prisma.Decimal }[] }) {
+  const returned = sum(o.returns, (r) => r.amount);
+  const net = dec(o.grandTotal).sub(returned);
+  const paid = sum(o.allocations, (a) => a.amount);
   const refunded = o.allocations.some((a) => dec(a.amount).isNegative());
-  return { paid: money(paid), due: money(Decimal.max(total.sub(paid), 0)), paymentStatus: paymentStatus(total, paid, refunded) };
+  return {
+    returned: money(returned),
+    paid: money(paid),
+    due: money(Decimal.max(net.sub(paid), 0)),
+    paymentStatus: paymentStatus(net, paid, refunded),
+  };
 }
 
 export const toOrderListItemDto = (o: ListRow): SalesOrderListItemDto => ({
@@ -78,18 +89,34 @@ export function toTotalsDto(o: DetailRow): SaleTotalsDto {
 }
 
 /**
- * Profit over lines whose cost is fully known. A line with any unknown-cost unit
- * is left out of the margin (and counted) rather than given an invented cost.
- * Shipping charged is revenue with no cost of goods.
+ * Profit over lines whose cost is fully known, net of returns. A line with any
+ * unknown-cost unit is left out of the margin (and counted) rather than given an
+ * invented cost. Returned units take their revenue back; their cost comes back
+ * too unless they were written off, which stays a loss. Shipping charged is
+ * revenue with no cost of goods.
  */
 export function orderProfit(o: DetailRow): OrderProfitDto | null {
   if (!o.fulfilledAt) return null;
   const known = o.lines.filter((l) => l.cogs !== null && l.unknownCostQty === 0);
-  const lineTaxable = o.lines.reduce((s, l) => s.add(dec(l.taxableValue)), new Decimal(0));
+  const restocked = (l: DetailRow["lines"][number]) => l.returnLines.filter((r) => r.condition !== "WRITE_OFF");
+
+  const lineTaxable = sum(o.lines, (l) => l.taxableValue);
   const shippingTaxable = dec(o.taxableTotal).sub(lineTaxable);
-  const netSales = known.reduce((s, l) => s.add(dec(l.taxableValue)), shippingTaxable);
-  const gross = known.reduce((s, l) => s.add(dec(l.lineTotal)), dec(o.shippingCharged));
-  const cogs = known.reduce((s, l) => s.add(dec(l.cogs!)), new Decimal(0));
+  const shippingRefundTaxable = o.returns.reduce(
+    (s, r) => s.add(dec(r.taxableValue)).sub(sum(r.lines, (x) => x.taxableValue)),
+    new Decimal(0),
+  );
+  const shippingRefund = sum(o.returns, (r) => r.shippingRefund);
+
+  const netSales = known.reduce(
+    (s, l) => s.add(dec(l.taxableValue)).sub(sum(l.returnLines, (r) => r.taxableValue)),
+    shippingTaxable.sub(shippingRefundTaxable),
+  );
+  const gross = known.reduce(
+    (s, l) => s.add(dec(l.lineTotal)).sub(sum(l.returnLines, (r) => r.amount)),
+    dec(o.shippingCharged).sub(shippingRefund),
+  );
+  const cogs = known.reduce((s, l) => s.add(dec(l.cogs!)).sub(sum(restocked(l), (r) => r.cogs)), new Decimal(0));
   const grossProfit = netSales.sub(cogs);
   return {
     netSales: money(netSales),
@@ -135,6 +162,7 @@ export function toOrderDetailDto(o: DetailRow, visibility: Visibility): SalesOrd
       taxableValue: money(l.taxableValue),
       gstAmount: money(l.gstAmount),
       reservedQty: l.reservations[0]?.quantity ?? 0,
+      returnedQty: l.returnLines.reduce((s, r) => s + r.quantity, 0),
       ...(visibility.costs && { cogs: l.cogs ? money(dec(l.cogs)) : null, unknownCostQty: l.unknownCostQty }),
     })),
     events: o.events.map((e) => ({
@@ -157,6 +185,7 @@ export function toOrderDetailDto(o: DetailRow, visibility: Visibility): SalesOrd
       amount: money(a.amount),
     })),
     allocated: o.lines.length > 0 && o.lines.every((l) => l.reservations.length > 0),
+    returns: o.returns.map(toReturnListItemDto),
   };
   if (visibility.costs) dto.profit = orderProfit(o);
   return dto;

@@ -8,15 +8,15 @@ const d = (v: Prisma.Decimal | null | undefined) => new Decimal((v ?? 0).toStrin
 
 /**
  * Sales recognised in a period: orders fulfilled (handed over or dispatched) on
- * those IST dates. Money taken for orders not yet fulfilled is an advance and
- * never appears here. Profit only covers lines whose cost is fully known.
+ * those IST dates, less returns dated in the period. Money taken for orders not
+ * yet fulfilled is an advance and never appears here. Profit only covers lines
+ * whose cost is fully known; returned units take their revenue back, and their
+ * cost too unless they were written off.
  */
 export async function salesSummary(query: SalesSummaryQuery, visibility: Visibility): Promise<SalesSummaryDto> {
-  const where: Prisma.SalesOrderWhereInput = {
-    fulfilledAt: { not: null },
-    fulfilledDate: { gte: toDbDate(query.from), lte: toDbDate(query.to) },
-  };
-  const [orders, byChannel, lines] = await Promise.all([
+  const range = { gte: toDbDate(query.from), lte: toDbDate(query.to) };
+  const where: Prisma.SalesOrderWhereInput = { fulfilledAt: { not: null }, fulfilledDate: range };
+  const [orders, byChannel, lines, returns, returnLines] = await Promise.all([
     prisma.salesOrder.aggregate({
       where,
       _count: true,
@@ -24,29 +24,47 @@ export async function salesSummary(query: SalesSummaryQuery, visibility: Visibil
     }),
     prisma.salesOrder.groupBy({ by: ["channel"], where, _count: true, _sum: { grandTotal: true }, orderBy: { channel: "asc" } }),
     prisma.salesOrderLine.aggregate({ where: { order: where }, _sum: { quantity: true, taxableValue: true, unknownCostQty: true } }),
+    prisma.salesReturn.aggregate({
+      where: { businessDate: range },
+      _count: true,
+      _sum: { amount: true, taxableValue: true, gstAmount: true },
+    }),
+    prisma.salesReturnLine.aggregate({ where: { salesReturn: { businessDate: range } }, _sum: { quantity: true, taxableValue: true } }),
   ]);
 
   const summary: SalesSummaryDto = {
     from: query.from,
     to: query.to,
     orders: orders._count,
-    units: lines._sum.quantity ?? 0,
+    units: (lines._sum.quantity ?? 0) - (returnLines._sum.quantity ?? 0),
     grossSales: money(d(orders._sum.grandTotal)),
-    netSales: money(d(orders._sum.taxableTotal)),
-    gst: money(d(orders._sum.gstTotal)),
+    netSales: money(d(orders._sum.taxableTotal).sub(d(returns._sum.taxableValue))),
+    gst: money(d(orders._sum.gstTotal).sub(d(returns._sum.gstAmount))),
     discounts: money(d(orders._sum.lineDiscounts).add(d(orders._sum.orderDiscount))),
+    returns: money(d(returns._sum.amount)),
+    returnsCount: returns._count,
     byChannel: byChannel.map((c) => ({ channel: c.channel, orders: c._count, grossSales: money(d(c._sum.grandTotal)) })),
   };
 
   if (visibility.costs) {
-    const known = await prisma.salesOrderLine.aggregate({
-      where: { order: where, unknownCostQty: 0 },
-      _sum: { taxableValue: true, cogs: true },
-    });
+    const knownReturn = {
+      salesReturn: { businessDate: range },
+      orderLine: { unknownCostQty: 0 },
+    } satisfies Prisma.SalesReturnLineWhereInput;
+    const [known, returnedKnown, restocked] = await Promise.all([
+      prisma.salesOrderLine.aggregate({ where: { order: where, unknownCostQty: 0 }, _sum: { taxableValue: true, cogs: true } }),
+      prisma.salesReturnLine.aggregate({ where: knownReturn, _sum: { taxableValue: true } }),
+      prisma.salesReturnLine.aggregate({ where: { ...knownReturn, condition: { not: "WRITE_OFF" } }, _sum: { cogs: true } }),
+    ]);
     const shippingTaxable = d(orders._sum.taxableTotal).sub(d(lines._sum.taxableValue));
-    const cogs = d(known._sum.cogs);
+    const shippingRefundTaxable = d(returns._sum.taxableValue).sub(d(returnLines._sum.taxableValue));
+    const netKnownSales = d(known._sum.taxableValue)
+      .add(shippingTaxable)
+      .sub(d(returnedKnown._sum.taxableValue))
+      .sub(shippingRefundTaxable);
+    const cogs = d(known._sum.cogs).sub(d(restocked._sum.cogs));
     summary.cogs = money(cogs);
-    summary.grossProfit = money(d(known._sum.taxableValue).add(shippingTaxable).sub(cogs));
+    summary.grossProfit = money(netKnownSales.sub(cogs));
     summary.unknownCostUnits = lines._sum.unknownCostQty ?? 0;
   }
   return summary;

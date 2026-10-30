@@ -2,6 +2,7 @@ import type { CurrencyCode, MappingState, PriceField, ProductStatus, VariantStat
 import type { CustomerType, DuplicateReason } from "./customers";
 import type { FulfilmentMethod, PreOrderStockState, PriceSource, SalesChannel, SalesOrderStatus, SalesOrderType } from "./sales";
 import type { AgeingBucket, CreditEntryType, PaymentDirection, PaymentStatus } from "./payments";
+import type { RefundMethod, ReturnCondition } from "./returns";
 import type { LocationType, PaymentMethod, Role } from "./enums";
 import type { StockBucket, StockDocumentType, StockReasonCode, StockState } from "./inventory";
 import type { AllocationMethod, ChargeType, PurchaseStatus } from "./purchases";
@@ -605,6 +606,8 @@ export interface SalesOrderListItemDto {
   orderDate: string;
   units: number;
   grandTotal: string;
+  /** Value of items returned (GST-inclusive). Net value = grandTotal − returned. */
+  returned: string;
   paid: string;
   due: string;
   paymentStatus: PaymentStatus;
@@ -629,6 +632,7 @@ export interface OrderProfitDto {
 export interface SalesOrderLineDto extends SaleLinePricingDto {
   id: string;
   reservedQty: number;
+  returnedQty: number;
   cogs?: string | null;
   unknownCostQty?: number;
 }
@@ -663,6 +667,7 @@ export interface SalesOrderDetailDto extends SalesOrderListItemDto {
   payments: OrderPaymentDto[];
   /** Every line holds its stock (always true for a confirmed regular order; set by allocation for pre-orders). */
   allocated: boolean;
+  returns: SalesReturnListItemDto[];
 }
 
 /** One allocation on an order: money from a payment (or refund) or from the customer's credit. Negative = given back. */
@@ -688,6 +693,9 @@ export interface SalesSummaryDto {
   netSales: string;
   gst: string;
   discounts: string;
+  /** GST-inclusive value of returns dated in the period; net sales are already after them. */
+  returns: string;
+  returnsCount: number;
   cogs?: string;
   grossProfit?: string;
   unknownCostUnits?: number;
@@ -758,6 +766,63 @@ export interface AdvancesSummaryDto {
   total: string;
   preOrders: string;
   regularOrders: string;
+}
+
+// ─── Returns ─────────────────────────────────────────────────────────────────
+
+export interface ReturnLineDto {
+  orderLineId: string;
+  variantId: string;
+  sku: string;
+  productName: string;
+  variantName: string;
+  quantity: number;
+  condition: ReturnCondition;
+  amount: string;
+  taxableValue: string;
+  gstAmount: string;
+  /** Cost of the returned units at the sale's cost; for write-offs it stays a loss. */
+  cogs?: string | null;
+  unknownCostQty?: number;
+}
+
+export interface ReturnPreviewDto {
+  lines: ReturnLineDto[];
+  shippingRefund: string;
+  amount: string;
+  taxableValue: string;
+  gstAmount: string;
+  /** The order's value after this return. */
+  netValueAfter: string;
+  paid: string;
+  /** Money that must go back (paid beyond the new value). */
+  refundDue: string;
+}
+
+export interface SalesReturnListItemDto {
+  id: string;
+  code: string;
+  orderId: string;
+  orderCode: string;
+  customer: { id: string; code: string; name: string } | null;
+  businessDate: string;
+  reason: string;
+  units: number;
+  amount: string;
+  refundMethod: RefundMethod;
+  refundAmount: string;
+  createdAt: string;
+}
+
+export interface SalesReturnDto extends SalesReturnListItemDto {
+  locationName: string;
+  taxableValue: string;
+  gstAmount: string;
+  shippingRefund: string;
+  refundPayment: { id: string; code: string; accountName: string } | null;
+  stockDocument: { id: string; code: string } | null;
+  createdByName: string | null;
+  lines: ReturnLineDto[];
 }
 
 // ─── Payments ────────────────────────────────────────────────────────────────
