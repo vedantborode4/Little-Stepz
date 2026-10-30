@@ -3,6 +3,7 @@ import type { CustomerType, DuplicateReason } from "./customers";
 import type { FulfilmentMethod, PreOrderStockState, PriceSource, SalesChannel, SalesOrderStatus, SalesOrderType } from "./sales";
 import type { AgeingBucket, CreditEntryType, PaymentDirection, PaymentStatus } from "./payments";
 import type { RefundMethod, ReturnCondition } from "./returns";
+import type { ShipmentStatus } from "./shipping";
 import type { LocationType, PaymentMethod, Role } from "./enums";
 import type { StockBucket, StockDocumentType, StockReasonCode, StockState } from "./inventory";
 import type { AllocationMethod, ChargeType, PurchaseStatus } from "./purchases";
@@ -668,6 +669,8 @@ export interface SalesOrderDetailDto extends SalesOrderListItemDto {
   /** Every line holds its stock (always true for a confirmed regular order; set by allocation for pre-orders). */
   allocated: boolean;
   returns: SalesReturnListItemDto[];
+  /** The shipment currently handling a delivery order (not cancelled or returned), if any. */
+  activeShipment: { id: string; code: string; status: ShipmentStatus } | null;
 }
 
 /** One allocation on an order: money from a payment (or refund) or from the customer's credit. Negative = given back. */
@@ -823,6 +826,69 @@ export interface SalesReturnDto extends SalesReturnListItemDto {
   stockDocument: { id: string; code: string } | null;
   createdByName: string | null;
   lines: ReturnLineDto[];
+}
+
+// ─── Shipping ────────────────────────────────────────────────────────────────
+
+export interface CourierDto {
+  id: string;
+  name: string;
+  trackingUrlTemplate: string | null;
+  phone: string | null;
+  notes: string | null;
+  isActive: boolean;
+}
+
+export interface ShipmentPackageDto {
+  id: string;
+  awb: string;
+  weightKg: string | null;
+  notes: string | null;
+  /** Courier's tracking page for this AWB, when the courier has a link template. */
+  trackingUrl: string | null;
+}
+
+export interface ShipmentEventDto {
+  id: string;
+  status: ShipmentStatus;
+  note: string | null;
+  userName: string | null;
+  createdAt: string;
+}
+
+export interface ShipmentListItemDto {
+  id: string;
+  code: string;
+  status: ShipmentStatus;
+  order: { id: string; code: string };
+  customer: { id: string; code: string; name: string } | null;
+  courier: { id: string; name: string } | null;
+  awbs: string[];
+  /** What the courier charges us. */
+  courierCost: string;
+  /** Shipping charged to the customer on the order (less any shipping refunded). */
+  chargedToCustomer: string;
+  dispatchedAt: string | null;
+  deliveredAt: string | null;
+  createdAt: string;
+}
+
+export interface ShipmentDetailDto extends ShipmentListItemDto {
+  notes: string | null;
+  city: string | null;
+  pincode: string | null;
+  packages: ShipmentPackageDto[];
+  events: ShipmentEventDto[];
+  /** Next statuses this shipment can move to. */
+  nextStatuses: ShipmentStatus[];
+}
+
+export interface ShipmentSummaryDto {
+  counts: Record<ShipmentStatus, number>;
+  /** Delivery orders confirmed but without a shipment yet. */
+  awaitingShipment: number;
+  courierCost: string;
+  chargedToCustomer: string;
 }
 
 // ─── Payments ────────────────────────────────────────────────────────────────

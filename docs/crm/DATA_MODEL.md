@@ -192,3 +192,25 @@ No new tables: a pre-order is a `SalesOrder` with `type = PRE_ORDER`, so its adv
 **Exchanges.** Customer credit can pay (part of) a POS sale (`creditAmount`). It's applied before the money tender, so a return to credit plus a new sale is one checkout.
 
 **Reports.** The sales summary nets returns dated in the period from net sales and GST. Their cost comes back unless written off. Lifetime value is net of returns.
+
+## Phase 10: courier and shipping
+
+| Model | Purpose | Key rules |
+|---|---|---|
+| `CourierPartner` | A courier with an optional tracking-link template (`{awb}` marks where the tracking number goes) | Managed in Settings → Couriers (admin). The CRM only links to the courier's page; it never polls it. |
+| `Shipment` | Getting a delivery order to the customer (`SHP-xxxxx`): courier, status, courier cost, packed/dispatched/delivered times | One open shipment per order (the order row is the lock). A cancelled or returned one can be followed by a new one. The courier can't change after dispatch; the cost can be updated when the bill arrives. |
+| `ShipmentPackage` | One parcel with its AWB (upper-case) and optional weight | AWBs are **unique**, so the same tracking number can't be booked twice. A trigger locks parcels once the shipment has gone out. |
+| `ShipmentEvent` | Status history with note and user | **Append-only.** |
+
+**Status flow** (entered by hand from the courier's tracking): to pack → packed → dispatched → in transit → out for delivery → delivered, with RTO → back with us, and cancel before dispatch. Moves follow `SHIPMENT_TRANSITIONS`, so a step can be skipped forward but never taken backwards.
+
+**The shipment drives the order** in the same transaction, through the sales engine:
+- **Packed** packs the order.
+- **Dispatched** needs a courier and at least one AWB. It deducts stock and fixes cost exactly once, and revenue counts from here.
+- **Delivered** delivers the order.
+- A shipment can be created for an order that was already dispatched by hand; it then starts as dispatched.
+- While a delivery order has an open shipment, the order's own pack, dispatch and deliver buttons hide, so there is one path.
+
+**RTO.** A parcel coming back is recorded as RTO, then "back with us", both noted on the order timeline. The goods go back into stock, with any refund, through a return on the order (phase 9).
+
+**Cost vs charged.** Each shipment shows what the courier charges us next to the shipping charged to the customer (less any shipping refunded). It feeds contribution profit in phase 13.

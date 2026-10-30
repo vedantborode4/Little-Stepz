@@ -6,6 +6,7 @@ const tabs = [
   { label: "Business", href: "/settings/business" },
   { label: "Locations", href: "/settings/locations" },
   { label: "Receiving accounts", href: "/settings/accounts" },
+  { label: "Couriers", href: "/settings/couriers" },
   { label: "Users & roles", href: "/settings/users" },
 ]
 

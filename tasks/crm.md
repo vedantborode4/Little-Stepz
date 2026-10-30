@@ -15,7 +15,7 @@ Conventions: `docs/crm/CONVENTIONS.md`.
 - [x] **7. Payments & collections** — split tender, installments, allocation limits, customer credit, collections dashboard, ageing, transfers (Scenarios C, D)
 - [x] **8. Pre-orders & advances** — advances liability, allocation on receipt, balance, fulfilment (Scenario E)
 - [x] **9. Returns & refunds** — returns by condition, refunds/credit, revenue + COGS reversal (Scenario J)
-- [ ] **10. Courier & shipping** — shipments, packages/AWBs, status history, courier cost vs charge (Scenario G)
+- [x] **10. Courier & shipping** — shipments, packages/AWBs, status history, courier cost vs charge (Scenario G)
 - [ ] **11. Cash closing & expenses** — expenses, daily cash session, deposits, discrepancy, lock
 - [ ] **12. Stock reconciliation** — count sessions, blind count, approval, adjustments, reversal (Scenario H)
 - [ ] **13. Profit, valuation, dashboard & reports** — profit waterfall, projections, dashboard, 17 reports (Scenario I)
@@ -184,3 +184,31 @@ Conventions: `docs/crm/CONVENTIONS.md`.
 - Browser: POS sale, return with live preview (credit pre-selected for a known customer), order showing "1 returned", a −₹449 credit allocation and the returns card, exchange checkout using the credit ("Fully paid"), returns list and return detail. No console errors.
 - Found while verifying: my browser driver couldn't type into text areas (it was a test-tool fix, not an app bug). The return row in the order's returns card used the bold button font.
 - Decisions: recording a return is admin-only (`sales.manage`, a correction), and cash refunds need `payments.refund`. No separate credit-note document: the receipt shows items returned and the net value.
+
+## Phase 10 — Courier & shipping
+
+- [x] Schema: CourierPartner (tracking link template), Shipment (one open per order, courier cost), ShipmentPackage (one AWB each, unique per courier), ShipmentEvent (append-only status history)
+- [x] Rules: shipment status drives the order (packed packs it; dispatched deducts stock through the sales engine and needs a courier and an AWB; delivered delivers it), RTO and back-with-us recorded, cancel before dispatch; status is entered by hand (no live tracking claimed)
+- [x] API: couriers (settings), shipments for delivery orders, packages, status changes, list and board counts, courier cost vs shipping charged
+- [x] Web: shipping board (status tabs, counts, cost vs charged), shipment card on delivery orders (create, AWBs with tracking links, status steps, history), couriers in settings
+- [x] Tests: Scenario G, dispatch guards, AWB uniqueness, status order, RTO, cancel, roles
+
+### Phase 10 review
+- Exit criteria met (**Scenario G**):
+  - A new customer is added from the order form, and a delivery order is confirmed.
+  - A Delhivery shipment is created with an AWB (which gets a working tracking link) and a ₹62 courier charge.
+  - Packing packs the order. Dispatch takes the item out of stock. Delivered marks the order delivered.
+  - The history shows each step with the user.
+- Also tested:
+  - Dispatch needs a courier and an AWB.
+  - Statuses can't go backwards.
+  - AWBs are unique.
+  - There's one open shipment per order, and a new one is allowed after cancelling.
+  - Parcels lock after dispatch (also at the DB).
+  - RTO → back with us → return to stock.
+  - An order dispatched by hand can still get a shipment.
+  - Counter orders can't ship.
+  - Cashiers can't ship; ops can't edit couriers.
+  - A tracking link must contain `{awb}`.
+- Browser: couriers settings, new customer created from the order form, delivery order, shipment created with courier, AWB and cost, packed → dispatched → delivered from the shipment card, shipping board with tabs and cost vs charged. No console errors.
+- Found while verifying: "Need a shipment" counted an order that had already been dispatched by hand. It now counts confirmed and packed delivery orders only.

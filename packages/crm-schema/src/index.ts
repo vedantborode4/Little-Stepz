@@ -10,4 +10,5 @@ export * from "./customers";
 export * from "./sales";
 export * from "./payments";
 export * from "./returns";
+export * from "./shipping";
 export * from "./dto";

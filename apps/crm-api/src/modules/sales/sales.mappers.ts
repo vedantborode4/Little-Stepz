@@ -37,6 +37,12 @@ export const orderDetailInclude = {
     orderBy: { createdAt: "asc" },
   },
   returns: { include: { ...returnListInclude, lines: { select: { quantity: true, taxableValue: true } } }, orderBy: { createdAt: "asc" } },
+  shipments: {
+    where: { status: { notIn: ["CANCELLED", "RETURNED"] } },
+    select: { id: true, code: true, status: true },
+    orderBy: { createdAt: "desc" },
+    take: 1,
+  },
 } satisfies Prisma.SalesOrderInclude;
 
 type ListRow = Prisma.SalesOrderGetPayload<{ include: typeof orderListInclude }>;
@@ -186,6 +192,7 @@ export function toOrderDetailDto(o: DetailRow, visibility: Visibility): SalesOrd
     })),
     allocated: o.lines.length > 0 && o.lines.every((l) => l.reservations.length > 0),
     returns: o.returns.map(toReturnListItemDto),
+    activeShipment: o.shipments[0] ?? null,
   };
   if (visibility.costs) dto.profit = orderProfit(o);
   return dto;

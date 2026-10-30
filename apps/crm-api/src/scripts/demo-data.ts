@@ -7,7 +7,13 @@
  */
 import "dotenv/config";
 import { prisma } from "@repo/crm-db/client";
-import { createCustomerSchema, receivePaymentSchema, salesOrderSchema, type CreateProductInput } from "@repo/crm-schema";
+import {
+  createCourierSchema,
+  createCustomerSchema,
+  receivePaymentSchema,
+  salesOrderSchema,
+  type CreateProductInput,
+} from "@repo/crm-schema";
 import { todayIST } from "../core/dates";
 import { createNamed } from "../modules/catalog/catalog.service";
 import { createProduct } from "../modules/products/products.service";
@@ -17,6 +23,7 @@ import { createDraft, receivePurchase } from "../modules/purchases/purchases.ser
 import { createCustomer, setCustomerPrice } from "../modules/customers/customers.service";
 import { receivePayment } from "../modules/payments/payments.service";
 import { createOrder } from "../modules/sales/sales.service";
+import { createCourier } from "../modules/shipping/couriers.service";
 
 const SYSTEM = { userId: null, ip: null, userAgent: null, requestId: "seed-demo" };
 const SAMPLE_GST = "18" as const;
@@ -250,11 +257,29 @@ async function seedScenarioE() {
   console.log(`• Scenario E: pre-order ${order.code} with ₹4,000 advance`);
 }
 
+/** SAMPLE couriers with their public tracking-page links (check the links with each courier). */
+async function seedCouriers() {
+  const couriers = [
+    { name: "Delhivery (SAMPLE)", trackingUrlTemplate: "https://www.delhivery.com/track/package/{awb}" },
+    { name: "DTDC (SAMPLE)", trackingUrlTemplate: "https://www.dtdc.in/tracking.asp?strCnno={awb}" },
+    {
+      name: "India Post (SAMPLE)",
+      trackingUrlTemplate: "https://www.indiapost.gov.in/_layouts/15/dop.portal.tracking/trackconsignment.aspx?id={awb}",
+    },
+  ];
+  for (const c of couriers) {
+    if (await prisma.courierPartner.findUnique({ where: { nameKey: c.name.toLowerCase() } })) continue;
+    await createCourier(createCourierSchema.parse(c), SYSTEM);
+    console.log(`• Courier ${c.name}`);
+  }
+}
+
 main()
   .then(seedStock)
   .then(seedScenarioA)
   .then(seedCustomers)
   .then(seedScenarioE)
+  .then(seedCouriers)
   .catch((err) => {
     console.error(err);
     process.exitCode = 1;

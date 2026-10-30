@@ -54,6 +54,8 @@ model User {
   creditEntries     CustomerCreditEntry[]
   accountTransfers  AccountTransfer[]
   salesReturns      SalesReturn[]
+  shipments         Shipment[]
+  shipmentEvents    ShipmentEvent[]
 }
 
 /// Opaque refresh tokens, stored only as a SHA-256 hash. Each login starts a
@@ -807,6 +809,7 @@ model SalesOrder {
   allocations   PaymentAllocation[]
   creditEntries CustomerCreditEntry[]
   returns       SalesReturn[]
+  shipments     Shipment[]
 
   @@index([status, orderDate])
   @@index([customerId])
@@ -1072,4 +1075,89 @@ model SalesReturnLine {
   unknownCostQty Int             @default(0)
 
   @@index([orderLineId])
+}
+
+// ─── Shipping ────────────────────────────────────────────────────────────────
+
+enum ShipmentStatus {
+  PENDING
+  PACKED
+  DISPATCHED
+  IN_TRANSIT
+  OUT_FOR_DELIVERY
+  DELIVERED
+  RTO
+  RETURNED
+  CANCELLED
+}
+
+/// A courier company. `trackingUrlTemplate` holds "{awb}" where the tracking
+/// number goes; the CRM only links to the courier's page, it never polls it.
+model CourierPartner {
+  id                  String     @id @default(uuid())
+  name                String
+  nameKey             String     @unique
+  trackingUrlTemplate String?
+  phone               String?
+  notes               String?
+  isActive            Boolean    @default(true)
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+  shipments           Shipment[]
+}
+
+/// Getting a delivery order to the customer. Its status, entered by hand from
+/// the courier's tracking, drives the order: packed packs it, dispatched takes
+/// the stock out (through the sales engine), delivered completes it. One open
+/// shipment per order; a cancelled or returned one can be followed by a new one.
+model Shipment {
+  id           String          @id @default(uuid())
+  code         String          @unique
+  orderId      String
+  order        SalesOrder      @relation(fields: [orderId], references: [id])
+  courierId    String?
+  courier      CourierPartner? @relation(fields: [courierId], references: [id])
+  status       ShipmentStatus  @default(PENDING)
+  /// What the courier charges us; compared with the shipping charged to the customer.
+  courierCost  Decimal         @default(0) @db.Decimal(14, 2)
+  notes        String?
+  packedAt     DateTime?
+  dispatchedAt DateTime?
+  deliveredAt  DateTime?
+  createdById  String?
+  createdBy    User?           @relation(fields: [createdById], references: [id])
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  packages ShipmentPackage[]
+  events   ShipmentEvent[]
+
+  @@index([status])
+  @@index([orderId])
+}
+
+/// One parcel with its own AWB; an order can go out in several.
+model ShipmentPackage {
+  id         String   @id @default(uuid())
+  shipmentId String
+  shipment   Shipment @relation(fields: [shipmentId], references: [id])
+  /// Upper-case; unique, so the same tracking number can't be booked twice.
+  awb        String   @unique
+  weightKg   Decimal? @db.Decimal(10, 3)
+  notes      String?
+  createdAt  DateTime @default(now())
+}
+
+/// Status history of a shipment. Append-only.
+model ShipmentEvent {
+  id          String         @id @default(uuid())
+  shipmentId  String
+  shipment    Shipment       @relation(fields: [shipmentId], references: [id])
+  status      ShipmentStatus
+  note        String?
+  createdById String?
+  createdBy   User?          @relation(fields: [createdById], references: [id])
+  createdAt   DateTime       @default(now())
+
+  @@index([shipmentId, createdAt])
 }

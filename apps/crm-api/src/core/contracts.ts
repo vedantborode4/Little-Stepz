@@ -31,4 +31,5 @@ export type EnumParity = [
   Assert<Same<Db.CreditEntryType, Schema.CreditEntryType>>,
   Assert<Same<Db.ReturnCondition, Schema.ReturnCondition>>,
   Assert<Same<Db.RefundMethod, Schema.RefundMethod>>,
+  Assert<Same<Db.ShipmentStatus, Schema.ShipmentStatus>>,
 ];

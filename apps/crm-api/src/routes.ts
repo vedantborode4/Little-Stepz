@@ -10,6 +10,7 @@ import { paymentsRoutes } from "./modules/payments/payments.routes";
 import { purchasesRoutes } from "./modules/purchases/purchases.routes";
 import { orderReturnsRoutes, returnsRoutes } from "./modules/returns/returns.routes";
 import { preOrdersRoutes, salesRoutes } from "./modules/sales/sales.routes";
+import { couriersRoutes, shipmentsRoutes } from "./modules/shipping/shipping.routes";
 import { settingsRoutes } from "./modules/settings/settings.routes";
 import { suppliersRoutes } from "./modules/suppliers/suppliers.routes";
 import { usersRoutes } from "./modules/users/users.routes";
@@ -37,6 +38,8 @@ protectedRoutes.use("/customers", customersRoutes);
 protectedRoutes.use("/sales/:id/returns", orderReturnsRoutes);
 protectedRoutes.use("/sales", salesRoutes);
 protectedRoutes.use("/returns", returnsRoutes);
+protectedRoutes.use("/shipments", shipmentsRoutes);
+protectedRoutes.use("/couriers", couriersRoutes);
 protectedRoutes.use("/pre-orders", preOrdersRoutes);
 protectedRoutes.use("/payments", paymentsRoutes);
 

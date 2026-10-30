@@ -567,17 +567,18 @@ export async function confirmOrder(id: string, ctx: RequestContext, visibility: 
   return getOrder(id, visibility);
 }
 
+export async function packInTx(tx: Tx, ctx: RequestContext, id: string) {
+  const order = await lockOrder(tx, id);
+  if (order.fulfilment !== "DELIVERY") throw new ApiError(409, "NOT_DELIVERY", "Only delivery orders are packed; hand counter orders over");
+  if (order.status !== "CONFIRMED") throw wrongStatus(order.code, order.status, "packed");
+  assertAllocated(order);
+  await tx.salesOrder.update({ where: { id }, data: { status: "PACKED" } });
+  await addEvent(tx, ctx, id, "packed", "PACKED");
+  await audit(tx, ctx, "sale.packed", order);
+}
+
 export async function packOrder(id: string, ctx: RequestContext, visibility: Visibility) {
-  await withTransaction(async (tx) => {
-    const order = await lockOrder(tx, id);
-    if (order.fulfilment !== "DELIVERY")
-      throw new ApiError(409, "NOT_DELIVERY", "Only delivery orders are packed; hand counter orders over");
-    if (order.status !== "CONFIRMED") throw wrongStatus(order.code, order.status, "packed");
-    assertAllocated(order);
-    await tx.salesOrder.update({ where: { id }, data: { status: "PACKED" } });
-    await addEvent(tx, ctx, id, "packed", "PACKED");
-    await audit(tx, ctx, "sale.packed", order);
-  });
+  await withTransaction((tx) => packInTx(tx, ctx, id));
   return getOrder(id, visibility);
 }
 
@@ -651,34 +652,39 @@ export async function setExpectedArrival(id: string, expectedArrival: string | n
 }
 
 /** Handover (counter) or dispatch (delivery): the moment stock leaves and revenue is recognised. */
-export async function fulfilOrder(id: string, ctx: RequestContext, visibility: Visibility) {
-  await withTransaction(async (tx) => {
-    const order = await lockOrder(tx, id);
-    const action = order.fulfilment === "COUNTER" ? "handed over" : "dispatched";
-    if (order.status !== "CONFIRMED" && order.status !== "PACKED") throw wrongStatus(order.code, order.status, action);
-    if (order.stockDocumentId) throw new ApiError(409, "ALREADY_FULFILLED", `${order.code} has already left stock`);
-    assertAllocated(order);
+/** Handover or dispatch inside the caller's transaction (shipments dispatch through here too). */
+export async function fulfilInTx(tx: Tx, ctx: RequestContext, id: string) {
+  const order = await lockOrder(tx, id);
+  const action = order.fulfilment === "COUNTER" ? "handed over" : "dispatched";
+  if (order.status !== "CONFIRMED" && order.status !== "PACKED") throw wrongStatus(order.code, order.status, action);
+  if (order.stockDocumentId) throw new ApiError(409, "ALREADY_FULFILLED", `${order.code} has already left stock`);
+  assertAllocated(order);
 
-    const document = await deductOrderStock(tx, ctx, order);
-    const status = order.fulfilment === "COUNTER" ? "COMPLETED" : "DISPATCHED";
-    await tx.salesOrder.update({
-      where: { id },
-      data: { status, fulfilledAt: new Date(), fulfilledDate: toDbDate(todayIST()), stockDocumentId: document.id },
-    });
-    await addEvent(tx, ctx, id, order.fulfilment === "COUNTER" ? "handed_over" : "dispatched", status);
-    await audit(tx, ctx, "sale.fulfilled", order, { status, stockDocument: document.code });
+  const document = await deductOrderStock(tx, ctx, order);
+  const status = order.fulfilment === "COUNTER" ? "COMPLETED" : "DISPATCHED";
+  await tx.salesOrder.update({
+    where: { id },
+    data: { status, fulfilledAt: new Date(), fulfilledDate: toDbDate(todayIST()), stockDocumentId: document.id },
   });
+  await addEvent(tx, ctx, id, order.fulfilment === "COUNTER" ? "handed_over" : "dispatched", status);
+  await audit(tx, ctx, "sale.fulfilled", order, { status, stockDocument: document.code });
+}
+
+export async function fulfilOrder(id: string, ctx: RequestContext, visibility: Visibility) {
+  await withTransaction((tx) => fulfilInTx(tx, ctx, id));
   return getOrder(id, visibility);
 }
 
+export async function deliverInTx(tx: Tx, ctx: RequestContext, id: string) {
+  const order = await lockOrder(tx, id);
+  if (order.status !== "DISPATCHED") throw wrongStatus(order.code, order.status, "marked delivered");
+  await tx.salesOrder.update({ where: { id }, data: { status: "DELIVERED" } });
+  await addEvent(tx, ctx, id, "delivered", "DELIVERED");
+  await audit(tx, ctx, "sale.delivered", order);
+}
+
 export async function deliverOrder(id: string, ctx: RequestContext, visibility: Visibility) {
-  await withTransaction(async (tx) => {
-    const order = await lockOrder(tx, id);
-    if (order.status !== "DISPATCHED") throw wrongStatus(order.code, order.status, "marked delivered");
-    await tx.salesOrder.update({ where: { id }, data: { status: "DELIVERED" } });
-    await addEvent(tx, ctx, id, "delivered", "DELIVERED");
-    await audit(tx, ctx, "sale.delivered", order);
-  });
+  await withTransaction((tx) => deliverInTx(tx, ctx, id));
   return getOrder(id, visibility);
 }
 

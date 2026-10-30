@@ -16,6 +16,7 @@ import { useCan } from "@/store/auth.store"
 import { StockDocumentModal } from "../inventory/StockModals"
 import OrderPaymentsCard from "../payments/OrderPayments"
 import ReturnModal from "../returns/ReturnModal"
+import ShipmentPanel, { CreateShipmentModal } from "../shipping/ShipmentPanel"
 import { RefundBadge, ReturnDetailModal } from "../returns/ReturnsList"
 import { AccountSelect } from "../payments/shared"
 import { useCancelOrder, useDeallocate, useExpectedArrival, useOrder, useOrderAction, type OrderAction } from "./api"
@@ -35,6 +36,9 @@ const EVENT_LABELS: Record<string, string> = {
   deallocated: "Allocation released",
   rescheduled: "Expected date changed",
   returned: "Items returned",
+  shipment_rto: "Shipment coming back (RTO)",
+  shipment_returned: "Shipment back with us",
+  shipment_cancelled: "Shipment cancelled",
 }
 
 const eventLabel = (action: string, preOrder: boolean) =>
@@ -201,6 +205,9 @@ function OrderView({ o }: { o: SalesOrderDetailDto }) {
   const [rescheduling, setRescheduling] = useState(false)
   const [returning, setReturning] = useState(false)
   const [openReturn, setOpenReturn] = useState<string | null>(null)
+  const [shipping, setShipping] = useState(false)
+  // A delivery order with a shipment moves through the shipment, so its own buttons step aside.
+  const tracked = o.activeShipment !== null
   const returnable = o.fulfilledAt !== null && o.lines.some((l) => l.quantity > l.returnedQty)
   const [documentId, setDocumentId] = useState<string | null>(null)
   const delivery = o.fulfilment === "DELIVERY"
@@ -262,12 +269,12 @@ function OrderView({ o }: { o: SalesOrderDetailDto }) {
                 Release stock
               </Button>
             )}
-            {o.status === "CONFIRMED" && !awaitingStock && delivery && canShip && (
+            {o.status === "CONFIRMED" && !awaitingStock && delivery && !tracked && canShip && (
               <Button variant="secondary" icon={<PackageCheck size={15} />} loading={pending === "pack"} onClick={() => request("pack")}>
                 Mark packed
               </Button>
             )}
-            {open && (delivery ? canShip : can("sales.create")) && (
+            {open && !(delivery && tracked) && (delivery ? canShip : can("sales.create")) && (
               <Button
                 icon={delivery ? <Truck size={16} /> : <Send size={16} />}
                 loading={pending === "fulfil"}
@@ -276,7 +283,7 @@ function OrderView({ o }: { o: SalesOrderDetailDto }) {
                 {fulfilLabel}
               </Button>
             )}
-            {o.status === "DISPATCHED" && canShip && (
+            {o.status === "DISPATCHED" && !tracked && canShip && (
               <Button icon={<CheckCircle2 size={16} />} loading={pending === "deliver"} onClick={() => request("deliver")}>
                 Mark delivered
               </Button>
@@ -389,6 +396,25 @@ function OrderView({ o }: { o: SalesOrderDetailDto }) {
               </table>
             </div>
           </section>
+
+          {delivery && o.status !== "DRAFT" && o.status !== "CANCELLED" && (can("shipping.manage") || tracked) && (
+            <Card title="Shipment">
+              {o.activeShipment ? (
+                <ShipmentPanel id={o.activeShipment.id} />
+              ) : ["CONFIRMED", "PACKED", "DISPATCHED"].includes(o.status) ? (
+                <div className="flex flex-wrap items-center gap-3">
+                  <p className="text-sm text-muted flex-1">
+                    {awaitingStock ? "Allocate stock first, then ship." : "Book a courier and add the AWB to track this order to the door."}
+                  </p>
+                  <Button size="sm" icon={<Truck size={14} />} disabled={awaitingStock} onClick={() => setShipping(true)}>
+                    Create shipment
+                  </Button>
+                </div>
+              ) : (
+                <p className="text-sm text-muted">No open shipment.</p>
+              )}
+            </Card>
+          )}
 
           <OrderPaymentsCard order={o} />
 
@@ -512,6 +538,7 @@ function OrderView({ o }: { o: SalesOrderDetailDto }) {
       )}
       {cancelling && <CancelDialog order={o} onClose={() => setCancelling(false)} />}
       {releasing && <ReleaseDialog order={o} onClose={() => setReleasing(false)} />}
+      {shipping && <CreateShipmentModal orderId={o.id} orderCode={o.code} onClose={() => setShipping(false)} />}
       {returning && <ReturnModal order={o} onClose={() => setReturning(false)} />}
       {openReturn && <ReturnDetailModal id={openReturn} onClose={() => setOpenReturn(null)} />}
       {rescheduling && <ArrivalModal order={o} onClose={() => setRescheduling(false)} />}

@@ -64,7 +64,12 @@ export type AuditAction =
   | "credit.refunded"
   | "transfer.created"
   | "transfer.reversed"
-  | "return.created";
+  | "return.created"
+  | "courier.created"
+  | "courier.updated"
+  | "shipment.created"
+  | "shipment.updated"
+  | "shipment.status_changed";
 
 export type AuditEntity =
   | "User"
@@ -83,7 +88,9 @@ export type AuditEntity =
   | "SalesOrder"
   | "Payment"
   | "AccountTransfer"
-  | "SalesReturn";
+  | "SalesReturn"
+  | "CourierPartner"
+  | "Shipment";
 
 export interface AuditEntry {
   action: AuditAction;
