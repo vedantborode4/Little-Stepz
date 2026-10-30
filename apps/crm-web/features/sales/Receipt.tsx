@@ -3,11 +3,11 @@
 import clsx from "clsx"
 import { ArrowLeft, Printer } from "lucide-react"
 import Link from "next/link"
-import { useState } from "react"
+import { Fragment, useState } from "react"
 import type { BusinessProfileDto, SalesOrderDetailDto } from "@repo/crm-schema"
 import Button from "@/components/ui/Button"
 import { EmptyState, Skeleton } from "@/components/ui/Display"
-import { formatDateTime, formatMoney } from "@/lib/format"
+import { formatDate, formatDateTime, formatMoney } from "@/lib/format"
 import { useBusinessProfile } from "../settings/api"
 import { useOrder } from "./api"
 
@@ -46,7 +46,7 @@ function ReceiptBody({ o, business, size }: { o: SalesOrderDetailDto; business: 
             {business.gstin && <p>GSTIN: {business.gstin}</p>}
           </>
         )}
-        <p className="pt-1 font-semibold uppercase tracking-wide">Receipt</p>
+        <p className="pt-1 font-semibold uppercase tracking-wide">{o.fulfilledAt ? "Receipt" : "Order confirmation"}</p>
         <p className="text-[0.85em]">This is not a tax invoice</p>
       </div>
 
@@ -87,6 +87,27 @@ function ReceiptBody({ o, business, size }: { o: SalesOrderDetailDto; business: 
           </>
         )}
       </div>
+      {o.payments.length > 0 && (
+        <>
+          <div className="my-2 border-t border-dashed border-black" />
+          {o.payments.map((p) => (
+            <Fragment key={p.id}>
+              {row(
+                Number(p.amount) < 0
+                  ? `Refunded · ${p.accountName ?? "credit"}`
+                  : p.source === "CREDIT"
+                    ? "Paid from credit"
+                    : `Paid · ${p.accountName}`,
+                formatMoney(p.amount),
+              )}
+            </Fragment>
+          ))}
+          {Number(o.due) > 0 && row("Balance due", formatMoney(o.due), true)}
+        </>
+      )}
+      {o.type === "PRE_ORDER" && !o.fulfilledAt && o.expectedArrival && (
+        <p className="mt-1 text-center text-[0.85em]">Expected around {formatDate(o.expectedArrival)}</p>
+      )}
       <div className="my-2 border-t border-dashed border-black" />
       <p className="text-center">{business?.receiptFooter ?? "Thank you!"}</p>
     </div>

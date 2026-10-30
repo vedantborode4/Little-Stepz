@@ -39,7 +39,7 @@ function OrderEditor({ order, type, locations }: Props & { locations: { id: stri
   const cart = useCart({
     customerId: order?.customer?.id ?? null,
     channel: order?.channel ?? "WHATSAPP",
-    fulfilment: order?.fulfilment ?? "DELIVERY",
+    fulfilment: order?.fulfilment ?? ((type ?? "REGULAR") === "PRE_ORDER" ? "COUNTER" : "DELIVERY"),
     locationId: order?.location.id ?? locations[0]!.id,
     lines:
       order?.lines.map((l) => ({
@@ -58,6 +58,7 @@ function OrderEditor({ order, type, locations }: Props & { locations: { id: stri
   const [dueDate, setDueDate] = useState(order?.dueDate && order.dueDate !== order.orderDate ? order.dueDate : "")
   const [externalRef, setExternalRef] = useState(order?.externalRef ?? "")
   const [notes, setNotes] = useState(order?.notes ?? "")
+  const [expectedArrival, setExpectedArrival] = useState(order?.expectedArrival ?? "")
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState<"draft" | "confirm" | null>(null)
   const c = cart.cart
@@ -74,6 +75,7 @@ function OrderEditor({ order, type, locations }: Props & { locations: { id: stri
           type: orderType,
           orderDate,
           dueDate: dueDate || undefined,
+          expectedArrival: expectedArrival || undefined,
           externalRef: externalRef.trim() || null,
           notes: notes.trim() || null,
           confirm,
@@ -91,8 +93,12 @@ function OrderEditor({ order, type, locations }: Props & { locations: { id: stri
   return (
     <div className="space-y-4 sm:space-y-5">
       <PageHeader
-        title={order ? `Edit ${order.code}` : "New order"}
-        subtitle="For delivery, wholesale and phone/WhatsApp orders. Confirming reserves the stock; it leaves stock at handover or dispatch."
+        title={order ? `Edit ${order.code}` : orderType === "PRE_ORDER" ? "New pre-order" : "New order"}
+        subtitle={
+          orderType === "PRE_ORDER"
+            ? "Sold before the stock arrives, at today's price. Take an advance now; stock is allocated when it lands and leaves at handover or dispatch."
+            : "For delivery, wholesale and phone/WhatsApp orders. Confirming reserves the stock; it leaves stock at handover or dispatch."
+        }
       />
       <FormError message={error} />
       <div className="grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-4 sm:gap-5 items-start">
@@ -100,12 +106,13 @@ function OrderEditor({ order, type, locations }: Props & { locations: { id: stri
           <div className="p-4 border-b border-border">
             <SellableSearch
               locationId={c.locationId}
+              preOrder={orderType === "PRE_ORDER"}
               onPick={(item) =>
                 cart.addItem({ variantId: item.variantId, sku: item.sku, label: `${item.productName} — ${item.variantName}` })
               }
             />
           </div>
-          <CartLines cart={cart} canOverridePrice={can("sales.manage")} />
+          <CartLines cart={cart} canOverridePrice={can("sales.manage")} allowShort={orderType === "PRE_ORDER"} />
         </section>
 
         <aside className="space-y-4">
@@ -157,6 +164,11 @@ function OrderEditor({ order, type, locations }: Props & { locations: { id: stri
                 <Field label="Payment due" htmlFor="o-due" hint="Blank = customer's credit days">
                   <Input id="o-due" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
                 </Field>
+                {orderType === "PRE_ORDER" && (
+                  <Field label="Expected arrival" htmlFor="o-arrival" className="col-span-2">
+                    <Input id="o-arrival" type="date" value={expectedArrival} onChange={(e) => setExpectedArrival(e.target.value)} />
+                  </Field>
+                )}
                 <Field label="Reference" htmlFor="o-ref" hint="e.g. website order no.">
                   <Input id="o-ref" value={externalRef} onChange={(e) => setExternalRef(e.target.value)} />
                 </Field>

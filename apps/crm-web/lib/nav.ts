@@ -23,7 +23,7 @@ import {
 } from "lucide-react"
 
 /** Highest phase whose modules are live. Bump as each phase ships. */
-export const SHIPPED_PHASE = 7
+export const SHIPPED_PHASE = 8
 
 export interface NavItem {
   label: string

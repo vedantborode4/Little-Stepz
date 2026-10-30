@@ -1,6 +1,10 @@
 import type { Request, Response } from "express";
 import {
+  allocateAvailableSchema,
   cancelOrderSchema,
+  deallocateSchema,
+  expectedArrivalSchema,
+  preOrderListQuery,
   FULFILMENT_METHOD_LABELS,
   idParam,
   posSaleSchema,
@@ -17,6 +21,7 @@ import { can } from "../../core/auth";
 import { sendExport } from "../../core/export";
 import { forbidden, requestContext, sendData } from "../../core/http";
 import type { Visibility } from "./sales.mappers";
+import * as preOrders from "./preorders";
 import { salesSummary } from "./sales.reports";
 import * as sales from "./sales.service";
 
@@ -108,4 +113,38 @@ export async function deliver(req: Request, res: Response) {
 export async function cancel(req: Request, res: Response) {
   const { id } = idParam.parse(req.params);
   sendData(res, await sales.cancelOrder(id, cancelOrderSchema.parse(req.body), requestContext(req), visibility(req)));
+}
+
+export async function allocate(req: Request, res: Response) {
+  const { id } = idParam.parse(req.params);
+  sendData(res, await sales.allocateOrder(id, requestContext(req), visibility(req)));
+}
+
+export async function deallocate(req: Request, res: Response) {
+  const { id } = idParam.parse(req.params);
+  const { reason } = deallocateSchema.parse(req.body);
+  sendData(res, await sales.deallocateOrder(id, reason, requestContext(req), visibility(req)));
+}
+
+export async function expectedArrival(req: Request, res: Response) {
+  const { id } = idParam.parse(req.params);
+  const { expectedArrival } = expectedArrivalSchema.parse(req.body);
+  sendData(res, await sales.setExpectedArrival(id, expectedArrival, requestContext(req), visibility(req)));
+}
+
+export async function listPreOrders(req: Request, res: Response) {
+  sendData(res, await preOrders.listPreOrders(preOrderListQuery.parse(req.query)));
+}
+
+export async function preOrderSummary(_req: Request, res: Response) {
+  sendData(res, await preOrders.preOrderSummary());
+}
+
+export async function waitingItems(_req: Request, res: Response) {
+  sendData(res, await preOrders.waitingItems());
+}
+
+export async function allocateAvailable(req: Request, res: Response) {
+  const { variantId } = allocateAvailableSchema.parse(req.body ?? {});
+  sendData(res, await preOrders.allocateAvailable(variantId, requestContext(req)));
 }

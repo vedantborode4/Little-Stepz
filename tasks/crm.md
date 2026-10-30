@@ -13,7 +13,7 @@ Conventions: `docs/crm/CONVENTIONS.md`.
 - [x] **5. Customers** — profiles, phone lookup, dedupe + merge, wholesale terms, customer prices, PII masking
 - [x] **6. Sales / POS** — POS + order form, price resolution, discounts, GST back-out, reserve→deduct flow, COGS snapshot, receipts (Scenarios B, F)
 - [x] **7. Payments & collections** — split tender, installments, allocation limits, customer credit, collections dashboard, ageing, transfers (Scenarios C, D)
-- [ ] **8. Pre-orders & advances** — advances liability, allocation on receipt, balance, fulfilment (Scenario E)
+- [x] **8. Pre-orders & advances** — advances liability, allocation on receipt, balance, fulfilment (Scenario E)
 - [ ] **9. Returns & refunds** — returns by condition, refunds/credit, revenue + COGS reversal (Scenario J)
 - [ ] **10. Courier & shipping** — shipments, packages/AWBs, status history, courier cost vs charge (Scenario G)
 - [ ] **11. Cash closing & expenses** — expenses, daily cash session, deposits, discrepancy, lock
@@ -139,3 +139,21 @@ Conventions: `docs/crm/CONVENTIONS.md`.
   - The order page showed payments below the timeline (payments now sit under the items).
   - The two walk-in POS sales recorded during phase 6 verification predate tender entry, so they showed as unpaid. They were settled through the payments API with a note saying so.
 - Permission added: `payments.transfer` (admin). Voids and credit refunds use `payments.refund` (admin). Cashiers record payments and apply credit.
+
+## Phase 8 — Pre-orders & advances
+
+- [x] Reservation history per order line (release and re-allocate), one active reservation per line enforced by trigger
+- [x] API: allocate (all or nothing), release (admin), expected-arrival changes, pre-order board with oldest-first queue (awaiting / ready / allocated, queue position, late flag), waiting-by-item, allocate all ready, advances list and summary
+- [x] Web: pre-orders board (summary, waiting by item, bulk and per-item allocation, filters), new pre-order form (expected arrival, no "out of stock" alarm), pre-order bar on the order page (allocate, release, change date, advance and balance), advances report, dashboard "Advances held", receipt shows payments and becomes an order confirmation before handover
+- [x] Demo: SAMPLE Scenario E pre-order with a ₹4,000 website advance
+- [x] Tests: 8 new (133 total) — Scenario E end to end through a real purchase receipt, oldest-first allocation, insufficient stock, release and re-allocate with reservation history, regular orders unaffected, late flag and rescheduling, cancel with advance to credit, advances report, ops permissions
+
+### Phase 8 review
+- Exit criteria met (**Scenario E**). A ₹20,000 pre-order takes a ₹4,000 website advance (₹80 gateway fee). Stock, revenue and reservations stay untouched; only advances rise by ₹4,000. Handover is refused before allocation. The purchase arrives (+1 physical), and allocation reserves it, so physical is still 1 and available is 0. The ₹16,000 PhonePe balance makes it Paid, still with no revenue. Handover takes stock to 0, fixes cost at ₹12,500, adds ₹20,000 revenue once, and clears the advance.
+- Browser: board showing the seeded pre-order "Stock available" with the item waiting, "Allocate all ready", balance payment, handover, receipt listing both payments, a new pre-order waiting for stock with Allocate / Change date, advances report, mobile board. No console errors.
+- Found while verifying:
+  - A reservation could only ever exist once per line, so a released pre-order could never be allocated again (now a history with a trigger guard).
+  - The item search shouted "Out of stock" in red while taking pre-orders (now neutral).
+  - The receipt didn't list payments, which a pre-order customer needs as proof of their advance (added, and titled "Order confirmation" until handover).
+  - A React key warning on the new receipt rows.
+- Website pre-orders are imported read-only in phase 14 and land in this same flow.

@@ -16,6 +16,7 @@ import {
 import Link from "next/link"
 import { Card, PageHeader, StatCard } from "@/components/ui/Display"
 import { useStockSummary } from "@/features/inventory/api"
+import { useAdvancesSummary } from "@/features/payments/api"
 import { useSalesSummary } from "@/features/sales/api"
 import { useBusinessProfile, useLocations, useReceivingAccounts } from "@/features/settings/api"
 import { formatMoney, formatQty, todayIST } from "@/lib/format"
@@ -33,6 +34,7 @@ export default function DashboardPage() {
   const stock = useStockSummary()
   const today = todayIST()
   const sales = useSalesSummary({ from: today, to: today }, can("sales.view"))
+  const advances = useAdvancesSummary(can("payments.view"))
 
   const profileIsSample = profile.data?.legalName.includes("SAMPLE") ?? true
   const checklist = [
@@ -76,6 +78,17 @@ export default function DashboardPage() {
               icon={<TrendingUp size={18} />}
               color="bg-green-50 dark:bg-green-500/15 text-green-600"
             />
+          )}
+          {advances.data && (
+            <Link href="/payments/advances">
+              <StatCard
+                title="Advances held"
+                value={formatMoney(advances.data.total)}
+                hint={`${advances.data.orders} unfulfilled orders · not revenue yet`}
+                icon={<Wallet size={18} />}
+                color="bg-purple-50 dark:bg-purple-500/15 text-purple-600"
+              />
+            </Link>
           )}
         </div>
       )}

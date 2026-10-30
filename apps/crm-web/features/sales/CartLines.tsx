@@ -8,7 +8,16 @@ import { PriceSourceBadge } from "./shared"
 import type { Cart } from "./use-cart"
 
 /** Editable cart lines; prices and line totals come from the server quote. */
-export default function CartLines({ cart, canOverridePrice }: { cart: Cart; canOverridePrice: boolean }) {
+/** `allowShort`: pre-orders sell ahead of stock, so missing stock isn't flagged as a problem. */
+export default function CartLines({
+  cart,
+  canOverridePrice,
+  allowShort = false,
+}: {
+  cart: Cart
+  canOverridePrice: boolean
+  allowShort?: boolean
+}) {
   const quoted = new Map(cart.quote?.lines.map((l) => [l.variantId, l]))
 
   if (cart.cart.lines.length === 0) {
@@ -19,7 +28,7 @@ export default function CartLines({ cart, canOverridePrice }: { cart: Cart; canO
     <ul className="divide-y divide-border">
       {cart.cart.lines.map((line) => {
         const q = quoted.get(line.variantId)
-        const short = q !== undefined && q.available < line.quantity
+        const short = !allowShort && q !== undefined && q.available < line.quantity
         const discounted = q !== undefined && Number(q.unitPrice) < Number(q.regularPrice)
         return (
           <li key={line.variantId} className="px-4 py-3 space-y-2">

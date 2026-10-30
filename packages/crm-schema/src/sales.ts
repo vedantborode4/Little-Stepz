@@ -167,3 +167,51 @@ export type SellableSearchQuery = z.infer<typeof sellableSearchQuery>;
 
 export const salesSummaryQuery = z.object({ from: isoDate, to: isoDate });
 export type SalesSummaryQuery = z.infer<typeof salesSummaryQuery>;
+
+// ─── Pre-orders & advances ───────────────────────────────────────────────────
+
+/**
+ * Where an open pre-order stands for stock, in the order it would be served
+ * (oldest first): still waiting, coverable from stock on hand now, or holding it.
+ */
+export const PRE_ORDER_STOCK_STATES = ["AWAITING", "READY", "ALLOCATED"] as const;
+export type PreOrderStockState = (typeof PRE_ORDER_STOCK_STATES)[number];
+export const PRE_ORDER_STOCK_STATE_LABELS: Record<PreOrderStockState, string> = {
+  AWAITING: "Awaiting stock",
+  READY: "Stock available",
+  ALLOCATED: "Allocated",
+};
+
+const boolFlag = z
+  .enum(["true", "false"])
+  .optional()
+  .transform((v) => (v === undefined ? undefined : v === "true"));
+
+export const preOrderListQuery = listQuery.extend({
+  state: z.enum(PRE_ORDER_STOCK_STATES).optional(),
+  customerId: optionalFilterId,
+  /** Expected arrival has passed. */
+  overdue: boolFlag,
+  /** Include fulfilled and cancelled pre-orders. */
+  includeClosed: boolFlag,
+});
+export type PreOrderListQuery = z.infer<typeof preOrderListQuery>;
+
+export const expectedArrivalSchema = z.object({
+  expectedArrival: z.union([z.literal(""), z.null(), isoDate]).transform((v) => v || null),
+});
+export type ExpectedArrivalInput = z.infer<typeof expectedArrivalSchema>;
+
+export const deallocateSchema = z.object({ reason: requiredText(200) });
+
+export const allocateAvailableSchema = z.object({
+  /** Only pre-orders containing this item; all ready pre-orders when omitted. */
+  variantId: z.string().uuid().optional(),
+});
+export type AllocateAvailableInput = z.infer<typeof allocateAvailableSchema>;
+
+export const advancesQuery = listQuery.extend({
+  type: z.enum(SALES_ORDER_TYPES).optional(),
+  customerId: optionalFilterId,
+});
+export type AdvancesQuery = z.infer<typeof advancesQuery>;

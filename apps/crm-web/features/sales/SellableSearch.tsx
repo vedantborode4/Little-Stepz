@@ -15,10 +15,15 @@ interface Props {
   locationId: string
   onPick: (item: SellableItemDto) => void
   autoFocus?: boolean
+  /** Pre-orders sell ahead of stock, so having none isn't shown as a problem. */
+  preOrder?: boolean
 }
 
 /** Name or SKU search with price and free stock at the location. Enter adds the first match. */
-const SellableSearch = forwardRef<HTMLInputElement, Props>(function SellableSearch({ locationId, onPick, autoFocus }, ref) {
+const SellableSearch = forwardRef<HTMLInputElement, Props>(function SellableSearch(
+  { locationId, onPick, autoFocus, preOrder = false },
+  ref,
+) {
   const [q, setQ] = useState("")
   const [open, setOpen] = useState(false)
   const [results, setResults] = useState<SellableItemDto[]>([])
@@ -103,8 +108,13 @@ const SellableSearch = forwardRef<HTMLInputElement, Props>(function SellableSear
               </span>
               <span className="text-right shrink-0">
                 <span className="block text-sm font-semibold tabular">{formatMoney(item.offerPrice ?? item.regularPrice)}</span>
-                <span className={clsx("block text-xs tabular", item.available > 0 ? "text-green-600 dark:text-green-400" : "text-red-500")}>
-                  {item.available > 0 ? `${item.available} free` : "Out of stock"}
+                <span
+                  className={clsx(
+                    "block text-xs tabular",
+                    item.available > 0 ? "text-green-600 dark:text-green-400" : preOrder ? "text-muted" : "text-red-500",
+                  )}
+                >
+                  {item.available > 0 ? `${item.available} free` : preOrder ? "None in stock yet" : "Out of stock"}
                 </span>
               </span>
             </button>

@@ -835,18 +835,20 @@ model SalesOrderLine {
   /// Units that left with an unknown cost (excluded from margin, never guessed).
   unknownCostQty     Int         @default(0)
 
-  reservation Reservation?
+  reservations Reservation[]
 
   @@unique([orderId, variantId])
   @@index([variantId])
 }
 
-/// Units held for a confirmed order. Not a stock movement: physical stock is
-/// unchanged and only "available" drops. Released (never deleted) when the
-/// order is fulfilled or cancelled.
+/// Units held for a confirmed order line. Not a stock movement: physical stock
+/// is unchanged and only "available" drops. Released (never deleted) when the
+/// order is fulfilled or cancelled, or when a pre-order's allocation is undone;
+/// a line can be allocated again later, but a trigger allows only one active
+/// reservation per line at a time.
 model Reservation {
   id            String         @id @default(uuid())
-  orderLineId   String         @unique
+  orderLineId   String
   orderLine     SalesOrderLine @relation(fields: [orderLineId], references: [id])
   variantId     String
   variant       Variant        @relation(fields: [variantId], references: [id])
@@ -855,10 +857,11 @@ model Reservation {
   quantity      Int
   createdAt     DateTime       @default(now())
   releasedAt    DateTime?
-  /// FULFILLED or CANCELLED.
+  /// FULFILLED, CANCELLED or DEALLOCATED.
   releaseReason String?
 
   @@index([variantId, locationId, releasedAt])
+  @@index([orderLineId])
 }
 
 /// Status history shown as the order timeline. Append-only.

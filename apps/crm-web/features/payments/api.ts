@@ -2,6 +2,8 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import type {
   AccountTransferDto,
   AccountTransferInput,
+  AdvanceRowDto,
+  AdvancesSummaryDto,
   ApplyCreditInput,
   CollectionsDto,
   CustomerCreditDto,
@@ -26,7 +28,19 @@ export const paymentKeys = {
   outstandingSummary: (params: object) => [...paymentKeys.all, "outstanding-summary", params] as const,
   transfers: (params: object) => [...paymentKeys.all, "transfers", params] as const,
   credit: (customerId: string) => [...paymentKeys.all, "credit", customerId] as const,
+  advances: (params: object) => [...paymentKeys.all, "advances", params] as const,
+  advancesSummary: () => [...paymentKeys.all, "advances-summary"] as const,
 }
+
+export const useAdvances = (params: object) =>
+  useQuery({
+    queryKey: paymentKeys.advances(params),
+    queryFn: () => getData<Paginated<AdvanceRowDto>>("/payments/advances", params),
+    placeholderData: keepPreviousData,
+  })
+
+export const useAdvancesSummary = (enabled = true) =>
+  useQuery({ queryKey: paymentKeys.advancesSummary(), queryFn: () => getData<AdvancesSummaryDto>("/payments/advances/summary"), enabled })
 
 export const usePayments = (params: object) =>
   useQuery({

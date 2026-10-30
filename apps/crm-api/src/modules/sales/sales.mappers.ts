@@ -22,7 +22,7 @@ export const orderDetailInclude = {
   lines: {
     include: {
       variant: { select: { sku: true, name: true, product: { select: { name: true } } } },
-      reservation: { select: { quantity: true, releasedAt: true } },
+      reservations: { where: { releasedAt: null }, select: { quantity: true } },
     },
     orderBy: { position: "asc" },
   },
@@ -134,7 +134,7 @@ export function toOrderDetailDto(o: DetailRow, visibility: Visibility): SalesOrd
       gstRate: l.gstRate.toString(),
       taxableValue: money(l.taxableValue),
       gstAmount: money(l.gstAmount),
-      reservedQty: l.reservation && !l.reservation.releasedAt ? l.reservation.quantity : 0,
+      reservedQty: l.reservations[0]?.quantity ?? 0,
       ...(visibility.costs && { cogs: l.cogs ? money(dec(l.cogs)) : null, unknownCostQty: l.unknownCostQty }),
     })),
     events: o.events.map((e) => ({
@@ -156,6 +156,7 @@ export function toOrderDetailDto(o: DetailRow, visibility: Visibility): SalesOrd
       reference: a.payment?.reference ?? null,
       amount: money(a.amount),
     })),
+    allocated: o.lines.length > 0 && o.lines.every((l) => l.reservations.length > 0),
   };
   if (visibility.costs) dto.profit = orderProfit(o);
   return dto;

@@ -9,7 +9,7 @@ export interface ReservationRequest {
   quantity: number;
 }
 
-export type ReleaseReason = "FULFILLED" | "CANCELLED";
+export type ReleaseReason = "FULFILLED" | "CANCELLED" | "DEALLOCATED";
 
 /** Units reserved per variant at one location (active reservations only). */
 export async function reservedAt(tx: Tx | typeof prisma, locationId: string, variantIds: string[]): Promise<Map<string, number>> {

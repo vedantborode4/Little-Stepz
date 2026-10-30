@@ -1,6 +1,6 @@
 import type { CurrencyCode, MappingState, PriceField, ProductStatus, VariantStatus } from "./catalog";
 import type { CustomerType, DuplicateReason } from "./customers";
-import type { FulfilmentMethod, PriceSource, SalesChannel, SalesOrderStatus, SalesOrderType } from "./sales";
+import type { FulfilmentMethod, PreOrderStockState, PriceSource, SalesChannel, SalesOrderStatus, SalesOrderType } from "./sales";
 import type { AgeingBucket, CreditEntryType, PaymentDirection, PaymentStatus } from "./payments";
 import type { LocationType, PaymentMethod, Role } from "./enums";
 import type { StockBucket, StockDocumentType, StockReasonCode, StockState } from "./inventory";
@@ -661,6 +661,8 @@ export interface SalesOrderDetailDto extends SalesOrderListItemDto {
   profit?: OrderProfitDto | null;
   events: SalesOrderEventDto[];
   payments: OrderPaymentDto[];
+  /** Every line holds its stock (always true for a confirmed regular order; set by allocation for pre-orders). */
+  allocated: boolean;
 }
 
 /** One allocation on an order: money from a payment (or refund) or from the customer's credit. Negative = given back. */
@@ -690,6 +692,72 @@ export interface SalesSummaryDto {
   grossProfit?: string;
   unknownCostUnits?: number;
   byChannel: { channel: SalesChannel; orders: number; grossSales: string }[];
+}
+
+// ─── Pre-orders & advances ───────────────────────────────────────────────────
+
+export interface PreOrderRowDto {
+  id: string;
+  code: string;
+  status: SalesOrderStatus;
+  customer: { id: string; code: string; name: string } | null;
+  location: RefDto;
+  orderDate: string;
+  expectedArrival: string | null;
+  /** Expected arrival has passed and the pre-order is still open. */
+  overdue: boolean;
+  items: string;
+  units: number;
+  grandTotal: string;
+  paid: string;
+  due: string;
+  /** Null once fulfilled or cancelled. */
+  stockState: PreOrderStockState | null;
+  /** Place in the oldest-first queue among pre-orders still waiting for stock. */
+  queuePosition: number | null;
+}
+
+export interface PreOrderSummaryDto {
+  open: number;
+  awaiting: number;
+  ready: number;
+  allocated: number;
+  overdueArrivals: number;
+  /** Money taken on open pre-orders: a liability until they're fulfilled. */
+  advancesHeld: string;
+}
+
+export interface WaitingItemDto {
+  variantId: string;
+  sku: string;
+  productName: string;
+  variantName: string;
+  /** Units on open pre-orders that don't hold stock yet. */
+  awaitedUnits: number;
+  preOrders: number;
+  /** Free to allocate now (sellable minus reserved), across the pre-orders' locations. */
+  available: number;
+}
+
+export interface AdvanceRowDto {
+  orderId: string;
+  code: string;
+  type: SalesOrderType;
+  status: SalesOrderStatus;
+  customer: { id: string; code: string; name: string } | null;
+  orderDate: string;
+  expectedArrival: string | null;
+  grandTotal: string;
+  paid: string;
+  due: string;
+}
+
+/** Money received for orders not yet fulfilled. Not revenue: it becomes revenue at handover or dispatch. */
+export interface AdvancesSummaryDto {
+  orders: number;
+  total: string;
+  preOrders: string;
+  regularOrders: string;
 }
 
 // ─── Payments ────────────────────────────────────────────────────────────────

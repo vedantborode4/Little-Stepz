@@ -340,7 +340,10 @@ async function deductOrderStock(tx: Tx, ctx: RequestContext, order: { id: string
 /** Locks the order row so two fulfilments or cancellations can't run at once. */
 async function lockOrder(tx: Tx, id: string) {
   await tx.$queryRaw`SELECT id FROM "SalesOrder" WHERE id = ${id} FOR UPDATE`;
-  const order = await tx.salesOrder.findUnique({ where: { id }, include: { lines: { include: { reservation: true } } } });
+  const order = await tx.salesOrder.findUnique({
+    where: { id },
+    include: { lines: { include: { reservations: { where: { releasedAt: null } } } } },
+  });
   if (!order) throw notFound("Order");
   return order;
 }
@@ -560,10 +563,72 @@ export async function packOrder(id: string, ctx: RequestContext, visibility: Vis
 }
 
 function assertAllocated(order: Awaited<ReturnType<typeof lockOrder>>) {
-  const unreserved = order.lines.filter((l) => !l.reservation || l.reservation.releasedAt);
+  const unreserved = order.lines.filter((l) => l.reservations.length === 0);
   if (unreserved.length) {
     throw new ApiError(409, "NOT_ALLOCATED", "Stock hasn't been allocated to this pre-order yet");
   }
+}
+
+/**
+ * Pre-orders are sold before the stock exists. When it arrives, allocating
+ * reserves every line at once (all or nothing), under the same lock as any
+ * other reservation, so it can't take units another order already holds.
+ */
+export async function allocateInTx(tx: Tx, ctx: RequestContext, id: string) {
+  const order = await lockOrder(tx, id);
+  if (order.type !== "PRE_ORDER") throw new ApiError(409, "NOT_PRE_ORDER", "Regular orders reserve their stock when confirmed");
+  if (order.status !== "CONFIRMED") throw wrongStatus(order.code, order.status, "allocated");
+  if (order.lines.some((l) => l.reservations.length > 0))
+    throw new ApiError(409, "ALREADY_ALLOCATED", `${order.code} already holds its stock`);
+  await reserveStock(
+    tx,
+    order.lines.map((l) => ({ orderLineId: l.id, variantId: l.variantId, locationId: order.locationId, quantity: l.quantity })),
+  );
+  await addEvent(tx, ctx, id, "allocated", null);
+  await audit(tx, ctx, "sale.allocated", order);
+  return order;
+}
+
+export async function allocateOrder(id: string, ctx: RequestContext, visibility: Visibility) {
+  await withTransaction((tx) => allocateInTx(tx, ctx, id));
+  return getOrder(id, visibility);
+}
+
+/** Frees a pre-order's stock (e.g. for a more urgent customer). It goes back to waiting; nothing is lost. */
+export async function deallocateOrder(id: string, reason: string, ctx: RequestContext, visibility: Visibility) {
+  await withTransaction(async (tx) => {
+    const order = await lockOrder(tx, id);
+    if (order.type !== "PRE_ORDER")
+      throw new ApiError(409, "NOT_PRE_ORDER", "Only pre-order allocations can be released; cancel a regular order instead");
+    if (order.status !== "CONFIRMED") throw wrongStatus(order.code, order.status, "released");
+    if (!order.lines.some((l) => l.reservations.length > 0))
+      throw new ApiError(409, "NOT_ALLOCATED", `${order.code} doesn't hold any stock`);
+    await releaseReservations(
+      tx,
+      order.lines.map((l) => l.id),
+      "DEALLOCATED",
+    );
+    await addEvent(tx, ctx, id, "deallocated", null, reason);
+    await audit(tx, ctx, "sale.deallocated", order, { reason });
+  });
+  return getOrder(id, visibility);
+}
+
+export async function setExpectedArrival(id: string, expectedArrival: string | null, ctx: RequestContext, visibility: Visibility) {
+  await withTransaction(async (tx) => {
+    const order = await lockOrder(tx, id);
+    if (order.fulfilledAt || order.status === "CANCELLED") throw wrongStatus(order.code, order.status, "rescheduled");
+    await tx.salesOrder.update({ where: { id }, data: { expectedArrival: expectedArrival ? toDbDate(expectedArrival) : null } });
+    await addEvent(tx, ctx, id, "rescheduled", null, expectedArrival ? `Expected ${expectedArrival}` : "Expected date cleared");
+    await recordAudit(tx, ctx, {
+      action: "sale.rescheduled",
+      entity: "SalesOrder",
+      entityId: id,
+      before: { expectedArrival: order.expectedArrival },
+      after: { expectedArrival },
+    });
+  });
+  return getOrder(id, visibility);
 }
 
 /** Handover (counter) or dispatch (delivery): the moment stock leaves and revenue is recognised. */

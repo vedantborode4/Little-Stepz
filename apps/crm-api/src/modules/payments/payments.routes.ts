@@ -14,6 +14,8 @@ paymentsRoutes.post("/", record, controller.receive);
 paymentsRoutes.get("/collections", view, controller.collections);
 paymentsRoutes.get("/outstanding", view, controller.outstanding);
 paymentsRoutes.get("/outstanding/summary", view, controller.outstandingSummary);
+paymentsRoutes.get("/advances", view, controller.advances);
+paymentsRoutes.get("/advances/summary", view, controller.advancesSummary);
 paymentsRoutes.get("/transfers", view, controller.listTransfers);
 paymentsRoutes.post("/transfers", transfer, controller.createTransfer);
 paymentsRoutes.post("/transfers/:id/reverse", transfer, controller.reverseTransfer);

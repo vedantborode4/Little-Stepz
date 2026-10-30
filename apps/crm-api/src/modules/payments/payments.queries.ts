@@ -1,6 +1,9 @@
 import { prisma, Prisma } from "@repo/crm-db/client";
 import type {
   AccountTransferDto,
+  AdvanceRowDto,
+  AdvancesQuery,
+  AdvancesSummaryDto,
   AgeingBucket,
   CollectionsDto,
   CollectionsQuery,
@@ -398,4 +401,78 @@ export async function getTransfer(id: string) {
   const row = await prisma.accountTransfer.findUnique({ where: { id }, include: transferInclude });
   if (!row) throw notFound("Transfer");
   return toTransferDto(row);
+}
+
+// ─── Advances ────────────────────────────────────────────────────────────────
+
+/**
+ * Money received for orders that haven't been handed over or dispatched yet.
+ * It's owed to the customer in goods (a liability), and only becomes revenue
+ * when the order is fulfilled.
+ */
+function advancesSql(query: Pick<AdvancesQuery, "type" | "customerId" | "q">) {
+  const conditions: Prisma.Sql[] = [Prisma.sql`o."fulfilledAt" IS NULL`, Prisma.sql`o.status NOT IN ('DRAFT', 'CANCELLED')`];
+  if (query.type) conditions.push(Prisma.sql`o.type = ${query.type}::"SalesOrderType"`);
+  if (query.customerId) conditions.push(Prisma.sql`o."customerId" = ${query.customerId}`);
+  if (query.q) {
+    const like = `%${query.q}%`;
+    conditions.push(Prisma.sql`(o.code ILIKE ${like} OR c.name ILIKE ${like} OR c.code ILIKE ${like})`);
+  }
+  return Prisma.sql`
+    WITH paid AS (SELECT "orderId", SUM(amount) AS paid FROM "PaymentAllocation" GROUP BY "orderId"),
+    adv AS (
+      SELECT o.id AS "orderId", o.code, o.type, o.status, o."orderDate", o."expectedArrival", o."grandTotal", p.paid,
+        c.id AS "customerId", c.code AS "customerCode", c.name AS "customerName"
+      FROM "SalesOrder" o
+      JOIN paid p ON p."orderId" = o.id AND p.paid > 0
+      LEFT JOIN "Customer" c ON c.id = o."customerId"
+      WHERE ${Prisma.join(conditions, " AND ")}
+    )`;
+}
+
+export async function listAdvances(query: AdvancesQuery) {
+  const base = advancesSql(query);
+  const { skip, take } = pageWindow(query);
+  const [rows, counted] = await Promise.all([
+    prisma.$queryRaw<
+      {
+        orderId: string;
+        code: string;
+        type: AdvanceRowDto["type"];
+        status: AdvanceRowDto["status"];
+        orderDate: Date;
+        expectedArrival: Date | null;
+        grandTotal: Prisma.Decimal;
+        paid: Prisma.Decimal;
+        customerId: string | null;
+        customerCode: string | null;
+        customerName: string | null;
+      }[]
+    >`${base} SELECT * FROM adv ORDER BY "orderDate" ASC, code LIMIT ${take} OFFSET ${skip}`,
+    prisma.$queryRaw<{ count: number }[]>`${base} SELECT COUNT(*)::int AS count FROM adv`,
+  ]);
+  const items: AdvanceRowDto[] = rows.map((r) => ({
+    orderId: r.orderId,
+    code: r.code,
+    type: r.type,
+    status: r.status,
+    customer: r.customerId ? { id: r.customerId, code: r.customerCode!, name: r.customerName! } : null,
+    orderDate: fromDbDate(r.orderDate),
+    expectedArrival: r.expectedArrival ? fromDbDate(r.expectedArrival) : null,
+    grandTotal: money(d(r.grandTotal)),
+    paid: money(d(r.paid)),
+    due: money(Decimal.max(d(r.grandTotal).sub(d(r.paid)), 0)),
+  }));
+  return paginated(items, counted[0]?.count ?? 0, query);
+}
+
+export async function advancesSummary(): Promise<AdvancesSummaryDto> {
+  const [row] = await prisma.$queryRaw<
+    { orders: number; total: Prisma.Decimal; pre: Prisma.Decimal; regular: Prisma.Decimal }[]
+  >`${advancesSql({})}
+    SELECT COUNT(*)::int AS orders, COALESCE(SUM(paid), 0) AS total,
+      COALESCE(SUM(paid) FILTER (WHERE type = 'PRE_ORDER'), 0) AS pre,
+      COALESCE(SUM(paid) FILTER (WHERE type = 'REGULAR'), 0) AS regular
+    FROM adv`;
+  return { orders: row!.orders, total: money(d(row!.total)), preOrders: money(d(row!.pre)), regularOrders: money(d(row!.regular)) };
 }

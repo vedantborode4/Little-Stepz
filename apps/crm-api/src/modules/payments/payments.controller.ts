@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import {
   accountTransferSchema,
+  advancesQuery,
   applyCreditSchema,
   collectionsQuery,
   idParam,
@@ -129,4 +130,12 @@ export async function reverseTransfer(req: Request, res: Response) {
   const { id } = idParam.parse(req.params);
   const { reason } = reverseTransferSchema.parse(req.body);
   sendData(res, await payments.reverseTransfer(id, reason, requestContext(req)));
+}
+
+export async function advances(req: Request, res: Response) {
+  sendData(res, await queries.listAdvances(advancesQuery.parse(req.query)));
+}
+
+export async function advancesSummary(_req: Request, res: Response) {
+  sendData(res, await queries.advancesSummary());
 }

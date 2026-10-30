@@ -9,13 +9,14 @@ import Button from "@/components/ui/Button"
 import ConfirmDialog from "@/components/ui/ConfirmDialog"
 import { Card, DetailRow, EmptyState, PageHeader, Skeleton } from "@/components/ui/Display"
 import { Field, Input, Textarea } from "@/components/ui/Form"
+import Modal from "@/components/ui/Modal"
 import { errorMessage } from "@/lib/api-error"
 import { formatDate, formatDateTime, formatMoney } from "@/lib/format"
 import { useCan } from "@/store/auth.store"
 import { StockDocumentModal } from "../inventory/StockModals"
 import OrderPaymentsCard from "../payments/OrderPayments"
 import { AccountSelect } from "../payments/shared"
-import { useCancelOrder, useOrder, useOrderAction, type OrderAction } from "./api"
+import { useCancelOrder, useDeallocate, useExpectedArrival, useOrder, useOrderAction, type OrderAction } from "./api"
 import { OrderStatusBadge, OrderTypeBadge, PriceSourceBadge } from "./shared"
 
 const EVENT_LABELS: Record<string, string> = {
@@ -28,13 +29,88 @@ const EVENT_LABELS: Record<string, string> = {
   sold_at_counter: "Sold at the counter — stock deducted",
   delivered: "Delivered",
   cancelled: "Cancelled",
+  allocated: "Stock allocated",
+  deallocated: "Allocation released",
+  rescheduled: "Expected date changed",
 }
+
+const eventLabel = (action: string, preOrder: boolean) =>
+  action === "confirmed" && preOrder ? "Confirmed — waiting for stock" : (EVENT_LABELS[action] ?? action)
 
 const ACTION_COPY: Record<OrderAction, { label: string; done: string; confirm?: string }> = {
   confirm: { label: "Confirm order", done: "Order confirmed", confirm: "Confirming reserves the stock for this order." },
   pack: { label: "Mark packed", done: "Marked packed" },
   fulfil: { label: "", done: "Stock deducted", confirm: "The items leave stock now and the sale counts as revenue." },
   deliver: { label: "Mark delivered", done: "Marked delivered" },
+  allocate: { label: "Allocate stock", done: "Stock allocated", confirm: "Reserves the items for this pre-order from stock on hand." },
+}
+
+function ReleaseDialog({ order, onClose }: { order: SalesOrderDetailDto; onClose: () => void }) {
+  const release = useDeallocate(order.id)
+  const [reason, setReason] = useState("")
+  return (
+    <ConfirmDialog
+      title={`Release ${order.code}'s stock?`}
+      message={
+        <div className="space-y-3">
+          <p>The units become free again and the pre-order goes back to waiting. Use it to serve a more urgent order first.</p>
+          <Field label="Reason" htmlFor="release-reason" required>
+            <Textarea id="release-reason" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} />
+          </Field>
+        </div>
+      }
+      confirmLabel="Release"
+      confirmDisabled={!reason.trim()}
+      loading={release.isPending}
+      onCancel={onClose}
+      onConfirm={async () => {
+        try {
+          await release.mutateAsync(reason.trim())
+          toast.success("Allocation released")
+          onClose()
+        } catch (err) {
+          toast.error(errorMessage(err))
+        }
+      }}
+    />
+  )
+}
+
+function ArrivalModal({ order, onClose }: { order: SalesOrderDetailDto; onClose: () => void }) {
+  const save = useExpectedArrival(order.id)
+  const [date, setDate] = useState(order.expectedArrival ?? "")
+  return (
+    <Modal
+      title="Expected arrival"
+      onClose={onClose}
+      width="max-w-sm"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            loading={save.isPending}
+            onClick={async () => {
+              try {
+                await save.mutateAsync(date || null)
+                toast.success("Expected date updated")
+                onClose()
+              } catch (err) {
+                toast.error(errorMessage(err))
+              }
+            }}
+          >
+            Save
+          </Button>
+        </>
+      }
+    >
+      <Field label="When the stock is expected" htmlFor="arrival-date">
+        <Input id="arrival-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+      </Field>
+    </Modal>
+  )
 }
 
 function th(label: string, right = false) {
@@ -118,10 +194,14 @@ function OrderView({ o }: { o: SalesOrderDetailDto }) {
   const [pending, setPending] = useState<OrderAction | null>(null)
   const [confirming, setConfirming] = useState<OrderAction | null>(null)
   const [cancelling, setCancelling] = useState(false)
+  const [releasing, setReleasing] = useState(false)
+  const [rescheduling, setRescheduling] = useState(false)
   const [documentId, setDocumentId] = useState<string | null>(null)
   const delivery = o.fulfilment === "DELIVERY"
   const canShip = can("shipping.manage") || can("sales.manage")
-  const open = o.status === "CONFIRMED" || o.status === "PACKED"
+  const preOrder = o.type === "PRE_ORDER"
+  const awaitingStock = preOrder && o.status === "CONFIRMED" && !o.allocated
+  const open = (o.status === "CONFIRMED" || o.status === "PACKED") && !awaitingStock
   const fulfilLabel = delivery ? "Dispatch" : "Hand over"
   const showCosts = o.profit !== undefined
 
@@ -166,7 +246,17 @@ function OrderView({ o }: { o: SalesOrderDetailDto }) {
                 Confirm
               </Button>
             )}
-            {o.status === "CONFIRMED" && delivery && canShip && (
+            {awaitingStock && (can("sales.create") || can("inventory.move")) && (
+              <Button icon={<PackageCheck size={16} />} loading={pending === "allocate"} onClick={() => request("allocate")}>
+                Allocate stock
+              </Button>
+            )}
+            {preOrder && o.allocated && o.status === "CONFIRMED" && can("sales.manage") && (
+              <Button variant="ghost" onClick={() => setReleasing(true)}>
+                Release stock
+              </Button>
+            )}
+            {o.status === "CONFIRMED" && !awaitingStock && delivery && canShip && (
               <Button variant="secondary" icon={<PackageCheck size={15} />} loading={pending === "pack"} onClick={() => request("pack")}>
                 Mark packed
               </Button>
@@ -200,6 +290,24 @@ function OrderView({ o }: { o: SalesOrderDetailDto }) {
           </>
         }
       />
+
+      {preOrder && !o.fulfilledAt && o.status !== "CANCELLED" && o.status !== "DRAFT" && (
+        <div
+          className={`flex flex-wrap items-center gap-3 rounded-2xl border px-4 py-3 text-sm ${awaitingStock ? "border-yellow-300/60 bg-yellow-50 dark:bg-yellow-500/10" : "border-border bg-surface-2"}`}
+        >
+          <span className="font-medium">{awaitingStock ? "Waiting for stock" : "Stock allocated — ready to hand over or ship"}</span>
+          <span className="text-muted">Expected {o.expectedArrival ? formatDate(o.expectedArrival) : "date not set"}</span>
+          {can("sales.create") && (
+            <Button size="sm" variant="ghost" onClick={() => setRescheduling(true)}>
+              Change date
+            </Button>
+          )}
+          <span className="flex-1" />
+          <span className="text-muted">
+            Advance {formatMoney(o.paid)} · balance {formatMoney(o.due)}
+          </span>
+        </div>
+      )}
 
       {o.status === "CANCELLED" && (
         <div className="rounded-2xl border border-border bg-surface-2 px-4 py-3 text-sm">
@@ -344,7 +452,7 @@ function OrderView({ o }: { o: SalesOrderDetailDto }) {
                 <li key={e.id} className="flex gap-3 text-sm">
                   <span className="mt-1.5 h-2 w-2 rounded-full bg-primary shrink-0" />
                   <div>
-                    <p className="font-medium">{EVENT_LABELS[e.action] ?? e.action}</p>
+                    <p className="font-medium">{eventLabel(e.action, preOrder)}</p>
                     <p className="text-xs text-muted">
                       {formatDateTime(e.createdAt)} · {e.userName ?? "System"}
                       {e.note && ` · ${e.note}`}
@@ -369,6 +477,8 @@ function OrderView({ o }: { o: SalesOrderDetailDto }) {
         />
       )}
       {cancelling && <CancelDialog order={o} onClose={() => setCancelling(false)} />}
+      {releasing && <ReleaseDialog order={o} onClose={() => setReleasing(false)} />}
+      {rescheduling && <ArrivalModal order={o} onClose={() => setRescheduling(false)} />}
       {documentId && <StockDocumentModal documentId={documentId} onClose={() => setDocumentId(null)} onOpenDocument={setDocumentId} />}
     </div>
   )

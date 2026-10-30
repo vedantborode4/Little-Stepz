@@ -7,7 +7,7 @@
  */
 import "dotenv/config";
 import { prisma } from "@repo/crm-db/client";
-import { createCustomerSchema, type CreateProductInput } from "@repo/crm-schema";
+import { createCustomerSchema, receivePaymentSchema, salesOrderSchema, type CreateProductInput } from "@repo/crm-schema";
 import { todayIST } from "../core/dates";
 import { createNamed } from "../modules/catalog/catalog.service";
 import { createProduct } from "../modules/products/products.service";
@@ -15,6 +15,8 @@ import { createSupplier } from "../modules/suppliers/suppliers.service";
 import { recordOpeningStock } from "../modules/inventory/inventory.service";
 import { createDraft, receivePurchase } from "../modules/purchases/purchases.service";
 import { createCustomer, setCustomerPrice } from "../modules/customers/customers.service";
+import { receivePayment } from "../modules/payments/payments.service";
+import { createOrder } from "../modules/sales/sales.service";
 
 const SYSTEM = { userId: null, ip: null, userAgent: null, requestId: "seed-demo" };
 const SAMPLE_GST = "18" as const;
@@ -208,10 +210,51 @@ async function seedCustomers() {
   }
 }
 
+/** Scenario E as SAMPLE data: a ₹20,000 pre-order with a ₹4,000 website advance, waiting to be allocated. */
+async function seedScenarioE() {
+  if (await prisma.salesOrder.findFirst({ where: { type: "PRE_ORDER", externalRef: "SAMPLE-WEB-1001" } })) return;
+  const [customer, mjx, store, gateway] = await Promise.all([
+    prisma.customer.findUnique({ where: { mobile: "+919000000102" } }),
+    prisma.variant.findUnique({ where: { sku: "MJX-HG-14" } }),
+    prisma.location.findUnique({ where: { code: "STORE" } }),
+    prisma.receivingAccount.findUnique({ where: { name: "Website Gateway" } }),
+  ]);
+  if (!customer || !mjx || !store || !gateway) return;
+  const order = await createOrder(
+    salesOrderSchema.parse({
+      type: "PRE_ORDER",
+      channel: "WEBSITE",
+      fulfilment: "COUNTER",
+      customerId: customer.id,
+      locationId: store.id,
+      expectedArrival: todayIST(),
+      externalRef: "SAMPLE-WEB-1001",
+      notes: "SAMPLE pre-order (Scenario E)",
+      confirm: true,
+      lines: [{ variantId: mjx.id, quantity: 1, unitPrice: "20000" }],
+    }),
+    SYSTEM,
+    { overridePrice: true },
+    { costs: true },
+  );
+  await receivePayment(
+    receivePaymentSchema.parse({
+      customerId: customer.id,
+      accountId: gateway.id,
+      amount: "4000",
+      reference: "SAMPLE-GW-1001",
+      allocations: [{ orderId: order.id, amount: "4000" }],
+    }),
+    SYSTEM,
+  );
+  console.log(`• Scenario E: pre-order ${order.code} with ₹4,000 advance`);
+}
+
 main()
   .then(seedStock)
   .then(seedScenarioA)
   .then(seedCustomers)
+  .then(seedScenarioE)
   .catch((err) => {
     console.error(err);
     process.exitCode = 1;

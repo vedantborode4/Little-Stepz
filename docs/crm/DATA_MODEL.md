@@ -150,3 +150,23 @@ Source of truth: `packages/crm-db/prisma/schema.prisma`. This page explains the 
 - Transfers appear per account but are never "received".
 
 **Outstanding.** Outstanding lists every confirmed order with a balance. It's aged from the order date (0–30, 31–60, 60+), flagged overdue past its due date, and splits **receivable** (fulfilled) from **open orders** (not yet handed over or dispatched, so not yet a receivable).
+
+## Phase 8: pre-orders and advances
+
+No new tables: a pre-order is a `SalesOrder` with `type = PRE_ORDER`, so its advance and balance are just payments on one order, and revenue is booked once, at fulfilment.
+
+**Flow.** Create a pre-order and confirm it (no stock is touched), then take an advance.
+- When the goods arrive (a purchase is received), **allocate**. That reserves every line at once, all or nothing, under the same per-variant lock as any reservation. Physical stock is still unchanged; only "available" drops.
+- Take the balance, then hand over or dispatch. That is when stock leaves and the sale counts as revenue.
+- Packing and fulfilment are refused until the pre-order is allocated (`NOT_ALLOCATED`).
+
+**Queue.** Open pre-orders are served oldest first against free stock. A pre-order is *Ready* when stock covers all of it after older ready pre-orders take theirs. An older one that can't be covered doesn't block a smaller younger one.
+- "Allocate all ready" (and per item) allocates each ready pre-order in its own transaction, so one that loses a race is skipped, not fatal.
+
+**Release.** An admin can release an allocation (e.g. to serve a more urgent customer). The pre-order goes back to waiting.
+- Reservations are therefore a history per order line: released rows stay, with `releaseReason` `FULFILLED`, `CANCELLED` or `DEALLOCATED`.
+- At most one may be active per line. Prisma can't express that partial unique index without schema drift, so the reservation trigger enforces it on insert.
+
+**Advances** are payments allocated to orders not yet handed over or dispatched (pre-orders and other open orders). They're a liability: shown under Payments → Advances and on the dashboard, never in sales. Cancelling a pre-order with an advance requires a refund or a move into the customer's credit (phase 7).
+
+**Expected arrival** can be changed until fulfilment (timeline: "Expected date changed"). Pre-orders past it are flagged as late. The receipt prints as an **Order confirmation** listing the advance and balance due until the goods are handed over.
