@@ -15,6 +15,7 @@ import { errorMessage } from "@/lib/api-error"
 import { formatDate, formatMoney } from "@/lib/format"
 import { useCan } from "@/store/auth.store"
 import VariantPicker from "../inventory/VariantPicker"
+import CustomerCreditCard from "../payments/CustomerCreditCard"
 import { useOrders } from "../sales/api"
 import { OrderStatusBadge } from "../sales/shared"
 import { revealContact, useCustomer, useMergeCustomer, useRemoveCustomerPrice, useSaveCustomer, useSetCustomerPrice } from "./api"
@@ -405,12 +406,19 @@ function CustomerView({ customer }: { customer: CustomerDetailDto }) {
 
       <div className="grid grid-cols-1 2xl:grid-cols-3 gap-4 sm:gap-5 items-start">
         <div className="2xl:col-span-2 space-y-4 sm:space-y-5">
-          <div className="grid grid-cols-3 gap-3 sm:gap-5">
-            <StatCard title="Orders" value={customer.stats.orders} />
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
+            <StatCard title="Orders" value={customer.stats.orders} hint={`Last ${formatDate(customer.stats.lastOrderDate)}`} />
             <StatCard title="Lifetime value" value={formatMoney(customer.stats.lifetimeValue)} hint="Fulfilled orders, incl. GST" />
-            <StatCard title="Last order" value={<span className="text-base">{formatDate(customer.stats.lastOrderDate)}</span>} />
+            <StatCard
+              title="Outstanding"
+              value={formatMoney(customer.stats.outstanding)}
+              hint={customer.creditLimit ? `Limit ${formatMoney(customer.creditLimit)}` : "Unpaid on orders"}
+              color="bg-yellow-50 dark:bg-yellow-500/15 text-yellow-600"
+            />
+            <StatCard title="Credit held" value={formatMoney(customer.stats.creditBalance)} hint="Overpayments and cancellations" />
           </div>
           {can("sales.view") && <RecentOrders customerId={customer.id} />}
+          {can("payments.view") && <CustomerCreditCard customerId={customer.id} />}
           <PricesCard customer={customer} />
         </div>
         <div className="space-y-4 sm:space-y-5">

@@ -2,6 +2,7 @@ import type { Prisma } from "@repo/crm-db/client";
 import type { OrderProfitDto, SaleTotalsDto, SalesOrderDetailDto, SalesOrderListItemDto } from "@repo/crm-schema";
 import { fromDbDate } from "../../core/dates";
 import { Decimal, money } from "../../core/money";
+import { paymentStatus } from "../payments/ledger";
 
 export interface Visibility {
   costs: boolean;
@@ -10,6 +11,7 @@ export interface Visibility {
 export const orderListInclude = {
   customer: { select: { id: true, code: true, name: true } },
   lines: { select: { quantity: true } },
+  allocations: { select: { amount: true } },
 } satisfies Prisma.SalesOrderInclude;
 
 export const orderDetailInclude = {
@@ -25,12 +27,26 @@ export const orderDetailInclude = {
     orderBy: { position: "asc" },
   },
   events: { include: { createdBy: { select: { name: true } } }, orderBy: { createdAt: "asc" } },
+  allocations: {
+    include: {
+      payment: { select: { id: true, code: true, businessDate: true, method: true, reference: true, account: { select: { name: true } } } },
+    },
+    orderBy: { createdAt: "asc" },
+  },
 } satisfies Prisma.SalesOrderInclude;
 
 type ListRow = Prisma.SalesOrderGetPayload<{ include: typeof orderListInclude }>;
 type DetailRow = Prisma.SalesOrderGetPayload<{ include: typeof orderDetailInclude }>;
 
 const dec = (v: Prisma.Decimal) => new Decimal(v.toString());
+
+/** Paid, due and status, derived from the order's signed allocations. */
+function paymentState(o: { grandTotal: Prisma.Decimal; allocations: { amount: Prisma.Decimal }[] }) {
+  const total = dec(o.grandTotal);
+  const paid = o.allocations.reduce((s, a) => s.add(dec(a.amount)), new Decimal(0));
+  const refunded = o.allocations.some((a) => dec(a.amount).isNegative());
+  return { paid: money(paid), due: money(Decimal.max(total.sub(paid), 0)), paymentStatus: paymentStatus(total, paid, refunded) };
+}
 
 export const toOrderListItemDto = (o: ListRow): SalesOrderListItemDto => ({
   id: o.id,
@@ -43,6 +59,7 @@ export const toOrderListItemDto = (o: ListRow): SalesOrderListItemDto => ({
   orderDate: fromDbDate(o.orderDate),
   units: o.lines.reduce((s, l) => s + l.quantity, 0),
   grandTotal: money(o.grandTotal),
+  ...paymentState(o),
   fulfilledAt: o.fulfilledAt?.toISOString() ?? null,
   createdAt: o.createdAt.toISOString(),
 });
@@ -127,6 +144,17 @@ export function toOrderDetailDto(o: DetailRow, visibility: Visibility): SalesOrd
       note: e.note,
       userName: e.createdBy?.name ?? null,
       createdAt: e.createdAt.toISOString(),
+    })),
+    payments: o.allocations.map((a) => ({
+      id: a.id,
+      source: a.payment ? ("PAYMENT" as const) : ("CREDIT" as const),
+      paymentId: a.payment?.id ?? null,
+      code: a.payment?.code ?? null,
+      businessDate: a.payment ? fromDbDate(a.payment.businessDate) : a.createdAt.toISOString().slice(0, 10),
+      method: a.payment?.method ?? null,
+      accountName: a.payment?.account.name ?? null,
+      reference: a.payment?.reference ?? null,
+      amount: money(a.amount),
     })),
   };
   if (visibility.costs) dto.profit = orderProfit(o);

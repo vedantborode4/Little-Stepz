@@ -12,6 +12,7 @@ let cashier: TestSession;
 let ops: TestSession;
 let categoryId: string;
 let store: string;
+let cash: string;
 
 const uid = () => randomUUID().slice(0, 6).toUpperCase();
 const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date());
@@ -29,6 +30,12 @@ beforeAll(async () => {
       .post("/api/v1/settings/locations")
       .set(admin.auth)
       .send({ code: `SS${uid()}`, name: "Sales store", type: "STORE" })
+  ).body.data.id;
+  cash = (
+    await api()
+      .post("/api/v1/settings/receiving-accounts")
+      .set(admin.auth)
+      .send({ name: `Till ${uid()}`, method: "CASH" })
   ).body.data.id;
 });
 
@@ -57,11 +64,18 @@ async function card(variantId: string) {
   return (await api().get(`/api/v1/inventory/variants/${variantId}`).set(admin.auth)).body.data.stock;
 }
 
-const pos = (session: TestSession, body: Record<string, unknown>) =>
-  api()
-    .post("/api/v1/sales/pos")
-    .set(session.auth)
-    .send({ locationId: store, idempotencyKey: randomUUID(), ...body });
+/**
+ * A POS sale. Walk-ins must pay in full, so unless the test says otherwise the
+ * helper pays the quoted total in cash, as the till would.
+ */
+async function pos(session: TestSession, body: Record<string, unknown>) {
+  const payload = { locationId: store, channel: "STORE", idempotencyKey: randomUUID(), ...body };
+  if (!("payments" in body) && !body.customerId) {
+    const quote = await api().post("/api/v1/sales/quote").set(session.auth).send(payload);
+    if (quote.status === 200) Object.assign(payload, { payments: [{ accountId: cash, amount: quote.body.data.totals.grandTotal }] });
+  }
+  return api().post("/api/v1/sales/pos").set(session.auth).send(payload);
+}
 
 const order = (session: TestSession, body: Record<string, unknown>) =>
   api()

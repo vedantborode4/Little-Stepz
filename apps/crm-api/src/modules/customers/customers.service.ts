@@ -17,6 +17,8 @@ import { buildOrderBy, pageWindow, paginated } from "../../core/list";
 import { fromDbDate } from "../../core/dates";
 import { dec, Decimal, money } from "../../core/money";
 import { maskMobile } from "../../core/pii";
+import { creditBalance } from "../payments/ledger";
+import { customerOutstanding } from "../payments/payments.queries";
 import { nameKey, nextCode } from "../../core/sequence";
 import {
   auditSnapshot,
@@ -96,7 +98,7 @@ export async function exportCustomersWithContacts(query: CustomerListQuery, ctx:
 }
 
 export async function getCustomer(id: string) {
-  const [row, orders, fulfilled] = await Promise.all([
+  const [row, orders, fulfilled, outstanding, credit] = await Promise.all([
     prisma.customer.findUnique({ where: { id }, include: customerDetailInclude }),
     prisma.salesOrder.aggregate({
       where: { customerId: id, status: { notIn: ["DRAFT", "CANCELLED"] } },
@@ -104,12 +106,16 @@ export async function getCustomer(id: string) {
       _max: { orderDate: true },
     }),
     prisma.salesOrder.aggregate({ where: { customerId: id, fulfilledAt: { not: null } }, _sum: { grandTotal: true } }),
+    customerOutstanding(id),
+    creditBalance(prisma, id),
   ]);
   if (!row) throw notFound("Customer");
   return toCustomerDetailDto(row, {
     orders: orders._count,
     lastOrderDate: orders._max.orderDate ? fromDbDate(orders._max.orderDate) : null,
     lifetimeValue: money(new Decimal((fulfilled._sum.grandTotal ?? 0).toString())),
+    outstanding: money(outstanding),
+    creditBalance: money(credit),
   });
 }
 
@@ -297,8 +303,17 @@ async function reassignCustomerReferences(tx: Tx, fromId: string, toId: string) 
   await tx.customerPrice.updateMany({ where: { customerId: fromId, variantId: { in: movable } }, data: { customerId: toId } });
   const dropped = await tx.customerPrice.deleteMany({ where: { customerId: fromId } });
   const orders = await tx.salesOrder.updateMany({ where: { customerId: fromId }, data: { customerId: toId } });
+  // Payments and credit are append-only except for this re-link (enforced by trigger).
+  const payments = await tx.payment.updateMany({ where: { customerId: fromId }, data: { customerId: toId } });
+  const credit = await tx.customerCreditEntry.updateMany({ where: { customerId: fromId }, data: { customerId: toId } });
 
-  return { pricesMoved: movable.length, pricesDropped: dropped.count, ordersMoved: orders.count };
+  return {
+    pricesMoved: movable.length,
+    pricesDropped: dropped.count,
+    ordersMoved: orders.count,
+    paymentsMoved: payments.count,
+    creditEntriesMoved: credit.count,
+  };
 }
 
 export async function mergeCustomer(sourceId: string, input: MergeCustomerInput, ctx: RequestContext) {

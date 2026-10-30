@@ -8,11 +8,13 @@ import { FULFILMENT_METHOD_LABELS, SALES_CHANNEL_LABELS, SALES_ORDER_STATUS_LABE
 import Button from "@/components/ui/Button"
 import ConfirmDialog from "@/components/ui/ConfirmDialog"
 import { Card, DetailRow, EmptyState, PageHeader, Skeleton } from "@/components/ui/Display"
-import { Field, Textarea } from "@/components/ui/Form"
+import { Field, Input, Textarea } from "@/components/ui/Form"
 import { errorMessage } from "@/lib/api-error"
 import { formatDate, formatDateTime, formatMoney } from "@/lib/format"
 import { useCan } from "@/store/auth.store"
 import { StockDocumentModal } from "../inventory/StockModals"
+import OrderPaymentsCard from "../payments/OrderPayments"
+import { AccountSelect } from "../payments/shared"
 import { useCancelOrder, useOrder, useOrderAction, type OrderAction } from "./api"
 import { OrderStatusBadge, OrderTypeBadge, PriceSourceBadge } from "./shared"
 
@@ -48,24 +50,58 @@ function th(label: string, right = false) {
 function CancelDialog({ order, onClose }: { order: SalesOrderDetailDto; onClose: () => void }) {
   const cancel = useCancelOrder(order.id)
   const [reason, setReason] = useState("")
+  const paid = Number(order.paid) > 0
+  const [mode, setMode] = useState<"CREDIT" | "REFUND">(order.customer ? "CREDIT" : "REFUND")
+  const [accountId, setAccountId] = useState("")
+  const [reference, setReference] = useState("")
+  const settlementReady = !paid || mode === "CREDIT" || accountId !== ""
   return (
     <ConfirmDialog
       title={`Cancel ${order.code}?`}
       message={
         <div className="space-y-3">
           <p>Any reserved stock is released. The order stays on record as cancelled.</p>
+          {paid && (
+            <div className="space-y-2 rounded-xl border border-border p-3">
+              <p className="font-medium">{formatMoney(order.paid)} has been paid. What happens to it?</p>
+              {order.customer && (
+                <label className="flex items-center gap-2">
+                  <input type="radio" name="settle" checked={mode === "CREDIT"} onChange={() => setMode("CREDIT")} />
+                  Keep as {order.customer.name}&apos;s credit
+                </label>
+              )}
+              <label className="flex items-center gap-2">
+                <input type="radio" name="settle" checked={mode === "REFUND"} onChange={() => setMode("REFUND")} />
+                Refund the money
+              </label>
+              {mode === "REFUND" && (
+                <div className="grid grid-cols-2 gap-2">
+                  <AccountSelect value={accountId} onChange={setAccountId} placeholder="Refund from…" />
+                  <Input
+                    aria-label="Refund reference"
+                    placeholder="Reference"
+                    value={reference}
+                    onChange={(e) => setReference(e.target.value)}
+                  />
+                </div>
+              )}
+            </div>
+          )}
           <Field label="Reason" htmlFor="cancel-reason" required>
             <Textarea id="cancel-reason" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} />
           </Field>
         </div>
       }
       confirmLabel="Cancel order"
-      confirmDisabled={!reason.trim()}
+      confirmDisabled={!reason.trim() || !settlementReady}
       loading={cancel.isPending}
       onCancel={onClose}
       onConfirm={async () => {
         try {
-          await cancel.mutateAsync({ reason: reason.trim() })
+          await cancel.mutateAsync({
+            reason: reason.trim(),
+            settlement: !paid ? undefined : mode === "CREDIT" ? { mode } : { mode, accountId, reference: reference || null },
+          })
           toast.success("Order cancelled")
           onClose()
         } catch (err) {
@@ -234,22 +270,7 @@ function OrderView({ o }: { o: SalesOrderDetailDto }) {
             </div>
           </section>
 
-          <Card title="Timeline">
-            <ol className="space-y-3">
-              {o.events.map((e) => (
-                <li key={e.id} className="flex gap-3 text-sm">
-                  <span className="mt-1.5 h-2 w-2 rounded-full bg-primary shrink-0" />
-                  <div>
-                    <p className="font-medium">{EVENT_LABELS[e.action] ?? e.action}</p>
-                    <p className="text-xs text-muted">
-                      {formatDateTime(e.createdAt)} · {e.userName ?? "System"}
-                      {e.note && ` · ${e.note}`}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ol>
-          </Card>
+          <OrderPaymentsCard order={o} />
         </div>
 
         <div className="space-y-4 sm:space-y-5">
@@ -316,6 +337,22 @@ function OrderView({ o }: { o: SalesOrderDetailDto }) {
               <DetailRow label="Created by">{o.createdByName ?? "—"}</DetailRow>
             </dl>
             {o.notes && <p className="mt-3 text-sm text-muted whitespace-pre-line">{o.notes}</p>}
+          </Card>
+          <Card title="Timeline">
+            <ol className="space-y-3">
+              {o.events.map((e) => (
+                <li key={e.id} className="flex gap-3 text-sm">
+                  <span className="mt-1.5 h-2 w-2 rounded-full bg-primary shrink-0" />
+                  <div>
+                    <p className="font-medium">{EVENT_LABELS[e.action] ?? e.action}</p>
+                    <p className="text-xs text-muted">
+                      {formatDateTime(e.createdAt)} · {e.userName ?? "System"}
+                      {e.note && ` · ${e.note}`}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ol>
           </Card>
         </div>
       </div>

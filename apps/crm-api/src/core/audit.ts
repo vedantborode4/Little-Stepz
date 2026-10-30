@@ -53,7 +53,14 @@ export type AuditAction =
   | "sale.fulfilled"
   | "sale.completed"
   | "sale.delivered"
-  | "sale.cancelled";
+  | "sale.cancelled"
+  | "payment.received"
+  | "payment.voided"
+  | "payment.settled_on_cancel"
+  | "credit.applied"
+  | "credit.refunded"
+  | "transfer.created"
+  | "transfer.reversed";
 
 export type AuditEntity =
   | "User"
@@ -69,7 +76,9 @@ export type AuditEntity =
   | "StockDocument"
   | "PurchaseShipment"
   | "Customer"
-  | "SalesOrder";
+  | "SalesOrder"
+  | "Payment"
+  | "AccountTransfer";
 
 export interface AuditEntry {
   action: AuditAction;

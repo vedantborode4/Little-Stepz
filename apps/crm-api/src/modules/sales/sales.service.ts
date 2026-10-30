@@ -19,6 +19,7 @@ import { nextCode } from "../../core/sequence";
 import { assertActiveLocations } from "../inventory/inventory.service";
 import { availableAt, releaseReservations, reserveStock } from "../inventory/reservations";
 import { postStockDocument } from "../inventory/stock-engine";
+import { recordReceipt, settleCancelledOrder } from "../payments/ledger";
 import { resolveUnitPrice } from "./pricing";
 import { orderDetailInclude, orderListInclude, toOrderDetailDto, toOrderListItemDto, type Visibility } from "./sales.mappers";
 import { computeSaleTotals } from "./totals";
@@ -348,6 +349,50 @@ const wrongStatus = (code: string, status: SalesOrderStatus, action: string) =>
   new ApiError(409, "INVALID_STATUS", `Order ${code} is ${status.toLowerCase()} and can't be ${action}`);
 
 /**
+ * Walk-in sales must be paid in full (there's no one to collect from later). A
+ * known customer may pay part now and owe the rest, or overpay and keep the
+ * excess as credit — but only when that's explicitly chosen.
+ */
+function assertTenderCovers(input: PosSaleInput, cart: PricedCart) {
+  const tendered = input.payments.reduce((s, p) => s.add(dec(p.amount)), new Decimal(0));
+  const total = cart.totals.grandTotal;
+  if (tendered.lt(total) && !cart.customer) {
+    throw new ApiError(400, "PAYMENT_INCOMPLETE", `Walk-in sales must be paid in full: ${money(total.sub(tendered))} is still due`, {
+      due: money(total.sub(tendered)),
+    });
+  }
+  if (tendered.gt(total) && !(input.excessToCredit && cart.customer)) {
+    throw new ApiError(
+      400,
+      "PAYMENT_EXCEEDS_TOTAL",
+      `Payments are ${money(tendered.sub(total))} more than the total. Enter what was kept, not the cash handed over.`,
+      {
+        excess: money(tendered.sub(total)),
+      },
+    );
+  }
+}
+
+/** One payment per tender leg, applied to the sale in order; any excess goes to the customer's credit. */
+async function recordTender(tx: Tx, ctx: RequestContext, orderId: string, cart: PricedCart, input: PosSaleInput) {
+  let remaining = cart.totals.grandTotal;
+  for (const tender of input.payments) {
+    const amount = dec(tender.amount);
+    const applied = Decimal.min(amount, remaining);
+    remaining = remaining.sub(applied);
+    await recordReceipt(tx, ctx, {
+      customerId: cart.customer?.id ?? null,
+      accountId: tender.accountId,
+      amount,
+      reference: tender.reference,
+      businessDate: resolveBusinessDate(undefined),
+      allocations: applied.gt(0) ? [{ orderId, amount: applied }] : [],
+      excessToCredit: true,
+    });
+  }
+}
+
+/**
  * A completed counter sale in one step: priced, saved and taken out of stock in
  * one transaction. The idempotency key makes a double-submitted checkout return
  * the first sale rather than sell the items twice.
@@ -360,6 +405,7 @@ export async function createPosSale(input: PosSaleInput, ctx: RequestContext, ri
     const id = await withTransaction(async (tx) => {
       await assertActiveLocations(tx, [input.locationId]);
       const cart = await priceCart(tx, input, rights);
+      assertTenderCovers(input, cart);
       const today = todayIST();
       const order = await tx.salesOrder.create({
         data: {
@@ -385,6 +431,7 @@ export async function createPosSale(input: PosSaleInput, ctx: RequestContext, ri
       });
       await addEvent(tx, ctx, order.id, "sold_at_counter", "COMPLETED");
       await audit(tx, ctx, "sale.completed", order, { grandTotal: money(cart.totals.grandTotal), lines: cart.lines.length });
+      await recordTender(tx, ctx, order.id, cart, input);
       return order.id;
     });
     return getOrder(id, visibility);
@@ -557,6 +604,7 @@ export async function cancelOrder(id: string, input: CancelOrderInput, ctx: Requ
     const order = await lockOrder(tx, id);
     if (order.fulfilledAt) throw new ApiError(409, "USE_RETURN", `${order.code} has left stock; record a return instead`);
     if (order.status === "CANCELLED") throw wrongStatus(order.code, order.status, "cancelled");
+    await settleCancelledOrder(tx, ctx, order, input.settlement);
     await releaseReservations(
       tx,
       order.lines.map((l) => l.id),

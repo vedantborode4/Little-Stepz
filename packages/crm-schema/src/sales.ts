@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { isoDate, listQuery, money, optionalFilterId, optionalId, optionalText, requiredText } from "./common";
+import { cancelSettlementSchema, tenderSchema } from "./payments";
 
 export const SALES_CHANNELS = ["STORE", "WEBSITE", "WHATSAPP", "INSTAGRAM", "FACEBOOK", "WHOLESALE", "OTHER"] as const;
 export type SalesChannel = (typeof SALES_CHANNELS)[number];
@@ -108,6 +109,10 @@ export const posSaleSchema = z
     fulfilment: z.literal("COUNTER").default("COUNTER"),
     idempotencyKey: z.string().uuid(),
     notes: optionalText(1000),
+    /** Split tender: one entry per account the money went to. Walk-ins must pay in full. */
+    payments: z.array(tenderSchema).max(10).default([]),
+    /** Money beyond the total is kept as the customer's credit (needs a customer). */
+    excessToCredit: z.boolean().default(false),
   })
   .superRefine((v, ctx) => uniqueLines(v.lines, ctx));
 export type PosSaleInput = z.infer<typeof posSaleSchema>;
@@ -136,7 +141,11 @@ export const salesOrderSchema = z
   .superRefine((v, ctx) => uniqueLines(v.lines, ctx));
 export type SalesOrderInput = z.infer<typeof salesOrderSchema>;
 
-export const cancelOrderSchema = z.object({ reason: requiredText(200) });
+export const cancelOrderSchema = z.object({
+  reason: requiredText(200),
+  /** Required when money has already been paid on the order. */
+  settlement: cancelSettlementSchema.optional(),
+});
 export type CancelOrderInput = z.infer<typeof cancelOrderSchema>;
 
 export const salesListQuery = listQuery.extend({

@@ -123,3 +123,30 @@ Source of truth: `packages/crm-db/prisma/schema.prisma`. This page explains the 
 **Revenue** is recognised at fulfilment (`fulfilledDate`, IST): handover or dispatch. `GET /sales/summary` reports fulfilled orders only.
 - Gross profit = net sales excl. GST − COGS, over lines whose cost is fully known.
 - The "before GST" figure (price − cost) is shown alongside it, labelled as such.
+
+## Phase 7: payments and collections
+
+| Model | Purpose | Key rules |
+|---|---|---|
+| `Payment` | Money received (`IN`) or paid back (`OUT`): `PAY-xxxxx` code, receiving account (method copied at the time), amount, provider fee, reference, business date, customer | **Append-only.** The only allowed update is re-pointing `customerId` when customers merge (trigger compares the row minus that column). A mistake is voided by a mirror row in the other direction (`reversalOfId`, at most once). `fee ≤ amount`. |
+| `PaymentAllocation` | Money applied to an order, from a payment **or** from customer credit (exactly one), signed | **Append-only.** The sum per order is what it has been paid; status (Unpaid / Partially paid / Paid / Overpaid / Refunded) is derived, never stored. |
+| `CustomerCreditEntry` | The customer's credit ledger: overpayment kept (+), used on an order (−), refunded (−), from a cancelled order (+), reversal | **Append-only** (same customer re-link exception). The balance is the sum and can never go below zero. |
+| `AccountTransfer` | Money moved between the business's own accounts (`TRF-xxxxx`) | **Append-only**, reversed by a mirror transfer. Never a sale, refund or expense. |
+
+**Rules** (all in `modules/payments/ledger.ts`, the single writer of money rows):
+- **Allocations can't exceed what's due.** Order rows are locked (in id order) before money is applied, so two payments arriving together can't both fill the same balance.
+- **Leftover money must be explicit.** Whatever isn't applied to orders must be kept as the customer's credit (`excessToCredit`), which needs a customer. Walk-in money can't be left unapplied.
+- **POS split tender.** Each leg (cash, PhonePe, …) is its own payment, applied to the sale in order.
+  - Walk-ins must pay in full.
+  - A known customer may pay part (the rest is due, from their credit days) or overpay into credit when that's ticked.
+  - Amounts are what was kept; change isn't recorded.
+- **Credit** is spent on an order (a credit entry plus a credit-sourced allocation) or refunded as an `OUT` payment (admin). The customer row is locked while credit is spent.
+- **Voids** mirror the payment, its allocations and its credit entries. They're refused when that would leave an order paid below zero or above its total, or credit that has already been spent.
+- **Cancelling a paid order** requires a settlement: refund it (`OUT` payment from an account) or move it into the customer's credit. Walk-ins can only be refunded.
+- **Gateway fees** default to the account's fee % and can be overridden. They feed contribution profit (phase 13).
+
+**Collections.** Collections show received, refunded, fees and net by method and by account, plus business vs personal accounts and amounts by sales channel ("held as credit" for money not applied to orders).
+- A void is netted against what it undoes.
+- Transfers appear per account but are never "received".
+
+**Outstanding.** Outstanding lists every confirmed order with a balance. It's aged from the order date (0–30, 31–60, 60+), flagged overdue past its due date, and splits **receivable** (fulfilled) from **open orders** (not yet handed over or dispatched, so not yet a receivable).

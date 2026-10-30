@@ -1,6 +1,7 @@
 import type { CurrencyCode, MappingState, PriceField, ProductStatus, VariantStatus } from "./catalog";
 import type { CustomerType, DuplicateReason } from "./customers";
 import type { FulfilmentMethod, PriceSource, SalesChannel, SalesOrderStatus, SalesOrderType } from "./sales";
+import type { AgeingBucket, CreditEntryType, PaymentDirection, PaymentStatus } from "./payments";
 import type { LocationType, PaymentMethod, Role } from "./enums";
 import type { StockBucket, StockDocumentType, StockReasonCode, StockState } from "./inventory";
 import type { AllocationMethod, ChargeType, PurchaseStatus } from "./purchases";
@@ -505,6 +506,10 @@ export interface CustomerStatsDto {
   orders: number;
   lifetimeValue: string;
   lastOrderDate: string | null;
+  /** Unpaid balance across the customer's open and fulfilled orders. */
+  outstanding: string;
+  /** Money held for the customer (overpayments, cancelled orders), spendable on orders or refundable. */
+  creditBalance: string;
 }
 
 export interface CustomerDetailDto extends CustomerListItemDto {
@@ -600,6 +605,9 @@ export interface SalesOrderListItemDto {
   orderDate: string;
   units: number;
   grandTotal: string;
+  paid: string;
+  due: string;
+  paymentStatus: PaymentStatus;
   fulfilledAt: string | null;
   createdAt: string;
 }
@@ -652,6 +660,20 @@ export interface SalesOrderDetailDto extends SalesOrderListItemDto {
   totals: SaleTotalsDto;
   profit?: OrderProfitDto | null;
   events: SalesOrderEventDto[];
+  payments: OrderPaymentDto[];
+}
+
+/** One allocation on an order: money from a payment (or refund) or from the customer's credit. Negative = given back. */
+export interface OrderPaymentDto {
+  id: string;
+  source: "PAYMENT" | "CREDIT";
+  paymentId: string | null;
+  code: string | null;
+  businessDate: string;
+  method: PaymentMethod | null;
+  accountName: string | null;
+  reference: string | null;
+  amount: string;
 }
 
 /** Revenue counts once, when an order is fulfilled (handed over or dispatched). */
@@ -668,6 +690,116 @@ export interface SalesSummaryDto {
   grossProfit?: string;
   unknownCostUnits?: number;
   byChannel: { channel: SalesChannel; orders: number; grossSales: string }[];
+}
+
+// ─── Payments ────────────────────────────────────────────────────────────────
+
+export interface PaymentListItemDto {
+  id: string;
+  code: string;
+  direction: PaymentDirection;
+  method: PaymentMethod;
+  account: { id: string; name: string; isPersonal: boolean };
+  amount: string;
+  fee: string;
+  businessDate: string;
+  reference: string | null;
+  customer: { id: string; code: string; name: string } | null;
+  orderCodes: string[];
+  /** Part of the amount kept as (or, for refunds, taken from) customer credit. */
+  creditAmount: string;
+  reversalOf: { id: string; code: string } | null;
+  reversedBy: { id: string; code: string } | null;
+  createdAt: string;
+}
+
+export interface PaymentDetailDto extends PaymentListItemDto {
+  notes: string | null;
+  createdByName: string | null;
+  allocations: { orderId: string; orderCode: string; amount: string }[];
+}
+
+export interface CreditEntryDto {
+  id: string;
+  type: CreditEntryType;
+  amount: string;
+  orderCode: string | null;
+  paymentCode: string | null;
+  note: string | null;
+  createdByName: string | null;
+  createdAt: string;
+}
+
+export interface CustomerCreditDto {
+  balance: string;
+  entries: CreditEntryDto[];
+}
+
+export interface CollectionsDto {
+  from: string;
+  to: string;
+  totals: { payments: number; received: string; refunded: string; net: string; fees: string; netAfterFees: string };
+  business: string;
+  personal: string;
+  byMethod: { method: PaymentMethod; count: number; received: string; refunded: string; net: string }[];
+  byAccount: {
+    accountId: string;
+    name: string;
+    method: PaymentMethod;
+    isPersonal: boolean;
+    received: string;
+    refunded: string;
+    fees: string;
+    transfersIn: string;
+    transfersOut: string;
+    /** Received − refunded ± transfers: how the account's money moved in the period. */
+    movement: string;
+  }[];
+  /** Money applied to orders, by the order's channel; `null` = still held as customer credit. */
+  byChannel: { channel: SalesChannel | null; amount: string }[];
+}
+
+export interface OutstandingRowDto {
+  orderId: string;
+  code: string;
+  type: SalesOrderType;
+  status: SalesOrderStatus;
+  customer: { id: string; code: string; name: string } | null;
+  orderDate: string;
+  dueDate: string | null;
+  grandTotal: string;
+  paid: string;
+  due: string;
+  /** Days since the order date; buckets age from the order date. */
+  ageDays: number;
+  bucket: AgeingBucket;
+  overdue: boolean;
+  /** False for orders not yet handed over or dispatched (balance on an open order, not yet a receivable). */
+  fulfilled: boolean;
+}
+
+export interface OutstandingSummaryDto {
+  orders: number;
+  total: string;
+  receivable: string;
+  openOrders: string;
+  overdue: string;
+  buckets: Record<AgeingBucket, string>;
+}
+
+export interface AccountTransferDto {
+  id: string;
+  code: string;
+  from: { id: string; name: string };
+  to: { id: string; name: string };
+  amount: string;
+  businessDate: string;
+  reference: string | null;
+  notes: string | null;
+  reversalOf: { id: string; code: string } | null;
+  reversedBy: { id: string; code: string } | null;
+  createdByName: string | null;
+  createdAt: string;
 }
 
 /** Error envelope returned with every non-2xx response. */

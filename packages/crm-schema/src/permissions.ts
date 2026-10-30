@@ -24,6 +24,8 @@ export const PERMISSIONS = [
   "payments.view",
   "payments.record",
   "payments.refund",
+  /** Moving money between receiving accounts (e.g. cash to bank). */
+  "payments.transfer",
   "customers.view",
   "customers.manage",
   "customers.contact.reveal",

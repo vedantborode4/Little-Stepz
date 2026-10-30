@@ -44,12 +44,15 @@ model User {
   auditLogs         AuditLog[]
   priceChanges      PriceChange[]
   stockDocuments    StockDocument[]
-  purchasesCreated  PurchaseShipment[] @relation("PurchaseCreatedBy")
-  purchasesReceived PurchaseShipment[] @relation("PurchaseReceivedBy")
+  purchasesCreated  PurchaseShipment[]    @relation("PurchaseCreatedBy")
+  purchasesReceived PurchaseShipment[]    @relation("PurchaseReceivedBy")
   costAdjustments   CostAdjustment[]
   purchaseReturns   PurchaseReturn[]
   salesOrders       SalesOrder[]
   salesOrderEvents  SalesOrderEvent[]
+  payments          Payment[]
+  creditEntries     CustomerCreditEntry[]
+  accountTransfers  AccountTransfer[]
 }
 
 /// Opaque refresh tokens, stored only as a SHA-256 hash. Each login starts a
@@ -155,6 +158,10 @@ model ReceivingAccount {
   isActive   Boolean       @default(true)
   createdAt  DateTime      @default(now())
   updatedAt  DateTime      @updatedAt
+
+  payments     Payment[]
+  transfersOut AccountTransfer[] @relation("TransferFrom")
+  transfersIn  AccountTransfer[] @relation("TransferTo")
 }
 
 // ─── Document numbering ──────────────────────────────────────────────────────
@@ -678,8 +685,10 @@ model Customer {
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 
-  prices      CustomerPrice[]
-  salesOrders SalesOrder[]
+  prices        CustomerPrice[]
+  salesOrders   SalesOrder[]
+  payments      Payment[]
+  creditEntries CustomerCreditEntry[]
 
   @@index([nameKey(ops: raw("gin_trgm_ops"))], type: Gin)
   @@index([pincode])
@@ -789,8 +798,10 @@ model SalesOrder {
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
-  lines  SalesOrderLine[]
-  events SalesOrderEvent[]
+  lines         SalesOrderLine[]
+  events        SalesOrderEvent[]
+  allocations   PaymentAllocation[]
+  creditEntries CustomerCreditEntry[]
 
   @@index([status, orderDate])
   @@index([customerId])
@@ -863,4 +874,118 @@ model SalesOrderEvent {
   createdAt   DateTime          @default(now())
 
   @@index([orderId, createdAt])
+}
+
+// ─── Payments ────────────────────────────────────────────────────────────────
+
+enum PaymentDirection {
+  IN
+  OUT
+}
+
+enum CreditEntryType {
+  OVERPAYMENT
+  APPLIED
+  REFUNDED
+  CANCELLED_ORDER
+  REVERSAL
+}
+
+/// Money received (IN) or paid back (OUT), always a positive amount. Append-only:
+/// a mistake is voided by a reversal row in the opposite direction, at most once.
+/// What an order has been paid is derived from allocations, never stored.
+model Payment {
+  id           String           @id @default(uuid())
+  code         String           @unique
+  direction    PaymentDirection
+  /// Copied from the account at the time, so reports survive account edits.
+  method       PaymentMethod
+  accountId    String
+  account      ReceivingAccount @relation(fields: [accountId], references: [id])
+  amount       Decimal          @db.Decimal(14, 2)
+  /// Provider fee (gateway %) on money received; feeds contribution profit.
+  fee          Decimal          @default(0) @db.Decimal(14, 2)
+  reference    String?
+  businessDate DateTime         @db.Date
+  customerId   String?
+  customer     Customer?        @relation(fields: [customerId], references: [id])
+  notes        String?
+  reversalOfId String?          @unique
+  reversalOf   Payment?         @relation("PaymentReversal", fields: [reversalOfId], references: [id])
+  reversedBy   Payment?         @relation("PaymentReversal")
+  createdById  String?
+  createdBy    User?            @relation(fields: [createdById], references: [id])
+  createdAt    DateTime         @default(now())
+
+  allocations   PaymentAllocation[]
+  creditEntries CustomerCreditEntry[]
+
+  @@index([businessDate])
+  @@index([customerId])
+  @@index([accountId, businessDate])
+}
+
+/// Money applied to an order, from a payment or from the customer's credit.
+/// Signed: positive pays the order, negative gives money back (refund, void).
+/// The sum per order is what it has been paid. Append-only.
+model PaymentAllocation {
+  id            String               @id @default(uuid())
+  orderId       String
+  order         SalesOrder           @relation(fields: [orderId], references: [id])
+  paymentId     String?
+  payment       Payment?             @relation(fields: [paymentId], references: [id])
+  creditEntryId String?              @unique
+  creditEntry   CustomerCreditEntry? @relation(fields: [creditEntryId], references: [id])
+  amount        Decimal              @db.Decimal(14, 2)
+  createdAt     DateTime             @default(now())
+
+  @@index([orderId])
+  @@index([paymentId])
+}
+
+/// The customer's credit ledger: money held for them (overpayments, cancelled
+/// orders) and its use or refund. Signed; the balance is the sum and can never
+/// go below zero. Append-only.
+model CustomerCreditEntry {
+  id          String          @id @default(uuid())
+  customerId  String
+  customer    Customer        @relation(fields: [customerId], references: [id])
+  type        CreditEntryType
+  amount      Decimal         @db.Decimal(14, 2)
+  paymentId   String?
+  payment     Payment?        @relation(fields: [paymentId], references: [id])
+  orderId     String?
+  order       SalesOrder?     @relation(fields: [orderId], references: [id])
+  note        String?
+  createdById String?
+  createdBy   User?           @relation(fields: [createdById], references: [id])
+  createdAt   DateTime        @default(now())
+
+  allocation PaymentAllocation?
+
+  @@index([customerId, createdAt])
+}
+
+/// Money moved between the business's own accounts (cash to bank, personal
+/// PhonePe to business). Never a sale or an expense. Append-only; reversed by a
+/// mirror transfer.
+model AccountTransfer {
+  id            String           @id @default(uuid())
+  code          String           @unique
+  fromAccountId String
+  fromAccount   ReceivingAccount @relation("TransferFrom", fields: [fromAccountId], references: [id])
+  toAccountId   String
+  toAccount     ReceivingAccount @relation("TransferTo", fields: [toAccountId], references: [id])
+  amount        Decimal          @db.Decimal(14, 2)
+  businessDate  DateTime         @db.Date
+  reference     String?
+  notes         String?
+  reversalOfId  String?          @unique
+  reversalOf    AccountTransfer? @relation("TransferReversal", fields: [reversalOfId], references: [id])
+  reversedBy    AccountTransfer? @relation("TransferReversal")
+  createdById   String?
+  createdBy     User?            @relation(fields: [createdById], references: [id])
+  createdAt     DateTime         @default(now())
+
+  @@index([businessDate])
 }

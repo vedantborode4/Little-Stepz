@@ -12,7 +12,7 @@ Conventions: `docs/crm/CONVENTIONS.md`.
 - [x] **4. Purchases & landed cost** — suppliers, shipments, FX, charges, allocation, input-GST split, receiving, weighted average, cost adjustments, purchase returns (Scenario A)
 - [x] **5. Customers** — profiles, phone lookup, dedupe + merge, wholesale terms, customer prices, PII masking
 - [x] **6. Sales / POS** — POS + order form, price resolution, discounts, GST back-out, reserve→deduct flow, COGS snapshot, receipts (Scenarios B, F)
-- [ ] **7. Payments & collections** — split tender, installments, allocation limits, customer credit, collections dashboard, ageing, transfers (Scenarios C, D)
+- [x] **7. Payments & collections** — split tender, installments, allocation limits, customer credit, collections dashboard, ageing, transfers (Scenarios C, D)
 - [ ] **8. Pre-orders & advances** — advances liability, allocation on receipt, balance, fulfilment (Scenario E)
 - [ ] **9. Returns & refunds** — returns by condition, refunds/credit, revenue + COGS reversal (Scenario J)
 - [ ] **10. Courier & shipping** — shipments, packages/AWBs, status history, courier cost vs charge (Scenario G)
@@ -112,3 +112,30 @@ Conventions: `docs/crm/CONVENTIONS.md`.
 - Browser: POS cart and checkout, receipt, Scenario B sale with profit card, delivery order (confirm → reserved → packed → dispatched), dashboard, mobile POS. Cashier POS sale with no cost or profit shown. Ops refused at the POS but can see orders. No console errors.
 - Found while verifying: the line discount and price inputs stretched to full width because the shared input's `w-full` beat the width class (now wrapped). CGST/SGST were each half the GST rounded, which can be a paisa off on odd totals; they're now split in paise.
 - Decisions: receipts are a print-styled page (80 mm or A4) rather than a PDF, so any browser-connected thermal printer works. The shell hides itself when printing. Cancelling an order needs `sales.manage` (admin), in line with "non-admin corrections need approval". Payments on a sale arrive in phase 7. Until then the POS completes the sale without recording tender.
+
+## Phase 7 — Payments & collections
+
+- [x] Schema: Payment (IN/OUT, account, fee, reference, reversal), PaymentAllocation (from a payment or customer credit, signed), CustomerCreditEntry, AccountTransfer — all append-only
+- [x] Engine: allocations never exceed what's due (order row locked), excess only as explicit customer credit, credit spend locked per customer, voids as reversing rows, derived payment status
+- [x] POS split tender (walk-ins pay in full), payments on orders (installments), apply credit, refund credit, cancel-with-payment settlement (refund or credit)
+- [x] Collections (by method, account, business/personal, channel; fees and net), outstanding with ageing 0–30/31–60/60+, account transfers kept out of sales
+- [x] Web: POS tender, order payments card, payments list, collections, outstanding, transfers, customer balance and credit
+- [x] Tests: Scenarios C and D, allocation limits under concurrency, credit, voids, refunds, cancel settlement, transfers not revenue, collections figures, roles
+
+### Phase 7 review
+- Exit criteria met. **Scenario C:** a ₹5,500 walk-in sale paid ₹500 cash + ₹5,000 PhonePe is one sale with two payments, Paid, and each amount shows under its account in collections. **Scenario D:** a ₹10,000 sale with ₹5,000 paid shows Partially paid with ₹5,000 outstanding (aged 0–30, receivable). The second instalment makes it Paid and clears it from outstanding.
+- Invariants tested:
+  - Two concurrent full payments on one order leave exactly one applied.
+  - Leftover money is refused unless kept as credit.
+  - Credit can't go negative.
+  - A void whose credit was already spent is refused.
+  - Paid money on a cancelled order must be refunded or credited.
+  - Transfers change account movement but never received money or sales.
+  - Payments can't be edited or deleted at the DB, except the customer re-link on merge.
+- Browser: POS split tender (cash + PhonePe with reference), paid sale's payments card, an instalment on an open delivery order (Partially paid), outstanding with ageing, a cash-to-bank transfer, collections by account/method/channel, customer outstanding and credit, mobile collections. Cashier sees no transfer or void actions. No console errors.
+- Found while verifying:
+  - The collections date inputs stretched full width (same `w-full` issue; wrapped).
+  - The account table hid its last column at 1366 px (now full width).
+  - The order page showed payments below the timeline (payments now sit under the items).
+  - The two walk-in POS sales recorded during phase 6 verification predate tender entry, so they showed as unpaid. They were settled through the payments API with a note saying so.
+- Permission added: `payments.transfer` (admin). Voids and credit refunds use `payments.refund` (admin). Cashiers record payments and apply credit.

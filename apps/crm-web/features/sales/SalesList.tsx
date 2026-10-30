@@ -24,6 +24,7 @@ import { formatDate, formatMoney } from "@/lib/format"
 import { useListState } from "@/lib/use-list-state"
 import { useCan } from "@/store/auth.store"
 import { useOrders } from "./api"
+import { PaymentStatusBadge } from "../payments/shared"
 import { OrderStatusBadge, OrderTypeBadge } from "./shared"
 
 type Filters = { status?: SalesOrderStatus; channel?: SalesChannel; from?: string; to?: string; type?: "REGULAR" | "PRE_ORDER" }
@@ -74,6 +75,21 @@ export default function SalesList({ type, title = "Sales Orders" }: { type?: "RE
       cell: ({ row }) => formatMoney(row.original.grandTotal),
     },
     { id: "status", header: "Status", cell: ({ row }) => <OrderStatusBadge status={row.original.status} /> },
+    {
+      id: "payment",
+      header: "Payment",
+      cell: ({ row }) =>
+        row.original.status === "DRAFT" ? (
+          <span className="text-faint">—</span>
+        ) : (
+          <div className="flex items-center gap-2">
+            <PaymentStatusBadge status={row.original.paymentStatus} />
+            {Number(row.original.due) > 0 && row.original.status !== "CANCELLED" && (
+              <span className="text-xs text-muted tabular">{formatMoney(row.original.due)} due</span>
+            )}
+          </div>
+        ),
+    },
   ]
 
   return (

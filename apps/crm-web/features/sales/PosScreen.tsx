@@ -11,6 +11,7 @@ import Modal from "@/components/ui/Modal"
 import { errorMessage } from "@/lib/api-error"
 import { formatMoney } from "@/lib/format"
 import { useCan } from "@/store/auth.store"
+import TenderEditor, { tenderBalance, type TenderLine } from "../payments/TenderEditor"
 import { useLocations } from "../settings/api"
 import { usePosSale } from "./api"
 import CartLines, { CartTotals } from "./CartLines"
@@ -18,17 +19,42 @@ import CustomerSelect, { type ChosenCustomer } from "./CustomerSelect"
 import SellableSearch from "./SellableSearch"
 import { cartPayload, useCart, type Cart } from "./use-cart"
 
-function CheckoutModal({ cart, onClose, onDone }: { cart: Cart; onClose: () => void; onDone: (sale: SalesOrderDetailDto) => void }) {
+function CheckoutModal({
+  cart,
+  hasCustomer,
+  onClose,
+  onDone,
+}: {
+  cart: Cart
+  hasCustomer: boolean
+  onClose: () => void
+  onDone: (sale: SalesOrderDetailDto) => void
+}) {
   const sale = usePosSale()
   // One key per checkout attempt: resubmitting (double click, retry) returns the same sale.
   const [idempotencyKey] = useState(() => crypto.randomUUID())
+  const [tenders, setTenders] = useState<TenderLine[]>([])
+  const [excessToCredit, setExcessToCredit] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const total = cart.quote?.totals.grandTotal
+  const total = cart.quote?.totals.grandTotal ?? "0"
+  const balance = tenderBalance(total, tenders)
+  const ready =
+    cart.quote !== null && !cart.stale && (balance === 0 || (balance > 0 && hasCustomer) || (balance < 0 && hasCustomer && excessToCredit))
 
   const complete = async () => {
     setError(null)
     try {
-      onDone(await sale.mutateAsync({ ...cartPayload(cart.cart), fulfilment: "COUNTER", idempotencyKey }))
+      onDone(
+        await sale.mutateAsync({
+          ...cartPayload(cart.cart),
+          fulfilment: "COUNTER",
+          idempotencyKey,
+          payments: tenders
+            .filter((t) => Number(t.amount) > 0)
+            .map((t) => ({ accountId: t.accountId, amount: t.amount, reference: t.reference || null })),
+          excessToCredit,
+        }),
+      )
     } catch (err) {
       setError(errorMessage(err))
     }
@@ -44,8 +70,8 @@ function CheckoutModal({ cart, onClose, onDone }: { cart: Cart; onClose: () => v
           <Button variant="secondary" onClick={onClose} disabled={sale.isPending}>
             Back
           </Button>
-          <Button onClick={complete} loading={sale.isPending} disabled={!total || cart.stale}>
-            Complete {total ? formatMoney(total) : ""}
+          <Button onClick={complete} loading={sale.isPending} disabled={!ready}>
+            Complete {formatMoney(total)}
           </Button>
         </>
       }
@@ -53,7 +79,14 @@ function CheckoutModal({ cart, onClose, onDone }: { cart: Cart; onClose: () => v
       <div className="space-y-4">
         <FormError message={error} />
         <CartTotals cart={cart} />
-        <p className="text-xs text-faint">The items leave stock now. Payment entry arrives with the Payments module.</p>
+        <TenderEditor
+          total={total}
+          tenders={tenders}
+          onChange={setTenders}
+          hasCustomer={hasCustomer}
+          excessToCredit={excessToCredit}
+          onExcessToCredit={setExcessToCredit}
+        />
       </div>
     </Modal>
   )
@@ -68,6 +101,9 @@ function SaleDone({ sale, onNext }: { sale: SalesOrderDetailDto; onNext: () => v
         <p className="text-sm text-muted">
           <span className="font-mono">{sale.code}</span> · {formatMoney(sale.totals.grandTotal)} · {sale.totals.units} items
         </p>
+        {Number(sale.due) > 0 && (
+          <p className="text-sm text-yellow-700 dark:text-yellow-400 mt-1">{formatMoney(sale.due)} left on the customer&apos;s account</p>
+        )}
       </div>
       <div className="flex flex-wrap justify-center gap-2">
         <Link href={`/sales/${sale.id}/receipt`}>
@@ -206,6 +242,7 @@ function Register({ locations }: { locations: { id: string; name: string }[] }) 
       {checkingOut && (
         <CheckoutModal
           cart={cart}
+          hasCustomer={customer !== null}
           onClose={() => setCheckingOut(false)}
           onDone={(sale) => {
             setCheckingOut(false)

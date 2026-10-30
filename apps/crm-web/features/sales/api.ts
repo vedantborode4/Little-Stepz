@@ -14,6 +14,7 @@ import type {
 import { getData, sendData } from "@/lib/api-client"
 import { customerKeys } from "../customers/api"
 import { inventoryKeys } from "../inventory/api"
+import { paymentKeys } from "../payments/api"
 import { catalogKeys } from "../products/api"
 
 export const salesKeys = {
@@ -46,7 +47,7 @@ function useSalesMutation<TInput>(fn: (input: TInput) => Promise<SalesOrderDetai
   return useMutation({
     mutationFn: fn,
     onSuccess: () => {
-      for (const key of [salesKeys.all, inventoryKeys.all, catalogKeys.all, customerKeys.all])
+      for (const key of [salesKeys.all, inventoryKeys.all, catalogKeys.all, customerKeys.all, paymentKeys.all])
         queryClient.invalidateQueries({ queryKey: key })
     },
   })
