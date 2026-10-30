@@ -10,7 +10,7 @@ Conventions: `docs/crm/CONVENTIONS.md`.
 - [x] **2. Products & Variants** — categories, brands, products, variant matrix, SKUs, pricing (regular/offer/wholesale/tiers), GST/HSN, images, website ID mapping, bulk price edit
 - [x] **3. Inventory ledger** — movements + balances, opening stock, Store↔Godown transfers, buckets (damaged/demo), write-offs, low-stock alerts
 - [x] **4. Purchases & landed cost** — suppliers, shipments, FX, charges, allocation, input-GST split, receiving, weighted average, cost adjustments, purchase returns (Scenario A)
-- [ ] **5. Customers** — profiles, phone lookup, dedupe + merge, wholesale terms, customer prices, PII masking
+- [x] **5. Customers** — profiles, phone lookup, dedupe + merge, wholesale terms, customer prices, PII masking
 - [ ] **6. Sales / POS** — POS + order form, price resolution, discounts, GST back-out, reserve→deduct flow, COGS snapshot, receipts (Scenarios B, F)
 - [ ] **7. Payments & collections** — split tender, installments, allocation limits, customer credit, collections dashboard, ageing, transfers (Scenarios C, D)
 - [ ] **8. Pre-orders & advances** — advances liability, allocation on receipt, balance, fulfilment (Scenario E)
@@ -82,3 +82,18 @@ Conventions: `docs/crm/CONVENTIONS.md`.
 - Browser: Scenario A detail, a new INR purchase built in the form (live preview ₹5,760), saved, received through the confirm dialog, suppliers screen, mobile list. No console errors.
 - Found while verifying: the demo seed and export filenames used the UTC date (a day behind IST before 05:30). Both now use `todayIST()`, and this is recorded in lessons.md.
 - Not in scope (decided in planning): supplier payables. Returns record goods only, not supplier credit.
+
+## Phase 5 — Customers
+
+- [x] Schema: Customer (code, E.164 mobile unique, WhatsApp, email, address, type, credit terms, merge pointer), CustomerPrice; trigram index for similar names
+- [x] Contracts: shared mobile normaliser (Indian 10-digit, 0/91 prefixes, international +), customer/price/merge schemas, DTOs
+- [x] API: list (masked contacts, phone lookup), detail, create/edit with duplicate-mobile block, duplicate check + duplicate pairs, contact reveal (audited), merge (audited), customer-specific prices, export (masked unless admin)
+- [x] Web: customer list, profile, form with live duplicate warnings, contact reveal, prices, merge, duplicates screen, reusable customer picker
+- [x] Demo: SAMPLE retail and wholesale customers
+- [x] Tests: normaliser, duplicate block, masking per role, reveal audited, merge moves prices and is audited, price permissions
+
+### Phase 5 review
+- Exit criteria met: a duplicate phone is blocked however it is written. Merging is audited on both customers. The cashier sees masked contacts in the list and on profiles, and every reveal is logged with the user.
+- Browser: list (masked), new-customer form showing the "may be an existing customer" warning and then the mobile block, saved profile, audited reveal, customer price added through the item search, wholesale terms, merge dialog, duplicates screen, mobile list; cashier list masked, duplicates screen refused. No console errors.
+- Found while verifying: the demo seed called the service directly, so its mobiles skipped normalisation (`9000000101` instead of `+919000000101`) and the duplicate block couldn't see them. The seed now parses through the shared schema. A new DB `CHECK` refuses any non-E.164 phone, so this can't happen silently again. The dev rows were repaired, and the duplicate the UI had created was merged through the real merge service.
+- Permissions added: `customers.merge` and `customers.export` (admin only). Customer prices need `products.manage`, since pricing is an admin decision even though cashiers manage customers.

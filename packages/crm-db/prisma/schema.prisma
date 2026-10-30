@@ -302,6 +302,7 @@ model Variant {
   purchaseLines       PurchaseLine[]
   costAdjustmentLines CostAdjustmentLine[]
   purchaseReturnLines PurchaseReturnLine[]
+  customerPrices      CustomerPrice[]
 
   @@unique([productId, optionKey])
   @@index([productId])
@@ -631,4 +632,62 @@ model PurchaseReturnLine {
   variantId      String
   variant        Variant        @relation(fields: [variantId], references: [id])
   quantity       Int
+}
+
+// ─── Customers ───────────────────────────────────────────────────────────────
+
+enum CustomerType {
+  RETAIL
+  WHOLESALE
+}
+
+/// Walk-in sales have no customer. `mobile` is E.164 and unique, so the same
+/// person can't be created twice by phone. Merging folds a duplicate into the
+/// customer that is kept and leaves this row behind as an inactive pointer.
+model Customer {
+  id           String       @id @default(uuid())
+  code         String       @unique
+  name         String
+  /// Lower-cased, single-spaced name; trigram-indexed for "similar name" checks.
+  nameKey      String
+  mobile       String?      @unique
+  whatsapp     String?
+  email        String?
+  addressLine  String?
+  city         String?
+  /// GST state code (place of supply for shipped orders).
+  stateCode    String?
+  pincode      String?
+  type         CustomerType @default(RETAIL)
+  /// Days allowed to pay; null means pay at purchase.
+  creditDays   Int?
+  creditLimit  Decimal?     @db.Decimal(14, 2)
+  notes        String?
+  isActive     Boolean      @default(true)
+  mergedIntoId String?
+  mergedInto   Customer?    @relation("CustomerMerge", fields: [mergedIntoId], references: [id])
+  mergedFrom   Customer[]   @relation("CustomerMerge")
+  mergedAt     DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  prices CustomerPrice[]
+
+  @@index([nameKey(ops: raw("gin_trgm_ops"))], type: Gin)
+  @@index([pincode])
+  @@index([type])
+}
+
+/// A negotiated price for one customer and variant; it wins over every list price.
+model CustomerPrice {
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+  variantId  String
+  variant    Variant  @relation(fields: [variantId], references: [id])
+  price      Decimal  @db.Decimal(14, 2)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@id([customerId, variantId])
+  @@index([variantId])
 }

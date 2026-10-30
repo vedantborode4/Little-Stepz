@@ -3,6 +3,7 @@ import { authenticate, requirePasswordChanged } from "./core/auth";
 import { auditRoutes } from "./modules/audit/audit.routes";
 import { authRoutes } from "./modules/auth/auth.routes";
 import { brandsRoutes, categoriesRoutes } from "./modules/catalog/catalog.routes";
+import { customersRoutes } from "./modules/customers/customers.routes";
 import { inventoryRoutes } from "./modules/inventory/inventory.routes";
 import { mappingRoutes, pricingRoutes, productsRoutes, variantsRoutes } from "./modules/products/products.routes";
 import { purchasesRoutes } from "./modules/purchases/purchases.routes";
@@ -29,5 +30,6 @@ protectedRoutes.use("/pricing", pricingRoutes);
 protectedRoutes.use("/website-mapping", mappingRoutes);
 protectedRoutes.use("/inventory", inventoryRoutes);
 protectedRoutes.use("/purchases", purchasesRoutes);
+protectedRoutes.use("/customers", customersRoutes);
 
 apiRoutes.use(protectedRoutes);

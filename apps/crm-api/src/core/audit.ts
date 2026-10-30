@@ -37,7 +37,15 @@ export type AuditAction =
   | "purchase.cancelled"
   | "purchase.received"
   | "purchase.cost_adjusted"
-  | "purchase.returned";
+  | "purchase.returned"
+  | "customer.created"
+  | "customer.updated"
+  | "customer.contact_revealed"
+  | "customer.contacts_exported"
+  | "customer.merged"
+  | "customer.merged_in"
+  | "customer.price_set"
+  | "customer.price_removed";
 
 export type AuditEntity =
   | "User"
@@ -51,7 +59,8 @@ export type AuditEntity =
   | "Variant"
   | "PriceBatch"
   | "StockDocument"
-  | "PurchaseShipment";
+  | "PurchaseShipment"
+  | "Customer";
 
 export interface AuditEntry {
   action: AuditAction;

@@ -1,4 +1,5 @@
 import type { CurrencyCode, MappingState, PriceField, ProductStatus, VariantStatus } from "./catalog";
+import type { CustomerType, DuplicateReason } from "./customers";
 import type { LocationType, PaymentMethod, Role } from "./enums";
 import type { StockBucket, StockDocumentType, StockReasonCode, StockState } from "./inventory";
 import type { AllocationMethod, ChargeType, PurchaseStatus } from "./purchases";
@@ -456,6 +457,73 @@ export interface PurchaseDetailDto {
   totals?: LandedCostTotalsDto | null;
   costAdjustments?: CostAdjustmentDto[];
   returns: PurchaseReturnDto[];
+}
+
+// ─── Customers ───────────────────────────────────────────────────────────────
+
+/**
+ * Contact details are masked ("+91 •••••• 3210") everywhere except the audited
+ * reveal endpoint and an admin's full-contact export.
+ */
+export interface CustomerListItemDto {
+  id: string;
+  code: string;
+  name: string;
+  type: CustomerType;
+  mobile: string | null;
+  email: string | null;
+  city: string | null;
+  pincode: string | null;
+  creditDays: number | null;
+  creditLimit: string | null;
+  isActive: boolean;
+  mergedInto: { id: string; code: string; name: string } | null;
+  createdAt: string;
+}
+
+export interface CustomerContactDto {
+  mobile: string | null;
+  whatsapp: string | null;
+  email: string | null;
+}
+
+export interface CustomerPriceDto {
+  variantId: string;
+  sku: string;
+  productName: string;
+  variantName: string;
+  price: string;
+  regularPrice: string;
+  offerPrice: string | null;
+  wholesalePrice: string | null;
+  updatedAt: string;
+}
+
+export interface CustomerDetailDto extends CustomerListItemDto {
+  whatsapp: string | null;
+  addressLine: string | null;
+  stateCode: string | null;
+  notes: string | null;
+  mergedFrom: { id: string; code: string; name: string }[];
+  prices: CustomerPriceDto[];
+  updatedAt: string;
+}
+
+export interface DuplicateMatchDto {
+  id: string;
+  code: string;
+  name: string;
+  mobile: string | null;
+  city: string | null;
+  pincode: string | null;
+  reason: DuplicateReason;
+}
+
+export interface DuplicatePairDto {
+  a: DuplicateMatchDto;
+  b: DuplicateMatchDto;
+  reason: DuplicateReason;
+  similarity: number;
 }
 
 /** Error envelope returned with every non-2xx response. */

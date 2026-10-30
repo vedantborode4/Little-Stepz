@@ -7,13 +7,14 @@
  */
 import "dotenv/config";
 import { prisma } from "@repo/crm-db/client";
-import type { CreateProductInput } from "@repo/crm-schema";
+import { createCustomerSchema, type CreateProductInput } from "@repo/crm-schema";
 import { todayIST } from "../core/dates";
 import { createNamed } from "../modules/catalog/catalog.service";
 import { createProduct } from "../modules/products/products.service";
 import { createSupplier } from "../modules/suppliers/suppliers.service";
 import { recordOpeningStock } from "../modules/inventory/inventory.service";
 import { createDraft, receivePurchase } from "../modules/purchases/purchases.service";
+import { createCustomer, setCustomerPrice } from "../modules/customers/customers.service";
 
 const SYSTEM = { userId: null, ip: null, userAgent: null, requestId: "seed-demo" };
 const SAMPLE_GST = "18" as const;
@@ -179,9 +180,38 @@ async function seedScenarioA() {
   console.log(`• Scenario A: ${received.code} received — 10 × MJX at ${received.lines[0]?.costs?.landedUnitCost} landed`);
 }
 
+/** SAMPLE customers with fictional names and placeholder 90000 00xxx numbers. */
+async function seedCustomers() {
+  const customers = [
+    { name: "SAMPLE Ravi Kumar", mobile: "9000000101", city: "Hyderabad", pincode: "500081", type: "RETAIL" as const },
+    { name: "SAMPLE Priya Sharma", mobile: "9000000102", city: "Secunderabad", pincode: "500003", type: "RETAIL" as const },
+    {
+      name: "SAMPLE Toy Mart Wholesale",
+      mobile: "9000000201",
+      city: "Vijayawada",
+      stateCode: "37" as const,
+      pincode: "520001",
+      type: "WHOLESALE" as const,
+      creditDays: 30,
+      creditLimit: "100000",
+    },
+  ];
+  for (const c of customers) {
+    if (await prisma.customer.findUnique({ where: { mobile: `+91${c.mobile}` } })) continue;
+    // Parsed through the shared schema so the mobile is normalised exactly as the API would.
+    const created = await createCustomer(createCustomerSchema.parse(c), SYSTEM);
+    console.log(`• Customer ${created.code} ${created.name}`);
+    if (c.type === "WHOLESALE") {
+      const yegao = await prisma.variant.findUnique({ where: { sku: "YG64-RED" } });
+      if (yegao) await setCustomerPrice(created.id, yegao.id, "549", SYSTEM);
+    }
+  }
+}
+
 main()
   .then(seedStock)
   .then(seedScenarioA)
+  .then(seedCustomers)
   .catch((err) => {
     console.error(err);
     process.exitCode = 1;

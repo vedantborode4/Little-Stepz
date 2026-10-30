@@ -27,6 +27,10 @@ export const PERMISSIONS = [
   "customers.view",
   "customers.manage",
   "customers.contact.reveal",
+  /** Folding a duplicate customer into another — history moves and can't be split again. */
+  "customers.merge",
+  /** Exporting customer lists with full phone numbers and emails. */
+  "customers.export",
   "shipping.manage",
   "cash.close",
   "expenses.manage",

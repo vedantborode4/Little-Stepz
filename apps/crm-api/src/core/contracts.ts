@@ -21,4 +21,5 @@ export type EnumParity = [
   Assert<Same<Db.PurchaseStatus, Schema.PurchaseStatus>>,
   Assert<Same<Db.AllocationMethod, Schema.AllocationMethod>>,
   Assert<Same<Db.ChargeType, Schema.ChargeType>>,
+  Assert<Same<Db.CustomerType, Schema.CustomerType>>,
 ];

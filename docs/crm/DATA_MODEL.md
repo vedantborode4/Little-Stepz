@@ -72,3 +72,23 @@ Source of truth: `packages/crm-db/prisma/schema.prisma`. This page explains the 
 - Purchase stock documents can only be corrected from the purchase (a late charge or a return), never reversed in Inventory.
 
 **Exchange rates** are never hard-coded. The form offers the last rate used for that currency as a one-click suggestion, never applying it automatically.
+
+## Phase 5: customers
+
+| Model | Purpose | Key rules |
+|---|---|---|
+| `Customer` | Retail or wholesale customer: `CUS-xxxxx` code, mobile, WhatsApp, email, address, GST state, PIN, credit days and limit, notes | `mobile` is stored in **E.164** and is **unique**: "98765 43210", "098765-43210" and "+91 98765 43210" are the same number. A DB `CHECK` refuses any phone not in E.164, so a script that bypasses the shared schema fails loudly instead of defeating the duplicate check. Walk-in sales have no customer. |
+| `CustomerPrice` | Negotiated price for one customer × variant | Wins over every list price (phase 6 price resolution). Set by admins (`products.manage`). Audited set/remove. |
+
+**Duplicates.** Saving a mobile that already exists is blocked (`MOBILE_TAKEN`). The form also warns, as you type, about the same name at the same PIN code or a similar name (`pg_trgm` similarity on `nameKey`). Admins get a "Possible duplicates" list of similar-name pairs.
+
+**Merge** (admin, `customers.merge`): the duplicate becomes an inactive pointer (`mergedIntoId`) to the customer that is kept.
+- Its prices move across, but the kept customer's own prices win.
+- Missing contact and address fields are filled from the duplicate, and its notes are appended.
+- The mobile moves only if the kept customer has none.
+- Later phases add their records (orders, payments, credit) to `reassignCustomerReferences`, so nothing is left pointing at the folded customer.
+- Both customers get an audit row. A merged customer can't be edited, merged again or merged into.
+
+**Contact privacy.** Lists, profiles, pickers and normal exports show masked contacts (`+91 ••••••3210`, `r•••@gmail.com`) for every role.
+- The full values only leave the API through `POST /customers/:id/contact`, which is audited every time, or through an admin's full-contact export, which is also audited.
+- Search matches a full number exactly, or the last four digits that are visible anyway. Other fragments don't match, so the list can't be used to work out whose number is whose.

@@ -6,4 +6,5 @@ export * from "./settings";
 export * from "./catalog";
 export * from "./inventory";
 export * from "./purchases";
+export * from "./customers";
 export * from "./dto";
