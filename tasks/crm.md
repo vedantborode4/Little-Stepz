@@ -258,3 +258,51 @@ Conventions: `docs/crm/CONVENTIONS.md`.
 - Browser: ops started a blind Godown count of Stanley tumblers and submitted it, with no system column visible. The owner reviewed it (system, counted, difference, value −₹2,900, reason per line), approved (adjustment STK-00019), reversed (STK-00020) and checked both in the ledger. Mobile list. No console errors.
 - Found while building: a schema edit placed the location relation on the User model by mistake (caught by `prisma validate` and fixed before migrating), and the list DTO's `lines` count clashed with the detail's `lines` array (renamed `lineCount`).
 - Inventory's reversal is now split into `reverseDocumentInTx`, so records that own a stock document (counts) can reverse it themselves.
+
+## Phase 13 — Profit, valuation, dashboard & reports
+
+- [x] Profit waterfall: gross sales → discounts → returns → net sales excl. GST → COGS → realised gross profit and margin → shipping expense, payment fees, order expenses → contribution profit → operating expenses → operating profit (labelled not final accounts); price reductions below list price
+- [x] Profit by product, variant, category and channel, net of returns; unknown-cost units counted, never priced
+- [x] Valuation and projections per variant: available units, average landed cost, cost value, regular-price and offer-price scenarios (before GST and net of GST), live from current prices
+- [x] Dashboard: inventory, sales (today, yesterday, month, lifetime, retail vs wholesale, online vs offline), payments, profit, customers and shipping KPIs; trend, collections, top products and category mix charts; category/product filters; role-aware
+- [x] The 17 reports with filters, preview and CSV/Excel; PII masked; financial reports admin-only
+- [x] Tests: waterfall figures end to end, breakdown net of returns, Scenario I (offer price change moves the projection, past sales unchanged), valuation with unknown costs, every report runs and exports, role gates
+
+### Review (phase 13)
+
+**Built.**
+- **API:**
+  - `modules/analytics` covers the profit waterfall, breakdown by product, variant, category or channel, valuation with regular and offer scenarios, and a role-shaped dashboard.
+  - `modules/reports` is a registry of all 17 reports with preview and CSV/Excel export.
+  - Everything is computed live from the existing ledgers; there are no new tables or migrations.
+- **Web:**
+  - The home page is now the KPI dashboard, with category and product filters, a 30-day sales trend (recharts, single series), and bar lists for collections, top products and category mix.
+  - Profit & Analytics has two tabs: the profit statement with breakdown, and valuation & projections.
+  - The Reports page has a grouped report list, per-report filters, a preview and export.
+- `SHIPPED_PHASE` is 13.
+
+**Decisions.**
+- Gross profit covers only lines with a known cost. Unknown-cost units are counted and flagged everywhere, never assigned a guessed cost.
+- Courier cost is matched to orders fulfilled in the range. Fees and expenses are matched by their own date, net of voids.
+- Headline sales on the dashboard always cover the whole business. The category and product filters scope stock, the trend and top products.
+- Ops has no `reports.view`, so it has no Reports page. Cashiers see operational reports without cost columns, and never the financial ones.
+
+**Verification.**
+- crm-api `tsc` and build pass. crm-web `check-types` and lint (0 warnings) pass.
+- **Tests:** 176 pass, twice in a row.
+  - The new `analytics.test.ts` covers:
+    - The waterfall end to end: sale, offer price, item discount, return, delivery order with gateway fee, courier cost, order expense, operating expense and a voided expense.
+    - The breakdown net of returns.
+    - Scenario I.
+    - Valuation with unknown costs.
+    - Dashboard shaping per role.
+    - Every report previewing and exporting.
+    - Report and analytics role gates.
+    - Daily sales matching the sales summary.
+  - Also fixed a pre-order test that read only the first 100 board rows; it broke once earlier runs had left enough open pre-orders behind.
+- **Browser** (admin, cashier, phone width):
+  - The dashboard figures reconcile with the profit statement. For example, ₹44,150 − ₹1,549 − ₹449 = ₹42,152 net incl. GST.
+  - The cashier dashboard has no profit or cost tiles, and its report list has no financial reports. `/analytics` is blocked for the cashier.
+  - Fixed during the walkthrough:
+    - Two date presets were highlighted when they covered the same days.
+    - Report money columns now show paise consistently.

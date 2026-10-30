@@ -169,13 +169,10 @@ describe("allocation", () => {
     expect(list[0]).toMatchObject({ stockState: "AWAITING" });
 
     await arrive(variantId, 1, "600");
-    const states = async () => {
-      const rows = (await api().get("/api/v1/pre-orders").query({ limit: 100 }).set(admin.auth)).body.data.items as {
-        id: string;
-        stockState: string;
-      }[];
-      return [rows.find((r) => r.id === older.id)!.stockState, rows.find((r) => r.id === newer.id)!.stockState];
-    };
+    // Looked up by code: earlier runs leave open pre-orders behind, so a page of the whole board can miss these.
+    const stateOf = async (code: string) =>
+      (await api().get("/api/v1/pre-orders").query({ q: code }).set(admin.auth)).body.data.items[0].stockState as string;
+    const states = async () => [await stateOf(older.code), await stateOf(newer.code)];
     expect(await states()).toEqual(["READY", "AWAITING"]);
 
     const waiting = (await api().get("/api/v1/pre-orders/waiting").set(admin.auth)).body.data.find(

@@ -6,6 +6,7 @@ import type { RefundMethod, ReturnCondition } from "./returns";
 import type { ShipmentStatus } from "./shipping";
 import type { CashSessionStatus, ExpenseKind } from "./finance";
 import type { StockCountStatus } from "./stockcount";
+import type { ReportFilter, ReportKey } from "./analytics";
 import type { LocationType, PaymentMethod, Role } from "./enums";
 import type { StockBucket, StockDocumentType, StockReasonCode, StockState } from "./inventory";
 import type { AllocationMethod, ChargeType, PurchaseStatus } from "./purchases";
@@ -1008,6 +1009,164 @@ export interface StockCountDetailDto extends StockCountListItemDto {
   adjustmentDocument: { id: string; code: string } | null;
   reversalDocument: { id: string; code: string } | null;
   lines: StockCountLineDto[];
+}
+
+// ─── Analytics, dashboard & reports ──────────────────────────────────────────
+
+/**
+ * Sales recognised in a period, down to contribution and operating profit.
+ * Gross profit covers lines with a known cost only; operating profit is a
+ * management figure, not final accounts.
+ */
+export interface ProfitWaterfallDto {
+  from: string;
+  to: string;
+  orders: number;
+  units: number;
+  /** List value charged before discounts, plus shipping charged (incl. GST). */
+  grossSales: string;
+  discounts: string;
+  returns: string;
+  netSalesInclGst: string;
+  gst: string;
+  netSales: string;
+  cogs: string;
+  grossProfit: string;
+  marginPercent: string | null;
+  /** Courier charges on shipments of these orders. */
+  shippingExpense: string;
+  paymentFees: string;
+  /** Expenses recorded against orders (packaging, extra courier…). */
+  orderExpenses: string;
+  contributionProfit: string;
+  operatingExpenses: string;
+  operatingProfit: string;
+  /** Selling below the regular list price (offer, wholesale, customer prices), before explicit discounts. */
+  priceReductions: string;
+  unknownCostUnits: number;
+}
+
+export interface ProfitBreakdownRowDto {
+  key: string;
+  label: string;
+  sublabel: string | null;
+  units: number;
+  netSales: string;
+  cogs: string;
+  grossProfit: string;
+  marginPercent: string | null;
+  discounts: string;
+  unknownCostUnits: number;
+}
+
+export interface ValuationScenarioDto {
+  revenue: string;
+  /** Revenue − cost (incl. GST in revenue), as the owner quotes it. */
+  profitBeforeGst: string;
+  /** Revenue net of GST − cost. */
+  profitNetOfGst: string;
+  marginPercent: string | null;
+}
+
+export interface ValuationRowDto {
+  variantId: string;
+  sku: string;
+  productName: string;
+  variantName: string;
+  categoryName: string;
+  available: number;
+  avgCost: string | null;
+  costValue: string;
+  /** Available units with no known cost: kept out of cost value and profit. */
+  unknownCostUnits: number;
+  regularPrice: string;
+  offerPrice: string | null;
+  gstRate: string;
+  regular: ValuationScenarioDto;
+  /** At the offer price where one is set, otherwise the regular price. */
+  offer: ValuationScenarioDto;
+}
+
+export interface ValuationDto {
+  units: number;
+  costValue: string;
+  unknownCostUnits: number;
+  regular: ValuationScenarioDto;
+  offer: ValuationScenarioDto;
+  rows: ValuationRowDto[];
+}
+
+export interface DashboardSalesPeriodDto {
+  grossSales: string;
+  netSales: string;
+  orders: number;
+}
+
+export interface DashboardDto {
+  inventory: {
+    products: number;
+    variants: number;
+    unitsPurchased: number;
+    unitsSold: number;
+    available: number;
+    reserved: number;
+    costValue?: string;
+  };
+  sales: {
+    today: DashboardSalesPeriodDto;
+    yesterday: DashboardSalesPeriodDto;
+    monthToDate: DashboardSalesPeriodDto;
+    lifetime: DashboardSalesPeriodDto;
+    retail: string;
+    wholesale: string;
+    online: string;
+    offline: string;
+  };
+  payments?: {
+    cashToday: string;
+    upiToday: string;
+    gatewayToday: string;
+    collectedToday: string;
+    advances: string;
+    outstanding: string;
+  };
+  profit?: {
+    grossProfit: string;
+    marginPercent: string | null;
+    discounts: string;
+    contributionProfit: string;
+    potentialRevenue: string;
+    potentialProfit: string;
+  };
+  customers: {
+    total: number;
+    repeat: number;
+    pendingShipments: number;
+    inTransit: number;
+    delivered: number;
+    returnsAndRto: number;
+  };
+  trend: { date: string; grossSales: string; netSales: string }[];
+  collectionsByMethod?: { method: PaymentMethod; amount: string }[];
+  topProducts: { label: string; netSales: string; units: number }[];
+  categoryMix: { label: string; netSales: string }[];
+}
+
+export interface ReportDefinitionDto {
+  key: ReportKey;
+  title: string;
+  description: string;
+  group: string;
+  filters: ReportFilter[];
+}
+
+export interface ReportPreviewDto {
+  key: ReportKey;
+  title: string;
+  columns: string[];
+  rows: (string | number | boolean | null)[][];
+  total: number;
+  truncated: boolean;
 }
 
 // ─── Payments ────────────────────────────────────────────────────────────────

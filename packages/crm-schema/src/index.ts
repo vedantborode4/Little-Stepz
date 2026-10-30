@@ -13,4 +13,5 @@ export * from "./returns";
 export * from "./shipping";
 export * from "./finance";
 export * from "./stockcount";
+export * from "./analytics";
 export * from "./dto";

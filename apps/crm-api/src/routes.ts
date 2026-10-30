@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { authenticate, requirePasswordChanged } from "./core/auth";
+import { analyticsRoutes } from "./modules/analytics/analytics.routes";
 import { auditRoutes } from "./modules/audit/audit.routes";
 import { authRoutes } from "./modules/auth/auth.routes";
 import { brandsRoutes, categoriesRoutes } from "./modules/catalog/catalog.routes";
@@ -13,6 +14,7 @@ import { preOrdersRoutes, salesRoutes } from "./modules/sales/sales.routes";
 import { couriersRoutes, shipmentsRoutes } from "./modules/shipping/shipping.routes";
 import { cashRoutes } from "./modules/cash/cash.routes";
 import { expensesRoutes } from "./modules/expenses/expenses.routes";
+import { reportsRoutes } from "./modules/reports/reports.routes";
 import { stockCountsRoutes } from "./modules/stockcounts/stockcounts.routes";
 import { settingsRoutes } from "./modules/settings/settings.routes";
 import { suppliersRoutes } from "./modules/suppliers/suppliers.routes";
@@ -48,5 +50,7 @@ protectedRoutes.use("/cash", cashRoutes);
 protectedRoutes.use("/stock-counts", stockCountsRoutes);
 protectedRoutes.use("/pre-orders", preOrdersRoutes);
 protectedRoutes.use("/payments", paymentsRoutes);
+protectedRoutes.use("/analytics", analyticsRoutes);
+protectedRoutes.use("/reports", reportsRoutes);
 
 apiRoutes.use(protectedRoutes);

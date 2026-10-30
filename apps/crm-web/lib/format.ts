@@ -36,3 +36,17 @@ export function formatDate(iso: string | null | undefined): string {
 export function todayIST(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: IST }).format(new Date())
 }
+
+const compact = new Intl.NumberFormat("en-IN", { notation: "compact", maximumFractionDigits: 1 })
+
+/** Short rupee figures for chart axes (₹1.2L, ₹45K); never for amounts people act on. */
+export function formatMoneyCompact(value: string | number): string {
+  return `₹${compact.format(Number(value))}`
+}
+
+/** Adds days to a YYYY-MM-DD date (calendar maths, no time zone involved). */
+export function addDays(iso: string, days: number): string {
+  const date = new Date(`${iso}T00:00:00.000Z`)
+  date.setUTCDate(date.getUTCDate() + days)
+  return date.toISOString().slice(0, 10)
+}

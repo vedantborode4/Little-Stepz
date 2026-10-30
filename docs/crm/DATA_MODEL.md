@@ -253,3 +253,68 @@ No new tables: a pre-order is a `SalesOrder` with `type = PRE_ORDER`, so its adv
 - A count with no differences is approved without a document.
 
 **Reversal** is done from the count, which posts a `REVERSAL` of its adjustment. The Inventory screen refuses to reverse count adjustments directly (`REVERSE_AT_SOURCE`), the same rule as purchases, sales and returns. Both documents show in the ledger, and the count, its approval and each stock posting are in the audit log.
+
+## Phase 13: profit, valuation, dashboard and reports
+
+No new tables. Every figure is computed on request from the ledgers built in phases 3–12, so changing a price or recording a late courier bill changes the figures immediately, and nothing can drift out of step.
+
+**When a sale counts.** Revenue, cost of goods and units count on the order's IST `fulfilledDate` (handed over at the counter, or dispatched). A return counts on its own `businessDate`. Advances never appear in profit.
+
+**Profit waterfall** (`GET /analytics/profit`, admin):
+
+| Line | Source |
+|---|---|
+| Gross sales | Σ order subtotal (list value charged, incl. GST) + shipping charged, for orders fulfilled in the range |
+| − Discounts | Σ item discounts + order discounts on those orders |
+| − Returns | Σ `SalesReturn.amount` dated in the range |
+| = Net sales incl. GST | |
+| − GST | the sales summary's GST (sales less returns) |
+| = Net sales excl. GST | Σ taxable value − returned taxable value |
+| − Cost of goods | Σ frozen line cost − cost of goods taken back (written-off returns keep their cost) |
+| = **Gross profit** | covers lines with a **known** cost only; unknown-cost units are counted and shown, never priced |
+| − Courier cost | Σ `Shipment.courierCost` (not cancelled) on orders fulfilled in the range |
+| − Payment fees | Σ `Payment.fee` dated in the range, net of voids |
+| − Order expenses | Σ `Expense` of kind ORDER dated in the range, net of voids |
+| = **Contribution profit** | |
+| − Operating expenses | Σ `Expense` of kind OPERATING, net of voids |
+| = **Operating profit** | a management figure, not final accounts |
+
+Shown separately: **sold below list price**, Σ max(regular − unit price, 0) × qty. This is what offer, wholesale, tier and customer prices gave away before explicit discounts.
+
+**Profit breakdown** (`GET /analytics/breakdown?by=product|variant|category|channel`): the same rules per group. Sold lines and returned lines are combined in one SQL query, so a return reduces the group it came from.
+
+**Valuation and projections** (`GET /analytics/valuation`):
+- Available units = sellable − active reservations, per location or in total.
+- Cost value = average landed cost (`VariantCost`) × units with a known cost.
+- Unknown-cost units = min(available, `unvaluedQty`). They earn revenue in the projection but no profit.
+- Two scenarios, each at **today's** price:
+  - **Regular**: every unit at the regular price.
+  - **Offer**: at the offer price where one is set, otherwise regular.
+- Each scenario reports revenue, profit net of GST (revenue ÷ (1 + rate) − cost) and the "price − cost" figure that includes GST, which owners often quote.
+- Past sales keep their frozen prices and costs (Scenario I).
+
+**Dashboard** (`GET /analytics/dashboard`, everyone):
+- Sales for today, yesterday, this month and lifetime; retail vs wholesale and store vs online this month.
+- Inventory: products, variants, units purchased and sold, available and reserved.
+- Customers and shipping counts, a 30-day trend, top products and category mix.
+- Shaped by role on the server:
+  - The **payments** block (collections, advances, outstanding) needs `payments.view`.
+  - The **profit** block and stock cost value need `costs.view`.
+- The category and product filters scope stock, the trend and top products. The headline sales periods always cover the whole business.
+
+**Reports** (`GET /reports`, `GET /reports/:key`, `?format=csv|xlsx`): a registry in `modules/reports/reports.registry.ts`.
+- Each report declares its title, group, filters (date range, location, category, customer) and the permissions it needs on top of `reports.view`.
+- `GET /reports` lists only what the caller may run.
+- A preview returns the first 200 rows and the total count. An export streams every row, up to the export cap, through the same CSV-injection-safe exporter as the lists.
+- Cost columns appear only for `costs.view`. Profit, valuation and potential-profit reports need `reports.financial` + `costs.view`.
+- Customer phone numbers are always masked.
+- The 17 reports:
+  - Product master, Variant stock, Purchase history, Inventory ledger
+  - Daily sales, Monthly sales
+  - Customer purchase history
+  - Cash and UPI collections, Outstanding payments, Advances and pre-orders
+  - Courier expenses
+  - Profit by product, Discount impact
+  - Current inventory valuation, Potential future profit
+  - Damaged stock, Stock reconciliation
+- Daily and monthly sales are computed period by period with the same function as the sales summary, so they always agree with it.
