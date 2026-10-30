@@ -40,25 +40,28 @@ model User {
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
-  refreshTokens     RefreshToken[]
-  auditLogs         AuditLog[]
-  priceChanges      PriceChange[]
-  stockDocuments    StockDocument[]
-  purchasesCreated  PurchaseShipment[]    @relation("PurchaseCreatedBy")
-  purchasesReceived PurchaseShipment[]    @relation("PurchaseReceivedBy")
-  costAdjustments   CostAdjustment[]
-  purchaseReturns   PurchaseReturn[]
-  salesOrders       SalesOrder[]
-  salesOrderEvents  SalesOrderEvent[]
-  payments          Payment[]
-  creditEntries     CustomerCreditEntry[]
-  accountTransfers  AccountTransfer[]
-  salesReturns      SalesReturn[]
-  shipments         Shipment[]
-  shipmentEvents    ShipmentEvent[]
-  expenses          Expense[]
-  cashOpened        CashSession[]         @relation("CashOpenedBy")
-  cashClosed        CashSession[]         @relation("CashClosedBy")
+  refreshTokens        RefreshToken[]
+  auditLogs            AuditLog[]
+  priceChanges         PriceChange[]
+  stockDocuments       StockDocument[]
+  purchasesCreated     PurchaseShipment[]    @relation("PurchaseCreatedBy")
+  purchasesReceived    PurchaseShipment[]    @relation("PurchaseReceivedBy")
+  costAdjustments      CostAdjustment[]
+  purchaseReturns      PurchaseReturn[]
+  salesOrders          SalesOrder[]
+  salesOrderEvents     SalesOrderEvent[]
+  payments             Payment[]
+  creditEntries        CustomerCreditEntry[]
+  accountTransfers     AccountTransfer[]
+  salesReturns         SalesReturn[]
+  shipments            Shipment[]
+  shipmentEvents       ShipmentEvent[]
+  expenses             Expense[]
+  cashOpened           CashSession[]         @relation("CashOpenedBy")
+  cashClosed           CashSession[]         @relation("CashClosedBy")
+  stockCounts          StockCount[]          @relation("StockCountCreatedBy")
+  stockCountsSubmitted StockCount[]          @relation("StockCountSubmittedBy")
+  stockCountsApproved  StockCount[]          @relation("StockCountApprovedBy")
 }
 
 /// Opaque refresh tokens, stored only as a SHA-256 hash. Each login starts a
@@ -142,6 +145,7 @@ model Location {
   salesOrders     SalesOrder[]
   reservations    Reservation[]
   salesReturns    SalesReturn[]
+  stockCounts     StockCount[]
 }
 
 enum PaymentMethod {
@@ -186,13 +190,14 @@ model Sequence {
 
 /// `nameKey` is the trimmed, lower-cased name: uniqueness is case-insensitive.
 model Category {
-  id        String    @id @default(uuid())
-  name      String
-  nameKey   String    @unique
-  isActive  Boolean   @default(true)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  products  Product[]
+  id          String       @id @default(uuid())
+  name        String
+  nameKey     String       @unique
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  products    Product[]
+  stockCounts StockCount[]
 }
 
 model Brand {
@@ -326,6 +331,7 @@ model Variant {
   salesOrderLines     SalesOrderLine[]
   reservations        Reservation[]
   salesReturnLines    SalesReturnLine[]
+  stockCountLines     StockCountLine[]
 
   @@unique([productId, optionKey])
   @@index([productId])
@@ -437,6 +443,7 @@ model StockDocument {
   lines          StockMovement[]
   salesOrder     SalesOrder?       @relation("SalesOrderStockDocument")
   salesReturn    SalesReturn?      @relation("SalesReturnStockDocument")
+  stockCount     StockCount?       @relation("StockCountAdjustment")
   purchase       PurchaseShipment? @relation("PurchaseStockDocument")
   purchaseReturn PurchaseReturn?   @relation("PurchaseReturnStockDocument")
 
@@ -1244,4 +1251,66 @@ model CashSession {
 
   @@unique([accountId, businessDate])
   @@index([businessDate])
+}
+
+// ─── Stock counts ────────────────────────────────────────────────────────────
+
+enum StockCountStatus {
+  OPEN
+  SUBMITTED
+  APPROVED
+  CANCELLED
+  REVERSED
+}
+
+/// A physical count of sellable stock at one location. Each line keeps the
+/// system quantity at the moment counting started, so the difference is what
+/// the shelf showed against what the books said then. Approval posts one
+/// ADJUSTMENT stock document for all differences; reversing the count reverses
+/// that document. Never deleted.
+model StockCount {
+  id                   String           @id @default(uuid())
+  code                 String           @unique
+  locationId           String
+  location             Location         @relation(fields: [locationId], references: [id])
+  categoryId           String?
+  category             Category?        @relation(fields: [categoryId], references: [id])
+  blind                Boolean          @default(true)
+  status               StockCountStatus @default(OPEN)
+  notes                String?
+  createdById          String?
+  createdBy            User?            @relation("StockCountCreatedBy", fields: [createdById], references: [id])
+  submittedById        String?
+  submittedBy          User?            @relation("StockCountSubmittedBy", fields: [submittedById], references: [id])
+  submittedAt          DateTime?
+  approvedById         String?
+  approvedBy           User?            @relation("StockCountApprovedBy", fields: [approvedById], references: [id])
+  approvedAt           DateTime?
+  adjustmentDocumentId String?          @unique
+  adjustmentDocument   StockDocument?   @relation("StockCountAdjustment", fields: [adjustmentDocumentId], references: [id])
+  cancelledAt          DateTime?
+  cancelReason         String?
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  lines StockCountLine[]
+
+  @@index([status])
+  @@index([locationId])
+}
+
+model StockCountLine {
+  id         String           @id @default(uuid())
+  countId    String
+  count      StockCount       @relation(fields: [countId], references: [id])
+  variantId  String
+  variant    Variant          @relation(fields: [variantId], references: [id])
+  /// Sellable units at the location when counting started (or the line was added).
+  systemQty  Int
+  countedQty Int?
+  reasonCode StockReasonCode?
+  note       String?
+  countedAt  DateTime?
+
+  @@unique([countId, variantId])
 }

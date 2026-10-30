@@ -12,4 +12,5 @@ export * from "./payments";
 export * from "./returns";
 export * from "./shipping";
 export * from "./finance";
+export * from "./stockcount";
 export * from "./dto";

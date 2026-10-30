@@ -17,7 +17,7 @@ Conventions: `docs/crm/CONVENTIONS.md`.
 - [x] **9. Returns & refunds** — returns by condition, refunds/credit, revenue + COGS reversal (Scenario J)
 - [x] **10. Courier & shipping** — shipments, packages/AWBs, status history, courier cost vs charge (Scenario G)
 - [x] **11. Cash closing & expenses** — expenses, daily cash session, deposits, discrepancy, lock
-- [ ] **12. Stock reconciliation** — count sessions, blind count, approval, adjustments, reversal (Scenario H)
+- [x] **12. Stock reconciliation** — count sessions, blind count, approval, adjustments, reversal (Scenario H)
 - [ ] **13. Profit, valuation, dashboard & reports** — profit waterfall, projections, dashboard, 17 reports (Scenario I)
 - [ ] **14. Import, website sync & go-live** — import wizard + rollback, read-only website pull, VPS deploy, backups, restore drill, tech spec
 
@@ -235,3 +235,26 @@ Conventions: `docs/crm/CONVENTIONS.md`.
 - Browser: recorded a ₹120 cash expense, opened the drawer with ₹2,000, saw the breakdown (cash received, the expense, the ₹100 deposit from phase 7), entered a count with the live short/over badge, closed (locked notice, history row), reopened with a reason, expense categories, mobile cash page. No console errors.
 - Found while verifying: four unescaped apostrophes in the new screen's text (lint), now fixed.
 - Permission added: `cash.reopen` (admin). The base seed now adds default expense categories.
+
+## Phase 12 — Stock reconciliation
+
+- [x] Schema: StockCount (location, optional category, blind, status flow, links to the adjustment document) and StockCountLine (system snapshot, counted, reason); ADJUSTMENT documents tagged with the count
+- [x] Rules: sellable stock is counted; the snapshot is taken when the count starts; blind counts hide system figures from counters; all lines counted before submitting; admin approval posts one adjustment (found units at average cost, missing units at average cost) through the stock engine; send back for a recount; cancel; reverse an approved count from the count (not from Inventory)
+- [x] API: create (lines generated), save counts, add a found item, submit, send back, approve, cancel, reverse, list and detail
+- [x] Web: stock counts list and new count, counting sheet (blind-aware), review with differences, reasons and value impact, approve, reverse
+- [x] Tests: Scenario H (correction in the ledger and the audit log; reversal works), blind visibility, found item, submit rules, recount, roles, no-difference approval, double approval
+
+### Phase 12 review
+- Exit criteria met (**Scenario H**): a blind count finds 8 of 10 units.
+  - On approval the −2 correction posts as an ADJUSTMENT tagged with the count, and shows in the ledger and the audit log (approved by whom, the posting, the differences).
+  - The Inventory screen refuses to reverse it directly. Reversing from the count restores 10 units with a REVERSAL document, and the count can't be reversed twice.
+- Also tested:
+  - Blind visibility (counters see no system figures or costs).
+  - Found units come in at the average cost, including an item added mid-count.
+  - Every line must be counted to submit, and a count can be sent back for a recount.
+  - A count with no differences approves without a document, and two simultaneous approvals give exactly one.
+  - Lines lock at the DB.
+  - Empty counts are refused, cancelled counts stay on record, and cashiers are kept out.
+- Browser: ops started a blind Godown count of Stanley tumblers and submitted it, with no system column visible. The owner reviewed it (system, counted, difference, value −₹2,900, reason per line), approved (adjustment STK-00019), reversed (STK-00020) and checked both in the ledger. Mobile list. No console errors.
+- Found while building: a schema edit placed the location relation on the User model by mistake (caught by `prisma validate` and fixed before migrating), and the list DTO's `lines` count clashed with the detail's `lines` array (renamed `lineCount`).
+- Inventory's reversal is now split into `reverseDocumentInTx`, so records that own a stock document (counts) can reverse it themselves.

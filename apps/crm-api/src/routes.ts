@@ -13,6 +13,7 @@ import { preOrdersRoutes, salesRoutes } from "./modules/sales/sales.routes";
 import { couriersRoutes, shipmentsRoutes } from "./modules/shipping/shipping.routes";
 import { cashRoutes } from "./modules/cash/cash.routes";
 import { expensesRoutes } from "./modules/expenses/expenses.routes";
+import { stockCountsRoutes } from "./modules/stockcounts/stockcounts.routes";
 import { settingsRoutes } from "./modules/settings/settings.routes";
 import { suppliersRoutes } from "./modules/suppliers/suppliers.routes";
 import { usersRoutes } from "./modules/users/users.routes";
@@ -44,6 +45,7 @@ protectedRoutes.use("/shipments", shipmentsRoutes);
 protectedRoutes.use("/couriers", couriersRoutes);
 protectedRoutes.use("/expenses", expensesRoutes);
 protectedRoutes.use("/cash", cashRoutes);
+protectedRoutes.use("/stock-counts", stockCountsRoutes);
 protectedRoutes.use("/pre-orders", preOrdersRoutes);
 protectedRoutes.use("/payments", paymentsRoutes);
 

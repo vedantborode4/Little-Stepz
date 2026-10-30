@@ -232,3 +232,24 @@ No new tables: a pre-order is a `SalesOrder` with `type = PRE_ORDER`, so its adv
 - While a drawer's day is closed, `assertCashDaysOpen` refuses any payment, refund, void, expense or transfer posted to that drawer on that date, from every writer of money.
 - The discrepancy is recorded for the owner, and never posted to sales or payments.
 - An admin (`cash.reopen`) can reopen a day with a reason. The previous count stays in the audit log.
+
+## Phase 12: stock reconciliation
+
+| Model | Purpose | Key rules |
+|---|---|---|
+| `StockCount` | A count of **sellable** stock at one location (`CNT-xxxx`), optionally one category; blind or open; status counting → waiting for approval → approved / cancelled / reversed; link to its adjustment document | Never deleted. The row is locked for every change, so a count can't be approved twice. |
+| `StockCountLine` | Per item: the system's sellable quantity **snapshotted when counting started** (or when the item was added), the counted quantity, and the reason for a difference | Unique per item in a count. A trigger locks lines once the count is approved, cancelled or reversed. |
+
+**Flow.**
+1. Start a count (`stockcount.perform`): items with stock at the location (or all items in the category with "include zero").
+2. Counters enter figures and can add found items that weren't on the list. Submitting needs every line counted (0 for nothing found).
+3. An approver (`stockcount.approve`, admin) reviews system vs counted, the differences and their value at average cost. They give a reason per difference, then approve, send back for a recount, or cancel.
+
+**Blind counts.** Counters never see system figures or differences until the count is finished. Approvers always see them.
+
+**Approval** posts one `ADJUSTMENT` stock document (`sourceType = STOCK_COUNT`) through the stock engine.
+- Found units come in at the current average cost; missing units leave at it. The reservation guard still applies.
+- Movements made while the count was going on are assumed to have happened after the snapshot, so it's best to count a shelf that isn't selling.
+- A count with no differences is approved without a document.
+
+**Reversal** is done from the count, which posts a `REVERSAL` of its adjustment. The Inventory screen refuses to reverse count adjustments directly (`REVERSE_AT_SOURCE`), the same rule as purchases, sales and returns. Both documents show in the ledger, and the count, its approval and each stock posting are in the audit log.

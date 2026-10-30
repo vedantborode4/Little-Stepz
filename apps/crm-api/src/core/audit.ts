@@ -76,7 +76,14 @@ export type AuditAction =
   | "expense.voided"
   | "cash.opened"
   | "cash.closed"
-  | "cash.reopened";
+  | "cash.reopened"
+  | "stockcount.created"
+  | "stockcount.updated"
+  | "stockcount.submitted"
+  | "stockcount.sent_back"
+  | "stockcount.approved"
+  | "stockcount.cancelled"
+  | "stockcount.reversed";
 
 export type AuditEntity =
   | "User"
@@ -100,7 +107,8 @@ export type AuditEntity =
   | "Shipment"
   | "ExpenseCategory"
   | "Expense"
-  | "CashSession";
+  | "CashSession"
+  | "StockCount";
 
 export interface AuditEntry {
   action: AuditAction;

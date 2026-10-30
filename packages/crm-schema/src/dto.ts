@@ -5,6 +5,7 @@ import type { AgeingBucket, CreditEntryType, PaymentDirection, PaymentStatus } f
 import type { RefundMethod, ReturnCondition } from "./returns";
 import type { ShipmentStatus } from "./shipping";
 import type { CashSessionStatus, ExpenseKind } from "./finance";
+import type { StockCountStatus } from "./stockcount";
 import type { LocationType, PaymentMethod, Role } from "./enums";
 import type { StockBucket, StockDocumentType, StockReasonCode, StockState } from "./inventory";
 import type { AllocationMethod, ChargeType, PurchaseStatus } from "./purchases";
@@ -957,6 +958,56 @@ export interface CashDayDto {
   /** Counted at the last close before this day; the default opening amount. */
   previousClose: { date: string; counted: string } | null;
   breakdown: CashDayBreakdownDto;
+}
+
+// ─── Stock counts ────────────────────────────────────────────────────────────
+
+/** System quantities and differences are left out (undefined) while a blind count is in progress, for staff who can't approve it. */
+export interface StockCountListItemDto {
+  id: string;
+  code: string;
+  status: StockCountStatus;
+  location: RefDto;
+  category: RefDto | null;
+  blind: boolean;
+  lineCount: number;
+  counted: number;
+  unitsOver?: number;
+  unitsShort?: number;
+  createdByName: string | null;
+  createdAt: string;
+  approvedAt: string | null;
+}
+
+export interface StockCountLineDto {
+  id: string;
+  variantId: string;
+  sku: string;
+  productName: string;
+  variantName: string;
+  /** Sellable units the system had at the location when the count started (or the item was added). */
+  systemQty?: number;
+  countedQty: number | null;
+  variance?: number | null;
+  reasonCode: StockReasonCode | null;
+  note: string | null;
+  /** Current average cost per unit (cost-visible roles only), to value the differences. */
+  unitCost?: string | null;
+}
+
+export interface StockCountDetailDto extends StockCountListItemDto {
+  notes: string | null;
+  submittedByName: string | null;
+  submittedAt: string | null;
+  approvedByName: string | null;
+  cancelReason: string | null;
+  /** Whether this viewer sees system quantities and differences. */
+  showSystem: boolean;
+  /** Value of the differences at current average cost (cost-visible roles only). */
+  valueImpact?: string | null;
+  adjustmentDocument: { id: string; code: string } | null;
+  reversalDocument: { id: string; code: string } | null;
+  lines: StockCountLineDto[];
 }
 
 // ─── Payments ────────────────────────────────────────────────────────────────

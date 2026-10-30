@@ -154,45 +154,52 @@ export async function adjustStock(input: AdjustmentInput, ctx: RequestContext) {
 
 /**
  * Posts the mirror image of a document at the original costs. Documents created
- * by a purchase or sale are reversed from that purchase or sale instead, so the
- * two records can never disagree.
+ * by a purchase, sale or count are reversed from that record instead, so the
+ * two can never disagree.
  */
 export async function reverseStockDocument(id: string, input: ReverseStockDocumentInput, ctx: RequestContext) {
   return withTransaction(async (tx) => {
-    const original = await tx.stockDocument.findUnique({ where: { id }, include: { lines: true, reversedBy: { select: { code: true } } } });
+    const original = await tx.stockDocument.findUnique({ where: { id }, select: { code: true, sourceType: true } });
     if (!original) throw notFound("Stock document");
-    if (original.type === "REVERSAL")
-      throw new ApiError(409, "CANNOT_REVERSE_REVERSAL", "A reversal can't be reversed. Post a new entry instead.");
-    if (original.reversedBy)
-      throw new ApiError(409, "ALREADY_REVERSED", `${original.code} was already reversed by ${original.reversedBy.code}`);
     if (original.sourceType) {
       throw new ApiError(
         409,
         "REVERSE_AT_SOURCE",
-        `${original.code} was created by a ${original.sourceType.toLowerCase()}; correct it there instead`,
+        `${original.code} was created by a ${original.sourceType.toLowerCase().replace("_", " ")}; correct it there instead`,
       );
     }
+    return reverseDocumentInTx(tx, ctx, id, input.reason);
+  });
+}
 
-    const internal = INTERNAL_TYPES.includes(original.type);
-    const lines: EngineLine[] = original.lines.map((l) => {
-      const cost = l.unitCost ? dec(l.unitCost.toString()) : null;
-      return {
-        variantId: l.variantId,
-        locationId: l.locationId,
-        bucket: l.bucket,
-        quantity: -l.quantity,
-        cost: internal ? { kind: "none" } : l.quantity > 0 ? { kind: "unreceive", unitCost: cost } : { kind: "receive", unitCost: cost },
-      };
-    });
+/** The reversal itself, for the inventory screen and for records that own their document (stock counts). */
+export async function reverseDocumentInTx(tx: Tx, ctx: RequestContext, id: string, reason: string) {
+  const original = await tx.stockDocument.findUnique({ where: { id }, include: { lines: true, reversedBy: { select: { code: true } } } });
+  if (!original) throw notFound("Stock document");
+  if (original.type === "REVERSAL")
+    throw new ApiError(409, "CANNOT_REVERSE_REVERSAL", "A reversal can't be reversed. Post a new entry instead.");
+  if (original.reversedBy)
+    throw new ApiError(409, "ALREADY_REVERSED", `${original.code} was already reversed by ${original.reversedBy.code}`);
 
-    return postStockDocument(tx, ctx, {
-      type: "REVERSAL",
-      businessDate: resolveBusinessDate(undefined),
-      reason: input.reason,
-      reference: original.code,
-      reversalOfId: original.id,
-      lines,
-    });
+  const internal = INTERNAL_TYPES.includes(original.type);
+  const lines: EngineLine[] = original.lines.map((l) => {
+    const cost = l.unitCost ? dec(l.unitCost.toString()) : null;
+    return {
+      variantId: l.variantId,
+      locationId: l.locationId,
+      bucket: l.bucket,
+      quantity: -l.quantity,
+      cost: internal ? { kind: "none" } : l.quantity > 0 ? { kind: "unreceive", unitCost: cost } : { kind: "receive", unitCost: cost },
+    };
+  });
+
+  return postStockDocument(tx, ctx, {
+    type: "REVERSAL",
+    businessDate: resolveBusinessDate(undefined),
+    reason,
+    reference: original.code,
+    reversalOfId: original.id,
+    lines,
   });
 }
 
