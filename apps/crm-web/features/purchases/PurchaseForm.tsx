@@ -25,6 +25,7 @@ import { Card, DetailRow } from "@/components/ui/Display"
 import { controlClass, Field, FormError, Input, Select, Textarea } from "@/components/ui/Form"
 import { errorMessage } from "@/lib/api-error"
 import { formatMoney, todayIST } from "@/lib/format"
+import { uuid } from "@/lib/uuid"
 import { apiErrorsToMap, issuesToErrors } from "@/lib/validation"
 import VariantPicker, { type PickedVariant } from "../inventory/VariantPicker"
 import { LookupSelect } from "../products/LookupSelect"
@@ -52,7 +53,7 @@ const PREVIEW_DELAY_MS = 400
 const cell = clsx(controlClass, "py-2 px-2.5")
 
 const newCharge = (type: ChargeType = "FREIGHT"): Charge => ({
-  key: crypto.randomUUID(),
+  key: uuid(),
   type,
   description: "",
   amount: "",

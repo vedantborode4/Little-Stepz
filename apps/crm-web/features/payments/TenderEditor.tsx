@@ -5,6 +5,7 @@ import { Trash2 } from "lucide-react"
 import { PAYMENT_METHOD_LABELS } from "@repo/crm-schema"
 import { Checkbox, Input } from "@/components/ui/Form"
 import { formatMoney } from "@/lib/format"
+import { uuid } from "@/lib/uuid"
 import { useReceivingAccounts } from "../settings/api"
 
 export interface TenderLine {
@@ -41,7 +42,7 @@ export default function TenderEditor({ total, tenders, onChange, hasCustomer, ex
   const balance = tenderBalance(total, tenders)
 
   const add = (accountId: string) =>
-    onChange([...tenders, { key: crypto.randomUUID(), accountId, amount: balance > 0 ? (balance / 100).toFixed(2) : "", reference: "" }])
+    onChange([...tenders, { key: uuid(), accountId, amount: balance > 0 ? (balance / 100).toFixed(2) : "", reference: "" }])
   const update = (key: string, patch: Partial<TenderLine>) => onChange(tenders.map((t) => (t.key === key ? { ...t, ...patch } : t)))
 
   return (

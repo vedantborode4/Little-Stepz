@@ -10,6 +10,7 @@ import { Field, FormError, Input, Select } from "@/components/ui/Form"
 import Modal from "@/components/ui/Modal"
 import { errorMessage } from "@/lib/api-error"
 import { formatMoney } from "@/lib/format"
+import { uuid } from "@/lib/uuid"
 import { useCan } from "@/store/auth.store"
 import { useCustomerCredit } from "../payments/api"
 import TenderEditor, { tenderBalance, type TenderLine } from "../payments/TenderEditor"
@@ -37,7 +38,7 @@ function CheckoutModal({
   const credit = useCustomerCredit(can("payments.view") ? customerId : null)
   const [creditAmount, setCreditAmount] = useState("")
   // One key per checkout attempt: resubmitting (double click, retry) returns the same sale.
-  const [idempotencyKey] = useState(() => crypto.randomUUID())
+  const [idempotencyKey] = useState(() => uuid())
   const [tenders, setTenders] = useState<TenderLine[]>([])
   const [excessToCredit, setExcessToCredit] = useState(false)
   const [error, setError] = useState<string | null>(null)
