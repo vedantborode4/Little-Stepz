@@ -4,6 +4,7 @@ import type { FulfilmentMethod, PreOrderStockState, PriceSource, SalesChannel, S
 import type { AgeingBucket, CreditEntryType, PaymentDirection, PaymentStatus } from "./payments";
 import type { RefundMethod, ReturnCondition } from "./returns";
 import type { ShipmentStatus } from "./shipping";
+import type { CashSessionStatus, ExpenseKind } from "./finance";
 import type { LocationType, PaymentMethod, Role } from "./enums";
 import type { StockBucket, StockDocumentType, StockReasonCode, StockState } from "./inventory";
 import type { AllocationMethod, ChargeType, PurchaseStatus } from "./purchases";
@@ -889,6 +890,73 @@ export interface ShipmentSummaryDto {
   awaitingShipment: number;
   courierCost: string;
   chargedToCustomer: string;
+}
+
+// ─── Expenses & cash ─────────────────────────────────────────────────────────
+
+export interface ExpenseCategoryDto {
+  id: string;
+  name: string;
+  isActive: boolean;
+  expenseCount: number;
+}
+
+export interface ExpenseDto {
+  id: string;
+  code: string;
+  category: RefDto;
+  kind: ExpenseKind;
+  order: { id: string; code: string } | null;
+  account: { id: string; name: string; isPersonal: boolean };
+  amount: string;
+  businessDate: string;
+  vendor: string | null;
+  reference: string | null;
+  notes: string | null;
+  reversalOf: { id: string; code: string } | null;
+  reversedBy: { id: string; code: string } | null;
+  createdByName: string | null;
+  createdAt: string;
+}
+
+/** How the cash in one drawer should have moved on one day. */
+export interface CashDayBreakdownDto {
+  opening: string;
+  /** Cash taken (receipts), net of voided receipts. */
+  received: string;
+  /** Cash paid back to customers, net of voided refunds. */
+  refunded: string;
+  expenses: string;
+  transfersIn: string;
+  /** Deposits to the bank and other moves out. */
+  transfersOut: string;
+  expected: string;
+}
+
+export interface CashSessionDto {
+  id: string;
+  account: { id: string; name: string };
+  businessDate: string;
+  status: CashSessionStatus;
+  openingAmount: string;
+  expectedAmount: string | null;
+  countedAmount: string | null;
+  /** Counted − expected: negative = short, positive = over. */
+  discrepancy: string | null;
+  notes: string | null;
+  openedByName: string | null;
+  openedAt: string;
+  closedByName: string | null;
+  closedAt: string | null;
+}
+
+export interface CashDayDto {
+  accountId: string;
+  date: string;
+  session: CashSessionDto | null;
+  /** Counted at the last close before this day; the default opening amount. */
+  previousClose: { date: string; counted: string } | null;
+  breakdown: CashDayBreakdownDto;
 }
 
 // ─── Payments ────────────────────────────────────────────────────────────────

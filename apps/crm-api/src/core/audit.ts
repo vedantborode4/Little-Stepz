@@ -69,7 +69,14 @@ export type AuditAction =
   | "courier.updated"
   | "shipment.created"
   | "shipment.updated"
-  | "shipment.status_changed";
+  | "shipment.status_changed"
+  | "expense_category.created"
+  | "expense_category.updated"
+  | "expense.created"
+  | "expense.voided"
+  | "cash.opened"
+  | "cash.closed"
+  | "cash.reopened";
 
 export type AuditEntity =
   | "User"
@@ -90,7 +97,10 @@ export type AuditEntity =
   | "AccountTransfer"
   | "SalesReturn"
   | "CourierPartner"
-  | "Shipment";
+  | "Shipment"
+  | "ExpenseCategory"
+  | "Expense"
+  | "CashSession";
 
 export interface AuditEntry {
   action: AuditAction;

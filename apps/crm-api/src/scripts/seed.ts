@@ -7,7 +7,7 @@
  */
 import "dotenv/config";
 import { prisma, type PaymentMethod } from "@repo/crm-db/client";
-import { DEFAULT_CATEGORIES } from "@repo/crm-schema";
+import { DEFAULT_CATEGORIES, DEFAULT_EXPENSE_CATEGORIES } from "@repo/crm-schema";
 import { hashPassword } from "../core/password";
 import { nameKey } from "../core/sequence";
 
@@ -95,6 +95,11 @@ async function main() {
     await prisma.category.upsert({ where: { nameKey: nameKey(name) }, create: { name, nameKey: nameKey(name) }, update: {} });
   }
   console.log(`• Categories: ${DEFAULT_CATEGORIES.join(", ")}`);
+
+  for (const name of DEFAULT_EXPENSE_CATEGORIES) {
+    await prisma.expenseCategory.upsert({ where: { nameKey: nameKey(name) }, create: { name, nameKey: nameKey(name) }, update: {} });
+  }
+  console.log(`• Expense categories: ${DEFAULT_EXPENSE_CATEGORIES.join(", ")}`);
 
   await seedAdmin();
   await seedDemoUsers();

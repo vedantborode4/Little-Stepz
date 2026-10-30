@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isoDate, listQuery, money, optionalFilterId, optionalText, requiredText } from "./common";
+import { includeInactiveQuery, isoDate, listQuery, money, optionalFilterId, optionalText, requiredText } from "./common";
 
 export const SHIPMENT_STATUSES = [
   "PENDING",
@@ -123,9 +123,4 @@ export const shipmentListQuery = listQuery.extend({
 });
 export type ShipmentListQuery = z.infer<typeof shipmentListQuery>;
 
-export const courierListQuery = z.object({
-  includeInactive: z
-    .enum(["true", "false"])
-    .default("false")
-    .transform((v) => v === "true"),
-});
+export const courierListQuery = includeInactiveQuery;

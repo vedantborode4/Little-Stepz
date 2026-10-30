@@ -56,6 +56,9 @@ model User {
   salesReturns      SalesReturn[]
   shipments         Shipment[]
   shipmentEvents    ShipmentEvent[]
+  expenses          Expense[]
+  cashOpened        CashSession[]         @relation("CashOpenedBy")
+  cashClosed        CashSession[]         @relation("CashClosedBy")
 }
 
 /// Opaque refresh tokens, stored only as a SHA-256 hash. Each login starts a
@@ -166,6 +169,8 @@ model ReceivingAccount {
   payments     Payment[]
   transfersOut AccountTransfer[] @relation("TransferFrom")
   transfersIn  AccountTransfer[] @relation("TransferTo")
+  expenses     Expense[]
+  cashSessions CashSession[]
 }
 
 // ─── Document numbering ──────────────────────────────────────────────────────
@@ -810,6 +815,7 @@ model SalesOrder {
   creditEntries CustomerCreditEntry[]
   returns       SalesReturn[]
   shipments     Shipment[]
+  expenses      Expense[]
 
   @@index([status, orderDate])
   @@index([customerId])
@@ -1160,4 +1166,82 @@ model ShipmentEvent {
   createdAt   DateTime       @default(now())
 
   @@index([shipmentId, createdAt])
+}
+
+// ─── Expenses & cash closing ─────────────────────────────────────────────────
+
+model ExpenseCategory {
+  id        String    @id @default(uuid())
+  name      String
+  nameKey   String    @unique
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  expenses  Expense[]
+}
+
+enum ExpenseKind {
+  OPERATING
+  ORDER
+}
+
+/// Money spent, from one of the business's accounts. Never a sale or a refund.
+/// Append-only: a mistake is voided by a reversal row (at most once).
+model Expense {
+  id           String           @id @default(uuid())
+  code         String           @unique
+  categoryId   String
+  category     ExpenseCategory  @relation(fields: [categoryId], references: [id])
+  kind         ExpenseKind
+  /// Set for ORDER expenses (packaging, extra courier for one order).
+  orderId      String?
+  order        SalesOrder?      @relation(fields: [orderId], references: [id])
+  accountId    String
+  account      ReceivingAccount @relation(fields: [accountId], references: [id])
+  amount       Decimal          @db.Decimal(14, 2)
+  businessDate DateTime         @db.Date
+  vendor       String?
+  reference    String?
+  notes        String?
+  reversalOfId String?          @unique
+  reversalOf   Expense?         @relation("ExpenseReversal", fields: [reversalOfId], references: [id])
+  reversedBy   Expense?         @relation("ExpenseReversal")
+  createdById  String?
+  createdBy    User?            @relation(fields: [createdById], references: [id])
+  createdAt    DateTime         @default(now())
+
+  @@index([businessDate])
+  @@index([accountId, businessDate])
+  @@index([orderId])
+}
+
+enum CashSessionStatus {
+  OPEN
+  CLOSED
+}
+
+/// One cash drawer on one business day. Closing records the count against what
+/// the ledger says should be there; the difference is recorded, never posted.
+/// While CLOSED, nothing can be posted to that drawer on that date.
+model CashSession {
+  id             String            @id @default(uuid())
+  accountId      String
+  account        ReceivingAccount  @relation(fields: [accountId], references: [id])
+  businessDate   DateTime          @db.Date
+  status         CashSessionStatus @default(OPEN)
+  openingAmount  Decimal           @db.Decimal(14, 2)
+  expectedAmount Decimal?          @db.Decimal(14, 2)
+  countedAmount  Decimal?          @db.Decimal(14, 2)
+  discrepancy    Decimal?          @db.Decimal(14, 2)
+  notes          String?
+  openedById     String?
+  openedBy       User?             @relation("CashOpenedBy", fields: [openedById], references: [id])
+  openedAt       DateTime          @default(now())
+  closedById     String?
+  closedBy       User?             @relation("CashClosedBy", fields: [closedById], references: [id])
+  closedAt       DateTime?
+  updatedAt      DateTime          @updatedAt
+
+  @@unique([accountId, businessDate])
+  @@index([businessDate])
 }

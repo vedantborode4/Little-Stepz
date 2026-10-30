@@ -214,3 +214,21 @@ No new tables: a pre-order is a `SalesOrder` with `type = PRE_ORDER`, so its adv
 **RTO.** A parcel coming back is recorded as RTO, then "back with us", both noted on the order timeline. The goods go back into stock, with any refund, through a return on the order (phase 9).
 
 **Cost vs charged.** Each shipment shows what the courier charges us next to the shipping charged to the customer (less any shipping refunded). It feeds contribution profit in phase 13.
+
+## Phase 11: expenses and cash closing
+
+| Model | Purpose | Key rules |
+|---|---|---|
+| `ExpenseCategory` | Grouping for spending (Rent, Salaries, Packaging, Courier, …; seeded, editable) | Case-insensitive unique name. Hidden categories keep their history. |
+| `Expense` | Money spent from an account (`EXP-xxxxx`): category, **operating** or **for an order**, amount, date, paid to, reference | **Append-only.** Voided by a reversal row dated today (at most once). An order expense must name a confirmed order (DB `CHECK` too). Never a sale or a refund. |
+| `CashSession` | One cash drawer on one business day: opening amount; when closed, expected, counted and discrepancy (counted − expected) | Unique per drawer per day. Cash accounts only, never in the future. A `CHECK` keeps the discrepancy equal to counted − expected. |
+
+**Expected cash** = opening + cash received − cash refunded − cash expenses + transfers in − transfers out (e.g. a bank deposit).
+- A void is netted against what it undoes.
+- The opening amount defaults to the count at the last close.
+
+**Closing.**
+- Closing records the count and the discrepancy and **locks the day**.
+- While a drawer's day is closed, `assertCashDaysOpen` refuses any payment, refund, void, expense or transfer posted to that drawer on that date, from every writer of money.
+- The discrepancy is recorded for the owner, and never posted to sales or payments.
+- An admin (`cash.reopen`) can reopen a day with a reason. The previous count stays in the audit log.

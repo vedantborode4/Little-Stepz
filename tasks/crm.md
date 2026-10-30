@@ -16,7 +16,7 @@ Conventions: `docs/crm/CONVENTIONS.md`.
 - [x] **8. Pre-orders & advances** — advances liability, allocation on receipt, balance, fulfilment (Scenario E)
 - [x] **9. Returns & refunds** — returns by condition, refunds/credit, revenue + COGS reversal (Scenario J)
 - [x] **10. Courier & shipping** — shipments, packages/AWBs, status history, courier cost vs charge (Scenario G)
-- [ ] **11. Cash closing & expenses** — expenses, daily cash session, deposits, discrepancy, lock
+- [x] **11. Cash closing & expenses** — expenses, daily cash session, deposits, discrepancy, lock
 - [ ] **12. Stock reconciliation** — count sessions, blind count, approval, adjustments, reversal (Scenario H)
 - [ ] **13. Profit, valuation, dashboard & reports** — profit waterfall, projections, dashboard, 17 reports (Scenario I)
 - [ ] **14. Import, website sync & go-live** — import wizard + rollback, read-only website pull, VPS deploy, backups, restore drill, tech spec
@@ -212,3 +212,26 @@ Conventions: `docs/crm/CONVENTIONS.md`.
   - A tracking link must contain `{awb}`.
 - Browser: couriers settings, new customer created from the order form, delivery order, shipment created with courier, AWB and cost, packed → dispatched → delivered from the shipment card, shipping board with tabs and cost vs charged. No console errors.
 - Found while verifying: "Need a shipment" counted an order that had already been dispatched by hand. It now counts confirmed and packed delivery orders only.
+
+## Phase 11 — Cash closing & expenses
+
+- [x] Schema: ExpenseCategory, Expense (append-only, voided by a reversal, operating or for an order, paid from an account), CashSession (one per cash account per day)
+- [x] Rules: expected cash = opening + received − refunded − cash expenses + transfers in − transfers out; counted − expected = discrepancy (recorded, never posted to sales); closing locks the day so no payment, refund, expense or transfer can be posted to that drawer on that date; admin reopen with a reason; opening defaults to the last count
+- [x] API: expense categories, expenses (create, void, list/export), cash day view, open, close, reopen, sessions list
+- [x] Web: expenses (list, add, void, categories), cash closing page (drawer and date, breakdown, open, count and close with live discrepancy, reopen, history)
+- [x] Tests: the closing scenario (₹2,000 + ₹5,000 − ₹500 − ₹3,000 = ₹3,500), discrepancy, locked day refuses postings, reopen, opening carry-forward, expense rules and voids, sales untouched, roles
+
+### Phase 11 review
+- Exit criteria met: opening ₹2,000 + a ₹5,000 cash sale − a ₹500 cash expense − a ₹3,000 deposit to the bank gives ₹3,500 expected.
+  - A count of ₹3,400 is recorded as −₹100 (short), and the day's sales are unchanged by closing.
+- Also tested:
+  - A closed day refuses cash sales, expenses and transfers on that drawer and date. Other accounts and other dates still work.
+  - Only admins can reopen, and the old count stays in the audit log.
+  - The opening amount carries forward from the last count.
+  - Voided receipts and expenses net out of the expected cash.
+  - Bank accounts and future dates can't be closed.
+  - Order expenses need an order, voids happen once, and expenses never touch sales.
+  - Cashiers can close the drawer but not record expenses.
+- Browser: recorded a ₹120 cash expense, opened the drawer with ₹2,000, saw the breakdown (cash received, the expense, the ₹100 deposit from phase 7), entered a count with the live short/over badge, closed (locked notice, history row), reopened with a reason, expense categories, mobile cash page. No console errors.
+- Found while verifying: four unescaped apostrophes in the new screen's text (lint), now fixed.
+- Permission added: `cash.reopen` (admin). The base seed now adds default expense categories.

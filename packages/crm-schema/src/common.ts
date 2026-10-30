@@ -57,6 +57,14 @@ export type ExportFormat = (typeof EXPORT_FORMATS)[number];
 
 export const MAX_PAGE_SIZE = 100;
 
+/** `?includeInactive=true` on small reference lists (couriers, expense categories). */
+export const includeInactiveQuery = z.object({
+  includeInactive: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
+});
+
 export const listQuery = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(25),

@@ -35,6 +35,8 @@ export const PERMISSIONS = [
   "customers.export",
   "shipping.manage",
   "cash.close",
+  /** Unlocking a closed cash day to correct it. */
+  "cash.reopen",
   "expenses.manage",
   "stockcount.perform",
   "stockcount.approve",

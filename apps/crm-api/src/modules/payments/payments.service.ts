@@ -6,6 +6,7 @@ import { withTransaction } from "../../core/db";
 import { ApiError, notFound, type RequestContext } from "../../core/http";
 import { dec, money } from "../../core/money";
 import { nextCode } from "../../core/sequence";
+import { assertCashDaysOpen } from "../cash/cash-lock";
 import { applyCredit, recordReceipt, refundCredit, voidPayment } from "./ledger";
 import { customerCredit, getPayment, getTransfer } from "./payments.queries";
 
@@ -54,13 +55,18 @@ async function assertTransferAccounts(tx: Tx, ids: string[]) {
 export async function createTransfer(input: AccountTransferInput, ctx: RequestContext) {
   const id = await withTransaction(async (tx) => {
     await assertTransferAccounts(tx, [input.fromAccountId, input.toAccountId]);
+    const businessDate = resolveBusinessDate(input.businessDate);
+    await assertCashDaysOpen(tx, [
+      { accountId: input.fromAccountId, businessDate },
+      { accountId: input.toAccountId, businessDate },
+    ]);
     const transfer = await tx.accountTransfer.create({
       data: {
         code: await nextCode(tx, "TRF", 5),
         fromAccountId: input.fromAccountId,
         toAccountId: input.toAccountId,
         amount: dec(input.amount),
-        businessDate: resolveBusinessDate(input.businessDate),
+        businessDate,
         reference: input.reference ?? null,
         notes: input.notes ?? null,
         createdById: ctx.userId,
@@ -85,13 +91,18 @@ export async function reverseTransfer(id: string, reason: string, ctx: RequestCo
     if (original.reversalOfId) throw new ApiError(409, "CANNOT_REVERSE_REVERSAL", "A reversal can't be reversed");
     if (original.reversedBy)
       throw new ApiError(409, "ALREADY_REVERSED", `${original.code} was already reversed by ${original.reversedBy.code}`);
+    const today = resolveBusinessDate(undefined);
+    await assertCashDaysOpen(tx, [
+      { accountId: original.fromAccountId, businessDate: today },
+      { accountId: original.toAccountId, businessDate: today },
+    ]);
     const reversal = await tx.accountTransfer.create({
       data: {
         code: await nextCode(tx, "TRF", 5),
         fromAccountId: original.toAccountId,
         toAccountId: original.fromAccountId,
         amount: original.amount,
-        businessDate: resolveBusinessDate(undefined),
+        businessDate: today,
         reference: original.code,
         notes: reason,
         reversalOfId: original.id,

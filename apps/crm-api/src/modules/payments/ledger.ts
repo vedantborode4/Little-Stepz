@@ -5,6 +5,7 @@ import { resolveBusinessDate } from "../../core/dates";
 import { ApiError, notFound, type RequestContext } from "../../core/http";
 import { Decimal, money } from "../../core/money";
 import { nextCode } from "../../core/sequence";
+import { assertCashDaysOpen } from "../cash/cash-lock";
 
 /**
  * The only writer of payments, allocations and customer credit. Every rule about
@@ -153,6 +154,7 @@ export async function recordReceipt(tx: Tx, ctx: RequestContext, input: ReceiptI
   if (fee.gt(input.amount))
     throw new ApiError(400, "FEE_TOO_HIGH", "The fee can't exceed the amount", { fieldErrors: { fee: ["More than the amount"] } });
 
+  await assertCashDaysOpen(tx, [{ accountId: account.id, businessDate: input.businessDate }]);
   const payment = await tx.payment.create({
     data: {
       code: await nextCode(tx, "PAY", 5),
@@ -224,6 +226,8 @@ async function outPayment(
   },
 ) {
   const account = await activeAccount(tx, input.accountId);
+  const businessDate = input.businessDate ?? resolveBusinessDate(undefined);
+  await assertCashDaysOpen(tx, [{ accountId: account.id, businessDate }]);
   return tx.payment.create({
     data: {
       code: await nextCode(tx, "PAY", 5),
@@ -232,7 +236,7 @@ async function outPayment(
       accountId: account.id,
       amount: input.amount,
       reference: input.reference ?? null,
-      businessDate: input.businessDate ?? resolveBusinessDate(undefined),
+      businessDate,
       customerId: input.customerId,
       notes: input.notes ?? null,
       createdById: ctx.userId,
@@ -373,6 +377,8 @@ export async function voidPayment(tx: Tx, ctx: RequestContext, paymentId: string
     }
   }
 
+  const today = resolveBusinessDate(undefined);
+  await assertCashDaysOpen(tx, [{ accountId: original.accountId, businessDate: today }]);
   const reversal = await tx.payment.create({
     data: {
       code: await nextCode(tx, "PAY", 5),
@@ -382,7 +388,7 @@ export async function voidPayment(tx: Tx, ctx: RequestContext, paymentId: string
       amount: original.amount,
       fee: original.fee,
       reference: original.code,
-      businessDate: resolveBusinessDate(undefined),
+      businessDate: today,
       customerId: original.customerId,
       notes: reason,
       reversalOfId: original.id,
