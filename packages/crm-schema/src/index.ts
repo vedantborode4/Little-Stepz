@@ -14,4 +14,6 @@ export * from "./shipping";
 export * from "./finance";
 export * from "./stockcount";
 export * from "./analytics";
+export * from "./imports";
+export * from "./sync";
 export * from "./dto";

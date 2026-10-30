@@ -62,6 +62,11 @@ model User {
   stockCounts          StockCount[]          @relation("StockCountCreatedBy")
   stockCountsSubmitted StockCount[]          @relation("StockCountSubmittedBy")
   stockCountsApproved  StockCount[]          @relation("StockCountApprovedBy")
+  importTemplates      ImportTemplate[]
+  importsCreated       ImportBatch[]         @relation("ImportCreatedBy")
+  importsApproved      ImportBatch[]         @relation("ImportApprovedBy")
+  importsRolledBack    ImportBatch[]         @relation("ImportRolledBackBy")
+  syncRuns             SyncRun[]
 }
 
 /// Opaque refresh tokens, stored only as a SHA-256 hash. Each login starts a
@@ -146,6 +151,7 @@ model Location {
   reservations    Reservation[]
   salesReturns    SalesReturn[]
   stockCounts     StockCount[]
+  importBatches   ImportBatch[]
 }
 
 enum PaymentMethod {
@@ -1313,4 +1319,135 @@ model StockCountLine {
   countedAt  DateTime?
 
   @@unique([countId, variantId])
+}
+
+// ─── Import & website sync ───────────────────────────────────────────────────
+
+enum ImportKind {
+  PRODUCTS
+  OPENING_STOCK
+  CUSTOMERS
+}
+
+enum ImportBatchStatus {
+  /// Uploaded; columns not mapped yet.
+  UPLOADED
+  /// Mapped and checked; waiting for approval.
+  VALIDATED
+  IMPORTED
+  ROLLED_BACK
+  CANCELLED
+}
+
+enum ImportRowStatus {
+  PENDING
+  VALID
+  ERROR
+  /// Already in the CRM (or repeated earlier in the file); skipped, never overwritten.
+  DUPLICATE
+  IMPORTED
+}
+
+/// A saved column mapping (target field → file header) for a kind of import.
+model ImportTemplate {
+  id          String     @id @default(uuid())
+  name        String
+  kind        ImportKind
+  mapping     Json
+  createdById String?
+  createdBy   User?      @relation(fields: [createdById], references: [id])
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@unique([kind, name])
+}
+
+/// One uploaded file going through map → check → approve, and possibly rollback.
+/// Rows are kept so the batch history shows exactly what came in and what it created.
+model ImportBatch {
+  id              String            @id @default(uuid())
+  code            String            @unique
+  kind            ImportKind
+  status          ImportBatchStatus @default(UPLOADED)
+  fileName        String
+  headers         Json
+  mapping         Json?
+  /// Opening stock lands in this location.
+  locationId      String?
+  location        Location?         @relation(fields: [locationId], references: [id])
+  totalRows       Int
+  validRows       Int               @default(0)
+  errorRows       Int               @default(0)
+  duplicateRows   Int               @default(0)
+  importedRows    Int               @default(0)
+  /// The opening-stock document an OPENING_STOCK batch posted.
+  stockDocumentId String?           @unique
+  createdById     String?
+  createdBy       User?             @relation("ImportCreatedBy", fields: [createdById], references: [id])
+  approvedById    String?
+  approvedBy      User?             @relation("ImportApprovedBy", fields: [approvedById], references: [id])
+  approvedAt      DateTime?
+  rolledBackById  String?
+  rolledBackBy    User?             @relation("ImportRolledBackBy", fields: [rolledBackById], references: [id])
+  rolledBackAt    DateTime?
+  rollbackReason  String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  rows            ImportRow[]
+
+  @@index([kind, createdAt])
+}
+
+model ImportRow {
+  id              String          @id @default(uuid())
+  batchId         String
+  batch           ImportBatch     @relation(fields: [batchId], references: [id])
+  /// Line number in the file (header is row 1).
+  rowNumber       Int
+  raw             Json
+  mapped          Json?
+  status          ImportRowStatus @default(PENDING)
+  errors          Json?
+  duplicateOf     String?
+  /// What approval created from this row (Product, Variant, Customer…).
+  createdEntity   String?
+  createdEntityId String?
+
+  @@unique([batchId, rowNumber])
+  @@index([batchId, status])
+}
+
+enum SyncSource {
+  /// Built-in sample data for demos; never the real website.
+  MOCK
+  LIVE
+}
+
+enum SyncMode {
+  DRY_RUN
+  LINK_IDS
+}
+
+enum SyncRunStatus {
+  SUCCEEDED
+  FAILED
+}
+
+/// A read-only pull from the website. Dry runs only report; LINK_IDS writes
+/// website ids onto matching CRM variants and nothing else. Nothing is ever
+/// written to the website.
+model SyncRun {
+  id          String        @id @default(uuid())
+  code        String        @unique
+  source      SyncSource
+  mode        SyncMode
+  status      SyncRunStatus
+  summary     Json?
+  error       String?
+  startedAt   DateTime      @default(now())
+  finishedAt  DateTime?
+  createdById String?
+  createdBy   User?         @relation(fields: [createdById], references: [id])
+
+  @@index([startedAt])
 }

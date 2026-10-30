@@ -114,64 +114,67 @@ export async function assertWebsiteVariantIdFree(tx: Tx, websiteVariantId: strin
 export const optionKeyOf = (valueIds: string[]) => [...valueIds].sort().join("|");
 
 export async function createProduct(input: CreateProductInput, ctx: RequestContext) {
-  return withTransaction(async (tx) => {
-    await assertReferences(tx, input);
-    await assertSkusFree(
-      tx,
-      input.variants.map((v) => v.sku),
-    );
-    await assertWebsiteProductIdFree(tx, input.websiteProductId);
-    for (const v of input.variants) await assertWebsiteVariantIdFree(tx, v.websiteVariantId);
+  return withTransaction(async (tx) => loadProductDetail(tx, await createProductInTx(tx, input, ctx)));
+}
 
-    const { options, variants, ...fields } = input;
-    const product = await tx.product.create({
-      data: { ...fields, code: await nextCode(tx, "PRD"), gstRate: dec(fields.gstRate) },
-    });
+/** Creates a product with its options and variants inside the caller's transaction; returns its id. */
+export async function createProductInTx(tx: Tx, input: CreateProductInput, ctx: RequestContext) {
+  await assertReferences(tx, input);
+  await assertSkusFree(
+    tx,
+    input.variants.map((v) => v.sku),
+  );
+  await assertWebsiteProductIdFree(tx, input.websiteProductId);
+  for (const v of input.variants) await assertWebsiteVariantIdFree(tx, v.websiteVariantId);
 
-    // Value ids per option, keyed by lower-cased value, so variant rows can resolve their combination.
-    const valueIdsByOption: Map<string, { id: string; value: string }>[] = [];
-    for (const [position, option] of options.entries()) {
-      const created = await tx.productOption.create({
-        data: {
-          productId: product.id,
-          name: option.name.trim(),
-          position,
-          values: { create: option.values.map((value, i) => ({ value: value.trim(), position: i })) },
-        },
-        include: { values: true },
-      });
-      valueIdsByOption.push(new Map(created.values.map((v) => [v.value.toLowerCase(), { id: v.id, value: v.value }])));
-    }
-
-    for (const [position, v] of variants.entries()) {
-      const resolved = v.optionValues.map((value, i) => valueIdsByOption[i]!.get(value.trim().toLowerCase())!);
-      const variant = await tx.variant.create({
-        data: {
-          productId: product.id,
-          sku: v.sku,
-          name: resolved.length ? resolved.map((r) => r.value).join(" / ") : DEFAULT_VARIANT_NAME,
-          optionKey: optionKeyOf(resolved.map((r) => r.id)),
-          regularPrice: dec(v.regularPrice),
-          offerPrice: v.offerPrice ? dec(v.offerPrice) : null,
-          wholesalePrice: v.wholesalePrice ? dec(v.wholesalePrice) : null,
-          reorderLevel: v.reorderLevel,
-          websiteVariantId: v.websiteVariantId ?? null,
-          position,
-          optionValues: { create: resolved.map((r) => ({ optionValueId: r.id })) },
-        },
-      });
-      await recordPriceChanges(tx, variant.id, null, variant, { changedById: ctx.userId, reason: "Product created" });
-    }
-
-    await recordAudit(tx, ctx, {
-      action: "product.created",
-      entity: "Product",
-      entityId: product.id,
-      after: { code: product.code, ...productAuditSnapshot(product), variants: variants.map((v) => v.sku) },
-    });
-
-    return loadProductDetail(tx, product.id);
+  const { options, variants, ...fields } = input;
+  const product = await tx.product.create({
+    data: { ...fields, code: await nextCode(tx, "PRD"), gstRate: dec(fields.gstRate) },
   });
+
+  // Value ids per option, keyed by lower-cased value, so variant rows can resolve their combination.
+  const valueIdsByOption: Map<string, { id: string; value: string }>[] = [];
+  for (const [position, option] of options.entries()) {
+    const created = await tx.productOption.create({
+      data: {
+        productId: product.id,
+        name: option.name.trim(),
+        position,
+        values: { create: option.values.map((value, i) => ({ value: value.trim(), position: i })) },
+      },
+      include: { values: true },
+    });
+    valueIdsByOption.push(new Map(created.values.map((v) => [v.value.toLowerCase(), { id: v.id, value: v.value }])));
+  }
+
+  for (const [position, v] of variants.entries()) {
+    const resolved = v.optionValues.map((value, i) => valueIdsByOption[i]!.get(value.trim().toLowerCase())!);
+    const variant = await tx.variant.create({
+      data: {
+        productId: product.id,
+        sku: v.sku,
+        name: resolved.length ? resolved.map((r) => r.value).join(" / ") : DEFAULT_VARIANT_NAME,
+        optionKey: optionKeyOf(resolved.map((r) => r.id)),
+        regularPrice: dec(v.regularPrice),
+        offerPrice: v.offerPrice ? dec(v.offerPrice) : null,
+        wholesalePrice: v.wholesalePrice ? dec(v.wholesalePrice) : null,
+        reorderLevel: v.reorderLevel,
+        websiteVariantId: v.websiteVariantId ?? null,
+        position,
+        optionValues: { create: resolved.map((r) => ({ optionValueId: r.id })) },
+      },
+    });
+    await recordPriceChanges(tx, variant.id, null, variant, { changedById: ctx.userId, reason: "Product created" });
+  }
+
+  await recordAudit(tx, ctx, {
+    action: "product.created",
+    entity: "Product",
+    entityId: product.id,
+    after: { code: product.code, ...productAuditSnapshot(product), variants: variants.map((v) => v.sku) },
+  });
+
+  return product.id;
 }
 
 export async function updateProduct(id: string, input: UpdateProductInput, ctx: RequestContext) {

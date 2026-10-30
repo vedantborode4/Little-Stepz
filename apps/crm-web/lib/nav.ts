@@ -7,6 +7,7 @@ import {
   ClipboardCheck,
   CreditCard,
   FileSpreadsheet,
+  FileUp,
   History,
   LayoutDashboard,
   Package,
@@ -23,7 +24,7 @@ import {
 } from "lucide-react"
 
 /** Highest phase whose modules are live. Bump as each phase ships. */
-export const SHIPPED_PHASE = 13
+export const SHIPPED_PHASE = 14
 
 export interface NavItem {
   label: string
@@ -86,6 +87,7 @@ export const navSections: NavSection[] = [
     title: "Admin",
     items: [
       { label: "Settings", href: "/settings", icon: Settings, permission: "settings.manage", phase: 1 },
+      { label: "Import Data", href: "/imports", icon: FileUp, permission: "import.manage", phase: 14 },
       { label: "Audit History", href: "/audit", icon: History, permission: "audit.view", phase: 1 },
     ],
   },

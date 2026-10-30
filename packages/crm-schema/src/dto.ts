@@ -7,6 +7,8 @@ import type { ShipmentStatus } from "./shipping";
 import type { CashSessionStatus, ExpenseKind } from "./finance";
 import type { StockCountStatus } from "./stockcount";
 import type { ReportFilter, ReportKey } from "./analytics";
+import type { ImportBatchStatus, ImportKind, ImportRowStatus } from "./imports";
+import type { SyncConnection, SyncMode, SyncRunStatus, SyncSource } from "./sync";
 import type { LocationType, PaymentMethod, Role } from "./enums";
 import type { StockBucket, StockDocumentType, StockReasonCode, StockState } from "./inventory";
 import type { AllocationMethod, ChargeType, PurchaseStatus } from "./purchases";
@@ -1167,6 +1169,136 @@ export interface ReportPreviewDto {
   rows: (string | number | boolean | null)[][];
   total: number;
   truncated: boolean;
+}
+
+// ─── Import & website sync ───────────────────────────────────────────────────
+
+export interface ImportBatchListItemDto {
+  id: string;
+  code: string;
+  kind: ImportKind;
+  status: ImportBatchStatus;
+  fileName: string;
+  totalRows: number;
+  validRows: number;
+  errorRows: number;
+  duplicateRows: number;
+  importedRows: number;
+  locationName: string | null;
+  createdAt: string;
+  createdByName: string | null;
+  approvedAt: string | null;
+  rolledBackAt: string | null;
+}
+
+export interface ImportBatchDto extends ImportBatchListItemDto {
+  headers: string[];
+  /** Target field → header, as saved (null before mapping). */
+  mapping: Record<string, string | null> | null;
+  /** Saved mapping, else the best guess from template or header names. */
+  suggestedMapping: Record<string, string | null>;
+  locationId: string | null;
+  /** First rows of the file, keyed by header, to help map columns. */
+  sample: Record<string, string>[];
+  approvedByName: string | null;
+  rolledBackByName: string | null;
+  rollbackReason: string | null;
+  stockDocumentId: string | null;
+  /** Why rollback isn't possible now (records used since), if it isn't. */
+  rollbackBlocker: string | null;
+}
+
+export interface ImportRowDto {
+  id: string;
+  rowNumber: number;
+  status: ImportRowStatus;
+  values: Record<string, string>;
+  errors: string[];
+  duplicateOf: string | null;
+  createdEntity: string | null;
+  createdEntityId: string | null;
+}
+
+export interface ImportTemplateDto {
+  id: string;
+  name: string;
+  kind: ImportKind;
+  mapping: Record<string, string | null>;
+}
+
+export interface SyncLinkDto {
+  sku: string;
+  variantId: string;
+  crmName: string;
+  websiteProductId: string;
+  websiteVariantId: string;
+  websiteName: string;
+}
+
+export interface SyncConflictDto {
+  sku: string;
+  websiteVariantId: string;
+  websiteName: string;
+  reason: string;
+}
+
+export interface SyncDifferenceDto {
+  sku: string;
+  field: "regularPrice" | "offerPrice" | "stock";
+  crm: string;
+  website: string;
+}
+
+export interface SyncPlanDto {
+  fetchedAt: string;
+  products: {
+    websiteProducts: number;
+    websiteVariants: number;
+    alreadyLinked: number;
+    toLink: SyncLinkDto[];
+    conflicts: SyncConflictDto[];
+    /** On the website with no CRM variant of the same SKU. */
+    websiteOnly: { sku: string; websiteName: string }[];
+    /** Active CRM variants the website doesn't list. */
+    crmOnly: number;
+    /** Informational: the CRM never pushes prices or stock to the website. */
+    differences: SyncDifferenceDto[];
+  };
+  orders: {
+    total: number;
+    preOrders: number;
+    alreadyInCrm: number;
+    notInCrm: number;
+    /** Gateway payment references seen on those orders (Razorpay ids). */
+    paymentRefs: number;
+  };
+}
+
+export interface SyncLinkResultDto {
+  linked: number;
+  skipped: { sku: string; reason: string }[];
+}
+
+export interface SyncRunDto {
+  id: string;
+  code: string;
+  source: SyncSource;
+  mode: SyncMode;
+  status: SyncRunStatus;
+  plan: SyncPlanDto | null;
+  result: SyncLinkResultDto | null;
+  error: string | null;
+  startedAt: string;
+  finishedAt: string | null;
+  createdByName: string | null;
+}
+
+export interface SyncStatusDto {
+  connection: SyncConnection;
+  /** Host only, for display; the service key is never sent to the browser. */
+  host: string | null;
+  canLink: boolean;
+  lastRun: SyncRunDto | null;
 }
 
 // ─── Payments ────────────────────────────────────────────────────────────────

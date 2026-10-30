@@ -318,3 +318,32 @@ Shown separately: **sold below list price**, Σ max(regular − unit price, 0) �
   - Current inventory valuation, Potential future profit
   - Damaged stock, Stock reconciliation
 - Daily and monthly sales are computed period by period with the same function as the sales summary, so they always agree with it.
+
+## Phase 14: import and website sync
+
+| Model | Purpose | Key rules |
+|---|---|---|
+| `ImportTemplate` | A saved column mapping (target field → file header) per kind of import | Unique name per kind. |
+| `ImportBatch` | One uploaded file (`IMP-xxxx`): kind (products & variants, opening stock, customers), status (uploaded → validated → imported → rolled back / cancelled), headers, mapping, location for opening stock, row counts, approver, rollback reason, and the opening-stock document it posted | **Never deleted** (trigger). A `CHECK` requires a location on opening-stock batches once they are checked. Status changes are claimed with a conditional update, so a batch can't be approved or rolled back twice. |
+| `ImportRow` | Each non-empty file row as uploaded (with its line number), the mapped values, status (ready, error, duplicate, imported), error messages, what it duplicates, and the record it created | **Never deleted** (trigger). |
+| `SyncRun` | A read-only website pull (`SYN-xxxx`): source (demo data or live), dry run or ID linking, outcome, full report | **Append-only**: written once when the run finishes. |
+
+**Import rules.**
+- Rows are parsed with the same schemas as the forms.
+- Nothing is guessed:
+  - A blank cost stays unknown.
+  - Blank contact details stay empty.
+  - Unknown categories, brands and SKUs are errors, not new records.
+- Records already in the CRM are duplicates, skipped and never overwritten.
+- Products are created whole or not at all.
+- Approval re-checks every row and imports nothing if anything changed since the check.
+- Opening stock is one `OPENING` document with `sourceType = IMPORT`. It can only be reversed through the batch's rollback.
+
+**Rollback** is allowed while nothing the batch created has been used since. "Used" means stock movements, sales, purchases, prices or counts for items; orders, payments, prices, credit or merges for customers; or any other movement of the imported stock.
+- Products and variants are archived, with SKUs renamed `SKU~IMP-xxxx`, because append-only price history means they can't be deleted.
+- Opening stock is reversed.
+- Customers are removed.
+
+**Sync rules.** The CRM only reads the website.
+- A dry run stores its report and changes nothing else.
+- Linking writes website ids onto CRM variants and products. It only applies the links from a dry run less than 24 h old that still match, and only from the live website.

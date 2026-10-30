@@ -14,6 +14,7 @@ export default defineConfig({
       ACCESS_TOKEN_SECRET: "test-only-secret-that-is-at-least-32-chars-long",
       BCRYPT_ROUNDS: "10",
       CORS_ORIGIN: "http://localhost:3100",
+      WEBSITE_SYNC_MODE: "mock",
     },
   },
 });

@@ -35,4 +35,10 @@ export type EnumParity = [
   Assert<Same<Db.ExpenseKind, Schema.ExpenseKind>>,
   Assert<Same<Db.CashSessionStatus, Schema.CashSessionStatus>>,
   Assert<Same<Db.StockCountStatus, Schema.StockCountStatus>>,
+  Assert<Same<Db.ImportKind, Schema.ImportKind>>,
+  Assert<Same<Db.ImportBatchStatus, Schema.ImportBatchStatus>>,
+  Assert<Same<Db.ImportRowStatus, Schema.ImportRowStatus>>,
+  Assert<Same<Db.SyncSource, Schema.SyncSource>>,
+  Assert<Same<Db.SyncMode, Schema.SyncMode>>,
+  Assert<Same<Db.SyncRunStatus, Schema.SyncRunStatus>>,
 ];

@@ -83,7 +83,14 @@ export type AuditAction =
   | "stockcount.sent_back"
   | "stockcount.approved"
   | "stockcount.cancelled"
-  | "stockcount.reversed";
+  | "stockcount.reversed"
+  | "import.uploaded"
+  | "import.checked"
+  | "import.approved"
+  | "import.rolled_back"
+  | "import.cancelled"
+  | "sync.dry_run"
+  | "sync.linked";
 
 export type AuditEntity =
   | "User"
@@ -108,7 +115,9 @@ export type AuditEntity =
   | "ExpenseCategory"
   | "Expense"
   | "CashSession"
-  | "StockCount";
+  | "StockCount"
+  | "ImportBatch"
+  | "SyncRun";
 
 export interface AuditEntry {
   action: AuditAction;

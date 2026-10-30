@@ -58,10 +58,19 @@ cd packages/crm-db
 CRM_DATABASE_URL=<your url with littlestepz_crm_test> npx prisma migrate reset --force --skip-seed
 ```
 
-## Security limitations of the current build
+## Importing data and the website sync locally
 
-This build is not production-ready until phase 14. Specifically:
-- There are no automated backups yet.
-- The login rate limit is per process, using an in-memory store.
-- The cookie `Secure` flag is off locally and must be `COOKIE_SECURE=true` behind HTTPS.
-- Demo users and SAMPLE data must not exist in production.
+- **Import Data** (admin) takes .csv or .xlsx files. Sample files live in the test suite (`apps/crm-api/test/imports.test.ts`) and show the expected columns.
+- `WEBSITE_SYNC_MODE=mock` in `apps/crm-api/.env` lets Settings → Integrations run dry runs against built-in SAMPLE data. Nothing from the real website is read, and linking is refused for demo data.
+
+## Backups and the restore drill
+
+The scripts in `deploy/crm/` also work locally (Git Bash on Windows) against the Docker container:
+
+```sh
+bash deploy/crm/restore-drill.sh     # backup → restore into a scratch DB → compare every table → drop it
+```
+
+## Production
+
+Local builds are for development and demos. Going live follows [RUNBOOK.md](RUNBOOK.md) (install, deploy, backups, restore) and [PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md). Demo users and SAMPLE data must never exist in production; the seed scripts refuse them when `NODE_ENV=production`.

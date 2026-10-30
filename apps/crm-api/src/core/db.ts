@@ -13,7 +13,7 @@ function isRetryable(err: unknown) {
  */
 export async function withTransaction<T>(
   fn: (tx: Tx) => Promise<T>,
-  options: { isolationLevel?: Prisma.TransactionIsolationLevel } = {},
+  options: { isolationLevel?: Prisma.TransactionIsolationLevel; timeout?: number } = {},
 ): Promise<T> {
   for (let attempt = 1; ; attempt++) {
     try {

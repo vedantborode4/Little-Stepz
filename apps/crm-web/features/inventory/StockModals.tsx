@@ -15,6 +15,16 @@ import { useCan } from "@/store/auth.store"
 import { useReverseDocument, useStockDocument, useVariantStockCard } from "./api"
 import { BucketBadge, DocTypeBadge, LineCost, Qty, StockStateBadge } from "./shared"
 
+/** Records that own a stock entry; their entries are corrected from the record, not here. */
+const SOURCE_LABELS: Record<string, string> = {
+  PURCHASE: "a purchase",
+  PURCHASE_RETURN: "a purchase return",
+  SALE: "a sale",
+  SALE_RETURN: "a sales return",
+  STOCK_COUNT: "a stock count",
+  IMPORT: "an import (roll it back from Import Data)",
+}
+
 /** Spells out closing stock = opening + in − out so the owner can check the arithmetic. */
 function ReconciliationLine({ r }: { r: StockReconciliationDto }) {
   const terms: [string, number, "+" | "−" | "±"][] = [
@@ -260,7 +270,11 @@ export function StockDocumentModal({
               </tbody>
             </table>
           </div>
-          {data.sourceType && <p className="text-xs text-faint">Created by a {data.sourceType.toLowerCase()} — correct it from there.</p>}
+          {data.sourceType && (
+            <p className="text-xs text-faint">
+              Created by {SOURCE_LABELS[data.sourceType] ?? data.sourceType.toLowerCase()}; correct it from there.
+            </p>
+          )}
         </div>
       )}
       {confirming && data && (

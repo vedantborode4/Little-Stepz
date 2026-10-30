@@ -149,20 +149,23 @@ function mapUniqueViolation(err: unknown): never {
 }
 
 export async function createCustomer(input: CreateCustomerInput, ctx: RequestContext) {
-  const id = await withTransaction(async (tx) => {
-    await assertMobileFree(tx, input.mobile);
-    const customer = await tx.customer.create({
-      data: {
-        ...input,
-        code: await nextCode(tx, "CUS", 5),
-        nameKey: nameKey(input.name),
-        creditLimit: input.creditLimit ? dec(input.creditLimit) : null,
-      },
-    });
-    await recordAudit(tx, ctx, { action: "customer.created", entity: "Customer", entityId: customer.id, after: auditSnapshot(customer) });
-    return customer.id;
-  }).catch(mapUniqueViolation);
+  const id = await withTransaction((tx) => createCustomerInTx(tx, input, ctx)).catch(mapUniqueViolation);
   return getCustomer(id);
+}
+
+/** Creates a customer inside the caller's transaction; returns its id. */
+export async function createCustomerInTx(tx: Tx, input: CreateCustomerInput, ctx: RequestContext) {
+  await assertMobileFree(tx, input.mobile);
+  const customer = await tx.customer.create({
+    data: {
+      ...input,
+      code: await nextCode(tx, "CUS", 5),
+      nameKey: nameKey(input.name),
+      creditLimit: input.creditLimit ? dec(input.creditLimit) : null,
+    },
+  });
+  await recordAudit(tx, ctx, { action: "customer.created", entity: "Customer", entityId: customer.id, after: auditSnapshot(customer) });
+  return customer.id;
 }
 
 export async function updateCustomer(id: string, input: UpdateCustomerInput, ctx: RequestContext) {

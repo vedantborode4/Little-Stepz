@@ -4,8 +4,8 @@ import { createApp } from "./app";
 import { env } from "./config/env";
 import { logger } from "./core/logger";
 
-const server = createApp().listen(env.PORT, () => {
-  logger.info(`crm-api listening on :${env.PORT}`);
+const server = createApp().listen(env.PORT, env.HOST, () => {
+  logger.info(`crm-api listening on ${env.HOST}:${env.PORT}`);
 });
 
 function shutdown(signal: string) {

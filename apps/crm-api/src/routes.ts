@@ -5,6 +5,7 @@ import { auditRoutes } from "./modules/audit/audit.routes";
 import { authRoutes } from "./modules/auth/auth.routes";
 import { brandsRoutes, categoriesRoutes } from "./modules/catalog/catalog.routes";
 import { customersRoutes } from "./modules/customers/customers.routes";
+import { importsRoutes } from "./modules/imports/imports.routes";
 import { inventoryRoutes } from "./modules/inventory/inventory.routes";
 import { mappingRoutes, pricingRoutes, productsRoutes, variantsRoutes } from "./modules/products/products.routes";
 import { paymentsRoutes } from "./modules/payments/payments.routes";
@@ -18,6 +19,7 @@ import { reportsRoutes } from "./modules/reports/reports.routes";
 import { stockCountsRoutes } from "./modules/stockcounts/stockcounts.routes";
 import { settingsRoutes } from "./modules/settings/settings.routes";
 import { suppliersRoutes } from "./modules/suppliers/suppliers.routes";
+import { syncRoutes } from "./modules/sync/sync.routes";
 import { usersRoutes } from "./modules/users/users.routes";
 
 export const apiRoutes = Router();
@@ -52,5 +54,7 @@ protectedRoutes.use("/pre-orders", preOrdersRoutes);
 protectedRoutes.use("/payments", paymentsRoutes);
 protectedRoutes.use("/analytics", analyticsRoutes);
 protectedRoutes.use("/reports", reportsRoutes);
+protectedRoutes.use("/imports", importsRoutes);
+protectedRoutes.use("/sync", syncRoutes);
 
 apiRoutes.use(protectedRoutes);

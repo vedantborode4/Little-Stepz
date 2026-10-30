@@ -18,8 +18,8 @@ Conventions: `docs/crm/CONVENTIONS.md`.
 - [x] **10. Courier & shipping** — shipments, packages/AWBs, status history, courier cost vs charge (Scenario G)
 - [x] **11. Cash closing & expenses** — expenses, daily cash session, deposits, discrepancy, lock
 - [x] **12. Stock reconciliation** — count sessions, blind count, approval, adjustments, reversal (Scenario H)
-- [ ] **13. Profit, valuation, dashboard & reports** — profit waterfall, projections, dashboard, 17 reports (Scenario I)
-- [ ] **14. Import, website sync & go-live** — import wizard + rollback, read-only website pull, VPS deploy, backups, restore drill, tech spec
+- [x] **13. Profit, valuation, dashboard & reports** — profit waterfall, projections, dashboard, 17 reports (Scenario I)
+- [x] **14. Import, website sync & go-live** — import wizard + rollback, read-only website pull, VPS deploy, backups, restore drill, tech spec
 
 ## Phase 1 — Foundation
 
@@ -306,3 +306,62 @@ Conventions: `docs/crm/CONVENTIONS.md`.
   - Fixed during the walkthrough:
     - Two date presets were highlighted when they covered the same days.
     - Report money columns now show paise consistently.
+
+## Phase 14 — Import, website sync & go-live
+
+- [x] Import wizard: upload CSV/XLSX → map columns (suggested from templates and header names, saveable as templates) → every row checked with the form schemas → duplicates and unknown SKUs flagged → approve in one transaction (re-checked first) → batch history → rollback while unused
+- [x] Three imports: products & variants, opening stock (blank cost stays unknown), customers (blank details stay empty)
+- [x] Website sync, read only: off / mock / live sources, dry run report (links, conflicts, website-only, differences, orders), ID linking from a reviewed dry run on the live source only; append-only run history
+- [x] Website export endpoints specified (docs/crm/WEBSITE_SYNC_CONTRACT.md); the website code is unchanged
+- [x] Deploy artifacts: PM2 ecosystem, nginx + TLS site, production env samples, deploy script, cron
+- [x] Backups: nightly verified pg_dump with checksum and off-server copy; restore script that defaults to a scratch DB; restore drill run and passing
+- [x] Docs: TECH_SPEC, RUNBOOK, PRODUCTION_CHECKLIST, RUNNING, DATA_MODEL
+- [x] Tests: imports (mapping, checks, duplicates, approval, re-check, rollback and its guards), sync (plan, link only what was reviewed, failures recorded, append-only), guards
+
+### Phase 14 review
+
+**Built.**
+- **Schema:** `ImportTemplate`, `ImportBatch`, `ImportRow` and `SyncRun`. Import history can't be deleted, and sync runs are append-only.
+- **API refactors** so an import approves in one transaction: `createProductInTx`, `createCustomerInTx` and `recordOpeningStockInTx` (with a source). The import's opening stock is owned by the batch, so Inventory refuses to reverse it directly.
+- **Web:** Import Data (history and upload), the import wizard (mapping, row review with filters, approve, rollback), and Settings → Integrations (website card with dry run and plan, sync history, "Not connected" placeholders).
+- **Hardening:** the API now binds to 127.0.0.1 by default (`HOST`). `WEBSITE_SYNC_MODE=mock` is refused in production, and live mode refuses to start without its URL and key.
+- **Go-live files:** `deploy/crm/` (ecosystem, nginx, env samples, deploy, backup, restore, restore drill, table counts, crontab).
+
+**Decisions.**
+- **Rollback of products archives them, it doesn't delete them.** Price history is append-only. The SKUs become `SKU~IMP-xxxx`, a character real SKUs can't contain, so a corrected file can reuse them.
+- **Unknown categories and brands are errors**, not created on the fly, so a typo can't make a new category.
+- **A product is imported whole or not at all.**
+- **Website orders are counted, not imported.** Importing them needs real data and order lines. The contract lists the extra field.
+- **No website data has been read.** The only source used is the built-in SAMPLE data, and the UI says so.
+
+**Verification.**
+- **Builds and checks:**
+  - crm-api `tsc` and build pass.
+  - crm-web `check-types`, lint (0 warnings) and a production `next build` pass.
+- **Tests:** 186 pass, twice in a row. 10 are new (7 import, 3 sync).
+- **Production env guard:** with `NODE_ENV=production`, mock and half-configured live modes are refused.
+- **Browser (admin):**
+  - A products CSV with an unknown category, an existing product and a repeated SKU showed exactly those rows. 3 rows were imported as 2 products.
+  - An opening-stock CSV posted into Store, with blank cost kept unknown.
+  - A customers CSV flagged the seeded customer's mobile as a duplicate; the other row was imported, then rolled back.
+  - The integrations dry run on demo data proposed 7 links and refused linking. History and the mobile layout were checked.
+  - Fixed during the walkthrough:
+    - The redundant "Category: Choose a category" next to "Unknown category".
+    - "1 rows" and "1 errors".
+    - SKUs wrapping mid-code.
+- **Restore drill:**
+  - Ran locally against `crm-postgres`: backup (verified with `pg_restore --list`, SHA-256) → restore into a scratch DB.
+  - 54 tables and 659 rows matched; the stock ledger matched balances; 26 append-only/no-delete triggers present; scratch DB dropped.
+  - `restore.sh` refuses to overwrite the live DB without `CONFIRM_LIVE_RESTORE=yes`.
+- **Security sweep:**
+  - No raw-SQL `Unsafe` calls and no raw HTML.
+  - Every router except auth is permission-gated; refresh cookie is httpOnly + SameSite=Strict.
+
+**Not done here (needs the VPS or the owner).**
+- Server install, TLS, off-server bucket, and the drill on the VPS.
+- Real files from the owner.
+- The website export endpoints.
+- CA-confirmed GST rates.
+
+These are tracked in PRODUCTION_CHECKLIST.md. The CRM is not called production-ready until that list is ticked on the server.
+

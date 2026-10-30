@@ -34,37 +34,42 @@ export async function assertSellableVariants(tx: Tx, ids: string[]) {
 }
 
 export async function recordOpeningStock(input: OpeningStockInput, ctx: RequestContext) {
+  return withTransaction((tx) => recordOpeningStockInTx(tx, input, ctx));
+}
+
+/** Opening stock inside the caller's transaction; `source` marks a document owned by another record (an import). */
+export async function recordOpeningStockInTx(tx: Tx, input: OpeningStockInput, ctx: RequestContext, source?: { type: string; id: string }) {
   const businessDate = resolveBusinessDate(input.businessDate);
   const variantIds = input.lines.map((l) => l.variantId);
-  return withTransaction(async (tx) => {
-    await assertActiveLocations(tx, [input.locationId]);
-    await assertSellableVariants(tx, variantIds);
+  await assertActiveLocations(tx, [input.locationId]);
+  await assertSellableVariants(tx, variantIds);
 
-    // Opening stock is the starting point of a variant's ledger; later changes are adjustments.
-    const started = await tx.stockMovement.findMany({
-      where: { variantId: { in: variantIds } },
-      distinct: ["variantId"],
-      select: { variant: { select: { sku: true } } },
-    });
-    if (started.length) {
-      const skus = started.map((s) => s.variant.sku).join(", ");
-      throw new ApiError(409, "OPENING_EXISTS", `These items already have stock history; use an adjustment instead: ${skus}`);
-    }
+  // Opening stock is the starting point of a variant's ledger; later changes are adjustments.
+  const started = await tx.stockMovement.findMany({
+    where: { variantId: { in: variantIds } },
+    distinct: ["variantId"],
+    select: { variant: { select: { sku: true } } },
+  });
+  if (started.length) {
+    const skus = started.map((s) => s.variant.sku).join(", ");
+    throw new ApiError(409, "OPENING_EXISTS", `These items already have stock history; use an adjustment instead: ${skus}`);
+  }
 
-    return postStockDocument(tx, ctx, {
-      type: "OPENING",
-      businessDate,
-      reason: "Opening stock",
-      reference: input.reference,
-      notes: input.notes,
-      lines: input.lines.map((l) => ({
-        variantId: l.variantId,
-        locationId: input.locationId,
-        bucket: input.bucket,
-        quantity: l.quantity,
-        cost: { kind: "receive", unitCost: l.unitCost ? dec(l.unitCost) : null },
-      })),
-    });
+  return postStockDocument(tx, ctx, {
+    type: "OPENING",
+    businessDate,
+    reason: "Opening stock",
+    reference: input.reference,
+    notes: input.notes,
+    sourceType: source?.type,
+    sourceId: source?.id,
+    lines: input.lines.map((l) => ({
+      variantId: l.variantId,
+      locationId: input.locationId,
+      bucket: input.bucket,
+      quantity: l.quantity,
+      cost: { kind: "receive", unitCost: l.unitCost ? dec(l.unitCost) : null },
+    })),
   });
 }
 
