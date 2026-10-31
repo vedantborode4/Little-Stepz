@@ -1,10 +1,10 @@
 import RequirePermission from "@/components/shell/RequirePermission"
-import PaymentsList from "@/features/payments/PaymentsList"
+import Collections from "@/features/payments/Collections"
 
-export default function PaymentsPage() {
+export default function CollectionsPage() {
   return (
     <RequirePermission permission="payments.view">
-      <PaymentsList />
+      <Collections />
     </RequirePermission>
   )
 }

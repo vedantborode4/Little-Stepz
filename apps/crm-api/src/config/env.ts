@@ -33,10 +33,28 @@ const envSchema = z
     WEBSITE_SYNC_MODE: z.enum(["off", "mock", "live"]).default("off"),
     WEBSITE_SYNC_URL: blankAsMissing(z.string().url().optional()),
     WEBSITE_SYNC_KEY: blankAsMissing(z.string().min(32, "WEBSITE_SYNC_KEY must be at least 32 characters").optional()),
+    /** Product photo uploads. The same account as the website is fine: the CRM only writes and deletes inside its folder. */
+    CLOUDINARY_CLOUD_NAME: blankAsMissing(z.string().optional()),
+    CLOUDINARY_API_KEY: blankAsMissing(z.string().optional()),
+    CLOUDINARY_API_SECRET: blankAsMissing(z.string().optional()),
+    CLOUDINARY_FOLDER: blankAsMissing(
+      z
+        .string()
+        .regex(/^[\w-]+(\/[\w-]+)*$/, "folder like littlestepz-crm")
+        .default("littlestepz-crm"),
+    ),
   })
   .superRefine((e, ctx) => {
     if (e.WEBSITE_SYNC_MODE === "live" && (!e.WEBSITE_SYNC_URL || !e.WEBSITE_SYNC_KEY)) {
       ctx.addIssue({ code: "custom", path: ["WEBSITE_SYNC_MODE"], message: "live sync needs WEBSITE_SYNC_URL and WEBSITE_SYNC_KEY" });
+    }
+    const cloudinary = [e.CLOUDINARY_CLOUD_NAME, e.CLOUDINARY_API_KEY, e.CLOUDINARY_API_SECRET].filter(Boolean).length;
+    if (cloudinary !== 0 && cloudinary !== 3) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["CLOUDINARY_CLOUD_NAME"],
+        message: "set all of CLOUDINARY_CLOUD_NAME, _API_KEY and _API_SECRET, or none",
+      });
     }
     if (e.WEBSITE_SYNC_MODE === "mock" && e.NODE_ENV === "production") {
       ctx.addIssue({ code: "custom", path: ["WEBSITE_SYNC_MODE"], message: "mock sync data is not allowed in production" });

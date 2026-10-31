@@ -11,12 +11,14 @@ export type ProfitDimension = (typeof PROFIT_DIMENSIONS)[number];
 export const profitBreakdownQuery = analyticsRangeQuery.extend({
   by: z.enum(PROFIT_DIMENSIONS).default("product"),
   categoryId: optionalFilterId,
+  productId: optionalFilterId,
   channel: z.enum(SALES_CHANNELS).optional(),
 });
 export type ProfitBreakdownQuery = z.infer<typeof profitBreakdownQuery>;
 
 export const valuationQuery = z.object({
   categoryId: optionalFilterId,
+  productId: optionalFilterId,
   locationId: optionalFilterId,
   q: z.string().trim().max(100).optional(),
 });

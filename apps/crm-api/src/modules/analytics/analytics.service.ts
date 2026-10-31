@@ -100,16 +100,48 @@ const DIMENSIONS: Record<ProfitDimension, { key: Prisma.Sql; label: Prisma.Sql; 
   channel: { key: Prisma.sql`o.channel::text`, label: Prisma.sql`o.channel::text`, sub: Prisma.sql`NULL::text` },
 };
 
+interface BreakdownRow {
+  key: string;
+  label: string;
+  sub: string | null;
+  units: number;
+  net: Prisma.Decimal;
+  disc: Prisma.Decimal;
+  cogs: Prisma.Decimal;
+  netKnown: Prisma.Decimal;
+  unknown: number;
+}
+
 /**
  * Profit by product, variant, category or channel for the period, net of
  * returns dated in it. Returned units take their revenue back and their cost
  * too, unless written off. Lines with unknown cost are counted, not priced.
  */
 export async function profitBreakdown(query: ProfitBreakdownQuery): Promise<ProfitBreakdownRowDto[]> {
+  const rows = await breakdownRows(query);
+  return rows.map((r) => {
+    const grossProfit = d(r.netKnown).sub(d(r.cogs));
+    return {
+      key: r.key,
+      label: r.label,
+      sublabel: r.sub,
+      units: r.units,
+      netSales: money(d(r.net)),
+      cogs: money(d(r.cogs)),
+      grossProfit: money(grossProfit),
+      marginPercent: pct(grossProfit, d(r.netKnown)),
+      discounts: money(d(r.disc)),
+      unknownCostUnits: r.unknown,
+    };
+  });
+}
+
+function breakdownRows(query: ProfitBreakdownQuery): Promise<BreakdownRow[]> {
   const dates = range(query);
   const dim = DIMENSIONS[query.by];
   const filters: Prisma.Sql[] = [];
   if (query.categoryId) filters.push(Prisma.sql`p."categoryId" = ${query.categoryId}`);
+  if (query.productId) filters.push(Prisma.sql`p.id = ${query.productId}`);
   if (query.channel) filters.push(Prisma.sql`o.channel = ${query.channel}::"SalesChannel"`);
   const extra = filters.length ? Prisma.sql`AND ${Prisma.join(filters, " AND ")}` : Prisma.empty;
   const joins = Prisma.sql`
@@ -118,19 +150,7 @@ export async function profitBreakdown(query: ProfitBreakdownQuery): Promise<Prof
     JOIN "Product" p ON p.id = v."productId"
     JOIN "Category" c ON c.id = p."categoryId"`;
 
-  const rows = await prisma.$queryRaw<
-    {
-      key: string;
-      label: string;
-      sub: string | null;
-      units: number;
-      net: Prisma.Decimal;
-      disc: Prisma.Decimal;
-      cogs: Prisma.Decimal;
-      netKnown: Prisma.Decimal;
-      unknown: number;
-    }[]
-  >`
+  return prisma.$queryRaw<BreakdownRow[]>`
     WITH moves AS (
       SELECT ${dim.key} AS key, ${dim.label} AS label, ${dim.sub} AS sub,
         l.quantity AS units, l."taxableValue" AS net, l."lineDiscount" + l."orderDiscountShare" AS disc,
@@ -153,22 +173,6 @@ export async function profitBreakdown(query: ProfitBreakdownQuery): Promise<Prof
     SELECT key, label, sub, SUM(units)::int AS units, SUM(net) AS net, SUM(disc) AS disc, SUM(cogs) AS cogs,
       SUM(net_known) AS "netKnown", SUM(unknown)::int AS unknown
     FROM moves GROUP BY key, label, sub ORDER BY SUM(net) DESC LIMIT 1000`;
-
-  return rows.map((r) => {
-    const grossProfit = d(r.netKnown).sub(d(r.cogs));
-    return {
-      key: r.key,
-      label: r.label,
-      sublabel: r.sub,
-      units: r.units,
-      netSales: money(d(r.net)),
-      cogs: money(d(r.cogs)),
-      grossProfit: money(grossProfit),
-      marginPercent: pct(grossProfit, d(r.netKnown)),
-      discounts: money(d(r.disc)),
-      unknownCostUnits: r.unknown,
-    };
-  });
 }
 
 function scenario(price: Decimal, gstRate: Decimal, available: number, knownUnits: number, avgCost: Decimal | null): ValuationScenarioDto {
@@ -205,6 +209,7 @@ export async function valuation(query: ValuationQuery): Promise<ValuationDto> {
   const loc = query.locationId ? Prisma.sql`AND "locationId" = ${query.locationId}` : Prisma.empty;
   const filters: Prisma.Sql[] = [Prisma.sql`COALESCE(b.sellable, 0) - COALESCE(r.reserved, 0) > 0`];
   if (query.categoryId) filters.push(Prisma.sql`p."categoryId" = ${query.categoryId}`);
+  if (query.productId) filters.push(Prisma.sql`p.id = ${query.productId}`);
   if (query.q) filters.push(Prisma.sql`(p.name ILIKE ${`%${query.q}%`} OR v.sku ILIKE ${`%${query.q}%`})`);
   const rows = await prisma.$queryRaw<
     {
@@ -307,6 +312,7 @@ export async function dashboard(query: DashboardQuery, rights: DashboardRights):
   if (query.categoryId) lineScope.push(Prisma.sql`p."categoryId" = ${query.categoryId}`);
   if (query.productId) lineScope.push(Prisma.sql`p.id = ${query.productId}`);
   const scope = lineScope.length ? Prisma.sql`AND ${Prisma.join(lineScope, " AND ")}` : Prisma.empty;
+  const scoped = lineScope.length > 0;
   const productScope: Prisma.ProductWhereInput = {
     status: { not: "ARCHIVED" },
     ...(query.categoryId && { categoryId: query.categoryId }),
@@ -314,9 +320,21 @@ export async function dashboard(query: DashboardQuery, rights: DashboardRights):
   };
 
   const period = async (from: string, to: string) => {
+    if (scoped) return scopedSales(scope, from, to);
     const s = await salesSummary({ from, to }, { costs: false });
     return { grossSales: s.grossSales, netSales: s.netSales, orders: s.orders };
   };
+  // Filtered to products, only their lines count: whole-order totals would carry other items and shipping.
+  const monthDates = Prisma.sql`o."fulfilledAt" IS NOT NULL AND o."fulfilledDate" BETWEEN ${toDbDate(monthStart)} AND ${toDbDate(today)}`;
+  const mixSource = scoped
+    ? Prisma.sql`SELECT o.wholesale, o.channel IN ('STORE', 'WHOLESALE') AS offline, SUM(l."lineTotal") AS total
+      FROM "SalesOrderLine" l JOIN "SalesOrder" o ON o.id = l."orderId"
+      JOIN "Variant" v ON v.id = l."variantId" JOIN "Product" p ON p.id = v."productId"
+      WHERE ${monthDates} ${scope}
+      GROUP BY 1, 2`
+    : Prisma.sql`SELECT o.wholesale, o.channel IN ('STORE', 'WHOLESALE') AS offline, SUM(o."grandTotal") AS total
+      FROM "SalesOrder" o WHERE ${monthDates}
+      GROUP BY 1, 2`;
 
   const [
     products,
@@ -359,10 +377,7 @@ export async function dashboard(query: DashboardQuery, rights: DashboardRights):
     period(addDays(today, -1), addDays(today, -1)),
     period(monthStart, today),
     period("2000-01-01", today),
-    prisma.$queryRaw<{ wholesale: boolean; offline: boolean; total: Prisma.Decimal }[]>`
-      SELECT o.wholesale, o.channel IN ('STORE', 'WHOLESALE') AS offline, SUM(o."grandTotal") AS total
-      FROM "SalesOrder" o WHERE o."fulfilledAt" IS NOT NULL AND o."fulfilledDate" BETWEEN ${toDbDate(monthStart)} AND ${toDbDate(today)}
-      GROUP BY 1, 2`,
+    prisma.$queryRaw<{ wholesale: boolean; offline: boolean; total: Prisma.Decimal }[]>(mixSource),
     prisma.$queryRaw<{ day: Date; gross: Prisma.Decimal; net: Prisma.Decimal }[]>`
       SELECT o."fulfilledDate" AS day, SUM(l."lineTotal") AS gross, SUM(l."taxableValue") AS net
       FROM "SalesOrderLine" l JOIN "SalesOrder" o ON o.id = l."orderId"
@@ -389,10 +404,23 @@ export async function dashboard(query: DashboardQuery, rights: DashboardRights):
   const sum = (pick: (r: (typeof mix)[number]) => boolean) => money(mix.filter(pick).reduce((s, r) => s.add(d(r.total)), new Decimal(0)));
   const byDay = new Map(trend.map((t) => [t.day.toISOString().slice(0, 10), t]));
   const monthRange = { from: monthStart, to: today };
-  const [top, categories] = await Promise.all([
-    profitBreakdown({ ...monthRange, by: "product", categoryId: query.categoryId }),
-    profitBreakdown({ ...monthRange, by: "category" }),
+  const filter = { categoryId: query.categoryId, productId: query.productId };
+  const topBy = query.productId ? "variant" : "product";
+  const mixBy = scoped ? "channel" : "category";
+  const [top, mixRows] = await Promise.all([
+    profitBreakdown({ ...monthRange, by: topBy, ...filter }),
+    profitBreakdown({ ...monthRange, by: mixBy, ...filter }),
   ]);
+  // Filtered to one product, the product name is already on screen; show just the variant ("Red").
+  const variantNames =
+    topBy === "variant"
+      ? new Map(
+          (await prisma.variant.findMany({ where: { productId: query.productId }, select: { id: true, name: true } })).map((v) => [
+            v.id,
+            v.name,
+          ]),
+        )
+      : null;
 
   const result: DashboardDto = {
     inventory: {
@@ -426,11 +454,13 @@ export async function dashboard(query: DashboardQuery, rights: DashboardRights):
       const t = byDay.get(date);
       return { date, grossSales: money(d(t?.gross)), netSales: money(d(t?.net)) };
     }),
+    topBy,
     topProducts: top
       .filter((r) => d(r.netSales).gt(0))
       .slice(0, 5)
-      .map((r) => ({ label: r.label, netSales: r.netSales, units: r.units })),
-    categoryMix: categories.filter((r) => d(r.netSales).gt(0)).map((r) => ({ label: r.label, netSales: r.netSales })),
+      .map((r) => ({ label: variantNames?.get(r.key) ?? r.label, netSales: r.netSales, units: r.units })),
+    mixBy,
+    categoryMix: mixRows.filter((r) => d(r.netSales).gt(0)).map((r) => ({ label: r.label, netSales: r.netSales })),
   };
 
   if (rights.payments) {
@@ -453,7 +483,10 @@ export async function dashboard(query: DashboardQuery, rights: DashboardRights):
   }
 
   if (rights.costs) {
-    const [profit, value] = await Promise.all([profitWaterfall(monthRange), valuation({ categoryId: query.categoryId })]);
+    const [profit, value] = await Promise.all([
+      scoped ? scopedProfit({ ...monthRange, ...filter }) : profitWaterfall(monthRange),
+      valuation(filter),
+    ]);
     result.inventory.costValue = value.costValue;
     result.profit = {
       grossProfit: profit.grossProfit,
@@ -465,4 +498,40 @@ export async function dashboard(query: DashboardQuery, rights: DashboardRights):
     };
   }
   return result;
+}
+
+/** Sales of the filtered products only: their lines, not whole orders, so shipping and other items stay out. */
+async function scopedSales(scope: Prisma.Sql, from: string, to: string) {
+  const dates = Prisma.sql`BETWEEN ${toDbDate(from)} AND ${toDbDate(to)}`;
+  const [row] = await prisma.$queryRaw<
+    { gross: Prisma.Decimal | null; net: Prisma.Decimal | null; returned: Prisma.Decimal | null; orders: number }[]
+  >`
+    WITH sold AS (
+      SELECT l."orderId", l."lineTotal", l."taxableValue"
+      FROM "SalesOrderLine" l JOIN "SalesOrder" o ON o.id = l."orderId"
+      JOIN "Variant" v ON v.id = l."variantId" JOIN "Product" p ON p.id = v."productId"
+      WHERE o."fulfilledAt" IS NOT NULL AND o."fulfilledDate" ${dates} ${scope}
+    )
+    SELECT (SELECT SUM("lineTotal") FROM sold) AS gross,
+      (SELECT SUM("taxableValue") FROM sold) AS net,
+      (SELECT SUM(rl."taxableValue") FROM "SalesReturnLine" rl JOIN "SalesReturn" r ON r.id = rl."returnId"
+        JOIN "Variant" v ON v.id = rl."variantId" JOIN "Product" p ON p.id = v."productId"
+        WHERE r."businessDate" ${dates} ${scope}) AS returned,
+      (SELECT COUNT(DISTINCT "orderId") FROM sold)::int AS orders`;
+  return { grossSales: money(d(row?.gross)), netSales: money(d(row?.net).sub(d(row?.returned))), orders: row?.orders ?? 0 };
+}
+
+/** Gross profit of the filtered products, by the same line rules as the profit breakdown. */
+async function scopedProfit(query: Omit<ProfitBreakdownQuery, "by">) {
+  const rows = await breakdownRows({ ...query, by: "category" });
+  const total = (pick: (r: BreakdownRow) => Prisma.Decimal) => rows.reduce((s, r) => s.add(d(pick(r))), new Decimal(0));
+  const netKnown = total((r) => r.netKnown);
+  const grossProfit = netKnown.sub(total((r) => r.cogs));
+  return {
+    grossProfit: money(grossProfit),
+    marginPercent: pct(grossProfit, netKnown),
+    discounts: money(total((r) => r.disc)),
+    // Courier and payment fees belong to whole orders, not to products.
+    contributionProfit: null,
+  };
 }

@@ -195,7 +195,10 @@ export async function searchVariants(q: string, includeArchived: boolean): Promi
         { product: { code: { contains: q, mode: "insensitive" } } },
       ],
     },
-    include: { product: { select: { id: true, code: true, name: true, imageUrl: true } } },
+    include: {
+      product: { select: { id: true, code: true, name: true, imageUrl: true } },
+      images: { orderBy: { position: "asc" }, take: 1, select: { url: true } },
+    },
     orderBy: [{ product: { name: "asc" } }, { position: "asc" }],
     take: SEARCH_LIMIT,
   });
@@ -206,7 +209,7 @@ export async function searchVariants(q: string, includeArchived: boolean): Promi
     productId: v.product.id,
     productCode: v.product.code,
     productName: v.product.name,
-    imageUrl: v.product.imageUrl,
+    imageUrl: v.images[0]?.url ?? v.product.imageUrl,
     status: v.status,
   }));
 }

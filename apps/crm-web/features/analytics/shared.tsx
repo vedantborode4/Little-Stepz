@@ -7,8 +7,8 @@ export function AnalyticsTabs() {
   return (
     <LinkTabs
       tabs={[
-        { label: "Profit", href: "/analytics", exact: true },
-        { label: "Valuation & projections", href: "/analytics/valuation" },
+        { label: "Valuation & projections", href: "/analytics", exact: true },
+        { label: "Profit", href: "/analytics/profit" },
       ]}
     />
   )

@@ -1,10 +1,10 @@
 import RequirePermission from "@/components/shell/RequirePermission"
-import ProfitAnalytics from "@/features/analytics/ProfitAnalytics"
+import Valuation from "@/features/analytics/Valuation"
 
-export default function AnalyticsPage() {
+export default function ValuationPage() {
   return (
     <RequirePermission permission="reports.financial">
-      <ProfitAnalytics />
+      <Valuation />
     </RequirePermission>
   )
 }

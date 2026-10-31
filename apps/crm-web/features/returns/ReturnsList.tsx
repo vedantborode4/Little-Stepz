@@ -1,19 +1,25 @@
 "use client"
 
 import type { ColumnDef } from "@tanstack/react-table"
+import { Plus } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
 import { REFUND_METHOD_LABELS, RETURN_CONDITION_LABELS, type SalesReturnListItemDto } from "@repo/crm-schema"
+import Button from "@/components/ui/Button"
 import DataTable from "@/components/ui/DataTable"
-import { Badge, DetailRow, PageHeader } from "@/components/ui/Display"
+import { Badge, DetailRow, PageHeader, Skeleton } from "@/components/ui/Display"
 import { Input } from "@/components/ui/Form"
 import Modal from "@/components/ui/Modal"
 import { ExportMenu, ListToolbar, SearchInput } from "@/components/ui/Toolbar"
 import { downloadExport } from "@/lib/download"
 import { formatDate, formatDateTime, formatMoney } from "@/lib/format"
 import { useListState } from "@/lib/use-list-state"
+import { useCan } from "@/store/auth.store"
 import { StockDocumentModal } from "../inventory/StockModals"
+import { useOrder } from "../sales/api"
+import OrderPicker from "../sales/OrderPicker"
 import { useReturn, useReturns } from "./api"
+import ReturnModal from "./ReturnModal"
 
 type Filters = { from?: string; to?: string }
 
@@ -78,6 +84,9 @@ export default function ReturnsList() {
   const { state, update, params } = useListState<Filters>()
   const { data, isLoading } = useReturns(params)
   const [openId, setOpenId] = useState<string | null>(null)
+  const [picking, setPicking] = useState(false)
+  const [returnFor, setReturnFor] = useState<string | null>(null)
+  const can = useCan()
   const f = state.filters
 
   const columns: ColumnDef<SalesReturnListItemDto>[] = [
@@ -106,7 +115,17 @@ export default function ReturnsList() {
 
   return (
     <div>
-      <PageHeader title="Returns" subtitle="Goods back from fulfilled orders. Record a return from the order it came from." />
+      <PageHeader
+        title="Returns"
+        subtitle="Goods back from fulfilled orders, with the refund or store credit that went with them."
+        action={
+          can("sales.manage") && (
+            <Button icon={<Plus size={16} />} onClick={() => setPicking(true)}>
+              New return
+            </Button>
+          )
+        }
+      />
       <ListToolbar actions={<ExportMenu onExport={(format) => downloadExport("/returns", params, format)} />}>
         <SearchInput value={state.q} onChange={(q) => update({ q })} placeholder="Return, order, customer or reason" />
         <div className="flex gap-2">
@@ -150,6 +169,33 @@ export default function ReturnsList() {
         )}
       />
       {openId && <ReturnDetailModal id={openId} onClose={() => setOpenId(null)} />}
+      {picking && (
+        <OrderPicker
+          readyFor="return"
+          title="New return"
+          hint="Pick the fulfilled order the goods came back from."
+          empty="No fulfilled orders yet."
+          onClose={() => setPicking(false)}
+          onPick={(order) => {
+            setPicking(false)
+            setReturnFor(order.id)
+          }}
+        />
+      )}
+      {returnFor && <ReturnForOrder id={returnFor} onClose={() => setReturnFor(null)} />}
     </div>
   )
+}
+
+/** The return form needs the order's lines, so it opens once they've loaded. */
+function ReturnForOrder({ id, onClose }: { id: string; onClose: () => void }) {
+  const { data } = useOrder(id)
+  if (!data) {
+    return (
+      <Modal title="New return" onClose={onClose}>
+        <Skeleton className="h-40 rounded-xl" />
+      </Modal>
+    )
+  }
+  return <ReturnModal order={data} onClose={onClose} />
 }

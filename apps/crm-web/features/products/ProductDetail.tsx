@@ -14,6 +14,7 @@ import { errorMessage } from "@/lib/api-error"
 import { formatDateTime, formatMoney } from "@/lib/format"
 import { useCan } from "@/store/auth.store"
 import { useProduct, useUpdateProduct, useUpdateVariant } from "./api"
+import ProductGallery from "./ProductGallery"
 import { MappingBadge, productMappingState, ProductStatusBadge, ProductThumb } from "./shared"
 import { StockCardModal, StockDocumentModal } from "../inventory/StockModals"
 import { AddVariantModal, EditVariantModal, PriceHistoryModal, PriceTiersModal } from "./VariantModals"
@@ -101,9 +102,12 @@ function ProductView({ product }: { product: ProductDetailDto }) {
       id: "variant",
       header: "Variant",
       cell: ({ row }) => (
-        <div>
-          <p className="font-medium">{row.original.name}</p>
-          <p className="text-xs text-faint font-mono whitespace-nowrap">{row.original.sku}</p>
+        <div className="flex items-center gap-3">
+          {row.original.imageUrl && <ProductThumb src={row.original.imageUrl} alt={row.original.name} size={32} />}
+          <div>
+            <p className="font-medium">{row.original.name}</p>
+            <p className="text-xs text-faint font-mono whitespace-nowrap">{row.original.sku}</p>
+          </div>
         </div>
       ),
     },
@@ -276,10 +280,8 @@ function ProductView({ product }: { product: ProductDetailDto }) {
         </div>
 
         <div className="space-y-4 sm:space-y-5">
+          <ProductGallery product={product} manage={manage && !archived} />
           <Card title="Details">
-            <div className="flex justify-center mb-4">
-              <ProductThumb src={product.imageUrl} alt={product.name} size={144} />
-            </div>
             <dl>
               <DetailRow label="Category">{product.category.name}</DetailRow>
               <DetailRow label="Brand">{product.brand?.name ?? "—"}</DetailRow>

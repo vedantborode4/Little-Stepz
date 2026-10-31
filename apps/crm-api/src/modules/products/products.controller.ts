@@ -9,6 +9,11 @@ import {
   mappingListQuery,
   MAPPING_STATE_LABELS,
   priceTiersSchema,
+  productImageLinkSchema,
+  productImageOrderSchema,
+  productImageParams,
+  productImageUpdateSchema,
+  productImageUploadQuery,
   PRODUCT_STATUS_LABELS,
   productListQuery,
   setMappingSchema,
@@ -16,7 +21,8 @@ import {
   updateVariantSchema,
 } from "@repo/crm-schema";
 import { sendExport } from "../../core/export";
-import { requestContext, sendData } from "../../core/http";
+import { ApiError, requestContext, sendData } from "../../core/http";
+import * as images from "./images.service";
 import * as mapping from "./mapping.service";
 import * as pricing from "./pricing.service";
 import * as products from "./products.service";
@@ -52,6 +58,33 @@ export async function list(req: Request, res: Response) {
 export async function get(req: Request, res: Response) {
   const { id } = idParam.parse(req.params);
   sendData(res, await products.getProduct(id));
+}
+
+export async function uploadImage(req: Request, res: Response) {
+  const { id } = idParam.parse(req.params);
+  const { variantId } = productImageUploadQuery.parse(req.query);
+  if (!Buffer.isBuffer(req.body) || req.body.length === 0) throw new ApiError(400, "IMAGE_INVALID", "Choose a photo to upload");
+  sendData(res, await images.uploadProductImage(id, req.body, variantId, requestContext(req)), 201);
+}
+
+export async function linkImage(req: Request, res: Response) {
+  const { id } = idParam.parse(req.params);
+  sendData(res, await images.linkProductImage(id, productImageLinkSchema.parse(req.body), requestContext(req)), 201);
+}
+
+export async function reorderImages(req: Request, res: Response) {
+  const { id } = idParam.parse(req.params);
+  sendData(res, await images.reorderProductImages(id, productImageOrderSchema.parse(req.body), requestContext(req)));
+}
+
+export async function updateImage(req: Request, res: Response) {
+  const { id, imageId } = productImageParams.parse(req.params);
+  sendData(res, await images.updateProductImage(id, imageId, productImageUpdateSchema.parse(req.body), requestContext(req)));
+}
+
+export async function removeImage(req: Request, res: Response) {
+  const { id, imageId } = productImageParams.parse(req.params);
+  sendData(res, await images.removeProductImage(id, imageId, requestContext(req)));
 }
 
 export async function create(req: Request, res: Response) {

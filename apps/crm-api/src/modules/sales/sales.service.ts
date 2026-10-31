@@ -1,13 +1,14 @@
 import { prisma, Prisma, type SalesOrderStatus, type Tx } from "@repo/crm-db/client";
-import type {
-  CancelOrderInput,
-  PosSaleInput,
-  SaleQuoteDto,
-  SaleQuoteInput,
-  SalesListQuery,
-  SalesOrderInput,
-  SellableItemDto,
-  SellableSearchQuery,
+import {
+  CLOSED_SHIPMENT_STATUSES,
+  type CancelOrderInput,
+  type PosSaleInput,
+  type SaleQuoteDto,
+  type SaleQuoteInput,
+  type SalesListQuery,
+  type SalesOrderInput,
+  type SellableItemDto,
+  type SellableSearchQuery,
 } from "@repo/crm-schema";
 import { recordAudit, type AuditAction } from "../../core/audit";
 import { resolveBusinessDate, todayIST, toDbDate } from "../../core/dates";
@@ -176,7 +177,10 @@ export async function searchSellable(query: SellableSearchQuery): Promise<Sellab
         { product: { code: { contains: query.q, mode: "insensitive" } } },
       ],
     },
-    include: { product: { select: { name: true, imageUrl: true, gstRate: true } } },
+    include: {
+      product: { select: { name: true, imageUrl: true, gstRate: true } },
+      images: { orderBy: { position: "asc" }, take: 1, select: { url: true } },
+    },
     orderBy: [{ product: { name: "asc" } }, { position: "asc" }],
     take: 24,
   });
@@ -190,7 +194,7 @@ export async function searchSellable(query: SellableSearchQuery): Promise<Sellab
     sku: v.sku,
     productName: v.product.name,
     variantName: v.name,
-    imageUrl: v.product.imageUrl,
+    imageUrl: v.images[0]?.url ?? v.product.imageUrl,
     regularPrice: money(v.regularPrice),
     offerPrice: v.offerPrice ? money(v.offerPrice) : null,
     gstRate: v.product.gstRate.toString(),
@@ -199,6 +203,18 @@ export async function searchSellable(query: SellableSearchQuery): Promise<Sellab
 }
 
 // ─── Reads ───────────────────────────────────────────────────────────────────
+
+/** The same rules the order page uses before offering "Create shipment" or "Return items". */
+const READY_FOR: Record<NonNullable<SalesListQuery["readyFor"]>, Prisma.SalesOrderWhereInput> = {
+  shipment: {
+    fulfilment: "DELIVERY",
+    status: { in: ["CONFIRMED", "PACKED", "DISPATCHED"] },
+    shipments: { none: { status: { notIn: [...CLOSED_SHIPMENT_STATUSES] } } },
+    // A pre-order ships only once every line holds its stock.
+    NOT: { type: "PRE_ORDER", status: "CONFIRMED", lines: { some: { reservations: { none: { releasedAt: null } } } } },
+  },
+  return: { fulfilledAt: { not: null }, status: { not: "CANCELLED" } },
+};
 
 export async function listOrders(query: SalesListQuery) {
   const where: Prisma.SalesOrderWhereInput = {
@@ -219,12 +235,13 @@ export async function listOrders(query: SalesListQuery) {
         { customer: { code: { contains: query.q, mode: "insensitive" } } },
       ],
     }),
+    ...(query.readyFor && READY_FOR[query.readyFor]),
   };
   const [rows, total] = await Promise.all([
     prisma.salesOrder.findMany({
       where,
       include: orderListInclude,
-      orderBy: buildOrderBy(query.sort, SORTABLE, "orderDate:desc"),
+      orderBy: buildOrderBy(query.sort, SORTABLE, "orderDate:desc", "createdAt"),
       ...pageWindow(query),
     }),
     prisma.salesOrder.count({ where }),

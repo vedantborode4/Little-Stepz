@@ -120,7 +120,7 @@ export async function listPreOrders(query: PreOrderListQuery) {
       ? prisma.salesOrder.findMany({
           where: { type: "PRE_ORDER", NOT: { status: { in: [...OPEN_STATUSES, "DRAFT"] }, fulfilledAt: null }, ...search },
           select: preOrderSelect,
-          orderBy: [{ orderDate: "desc" }],
+          orderBy: [{ orderDate: "desc" }, { createdAt: "desc" }],
           take: 500,
         })
       : Promise.resolve([]),

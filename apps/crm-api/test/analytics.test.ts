@@ -35,7 +35,7 @@ async function item(prices: Record<string, string>, stock = 10, unitCost: string
     .post("/api/v1/products")
     .set(admin.auth)
     .send({ name: `Profit item ${uid()}`, categoryId, gstRate: "18", variants: [{ sku: `PF-${uid()}`, ...prices }] });
-  const variant = res.body.data.variants[0] as { id: string; sku: string };
+  const variant = { ...(res.body.data.variants[0] as { id: string; sku: string }), productId: res.body.data.id as string };
   if (stock) {
     await api()
       .post("/api/v1/inventory/opening")
@@ -274,6 +274,35 @@ describe("Dashboard", () => {
     const scoped = (await api().get("/api/v1/analytics/dashboard").query({ categoryId }).set(admin.auth)).body.data;
     expect(scoped.inventory.products).toBe(4);
     expect(scoped.topProducts.length).toBeGreaterThan(0);
+  });
+
+  it("scopes sales and profit to one product's own lines, not the whole order", async () => {
+    const a = await item({ regularPrice: "1180" });
+    const b = await item({ regularPrice: "590" });
+    await pos([
+      { variantId: a.id, quantity: 2 },
+      { variantId: b.id, quantity: 1 },
+    ]);
+
+    const scoped = (await api().get("/api/v1/analytics/dashboard").query({ productId: a.productId }).set(admin.auth)).body.data;
+    expect(scoped.sales.today).toEqual({ grossSales: "2360.00", netSales: "2000.00", orders: 1 });
+    expect(scoped.sales.lifetime).toEqual(scoped.sales.today);
+    expect(scoped.sales.offline).toBe("2360.00");
+    expect(scoped.topBy).toBe("variant");
+    expect(scoped.topProducts).toEqual([{ label: "Default", netSales: "2000.00", units: 2 }]);
+    expect(scoped.mixBy).toBe("channel");
+    expect(scoped.categoryMix).toEqual([{ label: "STORE", netSales: "2000.00" }]);
+    expect(scoped.profit).toMatchObject({
+      grossProfit: "1000.00",
+      marginPercent: "50.0",
+      contributionProfit: null,
+      potentialRevenue: "9440.00",
+    });
+    expect(scoped.inventory.available).toBe(8);
+
+    const whole = (await api().get("/api/v1/analytics/dashboard").set(admin.auth)).body.data;
+    expect(whole.mixBy).toBe("category");
+    expect(whole.profit.contributionProfit).toEqual(expect.any(String));
   });
 
   it("keeps the financial views to admins", async () => {

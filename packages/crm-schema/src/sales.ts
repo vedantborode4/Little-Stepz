@@ -158,6 +158,8 @@ export const salesListQuery = listQuery.extend({
   customerId: optionalFilterId,
   from: isoDate.optional(),
   to: isoDate.optional(),
+  /** Orders a shipment or a return can be started from, for the Shipping and Returns pages. */
+  readyFor: z.enum(["shipment", "return"]).optional(),
 });
 export type SalesListQuery = z.infer<typeof salesListQuery>;
 

@@ -9,17 +9,21 @@ type SortDirection = "asc" | "desc";
 /**
  * Translates `field:dir` into a Prisma orderBy using a whitelist, so clients can
  * only sort on indexed, intended columns. Values are Prisma paths ("user.name").
- * `id` is always appended as a tiebreaker for stable pagination.
+ * `id` is always appended as a tiebreaker for stable pagination. Lists sorted by a
+ * date-only column pass `thenBy` (e.g. "createdAt"), or same-day rows come out in
+ * random UUID order.
  */
 export function buildOrderBy(
   sort: string | undefined,
   allowed: Record<string, string>,
   fallback: `${string}:${SortDirection}`,
+  thenBy?: string,
 ): Record<string, unknown>[] {
   const [key, direction] = (sort ?? fallback).split(":") as [string, SortDirection];
   const path = allowed[key];
   if (!path) throw new ApiError(400, "INVALID_SORT", `Cannot sort by "${key}"`);
-  return [nestedOrder(path, direction), { id: direction }];
+  const tie = thenBy && thenBy !== path ? [nestedOrder(thenBy, direction)] : [];
+  return [nestedOrder(path, direction), ...tie, { id: direction }];
 }
 
 function nestedOrder(path: string, direction: SortDirection): Record<string, unknown> {

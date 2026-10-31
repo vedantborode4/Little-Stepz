@@ -120,7 +120,7 @@ function OrderEditor({ order, type, locations }: Props & { locations: { id: stri
             <div className="space-y-3">
               <CustomerSelect
                 value={customer}
-                emptyLabel="Choose customer"
+                placeholder="Search customer by mobile or name"
                 onChange={(chosen) => {
                   setCustomer(chosen)
                   cart.update({ customerId: chosen?.id ?? null })

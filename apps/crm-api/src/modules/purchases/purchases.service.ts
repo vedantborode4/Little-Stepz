@@ -66,7 +66,7 @@ export async function listPurchases(query: PurchaseListQuery, visibility: Visibi
         location: { select: { name: true } },
         lines: { select: { quantity: true, unitPriceInr: true, allocatedCharges: true } },
       },
-      orderBy: buildOrderBy(query.sort, SORTABLE, "invoiceDate:desc"),
+      orderBy: buildOrderBy(query.sort, SORTABLE, "invoiceDate:desc", "createdAt"),
       ...pageWindow(query),
     }),
     prisma.purchaseShipment.count({ where }),

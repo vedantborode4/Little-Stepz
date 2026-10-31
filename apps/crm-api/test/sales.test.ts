@@ -341,6 +341,38 @@ describe("pricing rules through the API", () => {
 });
 
 describe("records, visibility and revenue timing", () => {
+  it("offers only orders a shipment or a return can start from", async () => {
+    const variantId = await simple({}, 3);
+    const counter = (await pos(cashier, { lines: [{ variantId, quantity: 1 }] })).body.data.id as string;
+    const delivery = (
+      await order(admin, { fulfilment: "DELIVERY", customerId: await customer(), confirm: true, lines: [{ variantId, quantity: 1 }] })
+    ).body.data.id as string;
+    const draft = (await order(admin, { fulfilment: "DELIVERY", customerId: await customer(), lines: [{ variantId, quantity: 1 }] })).body
+      .data.id as string;
+
+    const ready = async (readyFor: string) =>
+      ((await api().get("/api/v1/sales").query({ readyFor, limit: 100 }).set(admin.auth)).body.data.items as { id: string }[]).map(
+        (o) => o.id,
+      );
+    const forShipment = await ready("shipment");
+    expect(forShipment).toContain(delivery);
+    expect(forShipment).not.toContain(counter);
+    expect(forShipment).not.toContain(draft);
+    const forReturn = await ready("return");
+    expect(forReturn).toContain(counter);
+    expect(forReturn).not.toContain(delivery);
+  });
+
+  it("lists same-day sales newest first", async () => {
+    const variantId = await simple({}, 3);
+    const ids: string[] = [];
+    for (let i = 0; i < 3; i++) ids.push((await pos(cashier, { lines: [{ variantId, quantity: 1 }] })).body.data.id);
+    const listed = ((await api().get("/api/v1/sales").query({ limit: 100 }).set(admin.auth)).body.data.items as { id: string }[])
+      .map((o) => o.id)
+      .filter((id) => ids.includes(id));
+    expect(listed).toEqual([...ids].reverse());
+  });
+
   it("freezes a completed sale's amounts and price snapshot at the database", async () => {
     const variantId = await simple({}, 1);
     const sale = (await pos(cashier, { lines: [{ variantId, quantity: 1 }] })).body.data;

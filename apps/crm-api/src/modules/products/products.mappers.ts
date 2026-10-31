@@ -1,6 +1,7 @@
 import type { Prisma } from "@repo/crm-db/client";
 import type { MappingState, ProductDetailDto, ProductListItemDto, VariantDto } from "@repo/crm-schema";
 import { money, moneyOrNull } from "../../core/money";
+import { toProductImageDto } from "./images.service";
 
 export type StockTotals = Map<string, { physical: number; available: number }>;
 const NO_STOCK = { physical: 0, available: 0 };
@@ -12,8 +13,13 @@ export const productDetailInclude = {
   options: { orderBy: { position: "asc" }, include: { values: { orderBy: { position: "asc" } } } },
   variants: {
     orderBy: [{ status: "asc" }, { position: "asc" }],
-    include: { optionValues: true, priceTiers: { orderBy: { minQty: "asc" } } },
+    include: {
+      optionValues: true,
+      priceTiers: { orderBy: { minQty: "asc" } },
+      images: { orderBy: { position: "asc" }, take: 1, select: { url: true } },
+    },
   },
+  images: { orderBy: { position: "asc" } },
 } satisfies Prisma.ProductInclude;
 
 export const productListInclude = {
@@ -51,6 +57,7 @@ export const toVariantDto = (v: VariantRow, stock: StockTotals): VariantDto => (
   priceTiers: v.priceTiers.map((t) => ({ minQty: t.minQty, price: money(t.price) })),
   physicalQty: (stock.get(v.id) ?? NO_STOCK).physical,
   availableQty: (stock.get(v.id) ?? NO_STOCK).available,
+  imageUrl: v.images[0]?.url ?? null,
 });
 
 export const toProductDetailDto = (p: DetailRow, stock: StockTotals): ProductDetailDto => ({
@@ -70,6 +77,7 @@ export const toProductDetailDto = (p: DetailRow, stock: StockTotals): ProductDet
   websiteProductId: p.websiteProductId,
   options: p.options.map((o) => ({ id: o.id, name: o.name, values: o.values.map((v) => ({ id: v.id, value: v.value })) })),
   variants: p.variants.map((v) => toVariantDto(v, stock)),
+  images: p.images.map(toProductImageDto),
   createdAt: p.createdAt.toISOString(),
   updatedAt: p.updatedAt.toISOString(),
 });

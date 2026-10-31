@@ -54,7 +54,7 @@ export default function Modal({ title, onClose, children, footer, width = "max-w
         </div>
         <div className="p-5 sm:p-6 overflow-y-auto">{children}</div>
         {footer && (
-          <div className="flex justify-end gap-2 px-5 sm:px-6 py-3 sm:py-4 border-t border-border shrink-0 safe-area-pb sm:pb-4">
+          <div className="flex justify-end gap-2 px-5 sm:px-6 py-3 sm:py-4 border-t border-border shrink-0 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-4">
             {footer}
           </div>
         )}

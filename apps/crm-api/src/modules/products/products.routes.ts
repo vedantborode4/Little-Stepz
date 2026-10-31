@@ -1,4 +1,5 @@
-import { Router } from "express";
+import express, { Router } from "express";
+import { IMAGE_MAX_BYTES } from "@repo/crm-schema";
 import { requirePermission } from "../../core/auth";
 import * as controller from "./products.controller";
 
@@ -11,6 +12,12 @@ productsRoutes.post("/", manage, controller.create);
 productsRoutes.get("/:id", view, controller.get);
 productsRoutes.patch("/:id", manage, controller.update);
 productsRoutes.post("/:id/variants", manage, controller.addVariant);
+// The photo is the request body itself (no multipart), capped before it is read.
+productsRoutes.post("/:id/images", manage, express.raw({ type: () => true, limit: IMAGE_MAX_BYTES }), controller.uploadImage);
+productsRoutes.post("/:id/images/link", manage, controller.linkImage);
+productsRoutes.put("/:id/images/order", manage, controller.reorderImages);
+productsRoutes.patch("/:id/images/:imageId", manage, controller.updateImage);
+productsRoutes.delete("/:id/images/:imageId", manage, controller.removeImage);
 
 export const variantsRoutes = Router();
 variantsRoutes.get("/search", view, controller.searchVariants);

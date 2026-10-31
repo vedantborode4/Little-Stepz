@@ -28,7 +28,6 @@ function basicsDefaults(p?: ProductDetailDto) {
     supplierId: p?.supplier?.id ?? "",
     scale: p?.scale ?? "",
     status: p?.status === "ARCHIVED" ? "ACTIVE" : (p?.status ?? "ACTIVE"),
-    imageUrl: p?.imageUrl ?? "",
     description: p?.description ?? "",
     notes: p?.notes ?? "",
     hsnCode: p?.hsnCode ?? "",

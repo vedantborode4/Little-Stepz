@@ -16,8 +16,8 @@ export function PaymentTabs() {
   return (
     <LinkTabs
       tabs={[
-        { label: "Payments", href: "/payments", exact: true },
-        { label: "Collections", href: "/payments/collections" },
+        { label: "Collections", href: "/payments", exact: true },
+        { label: "Payments", href: "/payments/list" },
         { label: "Outstanding", href: "/payments/outstanding" },
         { label: "Advances", href: "/payments/advances" },
         { label: "Transfers", href: "/payments/transfers" },

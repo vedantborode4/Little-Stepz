@@ -225,7 +225,8 @@ export const createProductSchema = z
   });
 export type CreateProductInput = z.infer<typeof createProductSchema>;
 
-export const updateProductSchema = z.object(productFields).partial();
+/** Photos are managed through the gallery, so a product edit never touches `imageUrl`. */
+export const updateProductSchema = z.object(productFields).omit({ imageUrl: true }).partial();
 export type UpdateProductInput = z.infer<typeof updateProductSchema>;
 
 export const addVariantSchema = variantInputSchema;
@@ -355,3 +356,38 @@ export const bulkPriceApplySchema = z.object({
     .max(2000),
 });
 export type BulkPriceApplyInput = z.infer<typeof bulkPriceApplySchema>;
+
+// ─── Product photos ──────────────────────────────────────────────────────────
+
+export const PRODUCT_IMAGE_SOURCES = ["UPLOAD", "LINK"] as const;
+export type ProductImageSource = (typeof PRODUCT_IMAGE_SOURCES)[number];
+
+export const IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+export const MAX_PRODUCT_IMAGES = 30;
+
+/** The photo itself is the request body; these ride along in the query string. */
+export const productImageUploadQuery = z.object({
+  variantId: optionalId,
+});
+
+export const productImageLinkSchema = z.object({
+  url: z
+    .string()
+    .trim()
+    .url({ protocol: /^https$/, message: "Use an https:// link" })
+    .max(500),
+  variantId: optionalId,
+});
+export type ProductImageLinkInput = z.infer<typeof productImageLinkSchema>;
+
+/** Which variant a photo shows; null means the whole product. */
+export const productImageUpdateSchema = z.object({ variantId: optionalId });
+export type ProductImageUpdateInput = z.infer<typeof productImageUpdateSchema>;
+
+/** Every photo of the product, in the new order; the first becomes the main photo. */
+export const productImageOrderSchema = z.object({
+  imageIds: z.array(z.string().uuid()).min(1).max(MAX_PRODUCT_IMAGES),
+});
+export type ProductImageOrderInput = z.infer<typeof productImageOrderSchema>;
+
+export const productImageParams = z.object({ id: z.string().uuid(), imageId: z.string().uuid() });

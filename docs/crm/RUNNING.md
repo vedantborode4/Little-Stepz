@@ -17,7 +17,7 @@ This starts `crm-postgres` on `127.0.0.1:5433`. It is completely separate from t
 |---|---|---|
 | `packages/crm-db/.env` | `.env.sample` | `CRM_DATABASE_URL` using the password from step 1 |
 | `apps/crm-api/.env` | `.env.sample` | Same `CRM_DATABASE_URL`; `ACCESS_TOKEN_SECRET` must be 32+ random characters; `SEED_ADMIN_*` sets the owner login |
-| `apps/crm-web/.env.local` | `.env.sample` | `CRM_API_ORIGIN=http://localhost:8100` |
+| `apps/crm-web/.env.local` | `.env.sample` | `CRM_API_ORIGIN=http://127.0.0.1:8100` |
 
 ## 3. Install, migrate, seed
 
@@ -62,6 +62,7 @@ CRM_DATABASE_URL=<your url with littlestepz_crm_test> npx prisma migrate reset -
 
 - **Import Data** (admin) takes .csv or .xlsx files. Sample files live in the test suite (`apps/crm-api/test/imports.test.ts`) and show the expected columns.
 - `WEBSITE_SYNC_MODE=mock` in `apps/crm-api/.env` lets Settings → Integrations run dry runs against built-in SAMPLE data. Nothing from the real website is read, and linking is refused for demo data.
+- **Product photos** upload to Cloudinary only when `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY` and `CLOUDINARY_API_SECRET` are set in `apps/crm-api/.env`; the website's account works, and the CRM stays inside `CLOUDINARY_FOLDER` (default `littlestepz-crm`). Without them, uploads say so and photos can still be added by link.
 
 ## Backups and the restore drill
 

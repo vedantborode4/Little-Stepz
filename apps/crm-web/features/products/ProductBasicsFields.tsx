@@ -15,7 +15,6 @@ export interface ProductBasicsValues {
   supplierId?: string | null
   scale?: string | null
   status?: ProductStatus
-  imageUrl?: string | null
   description?: string | null
   notes?: string | null
   hsnCode?: string | null
@@ -79,9 +78,6 @@ export default function ProductBasicsFields({ form }: { form: UseFormReturn<Prod
               onCreated={select("supplierId")}
               {...register("supplierId")}
             />
-          </Field>
-          <Field label="Image URL" htmlFor="imageUrl" error={err.imageUrl?.message} hint="https:// link to the product photo.">
-            <Input id="imageUrl" inputMode="url" {...register("imageUrl")} />
           </Field>
         </div>
       </Card>

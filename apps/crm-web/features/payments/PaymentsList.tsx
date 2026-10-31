@@ -109,7 +109,7 @@ function ReceivePaymentModal({ onClose }: { onClose: () => void }) {
             setCustomer(c)
             setAllocations({})
           }}
-          emptyLabel="Choose customer"
+          placeholder="Search customer by mobile or name"
         />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field label="Received into" htmlFor="rp-account" required>

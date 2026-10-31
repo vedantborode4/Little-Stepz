@@ -28,10 +28,11 @@ Source of truth: `packages/crm-db/prisma/schema.prisma`. This page explains the 
 | `Sequence` | Gapless per-prefix document numbers (`PRD-0001`) | Incremented inside the creating transaction, so a rollback never burns a number. |
 | `Category`, `Brand` | Product grouping | Names are unique case- and space-insensitively (`nameKey`). Deactivated, never deleted. The 7 owner-specified categories are seeded. |
 | `Supplier` | Who invoices you, and in which currency (INR/CNY/USD/HKD) | Unique name. The full suppliers screen ships with Purchases (phase 4). |
-| `Product` | The sellable item: category, brand, scale, supplier, GST rate + HSN, image URL, description/notes, `websiteProductId` | Never deleted, only `ARCHIVED`. `websiteProductId` is a reference only; nothing is written to the website. |
+| `Product` | The sellable item: category, brand, scale, supplier, GST rate + HSN, main photo (`imageUrl`), description/notes, `websiteProductId` | Never deleted, only `ARCHIVED`. `websiteProductId` is a reference only; nothing is written to the website. |
 | `ProductOption` / `ProductOptionValue` | e.g. Colour → Red, Blue, Black, White | Dimensions are fixed after creation; new values can be added. |
 | `Variant` | One sellable combination with its own **SKU**, regular/offer/wholesale price and reorder level | **Every product has ≥ 1 variant** (a simple product has one "Default" variant). The SKU is unique (stored upper-case). `optionKey` stops the same combination from being created twice. A DB `CHECK` enforces price > 0, offer ≤ regular and wholesale ≤ regular. A product always keeps at least one active variant. |
 | `PriceTier` | Wholesale quantity breaks: ≥ `minQty` units at `price` each | Quantities rise and prices never rise. A tier is never above the regular price. |
+| `ProductImage` | The product's photo gallery: url, optional `variantId` (a colour), `position`, `source` UPLOAD or LINK | The first photo is copied to `Product.imageUrl`. UPLOAD photos live in the CRM's Cloudinary folder and are deleted there when removed; LINK photos (website, supplier) are only unlinked, never deleted at their source. |
 | `PriceChange` | History of every list-price change: single edits, bulk batches (`batchId`) and opening prices | **Append-only** (trigger). Records who, when and why. Completed sales keep their own snapshot (phase 6). |
 
 **Bulk price edit:** preview first, then apply. Apply re-checks every row against the price the user saw, under row locks, and rejects the whole batch if any price changed in the meantime.

@@ -4,13 +4,20 @@
  * the refresh cookie is first-party and no CORS is needed in the browser.
  * @type {import('next').NextConfig}
  */
-const apiOrigin = process.env.CRM_API_ORIGIN ?? "http://localhost:8100";
+const apiOrigin = process.env.CRM_API_ORIGIN ?? "http://127.0.0.1:8100";
 
 const nextConfig = {
   poweredByHeader: false,
   transpilePackages: ["@repo/crm-schema"],
   async rewrites() {
     return [{ source: "/api/:path*", destination: `${apiOrigin}/api/:path*` }];
+  },
+  async redirects() {
+    // Collections and Valuation became the first tabs; old bookmarks still land.
+    return [
+      { source: "/payments/collections", destination: "/payments", permanent: true },
+      { source: "/analytics/valuation", destination: "/analytics", permanent: true },
+    ];
   },
   async headers() {
     return [

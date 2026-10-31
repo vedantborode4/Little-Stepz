@@ -365,3 +365,66 @@ Conventions: `docs/crm/CONVENTIONS.md`.
 
 These are tracked in PRODUCTION_CHECKLIST.md. The CRM is not called production-ready until that list is ticked on the server.
 
+
+---
+
+## Round 2: owner feedback (2026-10-31)
+
+Decisions (owner, 2026-10-31):
+- The sidebar opens the new first tab.
+- Product photos: gallery plus per-variant photos.
+- Import refinements are on hold; next will be more import types.
+- Website catalogue access will go through the website export API (spec only this round).
+
+### Quick fixes
+- [x] **1. Modal footer padding.** `.safe-area-pb` uses `env(safe-area-inset-bottom, 12px)`. The fallback never applies (browsers report 0), and as unlayered CSS it beats `sm:pb-4`, so every modal footer has 0 bottom padding. Fixed in the modal footer with `pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-4`. The class is left alone for the bottom nav, which relies on it being 0 (the POS checkout bar sits 60px above).
+- [x] **4. Newest sales first.** The sales list sorts by `orderDate` (date only), and ties fall back to the random UUID `id`, so same-day sales come out shuffled. `buildOrderBy` takes an optional `thenBy`; sales and purchases pass `createdAt`, and the pre-order history got the same tie-break. The other date lists already had it.
+- [x] **5. Payments tabs.** Collections first, then Payments. `/payments` opens Collections; the payments list moves to `/payments/list`.
+- [x] **9. Analytics tabs.** Valuation & projections first, then Profit. `/analytics` opens Valuation; Profit moves to `/analytics/profit`.
+
+### Features
+- [x] **2. Dashboard filters.** Today only the inventory cards and the 30-day trend honour category/product. Scope these as well:
+  - Sales cards (today, yesterday, month, lifetime) and both splits.
+  - Profit cards: gross profit, discounts, potential.
+  - Valuation by product.
+  - Top products and category mix.
+
+  Payments are per order, not per product, so that section stays whole-business and is labelled so when a filter is on. Contribution profit (courier and fees are per order) is hidden when filtered.
+- [x] **3. Add-customer button.** A visible "add customer" button attached to the customer field, in both POS and the order form (shared `CustomerSelect`).
+- [x] **6. Product photo gallery.** A `ProductImage` table with an optional variant per photo, uploaded to Cloudinary through crm-api (same account as the website, `littlestepz-crm/` folder; the CRM never deletes assets it didn't upload). Reorder, set the main photo, delete. `Product.imageUrl` stays as the main photo, so lists, POS and stock screens keep working.
+- [x] **7. Add buttons on Shipping and Returns.** Pick an order (eligible ones only), then reuse the existing create-shipment and return modals.
+- [ ] ~~8. Import refinements~~: on hold (next: more import types).
+
+### Answers to write up
+- a. Advances held.
+- b. Syncing website products and variants.
+- c. New stock count.
+- d. The shipping flow.
+
+### Deliverable
+- [ ] Simple user manual for owner and staff, written after the changes, so it matches the screens.
+
+### Review (2026-10-31)
+
+**Verification**
+- **Tests:** crm-api suite 193/193 passed before the last tweak. Analytics re-run after the top-variant label change: 13/13.
+- **New tests:**
+  - A product filter counts only that product's lines in a mixed order.
+  - Same-day sales list newest first (fails at random without the fix).
+  - `readyFor` offers only eligible orders.
+  - Photo upload, link, reorder and remove, against a fake Cloudinary.
+- **Typecheck and lint:** crm-web `check-types` and lint (0 warnings) pass; crm-api `tsc` passes.
+- **Browser** (CDP, signed in as owner):
+  - Modal footer: 16px padding (12px on phone).
+  - The add-customer button is inside the customer field on POS and the order form.
+  - Dashboard filtered to YEGAO shows only its lines; payments and customer cards are marked whole business.
+  - Tabs swapped; the old `/payments/collections` redirects.
+  - New shipment and New return pickers open the existing forms.
+  - Gallery on desktop and phone: link photos, Main badge, variant photo, make main.
+  - Uploading without Cloudinary keys returns IMAGE_UPLOADS_OFF.
+  - The test photos were removed afterwards.
+
+**Not done / needs the owner**
+- **Cloudinary keys** aren't in `apps/crm-api/.env`, so real uploads haven't been tried. Copying the website's keys is the owner's call.
+- **Creating missing products from the website** is specified in WEBSITE_SYNC_CONTRACT.md (options, photos as links, no stock) but not built. It needs the website export endpoints first.
+- **Import refinements** are on hold.

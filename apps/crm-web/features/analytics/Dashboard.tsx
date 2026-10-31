@@ -18,7 +18,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
-import { PAYMENT_METHOD_LABELS, type DashboardSalesPeriodDto } from "@repo/crm-schema"
+import { PAYMENT_METHOD_LABELS, SALES_CHANNEL_LABELS, type DashboardSalesPeriodDto, type SalesChannel } from "@repo/crm-schema"
 import { Card, PageHeader, Skeleton, StatCard } from "@/components/ui/Display"
 import { FilterSelect } from "@/components/ui/Toolbar"
 import { useStockSummary } from "@/features/inventory/api"
@@ -104,6 +104,10 @@ export default function Dashboard() {
   ]
   const setupPending = can("settings.manage") && checklist.some((c) => !c.done)
   const scoped = Boolean(categoryId || productId)
+  const scopeName = productId
+    ? products.data?.items.find((p) => p.id === productId)?.name
+    : categories.data?.find((c) => c.id === categoryId)?.name
+  const wholeBusiness = scoped ? "Whole business; product filters don't apply" : undefined
 
   return (
     <div className="space-y-5 sm:space-y-6">
@@ -164,7 +168,11 @@ export default function Dashboard() {
       ) : (
         <>
           <section className="space-y-3">
-            <SectionTitle note="Whole business, incl. GST, net of returns">Sales</SectionTitle>
+            <SectionTitle
+              note={scoped ? `${scopeName ?? "Filtered"} only · its lines incl. GST, no shipping` : "Whole business, incl. GST"}
+            >
+              Sales
+            </SectionTitle>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
               <Link href="/sales">{periodCard("Today", data.sales.today)}</Link>
               {periodCard("Yesterday", data.sales.yesterday)}
@@ -187,9 +195,9 @@ export default function Dashboard() {
 
           {data.payments && (
             <section className="space-y-3">
-              <SectionTitle note="Received less refunded">Payments</SectionTitle>
+              <SectionTitle note={wholeBusiness ?? "Received less refunded"}>Payments</SectionTitle>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
-                <Link href="/payments/collections">
+                <Link href="/payments">
                   <StatCard
                     title="Collected today"
                     value={formatMoney(data.payments.collectedToday)}
@@ -229,9 +237,13 @@ export default function Dashboard() {
 
           {data.profit && (
             <section className="space-y-3">
-              <SectionTitle note="Realised this month · projection from today's prices">Profit</SectionTitle>
+              <SectionTitle
+                note={`${scoped ? `${scopeName ?? "Filtered"} only · ` : ""}Realised this month · projection from today's prices`}
+              >
+                Profit
+              </SectionTitle>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
-                <Link href="/analytics">
+                <Link href="/analytics/profit">
                   <StatCard
                     title="Gross profit"
                     value={formatMoney(data.profit.grossProfit)}
@@ -240,13 +252,23 @@ export default function Dashboard() {
                     color={tone.green}
                   />
                 </Link>
-                <StatCard
-                  title="Contribution profit"
-                  value={formatMoney(data.profit.contributionProfit)}
-                  hint="After courier, payment fees and order costs"
-                  icon={<TrendingUp size={18} />}
-                  color={tone.blue}
-                />
+                {data.profit.contributionProfit === null ? (
+                  <StatCard
+                    title="Net sales this month"
+                    value={formatMoney(data.sales.monthToDate.netSales)}
+                    hint="Excl. GST, net of returns"
+                    icon={<IndianRupee size={18} />}
+                    color={tone.blue}
+                  />
+                ) : (
+                  <StatCard
+                    title="Contribution profit"
+                    value={formatMoney(data.profit.contributionProfit)}
+                    hint="After courier, payment fees and order costs"
+                    icon={<TrendingUp size={18} />}
+                    color={tone.blue}
+                  />
+                )}
                 <StatCard
                   title="Discounts given"
                   value={formatMoney(data.profit.discounts)}
@@ -254,19 +276,21 @@ export default function Dashboard() {
                   icon={<IndianRupee size={18} />}
                   color={tone.yellow}
                 />
-                <StatCard
-                  title="Potential profit"
-                  value={formatMoney(data.profit.potentialProfit)}
-                  hint={`Projection: ${formatMoney(data.profit.potentialRevenue)} if available stock sells at offer prices`}
-                  icon={<Sparkles size={18} />}
-                  color={tone.purple}
-                />
+                <Link href="/analytics">
+                  <StatCard
+                    title="Potential profit"
+                    value={formatMoney(data.profit.potentialProfit)}
+                    hint={`Projection: ${formatMoney(data.profit.potentialRevenue)} if available stock sells at offer prices`}
+                    icon={<Sparkles size={18} />}
+                    color={tone.purple}
+                  />
+                </Link>
               </div>
             </section>
           )}
 
           <section className="space-y-3">
-            <SectionTitle note={scoped ? "Filtered" : undefined}>Inventory</SectionTitle>
+            <SectionTitle note={scoped ? `${scopeName ?? "Filtered"} only` : undefined}>Inventory</SectionTitle>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
               <StatCard
                 title="Products"
@@ -321,7 +345,7 @@ export default function Dashboard() {
               <TrendChart label="Sales per day incl. GST" data={data.trend.map((t) => ({ date: t.date, value: Number(t.grossSales) }))} />
             </Card>
             {data.collectionsByMethod ? (
-              <Card title="Collections this month">
+              <Card title="Collections this month" action={scoped && <span className="text-xs text-faint">Whole business</span>}>
                 <BarList
                   rows={data.collectionsByMethod.map((m) => ({
                     key: m.method,
@@ -332,36 +356,36 @@ export default function Dashboard() {
                 />
               </Card>
             ) : (
-              <Card title="Customers & shipping">
+              <Card title="Customers & shipping" action={scoped && <span className="text-xs text-faint">Whole business</span>}>
                 <CustomerFigures c={data.customers} />
               </Card>
             )}
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-5">
-            <Card title="Top products this month">
+            <Card title={data.topBy === "variant" ? "Top variants this month" : "Top products this month"}>
               <BarList
                 rows={data.topProducts.map((p) => ({
                   key: p.label,
                   label: p.label,
                   value: Number(p.netSales),
                   display: formatMoney(p.netSales),
-                  hint: `${formatQty(p.units)} units · excl. GST`,
+                  hint: `${formatQty(p.units)} ${p.units === 1 ? "unit" : "units"} · excl. GST`,
                 }))}
               />
             </Card>
-            <Card title="Category mix this month">
+            <Card title={data.mixBy === "channel" ? "Sales by channel this month" : "Category mix this month"}>
               <BarList
                 rows={data.categoryMix.map((c) => ({
                   key: c.label,
-                  label: c.label,
+                  label: data.mixBy === "channel" ? (SALES_CHANNEL_LABELS[c.label as SalesChannel] ?? c.label) : c.label,
                   value: Number(c.netSales),
                   display: formatMoney(c.netSales),
                 }))}
               />
             </Card>
             {data.collectionsByMethod && (
-              <Card title="Customers & shipping">
+              <Card title="Customers & shipping" action={scoped && <span className="text-xs text-faint">Whole business</span>}>
                 <CustomerFigures c={data.customers} />
               </Card>
             )}

@@ -53,11 +53,16 @@ Every product that isn't deleted (`deletedAt IS NULL`), with all its live varian
         "id": "clx…",                 // website Product id
         "name": "YEGAO 1:64 Die-cast Car",
         "status": "ACTIVE",           // website's own status/visibility, informational
+        "options": [{ "name": "Colour", "values": ["Red", "Blue"] }],
+        "images": [
+          { "url": "https://res.cloudinary.com/…/red.jpg", "variantId": "clx…", "position": 0 }  // variantId null = whole product
+        ],
         "variants": [
           {
             "id": "clx…",             // website Variant id (or the product id for a product without variants)
             "sku": "YG64-RED",        // null when the website has no SKU; the CRM matches on SKU
             "name": "Red",
+            "optionValues": ["Red"],  // one per product option, in option order
             "price": "499.00",        // regular price incl. GST, decimal string
             "salePrice": "449.00",    // null when not on sale
             "stock": 3                // website's current stock counter
@@ -74,6 +79,16 @@ The CRM uses this to:
 - **Propose links.** A website variant whose SKU matches an unlinked CRM variant is proposed for linking (CRM `Variant.websiteVariantId` and `Product.websiteProductId`).
 - **Report conflicts.** Missing SKUs, duplicate SKUs, and ids already linked elsewhere are reported, never resolved automatically.
 - **Show differences.** Price and stock differences on already-linked items are shown for information. The CRM never changes the website's prices or stock.
+
+`options`, `optionValues` and `images` serve the next step, **creating missing products from the website**, and the CRM ignores them today. In that step:
+- A website product with no CRM match becomes a CRM product.
+- Its options and variants are copied, with their prices.
+- Its photos are added to the CRM gallery **as links**: the files stay where the website keeps them and are never copied or deleted.
+- Stock is **not** copied. CRM stock comes from an opening count or a stock count, so the stock ledger stays the record.
+- Costs stay unknown until a purchase is entered.
+- Like linking, it only happens after a dry run the admin has reviewed.
+
+Website variants without a SKU can't be matched safely, so they need a SKU on the website first. Product name + option values are shown only as a suggestion.
 
 ## `GET /crm-export/orders?since=<ISO-8601>`
 

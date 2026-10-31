@@ -275,6 +275,7 @@ model Product {
 
   options  ProductOption[]
   variants Variant[]
+  images   ProductImage[]
 
   @@index([categoryId])
   @@index([brandId])
@@ -302,6 +303,34 @@ model ProductOptionValue {
   variants VariantOptionValue[]
 
   @@unique([optionId, value])
+}
+
+enum ProductImageSource {
+  /// Uploaded through the CRM into its own Cloudinary folder; the CRM may delete it there.
+  UPLOAD
+  /// A link to a photo hosted elsewhere (the website, a supplier). Never deleted at its source.
+  LINK
+}
+
+/// A product's photo gallery. The first photo is the main one and is copied to
+/// Product.imageUrl so lists, POS and stock screens need no join. A photo can
+/// belong to one variant (a colour); otherwise it shows for the whole product.
+model ProductImage {
+  id          String             @id @default(uuid())
+  productId   String
+  product     Product            @relation(fields: [productId], references: [id])
+  variantId   String?
+  variant     Variant?           @relation(fields: [variantId], references: [id])
+  url         String
+  /// Cloudinary public id; set only for UPLOAD photos.
+  publicId    String?
+  source      ProductImageSource
+  position    Int
+  createdById String?
+  createdAt   DateTime           @default(now())
+
+  @@index([productId, position])
+  @@index([variantId])
 }
 
 model Variant {
@@ -338,6 +367,7 @@ model Variant {
   reservations        Reservation[]
   salesReturnLines    SalesReturnLine[]
   stockCountLines     StockCountLine[]
+  images              ProductImage[]
 
   @@unique([productId, optionKey])
   @@index([productId])

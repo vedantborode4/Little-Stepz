@@ -20,12 +20,12 @@ export interface ChosenCustomer {
 interface Props {
   value: ChosenCustomer | null
   onChange: (customer: ChosenCustomer | null) => void
-  /** Label shown when nobody is chosen; walk-in sales need no customer. */
-  emptyLabel?: string
+  /** Shown when nobody is chosen; walk-in sales need no customer. */
+  placeholder?: string
 }
 
 /** Pick a customer by phone or name, or add one on the spot from what was typed. */
-export default function CustomerSelect({ value, onChange, emptyLabel = "Walk-in customer" }: Props) {
+export default function CustomerSelect({ value, onChange, placeholder = "Walk-in, or search mobile / name" }: Props) {
   const can = useCan()
   const [creating, setCreating] = useState<{ name?: string; mobile?: string } | null>(null)
 
@@ -51,7 +51,8 @@ export default function CustomerSelect({ value, onChange, emptyLabel = "Walk-in 
   return (
     <div className="space-y-1">
       <CustomerPicker
-        placeholder={`${emptyLabel} — or search mobile / name`}
+        placeholder={placeholder}
+        addButton
         onPick={(c) => onChange({ id: c.id, code: c.code, name: c.name, type: c.type, mobile: c.mobile })}
         onCreate={
           can("customers.manage") ? (typed) => setCreating(normalizeMobile(typed) ? { mobile: typed } : { name: typed }) : undefined

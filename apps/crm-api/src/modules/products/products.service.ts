@@ -131,6 +131,11 @@ export async function createProductInTx(tx: Tx, input: CreateProductInput, ctx: 
   const product = await tx.product.create({
     data: { ...fields, code: await nextCode(tx, "PRD"), gstRate: dec(fields.gstRate) },
   });
+  if (product.imageUrl) {
+    await tx.productImage.create({
+      data: { productId: product.id, url: product.imageUrl, source: "LINK", position: 0, createdById: ctx.userId },
+    });
+  }
 
   // Value ids per option, keyed by lower-cased value, so variant rows can resolve their combination.
   const valueIdsByOption: Map<string, { id: string; value: string }>[] = [];

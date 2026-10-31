@@ -2,8 +2,10 @@
 
 import type { ColumnDef } from "@tanstack/react-table"
 import clsx from "clsx"
+import { Plus } from "lucide-react"
 import { useState } from "react"
 import { SHIPMENT_STATUS_LABELS, type ShipmentListItemDto, type ShipmentStatus } from "@repo/crm-schema"
+import Button from "@/components/ui/Button"
 import DataTable from "@/components/ui/DataTable"
 import { PageHeader, StatCard } from "@/components/ui/Display"
 import Modal from "@/components/ui/Modal"
@@ -11,8 +13,10 @@ import { ExportMenu, FilterSelect, ListToolbar, SearchInput } from "@/components
 import { downloadExport } from "@/lib/download"
 import { formatDateTime, formatMoney } from "@/lib/format"
 import { useListState } from "@/lib/use-list-state"
+import { useCan } from "@/store/auth.store"
+import OrderPicker from "../sales/OrderPicker"
 import { useCouriers, useShipments, useShipmentSummary } from "./api"
-import ShipmentPanel, { ShipmentStatusBadge } from "./ShipmentPanel"
+import ShipmentPanel, { CreateShipmentModal, ShipmentStatusBadge } from "./ShipmentPanel"
 
 type View = "open" | ShipmentStatus | "all"
 type Filters = { courierId?: string }
@@ -37,6 +41,9 @@ export default function ShippingBoard() {
   const summary = useShipmentSummary()
   const couriers = useCouriers(true)
   const [openId, setOpenId] = useState<string | null>(null)
+  const [picking, setPicking] = useState(false)
+  const [shipFor, setShipFor] = useState<{ id: string; code: string } | null>(null)
+  const can = useCan()
   const c = summary.data?.counts
 
   const columns: ColumnDef<ShipmentListItemDto>[] = [
@@ -64,6 +71,13 @@ export default function ShippingBoard() {
       <PageHeader
         title="Shipping"
         subtitle="Delivery orders from packing to doorstep. Status is updated by hand from the courier's tracking; dispatching takes stock out."
+        action={
+          can("shipping.manage") && (
+            <Button icon={<Plus size={16} />} onClick={() => setPicking(true)}>
+              New shipment
+            </Button>
+          )
+        }
       />
       {summary.data && c && (
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
@@ -149,6 +163,20 @@ export default function ShippingBoard() {
           <ShipmentPanel id={openId} showOrder />
         </Modal>
       )}
+      {picking && (
+        <OrderPicker
+          readyFor="shipment"
+          title="New shipment"
+          hint="Confirmed delivery orders that don't have a shipment yet."
+          empty="Every confirmed delivery order already has a shipment."
+          onClose={() => setPicking(false)}
+          onPick={(order) => {
+            setPicking(false)
+            setShipFor({ id: order.id, code: order.code })
+          }}
+        />
+      )}
+      {shipFor && <CreateShipmentModal orderId={shipFor.id} orderCode={shipFor.code} onClose={() => setShipFor(null)} />}
     </div>
   )
 }

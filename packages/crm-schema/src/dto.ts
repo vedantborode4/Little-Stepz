@@ -1,4 +1,4 @@
-import type { CurrencyCode, MappingState, PriceField, ProductStatus, VariantStatus } from "./catalog";
+import type { CurrencyCode, MappingState, PriceField, ProductImageSource, ProductStatus, VariantStatus } from "./catalog";
 import type { CustomerType, DuplicateReason } from "./customers";
 import type { FulfilmentMethod, PreOrderStockState, PriceSource, SalesChannel, SalesOrderStatus, SalesOrderType } from "./sales";
 import type { AgeingBucket, CreditEntryType, PaymentDirection, PaymentStatus } from "./payments";
@@ -159,6 +159,16 @@ export interface VariantDto {
   priceTiers: PriceTierDto[];
   physicalQty: number;
   availableQty: number;
+  /** The variant's own first photo, if it has one. */
+  imageUrl: string | null;
+}
+
+export interface ProductImageDto {
+  id: string;
+  url: string;
+  variantId: string | null;
+  source: ProductImageSource;
+  position: number;
 }
 
 export interface ProductOptionDto {
@@ -184,6 +194,7 @@ export interface ProductDetailDto {
   websiteProductId: string | null;
   options: ProductOptionDto[];
   variants: VariantDto[];
+  images: ProductImageDto[];
   createdAt: string;
   updatedAt: string;
 }
@@ -1136,7 +1147,8 @@ export interface DashboardDto {
     grossProfit: string;
     marginPercent: string | null;
     discounts: string;
-    contributionProfit: string;
+    /** Courier and fees are per order, so this is null when the dashboard is filtered to products. */
+    contributionProfit: string | null;
     potentialRevenue: string;
     potentialProfit: string;
   };
@@ -1150,7 +1162,11 @@ export interface DashboardDto {
   };
   trend: { date: string; grossSales: string; netSales: string }[];
   collectionsByMethod?: { method: PaymentMethod; amount: string }[];
+  /** Variants when filtered to one product, otherwise products. */
+  topBy: "product" | "variant";
   topProducts: { label: string; netSales: string; units: number }[];
+  /** Channels (enum values) when filtered, otherwise category names. */
+  mixBy: "category" | "channel";
   categoryMix: { label: string; netSales: string }[];
 }
 

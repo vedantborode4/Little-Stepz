@@ -12,6 +12,8 @@ import type {
   PriceChangeDto,
   PriceTiersInput,
   ProductDetailDto,
+  ProductImageDto,
+  ProductImageLinkInput,
   ProductListItemDto,
   SetMappingInput,
   SupplierDto,
@@ -20,7 +22,7 @@ import type {
   UpdateVariantInput,
   VariantInput,
 } from "@repo/crm-schema"
-import { getData, sendData } from "@/lib/api-client"
+import { api, getData, sendData } from "@/lib/api-client"
 
 export type NamedKind = "categories" | "brands"
 
@@ -101,6 +103,32 @@ export const usePriceHistory = (variantId: string) =>
     queryKey: catalogKeys.priceHistory(variantId),
     queryFn: () => getData<PriceChangeDto[]>(`/variants/${variantId}/price-history`),
   })
+
+// ─── Photos ──────────────────────────────────────────────────────────────────
+
+/** The photo goes up as the raw request body; the server checks it really is a JPG, PNG or WebP. */
+export const useUploadProductImage = (productId: string) =>
+  useCatalogMutation(async ({ file, variantId }: { file: File; variantId: string | null }) => {
+    const res = await api.post<{ data: ProductImageDto[] }>(`/products/${productId}/images`, file, {
+      params: variantId ? { variantId } : {},
+      headers: { "Content-Type": "application/octet-stream" },
+    })
+    return res.data.data
+  })
+
+export const useLinkProductImage = (productId: string) =>
+  useCatalogMutation((input: ProductImageLinkInput) => sendData<ProductImageDto[]>("post", `/products/${productId}/images/link`, input))
+
+export const useSetImageVariant = (productId: string) =>
+  useCatalogMutation(({ imageId, variantId }: { imageId: string; variantId: string | null }) =>
+    sendData<ProductImageDto[]>("patch", `/products/${productId}/images/${imageId}`, { variantId }),
+  )
+
+export const useReorderProductImages = (productId: string) =>
+  useCatalogMutation((imageIds: string[]) => sendData<ProductImageDto[]>("put", `/products/${productId}/images/order`, { imageIds }))
+
+export const useRemoveProductImage = (productId: string) =>
+  useCatalogMutation((imageId: string) => sendData<ProductImageDto[]>("delete", `/products/${productId}/images/${imageId}`))
 
 // ─── Bulk pricing & website mapping ──────────────────────────────────────────
 
