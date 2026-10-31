@@ -1,0 +1,28 @@
+# Postgres for the Little Stepz CRM. The same file runs locally and on the VPS.
+# Bound to 127.0.0.1 only: the database is never reachable from outside the host.
+#
+#   docker compose -f docker/crm-postgres.compose.yml --env-file docker/.env up -d
+name: little-stepz-crm
+
+services:
+  crm-postgres:
+    image: postgres:17-alpine
+    container_name: crm-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${CRM_DB_USER:-crm}
+      POSTGRES_PASSWORD: ${CRM_DB_PASSWORD:?Set CRM_DB_PASSWORD in docker/.env}
+      POSTGRES_DB: ${CRM_DB_NAME:-littlestepz_crm}
+      TZ: UTC
+    ports:
+      - "127.0.0.1:${CRM_DB_PORT:-5433}:5432"
+    volumes:
+      - crm-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${CRM_DB_USER:-crm} -d ${CRM_DB_NAME:-littlestepz_crm}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  crm-pgdata:

@@ -1,0 +1,9 @@
+# CRM scheduled jobs (install with: crontab -e as the deploy user). Times are the server's
+# time zone; set the VPS to Asia/Kolkata (timedatectl set-timezone Asia/Kolkata).
+#
+# Nightly backup at 02:15, copied off-server (OFFSITE in /etc/crm-backup.env).
+15 2 * * * /srv/littlestepz/deploy/crm/backup.sh >> /var/log/crm/backup.log 2>&1
+#
+# Restore drill on the 1st of each month at 03:30: restores last night's state into a
+# scratch database and checks every table. A failure means the backups can't be trusted.
+30 3 1 * * /srv/littlestepz/deploy/crm/restore-drill.sh >> /var/log/crm/restore-drill.log 2>&1

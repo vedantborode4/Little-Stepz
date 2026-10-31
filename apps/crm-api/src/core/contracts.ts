@@ -1,0 +1,44 @@
+import type * as Db from "@repo/crm-db/client";
+import type * as Schema from "@repo/crm-schema";
+
+/**
+ * Compile-time guard: the enums clients see (@repo/crm-schema) must match the
+ * database enums exactly. Adding a value on one side only fails the build here.
+ */
+type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+type Assert<T extends true> = T;
+
+export type EnumParity = [
+  Assert<Same<Db.Role, Schema.Role>>,
+  Assert<Same<Db.PaymentMethod, Schema.PaymentMethod>>,
+  Assert<Same<Db.LocationType, Schema.LocationType>>,
+  Assert<Same<Db.ProductStatus, Schema.ProductStatus>>,
+  Assert<Same<Db.VariantStatus, Schema.VariantStatus>>,
+  Assert<Same<Db.PriceField, Schema.PriceField>>,
+  Assert<Same<Db.StockBucket, Schema.StockBucket>>,
+  Assert<Same<Db.StockDocumentType, Schema.StockDocumentType>>,
+  Assert<Same<Db.StockReasonCode, Schema.StockReasonCode>>,
+  Assert<Same<Db.PurchaseStatus, Schema.PurchaseStatus>>,
+  Assert<Same<Db.AllocationMethod, Schema.AllocationMethod>>,
+  Assert<Same<Db.ChargeType, Schema.ChargeType>>,
+  Assert<Same<Db.CustomerType, Schema.CustomerType>>,
+  Assert<Same<Db.SalesOrderType, Schema.SalesOrderType>>,
+  Assert<Same<Db.SalesChannel, Schema.SalesChannel>>,
+  Assert<Same<Db.SalesOrderStatus, Schema.SalesOrderStatus>>,
+  Assert<Same<Db.FulfilmentMethod, Schema.FulfilmentMethod>>,
+  Assert<Same<Db.PriceSource, Schema.PriceSource>>,
+  Assert<Same<Db.PaymentDirection, Schema.PaymentDirection>>,
+  Assert<Same<Db.CreditEntryType, Schema.CreditEntryType>>,
+  Assert<Same<Db.ReturnCondition, Schema.ReturnCondition>>,
+  Assert<Same<Db.RefundMethod, Schema.RefundMethod>>,
+  Assert<Same<Db.ShipmentStatus, Schema.ShipmentStatus>>,
+  Assert<Same<Db.ExpenseKind, Schema.ExpenseKind>>,
+  Assert<Same<Db.CashSessionStatus, Schema.CashSessionStatus>>,
+  Assert<Same<Db.StockCountStatus, Schema.StockCountStatus>>,
+  Assert<Same<Db.ImportKind, Schema.ImportKind>>,
+  Assert<Same<Db.ImportBatchStatus, Schema.ImportBatchStatus>>,
+  Assert<Same<Db.ImportRowStatus, Schema.ImportRowStatus>>,
+  Assert<Same<Db.SyncSource, Schema.SyncSource>>,
+  Assert<Same<Db.SyncMode, Schema.SyncMode>>,
+  Assert<Same<Db.SyncRunStatus, Schema.SyncRunStatus>>,
+];
