@@ -4,12 +4,11 @@ import { fromDbDate, todayIST, toDbDate } from "../../core/dates";
 import { withTransaction } from "../../core/db";
 import { ApiError, type RequestContext } from "../../core/http";
 import { pageWindow, paginated } from "../../core/list";
-import { Decimal, money } from "../../core/money";
+import { Decimal, decOrZero, money } from "../../core/money";
 import { availableAt } from "../inventory/reservations";
 import { allocateInTx } from "./sales.service";
 
 const OPEN_STATUSES = ["CONFIRMED", "PACKED"] as const;
-const d = (v: Prisma.Decimal | null | undefined) => new Decimal((v ?? 0).toString());
 
 const preOrderSelect = {
   id: true,
@@ -70,16 +69,16 @@ async function stockQueue(open: PreOrderRow[]) {
   return { result, free };
 }
 
-async function openPreOrders(where: Prisma.SalesOrderWhereInput = {}) {
+async function openPreOrders() {
   return prisma.salesOrder.findMany({
-    where: { type: "PRE_ORDER", status: { in: [...OPEN_STATUSES] }, fulfilledAt: null, ...where },
+    where: { type: "PRE_ORDER", status: { in: [...OPEN_STATUSES] }, fulfilledAt: null },
     select: preOrderSelect,
     orderBy: [{ orderDate: "asc" }, { createdAt: "asc" }],
   });
 }
 
 function toRow(o: PreOrderRow, queue: Map<string, { state: PreOrderStockState; position: number | null }>, today: Date): PreOrderRowDto {
-  const paid = o.allocations.reduce((s, a) => s.add(d(a.amount)), new Decimal(0));
+  const paid = o.allocations.reduce((s, a) => s.add(decOrZero(a.amount)), new Decimal(0));
   const open = !o.fulfilledAt && o.status !== "CANCELLED";
   const q = open ? queue.get(o.id) : undefined;
   return {
@@ -95,7 +94,7 @@ function toRow(o: PreOrderRow, queue: Map<string, { state: PreOrderStockState; p
     units: o.lines.reduce((s, l) => s + l.quantity, 0),
     grandTotal: money(o.grandTotal),
     paid: money(paid),
-    due: money(Decimal.max(d(o.grandTotal).sub(paid), 0)),
+    due: money(Decimal.max(decOrZero(o.grandTotal).sub(paid), 0)),
     stockState: q?.state ?? null,
     queuePosition: q?.position ?? null,
   };
@@ -125,10 +124,18 @@ export async function listPreOrders(query: PreOrderListQuery) {
         })
       : Promise.resolve([]),
   ]);
-  // The queue is always worked out over every open pre-order; filters only decide what's shown.
+  // The queue is always worked out over every open pre-order; filters only decide what's shown. The search is
+  // the same Prisma filter as for closed ones, run over the open ids only (no second full load).
   const { result } = await stockQueue(open);
-  const visible = new Set((await openPreOrders(search)).map((o) => o.id));
-  let rows = [...open.filter((o) => visible.has(o.id)), ...closed].map((o) => toRow(o, result, today));
+  const filtered = query.q || query.customerId;
+  const visible = filtered
+    ? new Set(
+        (await prisma.salesOrder.findMany({ where: { id: { in: open.map((o) => o.id) }, ...search }, select: { id: true } })).map(
+          (o) => o.id,
+        ),
+      )
+    : null;
+  let rows = [...open.filter((o) => !visible || visible.has(o.id)), ...closed].map((o) => toRow(o, result, today));
   if (query.state) rows = rows.filter((r) => r.stockState === query.state);
   if (query.overdue !== undefined) rows = rows.filter((r) => r.overdue === query.overdue);
   const { skip, take } = pageWindow(query);
@@ -140,7 +147,7 @@ export async function preOrderSummary(): Promise<PreOrderSummaryDto> {
   const open = await openPreOrders();
   const { result } = await stockQueue(open);
   const count = (state: PreOrderStockState) => [...result.values()].filter((r) => r.state === state).length;
-  const advances = open.reduce((s, o) => s.add(o.allocations.reduce((t, a) => t.add(d(a.amount)), new Decimal(0))), new Decimal(0));
+  const advances = open.reduce((s, o) => s.add(o.allocations.reduce((t, a) => t.add(decOrZero(a.amount)), new Decimal(0))), new Decimal(0));
   return {
     open: open.length,
     awaiting: count("AWAITING"),
@@ -173,9 +180,12 @@ export async function waitingItems(): Promise<WaitingItemDto[]> {
       items.set(l.variantId, item);
     }
   }
+  const variantsAt = new Map<string, string[]>();
   for (const item of items.values()) {
-    for (const locationId of item.locations)
-      item.available += Math.max((await availableAt(prisma, locationId, [item.variantId])).get(item.variantId) ?? 0, 0);
+    for (const locationId of item.locations) variantsAt.set(locationId, [...(variantsAt.get(locationId) ?? []), item.variantId]);
+  }
+  for (const [locationId, variantIds] of variantsAt) {
+    for (const [variantId, qty] of await availableAt(prisma, locationId, variantIds)) items.get(variantId)!.available += Math.max(qty, 0);
   }
   return [...items.values()].map(({ locations: _locations, ...rest }) => rest).sort((a, b) => b.awaitedUnits - a.awaitedUnits);
 }

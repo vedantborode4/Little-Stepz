@@ -1,10 +1,8 @@
 import { prisma, type Prisma } from "@repo/crm-db/client";
 import type { SalesSummaryDto, SalesSummaryQuery } from "@repo/crm-schema";
 import { toDbDate } from "../../core/dates";
-import { Decimal, money } from "../../core/money";
+import { decOrZero, money } from "../../core/money";
 import type { Visibility } from "./sales.mappers";
-
-const d = (v: Prisma.Decimal | null | undefined) => new Decimal((v ?? 0).toString());
 
 /**
  * Sales recognised in a period: orders fulfilled (handed over or dispatched) on
@@ -37,13 +35,13 @@ export async function salesSummary(query: SalesSummaryQuery, visibility: Visibil
     to: query.to,
     orders: orders._count,
     units: (lines._sum.quantity ?? 0) - (returnLines._sum.quantity ?? 0),
-    grossSales: money(d(orders._sum.grandTotal)),
-    netSales: money(d(orders._sum.taxableTotal).sub(d(returns._sum.taxableValue))),
-    gst: money(d(orders._sum.gstTotal).sub(d(returns._sum.gstAmount))),
-    discounts: money(d(orders._sum.lineDiscounts).add(d(orders._sum.orderDiscount))),
-    returns: money(d(returns._sum.amount)),
+    grossSales: money(decOrZero(orders._sum.grandTotal)),
+    netSales: money(decOrZero(orders._sum.taxableTotal).sub(decOrZero(returns._sum.taxableValue))),
+    gst: money(decOrZero(orders._sum.gstTotal).sub(decOrZero(returns._sum.gstAmount))),
+    discounts: money(decOrZero(orders._sum.lineDiscounts).add(decOrZero(orders._sum.orderDiscount))),
+    returns: money(decOrZero(returns._sum.amount)),
     returnsCount: returns._count,
-    byChannel: byChannel.map((c) => ({ channel: c.channel, orders: c._count, grossSales: money(d(c._sum.grandTotal)) })),
+    byChannel: byChannel.map((c) => ({ channel: c.channel, orders: c._count, grossSales: money(decOrZero(c._sum.grandTotal)) })),
   };
 
   if (visibility.costs) {
@@ -56,13 +54,13 @@ export async function salesSummary(query: SalesSummaryQuery, visibility: Visibil
       prisma.salesReturnLine.aggregate({ where: knownReturn, _sum: { taxableValue: true } }),
       prisma.salesReturnLine.aggregate({ where: { ...knownReturn, condition: { not: "WRITE_OFF" } }, _sum: { cogs: true } }),
     ]);
-    const shippingTaxable = d(orders._sum.taxableTotal).sub(d(lines._sum.taxableValue));
-    const shippingRefundTaxable = d(returns._sum.taxableValue).sub(d(returnLines._sum.taxableValue));
-    const netKnownSales = d(known._sum.taxableValue)
+    const shippingTaxable = decOrZero(orders._sum.taxableTotal).sub(decOrZero(lines._sum.taxableValue));
+    const shippingRefundTaxable = decOrZero(returns._sum.taxableValue).sub(decOrZero(returnLines._sum.taxableValue));
+    const netKnownSales = decOrZero(known._sum.taxableValue)
       .add(shippingTaxable)
-      .sub(d(returnedKnown._sum.taxableValue))
+      .sub(decOrZero(returnedKnown._sum.taxableValue))
       .sub(shippingRefundTaxable);
-    const cogs = d(known._sum.cogs).sub(d(restocked._sum.cogs));
+    const cogs = decOrZero(known._sum.cogs).sub(decOrZero(restocked._sum.cogs));
     summary.cogs = money(cogs);
     summary.grossProfit = money(netKnownSales.sub(cogs));
     summary.unknownCostUnits = lines._sum.unknownCostQty ?? 0;

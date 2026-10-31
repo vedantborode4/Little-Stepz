@@ -264,7 +264,7 @@ export default function Dashboard() {
                   <StatCard
                     title="Contribution profit"
                     value={formatMoney(data.profit.contributionProfit)}
-                    hint="After courier, payment fees and order costs"
+                    hint="After courier, payment fees, order costs and late purchase charges"
                     icon={<TrendingUp size={18} />}
                     color={tone.blue}
                   />

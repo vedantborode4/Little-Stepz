@@ -1051,6 +1051,12 @@ export interface ProfitWaterfallDto {
   paymentFees: string;
   /** Expenses recorded against orders (packaging, extra courier…). */
   orderExpenses: string;
+  /**
+   * Late purchase charges for units no longer in stock (sold, written off or
+   * returned to the supplier), dated by the charge. A cost of the period, but
+   * kept out of gross profit, which only covers sales whose cost is known.
+   */
+  lateCharges: string;
   contributionProfit: string;
   operatingExpenses: string;
   operatingProfit: string;

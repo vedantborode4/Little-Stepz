@@ -131,6 +131,9 @@ export async function listCounts(query: StockCountListQuery, rights: CountRights
   );
 }
 
+/** A whole-store count touches thousands of rows; the default 5 s transaction is too short. */
+const LARGE_COUNT_TX = { timeout: 120_000 };
+
 async function sellableAt(tx: Tx, locationId: string, variantIds: string[]) {
   const rows = await tx.stockBalance.findMany({ where: { locationId, bucket: "SELLABLE", variantId: { in: variantIds } } });
   return new Map(rows.map((r) => [r.variantId, r.quantity]));
@@ -169,7 +172,7 @@ export async function createCount(input: CreateStockCountInput, ctx: RequestCont
       after: { code: count.code, locationId: input.locationId, lines: inScope.length, blind: input.blind },
     });
     return count.id;
-  });
+  }, LARGE_COUNT_TX);
   return getCount(id, rights);
 }
 
@@ -190,10 +193,26 @@ export async function saveCounts(id: string, input: SaveCountsInput, ctx: Reques
     const ids = new Set(count.lines.map((l) => l.id));
     if (input.lines.some((l) => !ids.has(l.lineId))) throw new ApiError(400, "INVALID_LINE", "A line doesn't belong to this count");
     const now = new Date();
+    // A line is compared with the system's figure when it was first counted, not when the count started, so sales
+    // or receipts in between aren't counted twice at approval. Correcting a counted line (a typo) keeps that
+    // moment; clearing it and counting again takes a new one.
+    const existing = new Map(count.lines.map((l) => [l.id, l]));
+    const firstCounted = input.lines.filter((l) => l.countedQty !== null && existing.get(l.lineId)!.countedQty === null);
+    const stock = await sellableAt(
+      tx,
+      count.locationId,
+      firstCounted.map((l) => existing.get(l.lineId)!.variantId),
+    );
+    const refresh = new Set(firstCounted.map((l) => l.lineId));
     for (const l of input.lines) {
+      const line = existing.get(l.lineId)!;
       await tx.stockCountLine.update({
         where: { id: l.lineId },
-        data: { countedQty: l.countedQty, countedAt: l.countedQty === null ? null : now },
+        data: {
+          countedQty: l.countedQty,
+          countedAt: l.countedQty === null ? null : refresh.has(l.lineId) ? now : line.countedAt,
+          ...(refresh.has(l.lineId) && { systemQty: stock.get(line.variantId) ?? 0 }),
+        },
       });
     }
     await recordAudit(tx, ctx, {
@@ -202,7 +221,7 @@ export async function saveCounts(id: string, input: SaveCountsInput, ctx: Reques
       entityId: id,
       after: { linesSaved: input.lines.length },
     });
-  });
+  }, LARGE_COUNT_TX);
   return getCount(id, rights);
 }
 
@@ -254,8 +273,8 @@ export async function sendBack(id: string, reason: string, ctx: RequestContext, 
 /**
  * Posts every difference as one ADJUSTMENT document tagged with this count:
  * found units come in at the current average cost, missing units leave at it.
- * The adjustment is applied to today's balance, i.e. movements made while the
- * count was going on are assumed to have happened after the snapshot.
+ * Each difference is against the system's figure when that line was counted,
+ * so stock that moved after counting stays as it moved.
  */
 export async function approveCount(id: string, input: ApproveStockCountInput, ctx: RequestContext, rights: CountRights) {
   await withTransaction(async (tx) => {
@@ -308,7 +327,7 @@ export async function approveCount(id: string, input: ApproveStockCountInput, ct
         differences: differences.map((l) => ({ variantId: l.variantId, system: l.systemQty, counted: l.countedQty })),
       },
     });
-  });
+  }, LARGE_COUNT_TX);
   return getCount(id, rights);
 }
 
@@ -338,6 +357,6 @@ export async function reverseCount(id: string, reason: string, ctx: RequestConte
       entityId: id,
       after: { code: count.code, reversal: reversal.code, reason },
     });
-  });
+  }, LARGE_COUNT_TX);
   return getCount(id, rights);
 }

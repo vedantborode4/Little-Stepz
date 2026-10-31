@@ -101,7 +101,7 @@ export async function getImport(id: string): Promise<ImportBatchDto> {
   const [sampleRows, suggested, blocker] = await Promise.all([
     prisma.importRow.findMany({ where: { batchId: id }, orderBy: { rowNumber: "asc" }, take: 5, select: { raw: true } }),
     asMapping(b.mapping) ? Promise.resolve(asMapping(b.mapping)!) : suggestMapping(b.kind, headers),
-    b.status === "IMPORTED" ? IMPORT_HANDLERS[b.kind].rollbackBlocker(ref(b), await createdRows(id)) : Promise.resolve(null),
+    b.status === "IMPORTED" ? IMPORT_HANDLERS[b.kind].rollbackBlocker(prisma, ref(b), await createdRows(id)) : Promise.resolve(null),
   ]);
   return {
     ...toListItem(b),
@@ -347,11 +347,12 @@ export async function rollbackImport(id: string, reason: string, ctx: RequestCon
   if (batch.status !== "IMPORTED") throw new ApiError(409, "IMPORT_NOT_IMPORTED", `${batch.code} has nothing to roll back`);
   const handler = IMPORT_HANDLERS[batch.kind];
   const rows = await createdRows(id);
-  const blocker = await handler.rollbackBlocker(ref(batch), rows);
-  if (blocker) throw new ApiError(409, "IMPORT_IN_USE", `Can't roll back ${batch.code}: ${blocker}`);
 
   await withTransaction(
     async (tx) => {
+      await handler.lockForRollback(tx, ref(batch), rows);
+      const blocker = await handler.rollbackBlocker(tx, ref(batch), rows);
+      if (blocker) throw new ApiError(409, "IMPORT_IN_USE", `Can't roll back ${batch.code}: ${blocker}`);
       const claimed = await tx.importBatch.updateMany({
         where: { id, status: "IMPORTED" },
         data: { status: "ROLLED_BACK", rolledBackById: ctx.userId, rolledBackAt: new Date(), rollbackReason: reason },

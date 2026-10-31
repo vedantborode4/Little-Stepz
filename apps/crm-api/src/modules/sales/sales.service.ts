@@ -20,7 +20,8 @@ import { nextCode } from "../../core/sequence";
 import { assertActiveLocations } from "../inventory/inventory.service";
 import { availableAt, releaseReservations, reserveStock } from "../inventory/reservations";
 import { postStockDocument } from "../inventory/stock-engine";
-import { applyCredit, recordReceipt, settleCancelledOrder } from "../payments/ledger";
+import { applyCredit, lockCustomer, recordReceipt, settleCancelledOrder } from "../payments/ledger";
+import { outstandingSummary } from "../payments/payments.queries";
 import { resolveUnitPrice } from "./pricing";
 import { orderDetailInclude, orderListInclude, toOrderDetailDto, toOrderListItemDto, type Visibility } from "./sales.mappers";
 import { computeSaleTotals } from "./totals";
@@ -377,10 +378,10 @@ const wrongStatus = (code: string, status: SalesOrderStatus, action: string) =>
 
 /**
  * Walk-in sales must be paid in full (there's no one to collect from later). A
- * known customer may pay part now and owe the rest, or overpay and keep the
+ * known customer may pay part now and owe the rest (within their credit terms), or overpay and keep the
  * excess as credit — but only when that's explicitly chosen.
  */
-function assertTenderCovers(input: PosSaleInput, cart: PricedCart) {
+async function assertTenderCovers(tx: Tx, input: PosSaleInput, cart: PricedCart) {
   const credit = dec(input.creditAmount);
   const total = cart.totals.grandTotal;
   if (credit.gt(0) && !cart.customer) throw new ApiError(400, "CUSTOMER_REQUIRED", "Choose the customer whose credit is being used");
@@ -395,6 +396,7 @@ function assertTenderCovers(input: PosSaleInput, cart: PricedCart) {
       due: money(total.sub(tendered)),
     });
   }
+  if (tendered.lt(total) && cart.customer) await assertCreditAllowed(tx, cart.customer, total.sub(tendered));
   if (tendered.gt(total) && !(input.excessToCredit && cart.customer)) {
     throw new ApiError(
       400,
@@ -403,6 +405,34 @@ function assertTenderCovers(input: PosSaleInput, cart: PricedCart) {
       {
         excess: money(tendered.sub(total)),
       },
+    );
+  }
+}
+
+/**
+ * Goods leave the counter with money owed only on the customer's credit terms:
+ * blank credit days means they pay at purchase, and a credit limit caps what
+ * they may owe on handed-over orders, this sale included.
+ */
+async function assertCreditAllowed(tx: Tx, customer: NonNullable<PricedCart["customer"]>, owed: Decimal) {
+  if (customer.creditDays === null) {
+    throw new ApiError(
+      400,
+      "CREDIT_NOT_ALLOWED",
+      `${customer.name} pays at purchase: ${money(owed)} is still due. Take the full amount, or give them credit days on their customer page.`,
+      { due: money(owed) },
+    );
+  }
+  if (customer.creditLimit === null) return;
+  // The sale already holds the customer lock (see posSale), so two tills can't both use the last of the limit.
+  const outstanding = dec((await outstandingSummary({ customerId: customer.id }, tx)).receivable);
+  const limit = dec(customer.creditLimit.toString());
+  if (outstanding.add(owed).gt(limit)) {
+    throw new ApiError(
+      409,
+      "CREDIT_LIMIT_EXCEEDED",
+      `${customer.name} already owes ${money(outstanding)}; leaving ${money(owed)} unpaid would pass their ${money(limit)} credit limit.`,
+      { outstanding: money(outstanding), limit: money(limit), due: money(owed) },
     );
   }
 }
@@ -444,7 +474,9 @@ export async function createPosSale(input: PosSaleInput, ctx: RequestContext, ri
     const id = await withTransaction(async (tx) => {
       await assertActiveLocations(tx, [input.locationId]);
       const cart = await priceCart(tx, input, rights);
-      assertTenderCovers(input, cart);
+      // Customer before stock, the order every path that holds both uses (credit limit, credit, overpayment).
+      if (cart.customer) await lockCustomer(tx, cart.customer.id);
+      await assertTenderCovers(tx, input, cart);
       const today = todayIST();
       const order = await tx.salesOrder.create({
         data: {

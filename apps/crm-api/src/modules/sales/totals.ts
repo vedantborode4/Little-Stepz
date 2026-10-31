@@ -1,4 +1,4 @@
-import { Decimal } from "../../core/money";
+import { Decimal, round2 } from "../../core/money";
 import { ApiError } from "../../core/http";
 
 export interface PricedLine {
@@ -26,8 +26,6 @@ export interface SaleTotals {
   taxableTotal: Decimal;
   gstTotal: Decimal;
 }
-
-const round2 = (v: Decimal) => v.toDecimalPlaces(2, Decimal.ROUND_HALF_EVEN);
 
 /** Prices include GST: the taxable value is backed out and GST is the remainder, so the two always add up to the price. */
 export function backOutGst(inclusive: Decimal, rate: Decimal): { taxable: Decimal; gst: Decimal } {

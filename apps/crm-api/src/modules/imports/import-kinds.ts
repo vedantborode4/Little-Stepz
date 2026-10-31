@@ -1,4 +1,4 @@
-import { prisma, type Tx } from "@repo/crm-db/client";
+import { prisma, Prisma, type Tx } from "@repo/crm-db/client";
 import {
   createCustomerSchema,
   createProductSchema,
@@ -13,7 +13,10 @@ import type { z } from "zod";
 import type { RequestContext } from "../../core/http";
 import { createCustomerInTx } from "../customers/customers.service";
 import { recordOpeningStockInTx, reverseDocumentInTx } from "../inventory/inventory.service";
+import { lockVariants } from "../inventory/stock-engine";
 import { createProductInTx } from "../products/products.service";
+
+type Db = Tx | typeof prisma;
 
 /** A data row with its values re-keyed by target field (unmapped fields absent). */
 export interface FieldRow {
@@ -59,8 +62,13 @@ export interface CreatedRow {
 interface KindHandler<P> {
   check(rows: FieldRow[], batch: BatchRef): Promise<CheckOutcome<P>>;
   create(tx: Tx, ctx: RequestContext, batch: BatchRef, units: Unit<P>[]): Promise<Created>;
+  /**
+   * Locks the rows any new use of the batch's records must touch, so nothing
+   * can start using them between the rollback's blocker check and the rollback.
+   */
+  lockForRollback(tx: Tx, batch: BatchRef, rows: CreatedRow[]): Promise<void>;
   /** Why the batch can't be undone any more, or null when it can. */
-  rollbackBlocker(batch: BatchRef, rows: CreatedRow[]): Promise<string | null>;
+  rollbackBlocker(db: Db, batch: BatchRef, rows: CreatedRow[]): Promise<string | null>;
   rollback(tx: Tx, ctx: RequestContext, batch: BatchRef, rows: CreatedRow[], reason: string): Promise<void>;
 }
 
@@ -266,9 +274,15 @@ const products: KindHandler<CreateProductInput> = {
     return { entities };
   },
 
-  async rollbackBlocker(_batch, rows) {
+  async lockForRollback(tx, _batch, rows) {
+    // New sale lines, movements and prices key-share these rows, so they wait for the rollback.
     const variantIds = rows.filter((r) => r.createdEntity === "Variant").map((r) => r.createdEntityId!);
-    const used = await prisma.variant.findFirst({
+    if (variantIds.length) await tx.$queryRaw`SELECT id FROM "Variant" WHERE id IN (${Prisma.join(variantIds)}) ORDER BY id FOR UPDATE`;
+  },
+
+  async rollbackBlocker(db, _batch, rows) {
+    const variantIds = rows.filter((r) => r.createdEntity === "Variant").map((r) => r.createdEntityId!);
+    const used = await db.variant.findFirst({
       where: {
         id: { in: variantIds },
         OR: [
@@ -364,10 +378,18 @@ const openingStock: KindHandler<OpeningPayload> = {
     return { entities, stockDocumentId: doc.id };
   },
 
-  async rollbackBlocker(batch) {
+  async lockForRollback(tx, batch) {
+    if (!batch.stockDocumentId) return;
+    // The stock engine's own per-variant lock: every posting takes it first, in the same order, so no movement
+    // (including one into a location with no balance row yet) can slip in after the check, and nothing deadlocks.
+    const lines = await tx.stockMovement.findMany({ where: { documentId: batch.stockDocumentId }, select: { variantId: true } });
+    if (lines.length) await lockVariants(tx, [...new Set(lines.map((l) => l.variantId))]);
+  },
+
+  async rollbackBlocker(db, batch) {
     if (!batch.stockDocumentId) return null;
-    const lines = await prisma.stockMovement.findMany({ where: { documentId: batch.stockDocumentId }, select: { variantId: true } });
-    const moved = await prisma.stockMovement.findFirst({
+    const lines = await db.stockMovement.findMany({ where: { documentId: batch.stockDocumentId }, select: { variantId: true } });
+    const moved = await db.stockMovement.findFirst({
       where: { variantId: { in: lines.map((l) => l.variantId) }, documentId: { not: batch.stockDocumentId } },
       select: { variant: { select: { sku: true } } },
     });
@@ -444,9 +466,15 @@ const customers: KindHandler<CreateCustomerInput> = {
     return { entities };
   },
 
-  async rollbackBlocker(_batch, rows) {
+  async lockForRollback(tx, _batch, rows) {
+    // New orders, payments and prices key-share these rows, so they wait for the rollback.
     const ids = rows.filter((r) => r.createdEntity === "Customer").map((r) => r.createdEntityId!);
-    const used = await prisma.customer.findFirst({
+    if (ids.length) await tx.$queryRaw`SELECT id FROM "Customer" WHERE id IN (${Prisma.join(ids)}) ORDER BY id FOR UPDATE`;
+  },
+
+  async rollbackBlocker(db, _batch, rows) {
+    const ids = rows.filter((r) => r.createdEntity === "Customer").map((r) => r.createdEntityId!);
+    const used = await db.customer.findFirst({
       where: {
         id: { in: ids },
         OR: [

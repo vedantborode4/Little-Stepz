@@ -425,7 +425,7 @@ describe("records, visibility and revenue timing", () => {
 
   it("shows order totals on the customer and moves orders when customers merge", async () => {
     const variantId = await simple({}, 3);
-    const [keep, dup] = await Promise.all([customer(), customer()]);
+    const [keep, dup] = await Promise.all([customer({ creditDays: 30 }), customer({ creditDays: 30 })]);
     await pos(cashier, { customerId: dup, lines: [{ variantId, quantity: 1 }] });
     await pos(cashier, { customerId: keep, lines: [{ variantId, quantity: 1 }] });
     const merged = await api().post(`/api/v1/customers/${dup}/merge`).set(admin.auth).send({ intoId: keep, reason: "Same person" });

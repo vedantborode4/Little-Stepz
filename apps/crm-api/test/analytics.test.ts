@@ -161,7 +161,7 @@ describe("Profit waterfall", () => {
     expect(delta(after, before, "grossProfit")).toBe(netDelta.sub(1500).toFixed(2));
 
     expect(dec(after.contributionProfit).toFixed(2)).toBe(
-      dec(after.grossProfit).sub(after.shippingExpense).sub(after.paymentFees).sub(after.orderExpenses).toFixed(2),
+      dec(after.grossProfit).sub(after.shippingExpense).sub(after.paymentFees).sub(after.orderExpenses).sub(after.lateCharges).toFixed(2),
     );
     expect(dec(after.operatingProfit).toFixed(2)).toBe(dec(after.contributionProfit).sub(after.operatingExpenses).toFixed(2));
   });

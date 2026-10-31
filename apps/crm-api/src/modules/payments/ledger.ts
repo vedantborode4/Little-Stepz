@@ -3,7 +3,7 @@ import type { CancelSettlementInput, PaymentStatus } from "@repo/crm-schema";
 import { recordAudit } from "../../core/audit";
 import { resolveBusinessDate } from "../../core/dates";
 import { ApiError, notFound, type RequestContext } from "../../core/http";
-import { Decimal, money } from "../../core/money";
+import { Decimal, decOrZero, money, round2 } from "../../core/money";
 import { nextCode } from "../../core/sequence";
 import { assertCashDaysOpen } from "../cash/cash-lock";
 
@@ -13,8 +13,6 @@ import { assertCashDaysOpen } from "../cash/cash-lock";
  */
 
 type Db = Tx | typeof prisma;
-const d = (v: Prisma.Decimal | null | undefined) => new Decimal((v ?? 0).toString());
-const round2 = (v: Decimal) => v.toDecimalPlaces(2, Decimal.ROUND_HALF_EVEN);
 
 /** `total` is the order's net value: its grand total less anything returned. */
 export function paymentStatus(total: Decimal, paid: Decimal, refunded: boolean): PaymentStatus {
@@ -23,17 +21,24 @@ export function paymentStatus(total: Decimal, paid: Decimal, refunded: boolean):
   return paid.eq(total) ? "PAID" : "PARTIAL";
 }
 
-/** What each order has been paid (sum of signed allocations) and whether money was ever given back. */
-export async function orderPayments(db: Db, orderIds: string[]): Promise<Map<string, { paid: Decimal; refunded: boolean }>> {
-  const result = new Map(orderIds.map((id) => [id, { paid: new Decimal(0), refunded: false }]));
+/**
+ * Money that went back to the customer and still stands: a refund payment, or
+ * value given back as store credit (no payment). A void also leaves a negative
+ * allocation (the mirror of a receipt), and a refund can itself be voided;
+ * neither of those is a refund.
+ */
+export const refundPaymentSelect = { reversalOfId: true, reversedBy: { select: { id: true } } } satisfies Prisma.PaymentSelect;
+export const isStandingRefund = (a: {
+  amount: Prisma.Decimal;
+  payment: { reversalOfId: string | null; reversedBy: { id: string } | null } | null;
+}) => a.amount.isNegative() && (a.payment === null || (a.payment.reversalOfId === null && a.payment.reversedBy === null));
+
+/** What each order has been paid: the sum of its signed allocations. */
+export async function orderPaid(db: Db, orderIds: string[]): Promise<Map<string, Decimal>> {
+  const result = new Map(orderIds.map((id) => [id, new Decimal(0)]));
   if (orderIds.length === 0) return result;
-  const rows = await db.paymentAllocation.groupBy({
-    by: ["orderId"],
-    where: { orderId: { in: orderIds } },
-    _sum: { amount: true },
-    _min: { amount: true },
-  });
-  for (const r of rows) result.set(r.orderId, { paid: d(r._sum.amount), refunded: d(r._min.amount).isNegative() });
+  const rows = await db.paymentAllocation.groupBy({ by: ["orderId"], where: { orderId: { in: orderIds } }, _sum: { amount: true } });
+  for (const r of rows) result.set(r.orderId, decOrZero(r._sum.amount));
   return result;
 }
 
@@ -42,13 +47,13 @@ export async function orderReturned(db: Db, orderIds: string[]): Promise<Map<str
   const result = new Map(orderIds.map((id) => [id, new Decimal(0)]));
   if (orderIds.length === 0) return result;
   const rows = await db.salesReturn.groupBy({ by: ["orderId"], where: { orderId: { in: orderIds } }, _sum: { amount: true } });
-  for (const r of rows) result.set(r.orderId, d(r._sum.amount));
+  for (const r of rows) result.set(r.orderId, decOrZero(r._sum.amount));
   return result;
 }
 
 export async function creditBalance(db: Db, customerId: string): Promise<Decimal> {
   const sum = await db.customerCreditEntry.aggregate({ where: { customerId }, _sum: { amount: true } });
-  return d(sum._sum.amount);
+  return decOrZero(sum._sum.amount);
 }
 
 /** Order rows are locked (in id order) before money is applied, so two payments can't both fill the same balance. */
@@ -60,14 +65,18 @@ async function lockOrders(tx: Tx, ids: string[]) {
     where: { id: { in: sorted } },
     select: { id: true, code: true, status: true, customerId: true, grandTotal: true },
   });
-  const [paid, returned] = await Promise.all([orderPayments(tx, sorted), orderReturned(tx, sorted)]);
-  return new Map(rows.map((o) => [o.id, { ...o, total: d(o.grandTotal).sub(returned.get(o.id)!), paid: paid.get(o.id)!.paid }]));
+  const [paid, returned] = await Promise.all([orderPaid(tx, sorted), orderReturned(tx, sorted)]);
+  return new Map(rows.map((o) => [o.id, { ...o, total: decOrZero(o.grandTotal).sub(returned.get(o.id)!), paid: paid.get(o.id)! }]));
 }
 
 type LockedOrder = { id: string; code: string; status: string; customerId: string | null; total: Decimal; paid: Decimal };
 
-/** The customer row is the lock for spending their credit. */
-async function lockCustomer(tx: Tx, customerId: string) {
+/**
+ * The customer row is the lock for spending their credit or using their credit
+ * limit. A POS sale takes it before any stock lock, so every path that holds
+ * both takes them in the same order.
+ */
+export async function lockCustomer(tx: Tx, customerId: string) {
   await tx.$queryRaw`SELECT id FROM "Customer" WHERE id = ${customerId} FOR UPDATE`;
   const customer = await tx.customer.findUnique({ where: { id: customerId }, select: { id: true, mergedIntoId: true, isActive: true } });
   if (!customer) throw notFound("Customer");
@@ -150,7 +159,7 @@ export async function recordReceipt(tx: Tx, ctx: RequestContext, input: ReceiptI
     await lockCustomer(tx, input.customerId);
   }
 
-  const fee = input.fee ?? round2(input.amount.mul(d(account.feePercent)).div(100));
+  const fee = input.fee ?? round2(input.amount.mul(decOrZero(account.feePercent)).div(100));
   if (fee.gt(input.amount))
     throw new ApiError(400, "FEE_TOO_HIGH", "The fee can't exceed the amount", { fieldErrors: { fee: ["More than the amount"] } });
 
@@ -320,7 +329,7 @@ export async function settleCancelledOrder(
   order: { id: string; code: string; customerId: string | null },
   settlement: CancelSettlementInput | undefined,
 ) {
-  const { paid } = (await orderPayments(tx, [order.id])).get(order.id)!;
+  const paid = (await orderPaid(tx, [order.id])).get(order.id)!;
   if (paid.lte(0)) return;
   if (!settlement) {
     throw new ApiError(
@@ -362,7 +371,7 @@ export async function voidPayment(tx: Tx, ctx: RequestContext, paymentId: string
   );
   for (const a of original.allocations) {
     const order = orders.get(a.orderId)!;
-    const paidAfter = order.paid.sub(d(a.amount));
+    const paidAfter = order.paid.sub(decOrZero(a.amount));
     if (order.status === "CANCELLED" || paidAfter.isNegative() || paidAfter.gt(order.total)) {
       throw new ApiError(409, "CANNOT_VOID", `Voiding would leave ${order.code} with an impossible balance; correct it there instead`);
     }
@@ -371,7 +380,7 @@ export async function voidPayment(tx: Tx, ctx: RequestContext, paymentId: string
   if (original.customerId && original.creditEntries.length) {
     await lockCustomer(tx, original.customerId);
     const balance = await creditBalance(tx, original.customerId);
-    const change = original.creditEntries.reduce((s, e) => s.sub(d(e.amount)), new Decimal(0));
+    const change = original.creditEntries.reduce((s, e) => s.sub(decOrZero(e.amount)), new Decimal(0));
     if (balance.add(change).isNegative()) {
       throw new ApiError(409, "CREDIT_ALREADY_USED", "The credit from this payment has already been used, so it can't be voided");
     }
@@ -393,7 +402,7 @@ export async function voidPayment(tx: Tx, ctx: RequestContext, paymentId: string
       notes: reason,
       reversalOfId: original.id,
       createdById: ctx.userId,
-      allocations: { createMany: { data: original.allocations.map((a) => ({ orderId: a.orderId, amount: d(a.amount).neg() })) } },
+      allocations: { createMany: { data: original.allocations.map((a) => ({ orderId: a.orderId, amount: decOrZero(a.amount).neg() })) } },
     },
   });
   for (const e of original.creditEntries) {
@@ -401,7 +410,7 @@ export async function voidPayment(tx: Tx, ctx: RequestContext, paymentId: string
       data: {
         customerId: e.customerId,
         type: "REVERSAL",
-        amount: d(e.amount).neg(),
+        amount: decOrZero(e.amount).neg(),
         paymentId: reversal.id,
         note: reason,
         createdById: ctx.userId,

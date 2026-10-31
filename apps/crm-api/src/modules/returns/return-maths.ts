@@ -1,5 +1,5 @@
 import { ApiError } from "../../core/http";
-import { Decimal } from "../../core/money";
+import { Decimal, round2 } from "../../core/money";
 
 export interface SoldLine {
   sku: string;
@@ -29,7 +29,6 @@ export interface ReturnLineAmounts {
   unknownCostQty: number;
 }
 
-const round2 = (v: Decimal) => v.toDecimalPlaces(2, Decimal.ROUND_HALF_EVEN);
 const round6 = (v: Decimal) => v.toDecimalPlaces(6, Decimal.ROUND_HALF_EVEN);
 
 /**

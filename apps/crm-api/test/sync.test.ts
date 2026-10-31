@@ -35,6 +35,36 @@ async function product(sku: string, extra: Record<string, unknown> = {}) {
   return res.body.data as { id: string; variants: { id: string }[] };
 }
 
+describe("a website product split across CRM products", () => {
+  it("links the first CRM product and reports the rest as a conflict, so linking still succeeds", async () => {
+    const s = uid();
+    const red = await product(`SPR-${s}`);
+    const blue = await product(`SPB-${s}`);
+    const source = liveSource([
+      {
+        id: `wp-split-${s}`,
+        name: "Split",
+        status: "ACTIVE",
+        variants: [
+          { id: `w-red-${s}`, sku: `SPR-${s}`, name: "Red", price: "999", salePrice: null, stock: 0 },
+          { id: `w-blue-${s}`, sku: `SPB-${s}`, name: "Blue", price: "999", salePrice: null, stock: 0 },
+        ],
+      },
+    ]);
+    const dry = await dryRun(ctx, source);
+    const plan = dry.plan!.products;
+    expect(plan.toLink.map((l) => l.sku)).toEqual([`SPR-${s}`]);
+    expect(plan.conflicts).toEqual([
+      expect.objectContaining({ sku: `SPB-${s}`, reason: expect.stringContaining("split across CRM products") }),
+    ]);
+
+    const result = await linkIds(dry.id, ctx, source);
+    expect(result).toMatchObject({ status: "SUCCEEDED", result: { linked: 1 } });
+    expect((await prisma.product.findUnique({ where: { id: red.id } }))!.websiteProductId).toBe(`wp-split-${s}`);
+    expect((await prisma.product.findUnique({ where: { id: blue.id } }))!.websiteProductId).toBeNull();
+  });
+});
+
 /** A stand-in for the live website: same contract, data under the test's control. */
 function liveSource(products: WebsiteProduct[]): WebsiteSource {
   return {

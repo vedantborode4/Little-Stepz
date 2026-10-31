@@ -67,15 +67,22 @@ export async function buildPlan(source: WebsiteSource): Promise<SyncPlanDto> {
         websiteVariantId: true,
         regularPrice: true,
         offerPrice: true,
-        product: { select: { name: true, websiteProductId: true } },
+        product: { select: { id: true, name: true, websiteProductId: true } },
       },
     }),
   ]);
   const stock = await stockTotals(crmVariants.map((v) => v.id));
   const bySku = new Map(crmVariants.map((v) => [v.sku, v]));
   const byWebsiteVariant = new Map(crmVariants.filter((v) => v.websiteVariantId).map((v) => [v.websiteVariantId!, v]));
-  const productLinkedTo = new Map<string, string>();
-  for (const v of crmVariants) if (v.product.websiteProductId) productLinkedTo.set(v.product.websiteProductId, v.product.name);
+  // Product links already saved plus those proposed earlier in this run, both ways, so two CRM products are
+  // never proposed for one website product (or the reverse): linking would break the unique website id.
+  const crmProductFor = new Map<string, { id: string; name: string }>();
+  const websiteProductFor = new Map<string, string>();
+  for (const v of crmVariants) {
+    if (!v.product.websiteProductId) continue;
+    crmProductFor.set(v.product.websiteProductId, v.product);
+    websiteProductFor.set(v.product.id, v.product.websiteProductId);
+  }
 
   const toLink: SyncLinkDto[] = [];
   const conflicts: SyncConflictDto[] = [];
@@ -132,15 +139,18 @@ export async function buildPlan(source: WebsiteSource): Promise<SyncPlanDto> {
         conflict(`That website variant is already linked to ${holder.sku}`);
         continue;
       }
-      if (crm.product.websiteProductId && crm.product.websiteProductId !== p.id) {
-        conflict(`The CRM product is linked to another website product (${crm.product.websiteProductId})`);
+      const otherWebsiteProduct = websiteProductFor.get(crm.product.id);
+      if (otherWebsiteProduct && otherWebsiteProduct !== p.id) {
+        conflict(`The CRM product ${crm.product.name} goes with another website product (${otherWebsiteProduct})`);
         continue;
       }
-      const productHolder = productLinkedTo.get(p.id);
-      if (productHolder && productHolder !== crm.product.name) {
-        conflict(`That website product is already linked to ${productHolder}`);
+      const productHolder = crmProductFor.get(p.id);
+      if (productHolder && productHolder.id !== crm.product.id) {
+        conflict(`That website product goes with the CRM product ${productHolder.name}; its variants are split across CRM products`);
         continue;
       }
+      crmProductFor.set(p.id, crm.product);
+      websiteProductFor.set(crm.product.id, p.id);
       toLink.push({
         sku,
         variantId: crm.id,

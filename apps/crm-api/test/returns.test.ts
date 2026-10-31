@@ -49,11 +49,11 @@ async function item(price: string, stock = 10, unitCost = "500") {
   return variantId;
 }
 
-async function customer() {
+async function customer(extra: Record<string, unknown> = {}) {
   const res = await api()
     .post("/api/v1/customers")
     .set(admin.auth)
-    .send({ name: `Returner ${uid()}`, mobile: `6${String(randomInt(0, 1e9)).padStart(9, "0")}` });
+    .send({ name: `Returner ${uid()}`, mobile: `6${String(randomInt(0, 1e9)).padStart(9, "0")}`, ...extra });
   return res.body.data.id as string;
 }
 
@@ -187,7 +187,7 @@ describe("return rules", () => {
 
   it("lets an unpaid credit sale simply owe less, with nothing refunded", async () => {
     const v = await item("1000");
-    const buyer = await customer();
+    const buyer = await customer({ creditDays: 30 });
     const s = await sale([{ variantId: v, quantity: 2 }], { customerId: buyer, payments: [] });
     const res = await ret(s.id, { lines: [{ orderLineId: lineOf(s, v), quantity: 1, condition: "RESELLABLE" }] });
     expect(res.body.data).toMatchObject({ refundMethod: "NONE", refundAmount: "0.00", amount: "1000.00" });
@@ -198,7 +198,7 @@ describe("return rules", () => {
 
   it("gives back only what was paid beyond the new value, as credit", async () => {
     const v = await item("1000");
-    const buyer = await customer();
+    const buyer = await customer({ creditDays: 30 });
     const s = await sale([{ variantId: v, quantity: 3 }], { customerId: buyer, payments: [{ accountId: cash, amount: "2500" }] });
     const res = await ret(s.id, {
       lines: [{ orderLineId: lineOf(s, v), quantity: 1, condition: "RESELLABLE" }],

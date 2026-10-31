@@ -13,19 +13,20 @@ import {
   type ValuationScenarioDto,
 } from "@repo/crm-schema";
 import { todayIST, toDbDate } from "../../core/dates";
-import { Decimal, money } from "../../core/money";
+import { Decimal, decOrZero, money, round2 } from "../../core/money";
 import { advancesSummary, collections, outstandingSummary } from "../payments/payments.queries";
 import { salesSummary } from "../sales/sales.reports";
 
-const d = (v: Prisma.Decimal | string | number | null | undefined) => new Decimal((v ?? 0).toString());
-const round2 = (v: Decimal) => v.toDecimalPlaces(2, Decimal.ROUND_HALF_EVEN);
 const pct = (part: Decimal, whole: Decimal) => (whole.isZero() ? null : part.div(whole).mul(100).toFixed(1));
 
 const range = (q: AnalyticsRangeQuery) => ({ gte: toDbDate(q.from), lte: toDbDate(q.to) });
 
 /** Money moved by rows that may be voided by mirror rows: originals count, reversals subtract. */
 function netOfReversals(rows: { reversalOfId: string | null; _sum: Record<string, Prisma.Decimal | null> }[], field: string) {
-  return rows.reduce((s, r) => (r.reversalOfId === null ? s.add(d(r._sum[field])) : s.sub(d(r._sum[field]))), new Decimal(0));
+  return rows.reduce(
+    (s, r) => (r.reversalOfId === null ? s.add(decOrZero(r._sum[field])) : s.sub(decOrZero(r._sum[field]))),
+    new Decimal(0),
+  );
 }
 
 /**
@@ -36,7 +37,7 @@ function netOfReversals(rows: { reversalOfId: string | null; _sum: Record<string
 export async function profitWaterfall(query: AnalyticsRangeQuery): Promise<ProfitWaterfallDto> {
   const dates = range(query);
   const fulfilled: Prisma.SalesOrderWhereInput = { fulfilledAt: { not: null }, fulfilledDate: dates };
-  const [summary, orders, returns, shipping, fees, expenses, reductions] = await Promise.all([
+  const [summary, orders, returns, shipping, fees, expenses, reductions, lateCharges] = await Promise.all([
     salesSummary(query, { costs: true }),
     prisma.salesOrder.aggregate({
       where: fulfilled,
@@ -51,10 +52,11 @@ export async function profitWaterfall(query: AnalyticsRangeQuery): Promise<Profi
       SELECT SUM(GREATEST(l."regularPrice" - l."unitPrice", 0) * l.quantity) AS total
       FROM "SalesOrderLine" l JOIN "SalesOrder" o ON o.id = l."orderId"
       WHERE o."fulfilledAt" IS NOT NULL AND o."fulfilledDate" BETWEEN ${dates.gte} AND ${dates.lte}`,
+    prisma.costAdjustmentLine.aggregate({ where: { adjustment: { businessDate: dates } }, _sum: { toCostOfSales: true } }),
   ]);
 
-  const grossProfit = d(summary.grossProfit);
-  const shippingExpense = d(shipping._sum.courierCost);
+  const grossProfit = decOrZero(summary.grossProfit);
+  const shippingExpense = decOrZero(shipping._sum.courierCost);
   const paymentFees = netOfReversals(fees, "fee");
   const orderExpenses = netOfReversals(
     expenses.filter((e) => e.kind === "ORDER"),
@@ -64,19 +66,20 @@ export async function profitWaterfall(query: AnalyticsRangeQuery): Promise<Profi
     expenses.filter((e) => e.kind === "OPERATING"),
     "amount",
   );
-  const contribution = grossProfit.sub(shippingExpense).sub(paymentFees).sub(orderExpenses);
-  const netSales = d(summary.netSales);
-  const returnsAmount = d(returns._sum.amount);
+  const lateChargeCost = decOrZero(lateCharges._sum.toCostOfSales);
+  const contribution = grossProfit.sub(shippingExpense).sub(paymentFees).sub(orderExpenses).sub(lateChargeCost);
+  const netSales = decOrZero(summary.netSales);
+  const returnsAmount = decOrZero(returns._sum.amount);
 
   return {
     from: query.from,
     to: query.to,
     orders: orders._count,
     units: summary.units,
-    grossSales: money(d(orders._sum.subtotal).add(d(orders._sum.shippingCharged))),
-    discounts: money(d(orders._sum.lineDiscounts).add(d(orders._sum.orderDiscount))),
+    grossSales: money(decOrZero(orders._sum.subtotal).add(decOrZero(orders._sum.shippingCharged))),
+    discounts: money(decOrZero(orders._sum.lineDiscounts).add(decOrZero(orders._sum.orderDiscount))),
     returns: money(returnsAmount),
-    netSalesInclGst: money(d(orders._sum.grandTotal).sub(returnsAmount)),
+    netSalesInclGst: money(decOrZero(orders._sum.grandTotal).sub(returnsAmount)),
     gst: summary.gst,
     netSales: summary.netSales,
     cogs: summary.cogs!,
@@ -85,10 +88,11 @@ export async function profitWaterfall(query: AnalyticsRangeQuery): Promise<Profi
     shippingExpense: money(shippingExpense),
     paymentFees: money(paymentFees),
     orderExpenses: money(orderExpenses),
+    lateCharges: money(lateChargeCost),
     contributionProfit: money(contribution),
     operatingExpenses: money(operatingExpenses),
     operatingProfit: money(contribution.sub(operatingExpenses)),
-    priceReductions: money(d(reductions[0]?.total)),
+    priceReductions: money(decOrZero(reductions[0]?.total)),
     unknownCostUnits: summary.unknownCostUnits ?? 0,
   };
 }
@@ -120,17 +124,17 @@ interface BreakdownRow {
 export async function profitBreakdown(query: ProfitBreakdownQuery): Promise<ProfitBreakdownRowDto[]> {
   const rows = await breakdownRows(query);
   return rows.map((r) => {
-    const grossProfit = d(r.netKnown).sub(d(r.cogs));
+    const grossProfit = decOrZero(r.netKnown).sub(decOrZero(r.cogs));
     return {
       key: r.key,
       label: r.label,
       sublabel: r.sub,
       units: r.units,
-      netSales: money(d(r.net)),
-      cogs: money(d(r.cogs)),
+      netSales: money(decOrZero(r.net)),
+      cogs: money(decOrZero(r.cogs)),
       grossProfit: money(grossProfit),
-      marginPercent: pct(grossProfit, d(r.netKnown)),
-      discounts: money(d(r.disc)),
+      marginPercent: pct(grossProfit, decOrZero(r.netKnown)),
+      discounts: money(decOrZero(r.disc)),
       unknownCostUnits: r.unknown,
     };
   });
@@ -243,12 +247,12 @@ export async function valuation(query: ValuationQuery): Promise<ValuationDto> {
     ORDER BY p.name, v.position`;
 
   const out: ValuationRowDto[] = rows.map((r) => {
-    const avg = r.valuedQty ? d(r.totalValue).div(r.valuedQty) : null;
+    const avg = r.valuedQty ? decOrZero(r.totalValue).div(r.valuedQty) : null;
     const unknown = Math.min(r.available, r.unvaluedQty ?? 0);
     const known = r.available - unknown;
-    const gst = d(r.gstRate);
-    const regular = d(r.regularPrice);
-    const offer = r.offerPrice ? d(r.offerPrice) : regular;
+    const gst = decOrZero(r.gstRate);
+    const regular = decOrZero(r.regularPrice);
+    const offer = r.offerPrice ? decOrZero(r.offerPrice) : regular;
     return {
       variantId: r.id,
       sku: r.sku,
@@ -260,7 +264,7 @@ export async function valuation(query: ValuationQuery): Promise<ValuationDto> {
       costValue: money(avg ? avg.mul(known) : new Decimal(0)),
       unknownCostUnits: unknown,
       regularPrice: money(regular),
-      offerPrice: r.offerPrice ? money(d(r.offerPrice)) : null,
+      offerPrice: r.offerPrice ? money(decOrZero(r.offerPrice)) : null,
       gstRate: gst.toString(),
       regular: scenario(regular, gst, r.available, known, avg),
       offer: scenario(offer, gst, r.available, known, avg),
@@ -273,11 +277,11 @@ export async function valuation(query: ValuationQuery): Promise<ValuationDto> {
   const netOf = (list: ValuationRowDto[], pick: (r: ValuationRowDto) => ValuationScenarioDto) =>
     list.reduce((s, r) => s.add(pick(r).profitNetOfGst).add(r.costValue), new Decimal(0));
   regular.marginPercent = pct(
-    d(regular.profitNetOfGst),
+    decOrZero(regular.profitNetOfGst),
     netOf(out, (r) => r.regular),
   );
   offer.marginPercent = pct(
-    d(offer.profitNetOfGst),
+    decOrZero(offer.profitNetOfGst),
     netOf(out, (r) => r.offer),
   );
   return {
@@ -401,7 +405,8 @@ export async function dashboard(query: DashboardQuery, rights: DashboardRights):
   ]);
 
   const shipCount = (...statuses: string[]) => shipments.filter((s) => statuses.includes(s.status)).reduce((n, s) => n + s._count, 0);
-  const sum = (pick: (r: (typeof mix)[number]) => boolean) => money(mix.filter(pick).reduce((s, r) => s.add(d(r.total)), new Decimal(0)));
+  const sum = (pick: (r: (typeof mix)[number]) => boolean) =>
+    money(mix.filter(pick).reduce((s, r) => s.add(decOrZero(r.total)), new Decimal(0)));
   const byDay = new Map(trend.map((t) => [t.day.toISOString().slice(0, 10), t]));
   const monthRange = { from: monthStart, to: today };
   const filter = { categoryId: query.categoryId, productId: query.productId };
@@ -452,15 +457,15 @@ export async function dashboard(query: DashboardQuery, rights: DashboardRights):
     trend: Array.from({ length: 30 }, (_, i) => {
       const date = addDays(trendFrom, i);
       const t = byDay.get(date);
-      return { date, grossSales: money(d(t?.gross)), netSales: money(d(t?.net)) };
+      return { date, grossSales: money(decOrZero(t?.gross)), netSales: money(decOrZero(t?.net)) };
     }),
     topBy,
     topProducts: top
-      .filter((r) => d(r.netSales).gt(0))
+      .filter((r) => decOrZero(r.netSales).gt(0))
       .slice(0, 5)
       .map((r) => ({ label: variantNames?.get(r.key) ?? r.label, netSales: r.netSales, units: r.units })),
     mixBy,
-    categoryMix: mixRows.filter((r) => d(r.netSales).gt(0)).map((r) => ({ label: r.label, netSales: r.netSales })),
+    categoryMix: mixRows.filter((r) => decOrZero(r.netSales).gt(0)).map((r) => ({ label: r.label, netSales: r.netSales })),
   };
 
   if (rights.payments) {
@@ -518,13 +523,17 @@ async function scopedSales(scope: Prisma.Sql, from: string, to: string) {
         JOIN "Variant" v ON v.id = rl."variantId" JOIN "Product" p ON p.id = v."productId"
         WHERE r."businessDate" ${dates} ${scope}) AS returned,
       (SELECT COUNT(DISTINCT "orderId") FROM sold)::int AS orders`;
-  return { grossSales: money(d(row?.gross)), netSales: money(d(row?.net).sub(d(row?.returned))), orders: row?.orders ?? 0 };
+  return {
+    grossSales: money(decOrZero(row?.gross)),
+    netSales: money(decOrZero(row?.net).sub(decOrZero(row?.returned))),
+    orders: row?.orders ?? 0,
+  };
 }
 
 /** Gross profit of the filtered products, by the same line rules as the profit breakdown. */
 async function scopedProfit(query: Omit<ProfitBreakdownQuery, "by">) {
   const rows = await breakdownRows({ ...query, by: "category" });
-  const total = (pick: (r: BreakdownRow) => Prisma.Decimal) => rows.reduce((s, r) => s.add(d(pick(r))), new Decimal(0));
+  const total = (pick: (r: BreakdownRow) => Prisma.Decimal) => rows.reduce((s, r) => s.add(decOrZero(pick(r))), new Decimal(0));
   const netKnown = total((r) => r.netKnown);
   const grossProfit = netKnown.sub(total((r) => r.cogs));
   return {

@@ -1,4 +1,4 @@
-import { prisma, Prisma } from "@repo/crm-db/client";
+import { prisma, Prisma, type Tx } from "@repo/crm-db/client";
 import type {
   AccountTransferDto,
   AdvanceRowDto,
@@ -20,10 +20,9 @@ import type {
 import { fromDbDate, todayIST, toDbDate } from "../../core/dates";
 import { notFound } from "../../core/http";
 import { buildOrderBy, pageWindow, paginated } from "../../core/list";
-import { Decimal, money } from "../../core/money";
+import { Decimal, decOrZero, money } from "../../core/money";
 import { creditBalance } from "./ledger";
 
-const d = (v: Prisma.Decimal | null | undefined) => new Decimal((v ?? 0).toString());
 const dateRange = (from?: string, to?: string) =>
   from || to ? { gte: from ? toDbDate(from) : undefined, lte: to ? toDbDate(to) : undefined } : undefined;
 
@@ -53,7 +52,7 @@ const toPaymentListItemDto = (p: PaymentRow): PaymentListItemDto => ({
   reference: p.reference,
   customer: p.customer,
   orderCodes: [...new Set(p.allocations.map((a) => a.order.code))],
-  creditAmount: money(p.creditEntries.reduce((s, e) => s.add(d(e.amount)), new Decimal(0))),
+  creditAmount: money(p.creditEntries.reduce((s, e) => s.add(decOrZero(e.amount)), new Decimal(0))),
   reversalOf: p.reversalOf,
   reversedBy: p.reversedBy,
   createdAt: p.createdAt.toISOString(),
@@ -163,8 +162,8 @@ export async function collections(query: CollectionsQuery): Promise<CollectionsD
   const byMethod = new Map<string, Acc>();
 
   for (const p of payments) {
-    const amount = d(p.amount);
-    const fee = d(p.fee);
+    const amount = decOrZero(p.amount);
+    const fee = decOrZero(p.fee);
     // A reversal undoes its original: a reversed receipt (OUT) reduces received, a reversed refund (IN) reduces refunded.
     const isReceipt = p.reversalOfId ? p.direction === "OUT" : p.direction === "IN";
     const sign = p.reversalOfId ? -1 : 1;
@@ -180,8 +179,8 @@ export async function collections(query: CollectionsQuery): Promise<CollectionsD
     }
   }
   for (const t of transfers) {
-    byAccount.get(t.fromAccountId)!.transfersOut = byAccount.get(t.fromAccountId)!.transfersOut.add(d(t.amount));
-    byAccount.get(t.toAccountId)!.transfersIn = byAccount.get(t.toAccountId)!.transfersIn.add(d(t.amount));
+    byAccount.get(t.fromAccountId)!.transfersOut = byAccount.get(t.fromAccountId)!.transfersOut.add(decOrZero(t.amount));
+    byAccount.get(t.toAccountId)!.transfersIn = byAccount.get(t.toAccountId)!.transfersIn.add(decOrZero(t.amount));
   }
 
   const sum = (pick: (a: Acc) => Decimal) => [...byAccount.values()].reduce((s, a) => s.add(pick(a)), new Decimal(0));
@@ -192,8 +191,8 @@ export async function collections(query: CollectionsQuery): Promise<CollectionsD
     accountIds.reduce((s, id) => s.add(byAccount.get(id)!.received.sub(byAccount.get(id)!.refunded)), new Decimal(0));
 
   const channels = new Map<SalesChannel | null, Decimal>();
-  for (const a of allocations) channels.set(a.order.channel, (channels.get(a.order.channel) ?? new Decimal(0)).add(d(a.amount)));
-  const toCredit = creditEntries.reduce((s, e) => s.add(d(e.amount)), new Decimal(0));
+  for (const a of allocations) channels.set(a.order.channel, (channels.get(a.order.channel) ?? new Decimal(0)).add(decOrZero(a.amount)));
+  const toCredit = creditEntries.reduce((s, e) => s.add(decOrZero(e.amount)), new Decimal(0));
   if (!toCredit.isZero()) channels.set(null, toCredit);
 
   return {
@@ -308,9 +307,9 @@ export async function listOutstanding(query: OutstandingQuery) {
     customer: r.customerId ? { id: r.customerId, code: r.customerCode!, name: r.customerName! } : null,
     orderDate: fromDbDate(r.orderDate),
     dueDate: r.dueDate ? fromDbDate(r.dueDate) : null,
-    grandTotal: money(d(r.grandTotal)),
-    paid: money(d(r.paid)),
-    due: money(d(r.due)),
+    grandTotal: money(decOrZero(r.grandTotal)),
+    paid: money(decOrZero(r.paid)),
+    due: money(decOrZero(r.due)),
     ageDays: r.ageDays,
     bucket: r.bucket,
     overdue: r.overdue,
@@ -319,9 +318,13 @@ export async function listOutstanding(query: OutstandingQuery) {
   return paginated(items, counted[0]?.count ?? 0, query);
 }
 
-export async function outstandingSummary(query: Pick<OutstandingQuery, "customerId">): Promise<OutstandingSummaryDto> {
+/** `db` lets a caller holding locks (the POS credit check) read inside its own transaction. */
+export async function outstandingSummary(
+  query: Pick<OutstandingQuery, "customerId">,
+  db: Tx | typeof prisma = prisma,
+): Promise<OutstandingSummaryDto> {
   const base = outstandingSql(query, todayIST());
-  const [row] = await prisma.$queryRaw<
+  const [row] = await db.$queryRaw<
     {
       orders: number;
       total: Prisma.Decimal;
@@ -339,15 +342,15 @@ export async function outstandingSummary(query: Pick<OutstandingQuery, "customer
       COALESCE(SUM(due) FILTER (WHERE bucket = '31-60'), 0) AS b2,
       COALESCE(SUM(due) FILTER (WHERE bucket = '60+'), 0) AS b3
     FROM aged`;
-  const total = d(row!.total);
-  const receivable = d(row!.receivable);
+  const total = decOrZero(row!.total);
+  const receivable = decOrZero(row!.receivable);
   return {
     orders: row!.orders,
     total: money(total),
     receivable: money(receivable),
     openOrders: money(total.sub(receivable)),
-    overdue: money(d(row!.overdue)),
-    buckets: { "0-30": money(d(row!.b1)), "31-60": money(d(row!.b2)), "60+": money(d(row!.b3)) },
+    overdue: money(decOrZero(row!.overdue)),
+    buckets: { "0-30": money(decOrZero(row!.b1)), "31-60": money(decOrZero(row!.b2)), "60+": money(decOrZero(row!.b3)) },
   };
 }
 
@@ -461,9 +464,9 @@ export async function listAdvances(query: AdvancesQuery) {
     customer: r.customerId ? { id: r.customerId, code: r.customerCode!, name: r.customerName! } : null,
     orderDate: fromDbDate(r.orderDate),
     expectedArrival: r.expectedArrival ? fromDbDate(r.expectedArrival) : null,
-    grandTotal: money(d(r.grandTotal)),
-    paid: money(d(r.paid)),
-    due: money(Decimal.max(d(r.grandTotal).sub(d(r.paid)), 0)),
+    grandTotal: money(decOrZero(r.grandTotal)),
+    paid: money(decOrZero(r.paid)),
+    due: money(Decimal.max(decOrZero(r.grandTotal).sub(decOrZero(r.paid)), 0)),
   }));
   return paginated(items, counted[0]?.count ?? 0, query);
 }
@@ -476,5 +479,10 @@ export async function advancesSummary(): Promise<AdvancesSummaryDto> {
       COALESCE(SUM(paid) FILTER (WHERE type = 'PRE_ORDER'), 0) AS pre,
       COALESCE(SUM(paid) FILTER (WHERE type = 'REGULAR'), 0) AS regular
     FROM adv`;
-  return { orders: row!.orders, total: money(d(row!.total)), preOrders: money(d(row!.pre)), regularOrders: money(d(row!.regular)) };
+  return {
+    orders: row!.orders,
+    total: money(decOrZero(row!.total)),
+    preOrders: money(decOrZero(row!.pre)),
+    regularOrders: money(decOrZero(row!.regular)),
+  };
 }

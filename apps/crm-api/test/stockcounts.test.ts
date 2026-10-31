@@ -110,6 +110,52 @@ describe("Scenario H — a counted correction is in the ledger and the audit log
   });
 });
 
+describe("stock that moves while a count is open", () => {
+  const writeOff = (locationId: string, variantId: string, quantity: number) =>
+    api()
+      .post("/api/v1/inventory/write-offs")
+      .set(admin.auth)
+      .send({ locationId, bucket: "SELLABLE", reasonCode: "MISSING", reason: "Stand-in for a sale", lines: [{ variantId, quantity }] })
+      .expect(201);
+
+  it("compares each line with the stock when it was counted, so nothing is counted twice", async () => {
+    const { locationId, categoryId, variants } = await setup([{ stock: 10 }]);
+    const [variantId] = variants as [string];
+    const count = (await create({ locationId, categoryId })).body.data;
+
+    await writeOff(locationId, variantId, 2); // two leave before anyone counts: 8 on the shelf
+    await save(count.id, [{ lineId: lineFor(count, variantId), countedQty: 8 }]);
+    await writeOff(locationId, variantId, 1); // one more leaves after counting: 7
+
+    await api().post(`/api/v1/stock-counts/${count.id}/submit`).set(ops.auth).expect(200);
+    const approved = await api().post(`/api/v1/stock-counts/${count.id}/approve`).set(admin.auth).send({ reason: "Count" });
+    expect(approved.body.data).toMatchObject({ status: "APPROVED", adjustmentDocument: null });
+    expect(await sellable(variantId)).toBe(7);
+  });
+});
+
+describe("correcting a counted line", () => {
+  it("keeps the moment the line was first counted, so later sales aren't found again", async () => {
+    const { locationId, categoryId, variants } = await setup([{ stock: 10 }]);
+    const [variantId] = variants as [string];
+    const count = (await create({ locationId, categoryId })).body.data;
+    const lineId = lineFor(count, variantId);
+
+    await save(count.id, [{ lineId, countedQty: 1 }]); // a typo for 10
+    await api()
+      .post("/api/v1/inventory/write-offs")
+      .set(admin.auth)
+      .send({ locationId, bucket: "SELLABLE", reasonCode: "MISSING", reason: "Stand-in for 3 sold", lines: [{ variantId, quantity: 3 }] })
+      .expect(201);
+    await save(count.id, [{ lineId, countedQty: 10 }]); // the correction, typed after the sales
+
+    await api().post(`/api/v1/stock-counts/${count.id}/submit`).set(ops.auth).expect(200);
+    const approved = await api().post(`/api/v1/stock-counts/${count.id}/approve`).set(admin.auth).send({ reason: "Count" });
+    expect(approved.body.data.adjustmentDocument).toBeNull();
+    expect(await sellable(variantId)).toBe(7);
+  });
+});
+
 describe("count rules", () => {
   it("shows the system figures to counters once a count is finished, or straight away when it isn't blind", async () => {
     const { locationId, categoryId } = await setup([{ stock: 3 }]);

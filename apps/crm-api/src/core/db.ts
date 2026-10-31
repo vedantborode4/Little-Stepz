@@ -2,8 +2,14 @@ import { Prisma, prisma, type Tx } from "@repo/crm-db/client";
 
 const MAX_ATTEMPTS = 3;
 
+/** Postgres deadlock_detected and serialization_failure: the whole transaction can safely run again. */
+const RETRYABLE_SQLSTATES = new Set(["40P01", "40001"]);
+
 function isRetryable(err: unknown) {
-  return err instanceof Prisma.PrismaClientKnownRequestError && (err.code === "P2034" || err.code === "P2028");
+  if (!(err instanceof Prisma.PrismaClientKnownRequestError)) return false;
+  if (err.code === "P2034" || err.code === "P2028") return true;
+  // Raw lock statements ($queryRaw ... FOR UPDATE) report a deadlock as P2010 with the SQLSTATE in meta.
+  return err.code === "P2010" && RETRYABLE_SQLSTATES.has(String(err.meta?.code));
 }
 
 /**

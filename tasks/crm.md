@@ -428,3 +428,43 @@ Decisions (owner, 2026-10-31):
 - **Cloudinary keys** aren't in `apps/crm-api/.env`, so real uploads haven't been tried. Copying the website's keys is the owner's call.
 - **Creating missing products from the website** is specified in WEBSITE_SYNC_CONTRACT.md (options, photos as links, no stock) but not built. It needs the website export endpoints first.
 - **Import refinements** are on hold.
+
+## Production review fixes (2026-10-31)
+
+`/code-review` of `main...crm` found 10 issues. All are fixed:
+
+- [x] **1. Late purchase charges missing from profit.** The share for units already sold (`toCostOfSales`) now counts as COGS on the charge's date. It flows into the sales summary (dashboard, waterfall and period reports) and the profit breakdown. By channel it shows as its own "Late purchase charges" row. The waterfall says how much of COGS it is.
+- [x] **2. Stock counts double-counting stock that moved while open.** Each line's system figure is re-taken when the line is counted, so movements before counting aren't counted twice and movements after it stand.
+- [x] **3. Cash day closing past an in-flight payment.** `assertCashDaysOpen` now share-locks the session rows, so it serialises with `closeDay`'s FOR UPDATE.
+- [x] **4. Link IDs failing when one website product spans two CRM products.** The dry run now tracks product links it proposes, both ways and by id. The second CRM product is reported as a conflict.
+- [x] **5. Large counts timing out.** Count create, save, approve and reverse run with a 120 s transaction timeout.
+- [x] **6. Credit terms never enforced at the till.** Blank credit days now means the customer pays in full at POS (`CREDIT_NOT_ALLOWED`). With a credit limit, what they owe on handed-over orders plus this sale can't pass it (`CREDIT_LIMIT_EXCEEDED`, with the customer row locked).
+- [x] **7. Voided payments showing "Refunded".** "Refunded" now needs a refund that still stands, or value given back as credit. A void's mirror row or a voided refund doesn't count.
+- [x] **8. Import rollback check racing new uses.** The blocker check now runs inside the rollback transaction, after `lockForRollback` locks the variant, customer or stock-balance rows that any new use must touch.
+- [x] **9. Pre-orders loaded twice.** The search is applied in memory; waiting items look up stock once per location.
+- [x] **10. Duplicated decimal helpers.** `decOrZero` and `round2` now come from `core/money`.
+
+**Found while testing.** The customer duplicates list ranked pairs with no PIN, or with only one PIN, as "same PIN". `IS NOT DISTINCT FROM` matched null = null, and NULL sorts first in a descending sort. It now uses `COALESCE(a.pincode = b.pincode, false)`.
+
+**Verification**
+- crm-api: 196/196 tests pass, and the build passes. New tests cover fixes 1, 2, 4, 6 and 7, plus the voided-payment status.
+- crm-web: typecheck and lint pass.
+- Test customers that buy on credit now have credit days, as the new rule requires.
+
+### Second review of the fixes (2026-10-31)
+
+- [x] **Credit check stall.** The credit check read what the customer owes on a second connection while holding the lock. It now reads inside the sale's transaction (`outstandingSummary(query, tx)`).
+- [x] **Rollback lock order.** The opening-stock rollback locked rows in the opposite order to the stock engine. It now uses the engine's `lockVariants`, which also covers balance rows that don't exist yet.
+- [x] **Blank channel label.** Profit by channel falls back to the row's own label.
+- [x] **POS lock order.** A POS sale with a customer now takes the customer lock first (`lockCustomer`, now exported) before any stock lock, like returns do.
+- [x] **Deadlock retries.** `withTransaction` now also retries deadlocks and serialization failures raised by raw lock statements (P2010 with 40P01/40001).
+- [x] **Count corrections.** A corrected count line keeps the system figure from when it was first counted. Clearing the line and counting again takes a fresh one.
+- [x] **Late charges and gross profit.** Late purchase charges for units no longer in stock moved out of COGS and gross profit, which only cover known-cost sales. They are now their own waterfall line (`lateCharges`) before contribution profit, and are out of the per-product breakdown.
+- [x] **Unused refund lookup.** `orderPayments` became `orderPaid` and no longer runs the refund query, which no caller read.
+- [x] **Pre-order search.** It's back to one Prisma filter, run over the open ids only.
+- [ ] **`tasks/todo.md` stash-conflict markers.** These are from non-CRM work stashed before this session. The file has never been staged in a CRM commit, and resolving it needs the owner.
+
+**Verification**
+- crm-api: 197/197 tests pass, and the build passes.
+- crm-web: typecheck and lint pass.
+

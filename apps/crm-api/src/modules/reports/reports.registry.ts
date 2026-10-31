@@ -1,4 +1,4 @@
-import { prisma, Prisma } from "@repo/crm-db/client";
+import { prisma } from "@repo/crm-db/client";
 import {
   advancesQuery,
   ledgerQuery,
@@ -23,7 +23,7 @@ import {
 } from "@repo/crm-schema";
 import { fromDbDate, todayIST, toDbDate } from "../../core/dates";
 import { EXPORT_MAX_ROWS } from "../../core/list";
-import { Decimal, money } from "../../core/money";
+import { Decimal, decOrZero, money } from "../../core/money";
 import { maskMobile } from "../../core/pii";
 import { profitBreakdown, valuation } from "../analytics/analytics.service";
 import { stockTotals } from "../inventory/inventory.service";
@@ -50,7 +50,6 @@ export interface ReportSpec {
   load: (q: ReportQuery, ctx: ReportContext) => Promise<Row[]>;
 }
 
-const d = (v: Prisma.Decimal | string | number | null | undefined) => new Decimal((v ?? 0).toString());
 const num = (v: string | null | undefined) => (v === null || v === undefined ? null : Number(v));
 const all = { page: "1", limit: "100", format: "csv" };
 
@@ -120,7 +119,8 @@ export const REPORTS: ReportSpec[] = [
         Physical: stock.get(v.id)?.physical ?? 0,
         Available: stock.get(v.id)?.available ?? 0,
         ...costCols(ctx, {
-          "Average landed cost": v.cost && v.cost.valuedQty > 0 ? Number(d(v.cost.totalValue).div(v.cost.valuedQty).toFixed(2)) : null,
+          "Average landed cost":
+            v.cost && v.cost.valuedQty > 0 ? Number(decOrZero(v.cost.totalValue).div(v.cost.valuedQty).toFixed(2)) : null,
         }),
       }));
     },
@@ -187,10 +187,10 @@ export const REPORTS: ReportSpec[] = [
         ...costCols(ctx, {
           "Exchange rate": Number(l.shipment.exchangeRate),
           "Unit price (purchase currency)": Number(l.unitPrice),
-          "Unit price INR": l.unitPriceInr ? Number(d(l.unitPriceInr).toFixed(2)) : null,
-          "Charges per unit": l.allocatedCharges ? Number(d(l.allocatedCharges).toFixed(2)) : null,
-          "Landed cost per unit": l.landedUnitCost ? Number(d(l.landedUnitCost).toFixed(2)) : null,
-          "Landed total": l.landedUnitCost ? Number(d(l.landedUnitCost).mul(l.quantity).toFixed(2)) : null,
+          "Unit price INR": l.unitPriceInr ? Number(decOrZero(l.unitPriceInr).toFixed(2)) : null,
+          "Charges per unit": l.allocatedCharges ? Number(decOrZero(l.allocatedCharges).toFixed(2)) : null,
+          "Landed cost per unit": l.landedUnitCost ? Number(decOrZero(l.landedUnitCost).toFixed(2)) : null,
+          "Landed total": l.landedUnitCost ? Number(decOrZero(l.landedUnitCost).mul(l.quantity).toFixed(2)) : null,
         }),
       }));
     },
@@ -392,7 +392,7 @@ export const REPORTS: ReportSpec[] = [
         Delivered: s.deliveredAt?.slice(0, 10) ?? "",
         "Courier cost": Number(s.courierCost),
         "Charged to customer": Number(s.chargedToCustomer),
-        Difference: Number(d(s.chargedToCustomer).sub(s.courierCost).toFixed(2)),
+        Difference: Number(decOrZero(s.chargedToCustomer).sub(s.courierCost).toFixed(2)),
       }));
     },
   },
@@ -438,9 +438,9 @@ export const REPORTS: ReportSpec[] = [
         take: EXPORT_MAX_ROWS,
       });
       return lines.map((l) => {
-        const regularValue = d(l.regularPrice).mul(l.quantity);
-        const reduction = Decimal.max(d(l.regularPrice).sub(l.unitPrice.toString()), 0).mul(l.quantity);
-        const discounts = d(l.lineDiscount).add(l.orderDiscountShare.toString());
+        const regularValue = decOrZero(l.regularPrice).mul(l.quantity);
+        const reduction = Decimal.max(decOrZero(l.regularPrice).sub(l.unitPrice.toString()), 0).mul(l.quantity);
+        const discounts = decOrZero(l.lineDiscount).add(l.orderDiscountShare.toString());
         return {
           Date: l.order.fulfilledDate ? fromDbDate(l.order.fulfilledDate) : "",
           Order: l.order.code,
@@ -526,7 +526,7 @@ export const REPORTS: ReportSpec[] = [
       });
       return rows.map((b) => {
         const c = b.variant.cost;
-        const avg = c && c.valuedQty > 0 ? d(c.totalValue).div(c.valuedQty) : null;
+        const avg = c && c.valuedQty > 0 ? decOrZero(c.totalValue).div(c.valuedQty) : null;
         return {
           Location: b.location.name,
           SKU: b.variant.sku,

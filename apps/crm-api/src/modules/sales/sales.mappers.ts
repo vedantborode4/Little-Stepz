@@ -1,8 +1,8 @@
 import type { Prisma } from "@repo/crm-db/client";
 import type { OrderProfitDto, SaleTotalsDto, SalesOrderDetailDto, SalesOrderListItemDto } from "@repo/crm-schema";
 import { fromDbDate } from "../../core/dates";
-import { Decimal, money } from "../../core/money";
-import { paymentStatus } from "../payments/ledger";
+import { dec, Decimal, money } from "../../core/money";
+import { isStandingRefund, paymentStatus, refundPaymentSelect } from "../payments/ledger";
 import { returnListInclude, toReturnListItemDto } from "../returns/returns.mappers";
 
 export interface Visibility {
@@ -12,7 +12,7 @@ export interface Visibility {
 export const orderListInclude = {
   customer: { select: { id: true, code: true, name: true } },
   lines: { select: { quantity: true } },
-  allocations: { select: { amount: true } },
+  allocations: { select: { amount: true, payment: { select: refundPaymentSelect } } },
   returns: { select: { amount: true } },
 } satisfies Prisma.SalesOrderInclude;
 
@@ -32,7 +32,17 @@ export const orderDetailInclude = {
   events: { include: { createdBy: { select: { name: true } } }, orderBy: { createdAt: "asc" } },
   allocations: {
     include: {
-      payment: { select: { id: true, code: true, businessDate: true, method: true, reference: true, account: { select: { name: true } } } },
+      payment: {
+        select: {
+          id: true,
+          code: true,
+          businessDate: true,
+          method: true,
+          reference: true,
+          account: { select: { name: true } },
+          ...refundPaymentSelect,
+        },
+      },
     },
     orderBy: { createdAt: "asc" },
   },
@@ -48,15 +58,18 @@ export const orderDetailInclude = {
 type ListRow = Prisma.SalesOrderGetPayload<{ include: typeof orderListInclude }>;
 type DetailRow = Prisma.SalesOrderGetPayload<{ include: typeof orderDetailInclude }>;
 
-const dec = (v: Prisma.Decimal) => new Decimal(v.toString());
 const sum = <T>(rows: T[], pick: (r: T) => Prisma.Decimal) => rows.reduce((s, r) => s.add(dec(pick(r))), new Decimal(0));
 
 /** Paid, due and status against the order's net value (total less returns), from its signed allocations. */
-function paymentState(o: { grandTotal: Prisma.Decimal; allocations: { amount: Prisma.Decimal }[]; returns: { amount: Prisma.Decimal }[] }) {
+function paymentState(o: {
+  grandTotal: Prisma.Decimal;
+  allocations: Parameters<typeof isStandingRefund>[0][];
+  returns: { amount: Prisma.Decimal }[];
+}) {
   const returned = sum(o.returns, (r) => r.amount);
   const net = dec(o.grandTotal).sub(returned);
   const paid = sum(o.allocations, (a) => a.amount);
-  const refunded = o.allocations.some((a) => dec(a.amount).isNegative());
+  const refunded = o.allocations.some(isStandingRefund);
   return {
     returned: money(returned),
     paid: money(paid),

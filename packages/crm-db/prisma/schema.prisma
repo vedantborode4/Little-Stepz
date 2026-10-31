@@ -1341,7 +1341,8 @@ model StockCountLine {
   count      StockCount       @relation(fields: [countId], references: [id])
   variantId  String
   variant    Variant          @relation(fields: [variantId], references: [id])
-  /// Sellable units at the location when counting started (or the line was added).
+  /// Sellable units at the location when this line was first counted (until then, when the line was added).
+  /// A correction keeps it; clearing the line and counting again takes a fresh one.
   systemQty  Int
   countedQty Int?
   reasonCode StockReasonCode?

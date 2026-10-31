@@ -18,12 +18,11 @@ import { toDbDate } from "../../core/dates";
 import { withTransaction } from "../../core/db";
 import { ApiError, notFound, type RequestContext } from "../../core/http";
 import { pageWindow, paginated } from "../../core/list";
-import { dec, Decimal, money } from "../../core/money";
+import { dec, Decimal, decOrZero, money } from "../../core/money";
 import { nextCode } from "../../core/sequence";
 import { addEvent, deliverInTx, fulfilInTx, packInTx } from "../sales/sales.service";
 import { trackingUrl } from "./couriers.service";
 
-const d = (v: Prisma.Decimal | null | undefined) => new Decimal((v ?? 0).toString());
 const CLOSED = [...CLOSED_SHIPMENT_STATUSES];
 
 const shipmentInclude = {
@@ -44,7 +43,7 @@ const shipmentInclude = {
 type ShipmentRow = Prisma.ShipmentGetPayload<{ include: typeof shipmentInclude }>;
 
 const charged = (o: ShipmentRow["order"]) =>
-  d(o.shippingCharged).sub(o.returns.reduce((s, r) => s.add(d(r.shippingRefund)), new Decimal(0)));
+  decOrZero(o.shippingCharged).sub(o.returns.reduce((s, r) => s.add(decOrZero(r.shippingRefund)), new Decimal(0)));
 
 function toListItem(s: ShipmentRow): ShipmentListItemDto {
   const customer = s.order.customer;
@@ -142,10 +141,13 @@ export async function shipmentSummary(): Promise<ShipmentSummaryDto> {
   return {
     counts,
     awaitingShipment: awaiting,
-    courierCost: money(rows.reduce((s, r) => s.add(d(r.courierCost)), new Decimal(0))),
+    courierCost: money(rows.reduce((s, r) => s.add(decOrZero(r.courierCost)), new Decimal(0))),
     chargedToCustomer: money(
       rows.reduce(
-        (s, r) => s.add(d(r.order.shippingCharged)).sub(r.order.returns.reduce((t, x) => t.add(d(x.shippingRefund)), new Decimal(0))),
+        (s, r) =>
+          s
+            .add(decOrZero(r.order.shippingCharged))
+            .sub(r.order.returns.reduce((t, x) => t.add(decOrZero(x.shippingRefund)), new Decimal(0))),
         new Decimal(0),
       ),
     ),

@@ -6,7 +6,7 @@ import { resolveBusinessDate, toDbDate } from "../../core/dates";
 import { withTransaction } from "../../core/db";
 import { ApiError, forbidden, notFound, type RequestContext } from "../../core/http";
 import { pageWindow, paginated } from "../../core/list";
-import { dec, Decimal, money } from "../../core/money";
+import { dec, Decimal, decOrZero, money } from "../../core/money";
 import { nextCode } from "../../core/sequence";
 import { assertActiveLocations } from "../inventory/inventory.service";
 import { postStockDocument, type EngineLine } from "../inventory/stock-engine";
@@ -22,7 +22,6 @@ export interface ReturnRights {
 }
 
 type Db = Tx | typeof prisma;
-const d = (v: Prisma.Decimal | null | undefined) => new Decimal((v ?? 0).toString());
 
 const orderForReturn = (db: Db, orderId: string) =>
   db.salesOrder.findUnique({
@@ -52,18 +51,18 @@ async function planReturn(db: Db, orderId: string, input: ReturnPreviewInput) {
     if (!line) throw new ApiError(400, "INVALID_LINE", "That item isn't on this order");
     const prior = {
       quantity: line.returnLines.reduce((s, r) => s + r.quantity, 0),
-      amount: line.returnLines.reduce((s, r) => s.add(d(r.amount)), new Decimal(0)),
-      taxableValue: line.returnLines.reduce((s, r) => s.add(d(r.taxableValue)), new Decimal(0)),
-      cogs: line.returnLines.reduce((s, r) => s.add(d(r.cogs)), new Decimal(0)),
+      amount: line.returnLines.reduce((s, r) => s.add(decOrZero(r.amount)), new Decimal(0)),
+      taxableValue: line.returnLines.reduce((s, r) => s.add(decOrZero(r.taxableValue)), new Decimal(0)),
+      cogs: line.returnLines.reduce((s, r) => s.add(decOrZero(r.cogs)), new Decimal(0)),
       knownQty: line.returnLines.reduce((s, r) => s + r.quantity - r.unknownCostQty, 0),
     };
     const amounts = returnLineAmounts(
       {
         sku: line.variant.sku,
         quantity: line.quantity,
-        lineTotal: d(line.lineTotal),
-        taxableValue: d(line.taxableValue),
-        cogs: line.cogs ? d(line.cogs) : null,
+        lineTotal: decOrZero(line.lineTotal),
+        taxableValue: decOrZero(line.taxableValue),
+        cogs: line.cogs ? decOrZero(line.cogs) : null,
         unknownCostQty: line.unknownCostQty,
       },
       prior,
@@ -72,19 +71,19 @@ async function planReturn(db: Db, orderId: string, input: ReturnPreviewInput) {
     return { line, quantity: req.quantity, condition: req.condition, ...amounts };
   });
 
-  const lineTaxable = order.lines.reduce((s, l) => s.add(d(l.taxableValue)), new Decimal(0));
+  const lineTaxable = order.lines.reduce((s, l) => s.add(decOrZero(l.taxableValue)), new Decimal(0));
   const shipping = shippingRefundAmounts(
     dec(input.shippingRefund),
-    d(order.shippingCharged),
-    d(order.taxableTotal).sub(lineTaxable),
-    order.returns.reduce((s, r) => s.add(d(r.shippingRefund)), new Decimal(0)),
+    decOrZero(order.shippingCharged),
+    decOrZero(order.taxableTotal).sub(lineTaxable),
+    order.returns.reduce((s, r) => s.add(decOrZero(r.shippingRefund)), new Decimal(0)),
   );
 
   const amount = lines.reduce((s, l) => s.add(l.amount), shipping.amount);
   const taxableValue = lines.reduce((s, l) => s.add(l.taxableValue), shipping.taxableValue);
-  const returnedBefore = order.returns.reduce((s, r) => s.add(d(r.amount)), new Decimal(0));
-  const netValueAfter = d(order.grandTotal).sub(returnedBefore).sub(amount);
-  const paid = order.allocations.reduce((s, a) => s.add(d(a.amount)), new Decimal(0));
+  const returnedBefore = order.returns.reduce((s, r) => s.add(decOrZero(r.amount)), new Decimal(0));
+  const netValueAfter = decOrZero(order.grandTotal).sub(returnedBefore).sub(amount);
+  const paid = order.allocations.reduce((s, a) => s.add(decOrZero(a.amount)), new Decimal(0));
   return {
     order,
     lines,

@@ -176,6 +176,8 @@ describe("duplicates and merging", () => {
   });
 
   it("lists likely duplicate pairs for admins", async () => {
+    // The list is capped and the test database outlives runs: earlier runs' pairs would crowd this one out.
+    await prisma.customer.updateMany({ where: { name: { startsWith: "Lakshmi Toy" } }, data: { isActive: false } });
     const tag = uid();
     await createCustomer({ name: `Lakshmi Toys ${tag}`, pincode: "500072" });
     await createCustomer({ name: `Lakshmi Toy ${tag}`, pincode: "500072" });

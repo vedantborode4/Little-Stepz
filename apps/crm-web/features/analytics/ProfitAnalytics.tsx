@@ -55,7 +55,7 @@ export default function ProfitAnalytics() {
   const breakdown = useProfitBreakdown({ ...range, by, categoryId })
   const categories = useNamedList("categories")
 
-  const label = (r: ProfitBreakdownRowDto) => (by === "channel" ? SALES_CHANNEL_LABELS[r.label as SalesChannel] : r.label)
+  const label = (r: ProfitBreakdownRowDto) => (by === "channel" ? (SALES_CHANNEL_LABELS[r.label as SalesChannel] ?? r.label) : r.label)
 
   return (
     <div className="space-y-4 sm:space-y-5">
@@ -89,6 +89,12 @@ export default function ProfitAnalytics() {
                 { label: "Courier cost", amount: data.shippingExpense, sign: "−" },
                 { label: "Payment gateway fees", amount: data.paymentFees, sign: "−" },
                 { label: "Order expenses (packaging, extra courier)", amount: data.orderExpenses, sign: "−" },
+                {
+                  label: "Late purchase charges",
+                  amount: data.lateCharges,
+                  sign: "−",
+                  note: "Freight or duty billed after receipt, for units no longer in stock",
+                },
                 { label: "Contribution profit", amount: data.contributionProfit, total: true },
                 { label: "Operating expenses", amount: data.operatingExpenses, sign: "−" },
                 {

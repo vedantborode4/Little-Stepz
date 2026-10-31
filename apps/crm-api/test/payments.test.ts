@@ -301,6 +301,26 @@ describe("customer credit", () => {
   });
 });
 
+describe("credit terms at the till", () => {
+  it("makes a pay-at-purchase customer pay in full and keeps a credit customer within their limit", async () => {
+    const variantId = await item("1000");
+    const tender = (customerId: string, paid: string) =>
+      pos(cashier, { channel: "STORE", customerId, lines: [{ variantId, quantity: 1 }], payments: [{ accountId: cash, amount: paid }] });
+
+    const walkInTerms = await customer();
+    const refused = await tender(walkInTerms, "400");
+    expect(refused.body.error.code).toBe("CREDIT_NOT_ALLOWED");
+    expect(refused.body.error.details).toMatchObject({ due: "600.00" });
+
+    const trade = await customer({ type: "WHOLESALE", creditDays: 30, creditLimit: "1000" });
+    expect((await tender(trade, "200")).status).toBe(201); // owes 800 of 1,000
+    const overLimit = await tender(trade, "500"); // would owe 800 + 500
+    expect(overLimit.body.error.code).toBe("CREDIT_LIMIT_EXCEEDED");
+    expect(overLimit.body.error.details).toMatchObject({ outstanding: "800.00", limit: "1000.00" });
+    expect((await tender(trade, "800")).status).toBe(201); // owes exactly 1,000
+  });
+});
+
 describe("voids and cancellations", () => {
   it("voids a payment with a mirror row and refuses a second void", async () => {
     const variantId = await item("1500");
@@ -315,7 +335,8 @@ describe("voids and cancellations", () => {
     expect((await api().post(`/api/v1/payments/${p.body.data.id}/void`).set(cashier.auth).send({ reason: "x" })).status).toBe(403);
     const voided = await api().post(`/api/v1/payments/${p.body.data.id}/void`).set(admin.auth).send({ reason: "Entered twice" });
     expect(voided.body.data.reversedBy).toMatchObject({ code: expect.stringMatching(/^PAY-/) });
-    expect(await getOrder(o.id)).toMatchObject({ paid: "0.00", paymentStatus: "REFUNDED" });
+    // A void undoes a mistake; nothing was paid back, so the order is simply unpaid again.
+    expect(await getOrder(o.id)).toMatchObject({ paid: "0.00", paymentStatus: "UNPAID" });
     const again = await api().post(`/api/v1/payments/${p.body.data.id}/void`).set(admin.auth).send({ reason: "again" });
     expect(again.body.error.code).toBe("ALREADY_VOIDED");
     await expect(prisma.payment.update({ where: { id: p.body.data.id }, data: { amount: 1 } })).rejects.toThrow(/append-only/);

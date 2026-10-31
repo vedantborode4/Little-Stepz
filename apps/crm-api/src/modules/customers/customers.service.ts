@@ -271,7 +271,7 @@ export async function duplicatePairs(): Promise<DuplicatePairDto[]> {
     FROM "Customer" a
     JOIN "Customer" b ON a.id < b.id AND a."nameKey" % b."nameKey"
     WHERE a."isActive" AND b."isActive" AND a."mergedIntoId" IS NULL AND b."mergedIntoId" IS NULL
-    ORDER BY (a.pincode IS NOT DISTINCT FROM b.pincode) DESC, similarity DESC
+    ORDER BY COALESCE(a.pincode = b.pincode, false) DESC, similarity DESC
     LIMIT 200`;
 
   const pairs: DuplicatePairDto[] = [];

@@ -12,10 +12,9 @@ import { fromDbDate, resolveBusinessDate, toDbDate } from "../../core/dates";
 import { withTransaction } from "../../core/db";
 import { ApiError, notFound, type RequestContext } from "../../core/http";
 import { pageWindow, paginated } from "../../core/list";
-import { dec, Decimal, money } from "../../core/money";
+import { dec, Decimal, decOrZero, money } from "../../core/money";
 
 type Db = Tx | typeof prisma;
-const d = (v: Prisma.Decimal | null | undefined) => new Decimal((v ?? 0).toString());
 
 const sessionInclude = {
   account: { select: { id: true, name: true } },
@@ -54,7 +53,7 @@ export async function cashBreakdown(db: Db, accountId: string, date: Date, openi
   let received = new Decimal(0);
   let refunded = new Decimal(0);
   for (const p of payments) {
-    const amount = d(p._sum.amount);
+    const amount = decOrZero(p._sum.amount);
     // A void of a receipt is an OUT row; a void of a refund is an IN row.
     if (p.reversalOfId === null) {
       if (p.direction === "IN") received = received.add(amount);
@@ -62,9 +61,12 @@ export async function cashBreakdown(db: Db, accountId: string, date: Date, openi
     } else if (p.direction === "OUT") received = received.sub(amount);
     else refunded = refunded.sub(amount);
   }
-  const spent = expenses.reduce((s, e) => (e.reversalOfId === null ? s.add(d(e._sum.amount)) : s.sub(d(e._sum.amount))), new Decimal(0));
-  const tIn = d(transfersIn._sum.amount);
-  const tOut = d(transfersOut._sum.amount);
+  const spent = expenses.reduce(
+    (s, e) => (e.reversalOfId === null ? s.add(decOrZero(e._sum.amount)) : s.sub(decOrZero(e._sum.amount))),
+    new Decimal(0),
+  );
+  const tIn = decOrZero(transfersIn._sum.amount);
+  const tOut = decOrZero(transfersOut._sum.amount);
   return {
     opening: money(opening),
     received: money(received),
@@ -93,7 +95,7 @@ async function previousClose(db: Db, accountId: string, date: Date) {
     orderBy: { businessDate: "desc" },
     select: { businessDate: true, countedAmount: true },
   });
-  return last?.countedAmount ? { date: fromDbDate(last.businessDate), counted: d(last.countedAmount) } : null;
+  return last?.countedAmount ? { date: fromDbDate(last.businessDate), counted: decOrZero(last.countedAmount) } : null;
 }
 
 export async function cashDay(accountId: string, isoDate: string): Promise<CashDayDto> {
@@ -103,7 +105,7 @@ export async function cashDay(accountId: string, isoDate: string): Promise<CashD
     prisma.cashSession.findUnique({ where: { accountId_businessDate: { accountId, businessDate: date } }, include: sessionInclude }),
     previousClose(prisma, accountId, date),
   ]);
-  const opening = session ? d(session.openingAmount) : (prev?.counted ?? new Decimal(0));
+  const opening = session ? decOrZero(session.openingAmount) : (prev?.counted ?? new Decimal(0));
   return {
     accountId,
     date: isoDate,
@@ -154,7 +156,7 @@ export async function closeDay(id: string, input: CloseCashDayInput, ctx: Reques
     const session = await lockSession(tx, id);
     if (session.status !== "OPEN")
       throw new ApiError(409, "DAY_CLOSED", `${session.account.name} is already closed for ${fromDbDate(session.businessDate)}`);
-    const breakdown = await cashBreakdown(tx, session.accountId, session.businessDate, d(session.openingAmount));
+    const breakdown = await cashBreakdown(tx, session.accountId, session.businessDate, decOrZero(session.openingAmount));
     const expected = dec(breakdown.expected);
     const counted = dec(input.countedAmount);
     await tx.cashSession.update({

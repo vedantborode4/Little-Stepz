@@ -210,6 +210,10 @@ describe("late charges", () => {
       })
       .expect(201);
 
+    const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date());
+    const profit = async () => (await api().get("/api/v1/analytics/profit").query({ from: today, to: today }).set(admin.auth)).body.data;
+    const before = await profit();
+
     const res = await api()
       .post(`/api/v1/purchases/${purchase.id}/late-charges`)
       .set(admin.auth)
@@ -221,6 +225,16 @@ describe("late charges", () => {
       toCostOfSales: "400.00",
     });
     expect((await card(variantId)).stock.stockValue).toBe("6600.00");
+
+    // The share for units already gone is a cost of the charge's date, shown below gross profit: those units may
+    // have been written off or sold at an unknown cost, so it isn't matched against known-cost sales.
+    const after = await profit();
+    const delta = (key: string) => Number(after[key]) - Number(before[key]);
+    expect(delta("lateCharges")).toBeCloseTo(400, 2);
+    expect(delta("cogs")).toBeCloseTo(0, 2);
+    expect(delta("grossProfit")).toBeCloseTo(0, 2);
+    expect(delta("contributionProfit")).toBeCloseTo(-400, 2);
+    expect(delta("operatingProfit")).toBeCloseTo(-400, 2);
   });
 
   it("records recoverable tax as input credit without changing stock value", async () => {
