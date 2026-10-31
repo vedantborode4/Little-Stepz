@@ -1,4 +1,4 @@
-import { prisma, Prisma, type Tx } from "@repo/crm-db/client";
+import { prisma, Prisma } from "@repo/crm-db/client";
 import {
   createCustomerSchema,
   createProductSchema,
@@ -9,99 +9,31 @@ import {
   type CreateProductInput,
   type ImportKind,
 } from "@repo/crm-schema";
-import type { z } from "zod";
-import type { RequestContext } from "../../core/http";
+import { nameKey } from "../../core/sequence";
+import { createNamedInTx } from "../catalog/catalog.service";
 import { createCustomerInTx } from "../customers/customers.service";
 import { recordOpeningStockInTx, reverseDocumentInTx } from "../inventory/inventory.service";
 import { lockVariants } from "../inventory/stock-engine";
 import { createProductInTx } from "../products/products.service";
+import { expensesImport } from "./expenses.import";
+import { historicalSalesImport } from "./historical-sales.import";
+import {
+  blankToUndefined,
+  costCell,
+  duplicate,
+  fail,
+  gstCell,
+  issueMessages,
+  labelOf,
+  moneyCell,
+  numberCell,
+  ok,
+  type Created,
+  type KindHandler,
+  type Unit,
+} from "./import-shared";
 
-type Db = Tx | typeof prisma;
-
-/** A data row with its values re-keyed by target field (unmapped fields absent). */
-export interface FieldRow {
-  line: number;
-  fields: Record<string, string>;
-}
-
-export interface RowResult {
-  status: "VALID" | "ERROR" | "DUPLICATE";
-  errors: string[];
-  duplicateOf: string | null;
-}
-
-/** Rows that are created together (a product and its variants, one customer, all opening stock). */
-interface Unit<P> {
-  rows: number[];
-  payload: P;
-}
-
-export interface CheckOutcome<P = unknown> {
-  results: RowResult[];
-  units: Unit<P>[];
-}
-
-export interface Created {
-  /** Row index → entity it created. */
-  entities: Map<number, { entity: string; id: string }>;
-  stockDocumentId?: string;
-}
-
-export interface BatchRef {
-  id: string;
-  code: string;
-  locationId: string | null;
-  stockDocumentId: string | null;
-}
-
-export interface CreatedRow {
-  createdEntity: string | null;
-  createdEntityId: string | null;
-}
-
-interface KindHandler<P> {
-  check(rows: FieldRow[], batch: BatchRef): Promise<CheckOutcome<P>>;
-  create(tx: Tx, ctx: RequestContext, batch: BatchRef, units: Unit<P>[]): Promise<Created>;
-  /**
-   * Locks the rows any new use of the batch's records must touch, so nothing
-   * can start using them between the rollback's blocker check and the rollback.
-   */
-  lockForRollback(tx: Tx, batch: BatchRef, rows: CreatedRow[]): Promise<void>;
-  /** Why the batch can't be undone any more, or null when it can. */
-  rollbackBlocker(db: Db, batch: BatchRef, rows: CreatedRow[]): Promise<string | null>;
-  rollback(tx: Tx, ctx: RequestContext, batch: BatchRef, rows: CreatedRow[], reason: string): Promise<void>;
-}
-
-// ─── Shared helpers ──────────────────────────────────────────────────────────
-
-const ok = (): RowResult => ({ status: "VALID", errors: [], duplicateOf: null });
-const fail = (r: RowResult, message: string) => {
-  r.status = "ERROR";
-  r.errors.push(message);
-};
-const duplicate = (r: RowResult, of: string) => {
-  if (r.status === "VALID") r.status = "DUPLICATE";
-  r.duplicateOf = of;
-};
-
-const labelOf = (kind: ImportKind, key: string) => IMPORT_FIELDS[kind].find((f) => f.key === key)?.label ?? key;
-
-/** "₹1,250.00", "Rs 1250" and "1 250" all mean 1250; anything else is left for the schema to reject. */
-const moneyCell = (v: string | undefined) => (v ?? "").replace(/₹|rs\.?|inr/gi, "").replace(/[,\s]/g, "");
-const numberCell = (v: string | undefined) => (v ?? "").replace(/[,\s]/g, "");
-/** "18%", "18.00" and "18" are the same GST rate. */
-const gstCell = (v: string | undefined) =>
-  numberCell(v)
-    .replace(/%$/, "")
-    .replace(/^\d+(\.\d+)?$/, (m) => String(Number(m)));
-const blankToUndefined = (v: string | undefined) => (v === undefined || v.trim() === "" ? undefined : v.trim());
-
-function issueMessages(kind: ImportKind, error: z.ZodError, fieldFor: (path: PropertyKey[]) => string | null) {
-  return error.issues.map((i) => {
-    const key = fieldFor(i.path);
-    return key ? `${labelOf(kind, key)}: ${i.message}` : i.message;
-  });
-}
+export type { BatchRef, CreatedRow, FieldRow, RowResult } from "./import-shared";
 
 // ─── Products & variants ─────────────────────────────────────────────────────
 
@@ -129,15 +61,43 @@ const PRODUCT_FIELD: Record<string, string> = {
 /** The archived SKU is renamed with a character SKUs can't contain, so the original code is free to import again. */
 export const rolledBackSku = (sku: string, batchCode: string) => `${sku}~${batchCode}`;
 
-const products: KindHandler<CreateProductInput> = {
+/** Stands in for a category or brand the import will create, so the rest of the product can be validated now. */
+const NOT_CREATED_YET = "00000000-0000-4000-8000-000000000000";
+
+interface ProductPayload {
+  product: CreateProductInput;
+  /** `id` is null when approving creates it (with `gstRate` as its rate). */
+  category: { name: string; id: string | null; gstRate: string | null };
+  brand: { name: string; id: string | null } | null;
+}
+
+/**
+ * A category the file introduces takes the GST rate most of its rows give;
+ * rows with another rate keep it as their own. Ties go to the rate seen first.
+ */
+function newCategoryRates(rows: { fields: Record<string, string> }[], known: Set<string>) {
+  const tallies = new Map<string, Map<string, number>>();
+  for (const { fields } of rows) {
+    const key = nameKey(fields.category ?? "");
+    const rate = gstCell(fields.gstRate);
+    if (!key || known.has(key) || !rate) continue;
+    const tally = tallies.get(key) ?? new Map<string, number>();
+    tally.set(rate, (tally.get(rate) ?? 0) + 1);
+    tallies.set(key, tally);
+  }
+  return new Map([...tallies].map(([key, tally]) => [key, [...tally].reduce((best, entry) => (entry[1] > best[1] ? entry : best))[0]]));
+}
+
+const products: KindHandler<ProductPayload> = {
   async check(rows) {
     const results = rows.map(ok);
     const [categories, brands] = await Promise.all([
-      prisma.category.findMany({ where: { isActive: true }, select: { id: true, name: true } }),
-      prisma.brand.findMany({ where: { isActive: true }, select: { id: true, name: true } }),
+      prisma.category.findMany({ select: { id: true, name: true, nameKey: true, isActive: true, gstRate: true } }),
+      prisma.brand.findMany({ select: { id: true, name: true, nameKey: true, isActive: true } }),
     ]);
-    const categoryId = new Map(categories.map((c) => [c.name.toLowerCase(), c.id]));
-    const brandId = new Map(brands.map((b) => [b.name.toLowerCase(), b.id]));
+    const categoryByKey = new Map(categories.map((c) => [c.nameKey, c]));
+    const brandByKey = new Map(brands.map((b) => [b.nameKey, b]));
+    const categoryRates = newCategoryRates(rows, new Set(categoryByKey.keys()));
 
     const skus = rows.map((r) => skuSchema.safeParse(r.fields.sku ?? "").data ?? null);
     const names = [...new Set(rows.map((r) => (r.fields.productName ?? "").trim().toLowerCase()).filter(Boolean))];
@@ -177,11 +137,12 @@ const products: KindHandler<CreateProductInput> = {
       groups.set(key, [...(groups.get(key) ?? []), i]);
     });
 
-    const units: Unit<CreateProductInput>[] = [];
+    const units: Unit<ProductPayload>[] = [];
     for (const [key, indexes] of groups) {
       const groupRows = indexes.map((i) => rows[i]!);
       const first = groupRows[0]!.fields;
       const groupResults = indexes.map((i) => results[i]!);
+      const failAll = (message: string) => groupResults.forEach((r) => fail(r, message));
 
       if (key && productTaken.has(key)) {
         for (const r of groupResults) duplicate(r, `Product already exists (${productTaken.get(key)}); add variants from its page`);
@@ -196,24 +157,37 @@ const products: KindHandler<CreateProductInput> = {
         const values = new Set(
           groupRows.map((r) => (field === "gstRate" ? gstCell(r.fields[field]) : (r.fields[field] ?? "").trim().toLowerCase())),
         );
-        if (values.size > 1) groupResults.forEach((r) => fail(r, `Rows of the same product have different ${label}s`));
+        if (values.size > 1) failAll(`Rows of the same product have different ${label}s`);
       }
-      const category = (first.category ?? "").trim();
-      const brand = (first.brand ?? "").trim();
-      const unknownCategory = Boolean(category) && !categoryId.has(category.toLowerCase());
-      const unknownBrand = Boolean(brand) && !brandId.has(brand.toLowerCase());
-      if (unknownCategory) groupResults.forEach((r) => fail(r, `Unknown category "${category}"; add it in Products first`));
-      if (unknownBrand) groupResults.forEach((r) => fail(r, `Unknown brand "${brand}"; add it in Products first`));
+
+      const categoryName = (first.category ?? "").trim();
+      const category = categoryByKey.get(nameKey(categoryName));
+      if (category && !category.isActive) failAll(`Category "${category.name}" is inactive; reactivate it or use another`);
+      const categoryRate = category ? (category.gstRate?.toString() ?? null) : (categoryRates.get(nameKey(categoryName)) ?? null);
+
+      const brandName = (first.brand ?? "").trim();
+      const brand = brandName ? brandByKey.get(nameKey(brandName)) : undefined;
+      if (brand && !brand.isActive) failAll(`Brand "${brand.name}" is inactive; reactivate it or use another`);
+
+      // A rate equal to the category's (or none) follows the category; a different rate is the product's own.
+      const rowRate = gstCell(first.gstRate);
+      if (categoryName && !rowRate && !categoryRate) {
+        failAll(
+          category
+            ? `GST %: category "${category.name}" has no rate; give one here or set it on the category`
+            : `GST %: new category "${categoryName}" needs a rate on at least one of its rows`,
+        );
+      }
 
       const multi = groupRows.length > 1 || groupRows.some((r) => blankToUndefined(r.fields.optionValue));
       const optionValues = [...new Set(groupRows.map((r) => (r.fields.optionValue ?? "").trim()).filter(Boolean))];
       const input = {
         name: first.productName ?? "",
-        categoryId: categoryId.get(category.toLowerCase()) ?? "",
-        brandId: brand ? (brandId.get(brand.toLowerCase()) ?? "") : null,
+        categoryId: categoryName ? (category?.id ?? NOT_CREATED_YET) : "",
+        brandId: brandName ? (brand?.id ?? NOT_CREATED_YET) : null,
         scale: first.scale ?? "",
         hsnCode: first.hsnCode ?? "",
-        gstRate: gstCell(first.gstRate),
+        gstRate: rowRate && rowRate !== categoryRate ? rowRate : null,
         description: first.description ?? "",
         websiteProductId: first.websiteProductId ?? "",
         options: multi
@@ -240,12 +214,11 @@ const products: KindHandler<CreateProductInput> = {
         for (const issue of parsed.error.issues) {
           const [head, index, leaf] = issue.path;
           if (head === "variants" && typeof index === "number") {
-            const key = typeof leaf === "string" ? VARIANT_FIELD[leaf] : undefined;
-            fail(groupResults[index]!, key ? `${labelOf("PRODUCTS", key)}: ${issue.message}` : issue.message);
-          } else if (!(head === "categoryId" && unknownCategory) && !(head === "brandId" && unknownBrand)) {
-            const key = typeof head === "string" ? PRODUCT_FIELD[head] : undefined;
-            const message = key ? `${labelOf("PRODUCTS", key)}: ${issue.message}` : issue.message;
-            groupResults.forEach((r) => fail(r, message));
+            const field = typeof leaf === "string" ? VARIANT_FIELD[leaf] : undefined;
+            fail(groupResults[index]!, field ? `${labelOf("PRODUCTS", field)}: ${issue.message}` : issue.message);
+          } else {
+            const field = typeof head === "string" ? PRODUCT_FIELD[head] : undefined;
+            failAll(field ? `${labelOf("PRODUCTS", field)}: ${issue.message}` : issue.message);
           }
         }
       }
@@ -258,18 +231,39 @@ const products: KindHandler<CreateProductInput> = {
         });
         continue;
       }
-      if (parsed.success) units.push({ rows: indexes, payload: parsed.data });
+      if (parsed.success) {
+        units.push({
+          rows: indexes,
+          payload: {
+            product: parsed.data,
+            category: { name: category?.name ?? categoryName, id: category?.id ?? null, gstRate: categoryRate },
+            brand: brandName ? { name: brand?.name ?? brandName, id: brand?.id ?? null } : null,
+          },
+        });
+      }
     }
-    return { results, units };
+    return { results, units, summary: productSummary(units) };
   },
 
   async create(tx, ctx, _batch, units) {
     const entities: Created["entities"] = new Map();
-    for (const unit of units) {
-      const productId = await createProductInTx(tx, unit.payload, ctx);
+    const createdIds = new Map<string, string>();
+    const idFor = async (kind: "category" | "brand", name: string, gstRate: string | null = null) => {
+      const key = `${kind}:${nameKey(name)}`;
+      if (!createdIds.has(key)) {
+        const input = { name, isActive: true, ...(kind === "category" && { gstRate: gstRate as CreateProductInput["gstRate"] }) };
+        createdIds.set(key, (await createNamedInTx(tx, kind, input, ctx)).id);
+      }
+      return createdIds.get(key)!;
+    };
+
+    for (const { rows: rowIndexes, payload } of units) {
+      const categoryId = payload.category.id ?? (await idFor("category", payload.category.name, payload.category.gstRate));
+      const brandId = payload.brand ? (payload.brand.id ?? (await idFor("brand", payload.brand.name))) : null;
+      const productId = await createProductInTx(tx, { ...payload.product, categoryId, brandId }, ctx);
       const variants = await tx.variant.findMany({ where: { productId }, select: { id: true, sku: true } });
       const bySku = new Map(variants.map((v) => [v.sku, v.id]));
-      unit.rows.forEach((rowIndex, j) => entities.set(rowIndex, { entity: "Variant", id: bySku.get(unit.payload.variants[j]!.sku)! }));
+      rowIndexes.forEach((rowIndex, j) => entities.set(rowIndex, { entity: "Variant", id: bySku.get(payload.product.variants[j]!.sku)! }));
     }
     return { entities };
   },
@@ -298,6 +292,7 @@ const products: KindHandler<CreateProductInput> = {
     return used ? `${used.sku} has been used since (stock, sales, purchases or prices); archive it from the product page instead` : null;
   },
 
+  // Categories and brands it created stay: they are harmless when empty and may already hold other products.
   async rollback(tx, _ctx, batch, rows) {
     const variantIds = rows.filter((r) => r.createdEntity === "Variant").map((r) => r.createdEntityId!);
     const variants = await tx.variant.findMany({ where: { id: { in: variantIds } }, select: { id: true, sku: true, productId: true } });
@@ -311,6 +306,23 @@ const products: KindHandler<CreateProductInput> = {
     await tx.product.updateMany({ where: { id: { in: productIds } }, data: { status: "ARCHIVED", websiteProductId: null } });
   },
 };
+
+function productSummary(units: Unit<ProductPayload>[]): string[] {
+  const variants = units.reduce((n, u) => n + u.payload.product.variants.length, 0);
+  const newCategories = new Map<string, string | null>();
+  const newBrands = new Set<string>();
+  for (const { payload } of units) {
+    if (!payload.category.id) newCategories.set(payload.category.name, payload.category.gstRate);
+    if (payload.brand && !payload.brand.id) newBrands.add(payload.brand.name);
+  }
+  const ownRate = units.filter((u) => u.payload.product.gstRate !== null).length;
+  return [
+    `${units.length} product(s) with ${variants} variant(s) will be created.`,
+    ...(newCategories.size ? [`New categories: ${[...newCategories].map(([name, rate]) => `${name} (GST ${rate}%)`).join(", ")}.`] : []),
+    ...(newBrands.size ? [`New brands: ${[...newBrands].join(", ")}.`] : []),
+    ...(ownRate ? [`${ownRate} product(s) keep their own GST rate instead of their category's.`] : []),
+  ];
+}
 
 // ─── Opening stock ───────────────────────────────────────────────────────────
 
@@ -349,12 +361,11 @@ const openingStock: KindHandler<OpeningPayload> = {
       if (!qtyText) fail(r, "Quantity: Required");
       else if (!Number.isInteger(quantity) || quantity < 1 || quantity > 1_000_000) fail(r, "Quantity: a whole number of at least 1");
 
-      const costText = moneyCell(row.fields.unitCost);
-      if (costText && !/^\d{1,12}(\.\d{1,2})?$/.test(costText)) fail(r, "Landed unit cost: an amount with at most 2 decimals");
+      const cost = costCell(row.fields.unitCost);
+      if (cost === false) fail(r, "Landed unit cost: not an amount");
 
       if (variant && variant._count.stockMovements > 0) duplicate(r, `${sku} already has stock history; use an adjustment`);
-      if (r.status === "VALID" && variant)
-        units.push({ rows: [i], payload: { variantId: variant.id, quantity, unitCost: costText || null } });
+      if (r.status === "VALID" && variant) units.push({ rows: [i], payload: { variantId: variant.id, quantity, unitCost: cost || null } });
     });
     return { results, units };
   },
@@ -502,4 +513,6 @@ export const IMPORT_HANDLERS: Record<ImportKind, KindHandler<unknown>> = {
   PRODUCTS: products,
   OPENING_STOCK: openingStock,
   CUSTOMERS: customers,
+  HISTORICAL_SALES: historicalSalesImport,
+  EXPENSES: expensesImport,
 };

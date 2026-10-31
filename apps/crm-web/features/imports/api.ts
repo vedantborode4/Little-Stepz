@@ -45,11 +45,20 @@ function useImportMutation<TInput>(fn: (input: TInput) => Promise<ImportBatchDto
   return useMutation({ mutationFn: fn, onSuccess: () => queryClient.invalidateQueries() })
 }
 
+export interface UploadInput {
+  kind: ImportKind
+  file: File
+  /** Which worksheet of an Excel file; the server asks when there are several. */
+  sheet?: string
+  /** The row with the column headings; found automatically when left out. */
+  headerRow?: number
+}
+
 /** The file goes up as the raw request body; the server reads .csv and .xlsx. */
 export const useUploadImport = () =>
-  useImportMutation(async ({ kind, file }: { kind: ImportKind; file: File }) => {
+  useImportMutation(async ({ kind, file, sheet, headerRow }: UploadInput) => {
     const res = await api.post<{ data: ImportBatchDto }>("/imports", file, {
-      params: { kind, fileName: file.name },
+      params: { kind, fileName: file.name, sheet, headerRow },
       headers: { "Content-Type": "application/octet-stream" },
     })
     return res.data.data

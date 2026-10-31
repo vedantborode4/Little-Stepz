@@ -26,9 +26,9 @@ Source of truth: `packages/crm-db/prisma/schema.prisma`. This page explains the 
 | Model | Purpose | Key rules |
 |---|---|---|
 | `Sequence` | Gapless per-prefix document numbers (`PRD-0001`) | Incremented inside the creating transaction, so a rollback never burns a number. |
-| `Category`, `Brand` | Product grouping | Names are unique case- and space-insensitively (`nameKey`). Deactivated, never deleted. The 7 owner-specified categories are seeded. |
+| `Category`, `Brand` | Product grouping. A category may carry a default GST rate (`gstRate`) | Names are unique case- and space-insensitively (`nameKey`). Deactivated, never deleted. Nothing is seeded: the owner's categories and brands come in with the product import. Changing a category's rate moves every product that follows it; it can't be cleared while products follow it. |
 | `Supplier` | Who invoices you, and in which currency (INR/CNY/USD/HKD) | Unique name. The full suppliers screen ships with Purchases (phase 4). |
-| `Product` | The sellable item: category, brand, scale, supplier, GST rate + HSN, main photo (`imageUrl`), description/notes, `websiteProductId` | Never deleted, only `ARCHIVED`. `websiteProductId` is a reference only; nothing is written to the website. |
+| `Product` | The sellable item: category, brand, scale, supplier, GST rate + HSN, main photo (`imageUrl`), description/notes, `websiteProductId` | Never deleted, only `ARCHIVED`. `websiteProductId` is a reference only; nothing is written to the website. `gstRate` is always the rate sales snapshot; with `gstFromCategory` set it is kept equal to the category's rate (and follows the product into a new category), otherwise it is the product's own. |
 | `ProductOption` / `ProductOptionValue` | e.g. Colour → Red, Blue, Black, White | Dimensions are fixed after creation; new values can be added. |
 | `Variant` | One sellable combination with its own **SKU**, regular/offer/wholesale price and reorder level | **Every product has ≥ 1 variant** (a simple product has one "Default" variant). The SKU is unique (stored upper-case). `optionKey` stops the same combination from being created twice. A DB `CHECK` enforces price > 0, offer ≤ regular and wholesale ≤ regular. A product always keeps at least one active variant. |
 | `PriceTier` | Wholesale quantity breaks: ≥ `minQty` units at `price` each | Quantities rise and prices never rise. A tier is never above the regular price. |
@@ -98,7 +98,7 @@ Source of truth: `packages/crm-db/prisma/schema.prisma`. This page explains the 
 
 | Model | Purpose | Key rules |
 |---|---|---|
-| `SalesOrder` | A sale or order: `SO-<FY>-00001` code (e.g. `SO-2627-00001` for FY 2026-27), type (order / pre-order), channel, fulfilment (counter or delivery), customer (null = walk-in) with the name frozen for receipts, stock location, order/due dates, GST-inclusive totals plus taxable and GST totals | Past `DRAFT` a trigger freezes its amounts, terms, channel, location and dates. Status, fulfilment/cancellation stamps, notes and the customer link (for merges) stay updatable. `fulfilledAt`/`stockDocumentId` can be set once. POS sales carry a unique `idempotencyKey`. |
+| `SalesOrder` | A sale or order: `SO-<FY>-00001` code (e.g. `SO-2627-00001` for FY 2026-27), type (order / pre-order), channel, fulfilment (counter or delivery), customer (null = walk-in) with the name frozen for receipts, stock location, order/due dates, GST-inclusive totals plus taxable and GST totals | Past `DRAFT` a trigger freezes its amounts, terms, channel, location and dates. Status, fulfilment/cancellation stamps, notes and the customer link (for merges) stay updatable. `fulfilledAt`/`stockDocumentId` can be set once. POS sales carry a unique `idempotencyKey`. A past bill brought in by a historical import carries `importBatchId`: it is `COMPLETED` on its own date with the cost the file gave, and has no stock document because no stock moved. |
 | `SalesOrderLine` | Price snapshot per item: list regular price, unit price charged and its **source** (customer / tier / wholesale / offer / regular / manual), line discount, share of the order discount, line total, GST rate, taxable value, GST, and the **cost of goods fixed at deduction** | Unique per variant in an order. After `DRAFT` only `cogs`/`unknownCostQty` may be filled in, and only once. Units that left with an unknown cost are counted, never priced. |
 | `Reservation` | Units held for a confirmed order line at its location | Not a stock movement: physical stock is unchanged, available drops. Released (`FULFILLED`/`CANCELLED`) exactly once, never deleted. |
 | `SalesOrderEvent` | Order timeline (created, edited, confirmed, packed, handed over, dispatched, delivered, cancelled) | **Append-only.** |
@@ -220,7 +220,7 @@ No new tables: a pre-order is a `SalesOrder` with `type = PRE_ORDER`, so its adv
 
 | Model | Purpose | Key rules |
 |---|---|---|
-| `ExpenseCategory` | Grouping for spending (Rent, Salaries, Packaging, Courier, …; seeded, editable) | Case-insensitive unique name. Hidden categories keep their history. |
+| `ExpenseCategory` | Grouping for spending (the owner's own list: Rent, Salaries & Wages, Electricity… plus Courier and Packaging; seeded, editable) | Case-insensitive unique name. Hidden categories keep their history. |
 | `Expense` | Money spent from an account (`EXP-xxxxx`): category, **operating** or **for an order**, amount, date, paid to, reference | **Append-only.** Voided by a reversal row dated today (at most once). An order expense must name a confirmed order (DB `CHECK` too). Never a sale or a refund. |
 | `CashSession` | One cash drawer on one business day: opening amount; when closed, expected, counted and discrepancy (counted − expected) | Unique per drawer per day. Cash accounts only, never in the future. A `CHECK` keeps the discrepancy equal to counted − expected. |
 
@@ -325,25 +325,31 @@ Shown separately: **sold below list price**, Σ max(regular − unit price, 0) �
 | Model | Purpose | Key rules |
 |---|---|---|
 | `ImportTemplate` | A saved column mapping (target field → file header) per kind of import | Unique name per kind. |
-| `ImportBatch` | One uploaded file (`IMP-xxxx`): kind (products & variants, opening stock, customers), status (uploaded → validated → imported → rolled back / cancelled), headers, mapping, location for opening stock, row counts, approver, rollback reason, and the opening-stock document it posted | **Never deleted** (trigger). A `CHECK` requires a location on opening-stock batches once they are checked. Status changes are claimed with a conditional update, so a batch can't be approved or rolled back twice. |
+| `ImportBatch` | One uploaded file (`IMP-xxxx`): kind (products & variants, opening stock, customers, past sales, expenses), status (uploaded → validated → imported → rolled back / cancelled), the Excel sheet read and the row its headings were on, headers, mapping, location (opening stock, past sales), `options` chosen while mapping (which account each payment column went into, the courier account and category), the check's plain-language `summary`, row counts, approver, rollback reason, and the opening-stock document it posted | **Never deleted** (trigger). A `CHECK` requires a location on opening-stock batches once they are checked. Status changes are claimed with a conditional update, so a batch can't be approved or rolled back twice. |
 | `ImportRow` | Each non-empty file row as uploaded (with its line number), the mapped values, status (ready, error, duplicate, imported), error messages, what it duplicates, and the record it created | **Never deleted** (trigger). |
 | `SyncRun` | A read-only website pull (`SYN-xxxx`): source (demo data or live), dry run or ID linking, outcome, full report | **Append-only**: written once when the run finishes. |
 
 **Import rules.**
+- Files are .csv or one sheet of an .xlsx (up to 5 MB). A workbook with several sheets asks which one. The headings row is the first row near the top that is nearly as full as the fullest one, so title rows above it are skipped; the owner can name the row instead. Merged-cell copies are blank, columns without a heading are ignored, and a repeated heading gets a "(2)" suffix.
 - Rows are parsed with the same schemas as the forms.
 - Nothing is guessed:
   - A blank cost stays unknown.
   - Blank contact details stay empty.
-  - Unknown categories, brands and SKUs are errors, not new records.
+  - Unknown SKUs, customers and expense categories are errors, not new records.
+  - The product import creates the categories and brands it names, and lists them before approval. A new category takes the GST rate most of its rows give; a row with another rate keeps it as the product's own. A new category with no rate on any row is an error.
+  - Past sales record no provider fee, because the file states none.
 - Records already in the CRM are duplicates, skipped and never overwritten.
 - Products are created whole or not at all.
 - Approval re-checks every row and imports nothing if anything changed since the check.
 - Opening stock is one `OPENING` document with `sourceType = IMPORT`. It can only be reversed through the batch's rollback.
+- Past sales: rows sharing a bill ID are one bill on one date. The same item twice on a bill becomes one line when price and cost agree. A walk-in bill must be paid exactly; a named customer may owe the rest or keep any excess as credit. Payments are dated on the sale date, and the courier charge is an order expense. Stock is not moved, because the cut-over count already reflects these sales. A bill whose ID is already on an order is a duplicate.
 
 **Rollback** is allowed while nothing the batch created has been used since. "Used" means stock movements, sales, purchases, prices or counts for items; orders, payments, prices, credit or merges for customers; or any other movement of the imported stock.
 - Products and variants are archived, with SKUs renamed `SKU~IMP-xxxx`, because append-only price history means they can't be deleted.
 - Opening stock is reversed.
 - Customers are removed.
+- Expenses are voided by reversal rows dated today.
+- Past sales can't be rolled back. Like any sale they are locked money records, corrected with returns and refunds; that's why they are rehearsed on a local copy first.
 
 **Sync rules.** The CRM only reads the website.
 - A dry run stores its report and changes nothing else.

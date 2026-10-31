@@ -1,6 +1,8 @@
 import { prisma, Prisma } from "@repo/crm-db/client";
 import {
   IMPORT_FIELDS,
+  IMPORT_KINDS_WITH_LOCATION,
+  IMPORT_OPTIONS,
   type ImportBatchDto,
   type ImportBatchListItemDto,
   type ImportKind,
@@ -9,6 +11,7 @@ import {
   type ImportRowDto,
   type ImportRowsQuery,
   type ImportTemplateDto,
+  type ImportUploadQuery,
 } from "@repo/crm-schema";
 import { recordAudit } from "../../core/audit";
 import { withTransaction } from "../../core/db";
@@ -19,6 +22,7 @@ import { parseImportFile } from "./import-files";
 import { IMPORT_HANDLERS, type BatchRef, type FieldRow, type RowResult } from "./import-kinds";
 
 type Mapping = Record<string, string | null>;
+type Options = Record<string, string | null>;
 
 /** Approving a full file creates up to thousands of records in one transaction. */
 const APPROVE_TIMEOUT_MS = 120_000;
@@ -33,6 +37,7 @@ type BatchRow = Prisma.ImportBatchGetPayload<{ include: typeof batchInclude }>;
 
 const asMapping = (v: Prisma.JsonValue | null): Mapping | null => (v && typeof v === "object" && !Array.isArray(v) ? (v as Mapping) : null);
 const asStrings = (v: Prisma.JsonValue | null): string[] => (Array.isArray(v) ? v.map(String) : []);
+const asOptions = (v: Prisma.JsonValue | null): Options => asMapping(v) ?? {};
 const asValues = (v: Prisma.JsonValue): Record<string, string> =>
   v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, string>) : {};
 
@@ -43,6 +48,7 @@ function toListItem(b: BatchRow): ImportBatchListItemDto {
     kind: b.kind,
     status: b.status,
     fileName: b.fileName,
+    sheetName: b.sheetName,
     totalRows: b.totalRows,
     validRows: b.validRows,
     errorRows: b.errorRows,
@@ -56,11 +62,18 @@ function toListItem(b: BatchRow): ImportBatchListItemDto {
   };
 }
 
-const ref = (b: { id: string; code: string; locationId: string | null; stockDocumentId: string | null }): BatchRef => ({
+const ref = (b: {
+  id: string;
+  code: string;
+  locationId: string | null;
+  stockDocumentId: string | null;
+  options: Prisma.JsonValue | null;
+}): BatchRef => ({
   id: b.id,
   code: b.code,
   locationId: b.locationId,
   stockDocumentId: b.stockDocumentId,
+  options: asOptions(b.options),
 });
 
 const normalise = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -106,9 +119,12 @@ export async function getImport(id: string): Promise<ImportBatchDto> {
   return {
     ...toListItem(b),
     headers,
+    headerRow: b.headerRow,
     mapping: asMapping(b.mapping),
     suggestedMapping: suggested,
     locationId: b.locationId,
+    options: asOptions(b.options),
+    summary: asStrings(b.summary),
     sample: sampleRows.map((r) => asValues(r.raw)),
     approvedByName: b.approvedBy?.name ?? null,
     rolledBackByName: b.rolledBackBy?.name ?? null,
@@ -159,14 +175,17 @@ export async function listTemplates(kind: ImportKind): Promise<ImportTemplateDto
 }
 
 /** Reads the file, keeps every non-empty row as uploaded, and suggests a column mapping. */
-export async function uploadImport(kind: ImportKind, fileName: string, file: Buffer, ctx: RequestContext) {
-  const parsed = await parseImportFile(file, fileName);
+export async function uploadImport(input: ImportUploadQuery, file: Buffer, ctx: RequestContext) {
+  const { kind, fileName } = input;
+  const parsed = await parseImportFile(file, fileName, { sheet: input.sheet, headerRow: input.headerRow });
   const id = await withTransaction(async (tx) => {
     const batch = await tx.importBatch.create({
       data: {
         code: await nextCode(tx, "IMP"),
         kind,
         fileName,
+        sheetName: parsed.sheetName,
+        headerRow: parsed.headerRow,
         headers: parsed.headers,
         totalRows: parsed.rows.length,
         createdById: ctx.userId,
@@ -177,7 +196,7 @@ export async function uploadImport(kind: ImportKind, fileName: string, file: Buf
       action: "import.uploaded",
       entity: "ImportBatch",
       entityId: batch.id,
-      after: { code: batch.code, kind, fileName, rows: parsed.rows.length },
+      after: { code: batch.code, kind, fileName, sheet: parsed.sheetName, headerRow: parsed.headerRow, rows: parsed.rows.length },
     });
     return batch.id;
   });
@@ -196,6 +215,26 @@ function assertMapping(kind: ImportKind, headers: string[], mapping: Mapping) {
   }
   for (const f of IMPORT_FIELDS[kind]) if (f.required && !mapping[f.key]) fieldErrors[f.key] = ["Choose the column for this field"];
   if (Object.keys(fieldErrors).length) throw new ApiError(400, "VALIDATION_ERROR", "Check the column mapping", { fieldErrors });
+}
+
+const invalidChoice = (key: string, message: string) =>
+  new ApiError(400, "VALIDATION_ERROR", message, { fieldErrors: { [`options.${key}`]: [message] } });
+
+/** Each option is needed only when the column it describes is mapped, and must name an active record. */
+async function resolveOptions(kind: ImportKind, mapping: Mapping, input: Options): Promise<Options> {
+  const out: Options = {};
+  for (const option of IMPORT_OPTIONS[kind]) {
+    if (!mapping[option.whenMapped]) continue;
+    const id = input[option.key];
+    if (!id) throw invalidChoice(option.key, `${option.label}: choose one`);
+    const found =
+      option.type === "account"
+        ? await prisma.receivingAccount.findFirst({ where: { id, isActive: true }, select: { id: true } })
+        : await prisma.expenseCategory.findFirst({ where: { id, isActive: true }, select: { id: true } });
+    if (!found) throw invalidChoice(option.key, `${option.label}: choose an active one`);
+    out[option.key] = id;
+  }
+  return out;
 }
 
 async function fieldRows(batchId: string, mapping: Mapping) {
@@ -246,22 +285,27 @@ export async function mapAndCheck(id: string, input: ImportMappingInput, ctx: Re
   assertMapping(batch.kind, asStrings(batch.headers), mapping);
 
   let locationId: string | null = null;
-  if (batch.kind === "OPENING_STOCK") {
+  if (IMPORT_KINDS_WITH_LOCATION.includes(batch.kind)) {
     if (!input.locationId)
-      throw new ApiError(400, "VALIDATION_ERROR", "Choose where the stock is", { fieldErrors: { locationId: ["Required"] } });
+      throw new ApiError(400, "VALIDATION_ERROR", "Choose the stock location", { fieldErrors: { locationId: ["Required"] } });
     const location = await prisma.location.findFirst({ where: { id: input.locationId, isActive: true } });
     if (!location)
       throw new ApiError(400, "VALIDATION_ERROR", "Choose an active location", { fieldErrors: { locationId: ["Not active"] } });
     locationId = location.id;
   }
 
+  const options = await resolveOptions(batch.kind, mapping, input.options);
+
   const { ids, fields } = await fieldRows(id, mapping);
-  const { results } = await IMPORT_HANDLERS[batch.kind].check(fields, { ...ref(batch), locationId });
+  const { results, summary } = await IMPORT_HANDLERS[batch.kind].check(fields, { ...ref(batch), locationId, options });
 
   await withTransaction(
     async (tx) => {
       await saveRowResults(tx, ids, fields, results);
-      await tx.importBatch.update({ where: { id }, data: { status: "VALIDATED", mapping, locationId, ...counts(results) } });
+      await tx.importBatch.update({
+        where: { id },
+        data: { status: "VALIDATED", mapping, locationId, options, summary: summary ?? [], ...counts(results) },
+      });
       if (input.saveTemplateAs) {
         await tx.importTemplate.upsert({
           where: { kind_name: { kind: batch.kind, name: input.saveTemplateAs } },
@@ -273,7 +317,7 @@ export async function mapAndCheck(id: string, input: ImportMappingInput, ctx: Re
         action: "import.checked",
         entity: "ImportBatch",
         entityId: id,
-        after: { mapping, locationId, ...counts(results) },
+        after: { mapping, locationId, options, ...counts(results) },
       });
     },
     { timeout: APPROVE_TIMEOUT_MS },
@@ -299,7 +343,7 @@ export async function approveImport(id: string, ctx: RequestContext) {
   if (changed) {
     await withTransaction(async (tx) => {
       await saveRowResults(tx, ids, fields, fresh.results);
-      await tx.importBatch.update({ where: { id }, data: counts(fresh.results) });
+      await tx.importBatch.update({ where: { id }, data: { ...counts(fresh.results), summary: fresh.summary ?? [] } });
     });
     throw new ApiError(
       409,

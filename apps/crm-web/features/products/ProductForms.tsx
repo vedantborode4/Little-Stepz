@@ -31,8 +31,8 @@ function basicsDefaults(p?: ProductDetailDto) {
     description: p?.description ?? "",
     notes: p?.notes ?? "",
     hsnCode: p?.hsnCode ?? "",
-    // Empty until chosen; the schema rejects "" with "Choose a GST rate".
-    gstRate: (p?.gstRate ?? "") as (typeof GST_RATES)[number],
+    // Empty follows the category's rate; a product with its own rate keeps it.
+    gstRate: (p && !p.gstFromCategory ? p.gstRate : "") as (typeof GST_RATES)[number],
     websiteProductId: "",
   } as const
 }

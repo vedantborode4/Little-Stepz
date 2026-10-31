@@ -30,6 +30,7 @@ const EVENT_LABELS: Record<string, string> = {
   handed_over: "Handed over — stock deducted",
   dispatched: "Dispatched — stock deducted",
   sold_at_counter: "Sold at the counter — stock deducted",
+  imported: "Past sale imported — stock not changed",
   delivered: "Delivered",
   cancelled: "Cancelled",
   allocated: "Stock allocated",
@@ -495,6 +496,13 @@ function OrderView({ o }: { o: SalesOrderDetailDto }) {
               {o.externalRef && <DetailRow label="Reference">{o.externalRef}</DetailRow>}
               <DetailRow label="Status">{SALES_ORDER_STATUS_LABELS[o.status]}</DetailRow>
               {o.fulfilledAt && <DetailRow label="Revenue date">{formatDate(o.fulfilledDate)}</DetailRow>}
+              {o.importBatch && (
+                <DetailRow label="Imported from">
+                  <Link href={`/imports/${o.importBatch.id}`} className="font-mono text-primary hover:underline">
+                    {o.importBatch.code}
+                  </Link>
+                </DetailRow>
+              )}
               {o.stockDocument && (
                 <DetailRow label="Stock entry">
                   <button className="font-mono text-primary hover:underline" onClick={() => setDocumentId(o.stockDocument!.id)}>

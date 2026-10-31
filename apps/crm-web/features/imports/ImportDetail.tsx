@@ -9,6 +9,8 @@ import { toast } from "sonner"
 import {
   IMPORT_FIELDS,
   IMPORT_KIND_LABELS,
+  IMPORT_KINDS_WITH_LOCATION,
+  IMPORT_OPTIONS,
   IMPORT_ROW_STATUS_LABELS,
   type ImportBatchDto,
   type ImportKind,
@@ -20,7 +22,8 @@ import ConfirmDialog from "@/components/ui/ConfirmDialog"
 import DataTable from "@/components/ui/DataTable"
 import { Badge, Card, EmptyState, PageHeader, Skeleton, StatCard, type BadgeTone } from "@/components/ui/Display"
 import { Field, FormError, Input, Select, Textarea } from "@/components/ui/Form"
-import { useLocations } from "@/features/settings/api"
+import { useExpenseCategories } from "@/features/finance/api"
+import { useLocations, useReceivingAccounts } from "@/features/settings/api"
 import { errorMessage } from "@/lib/api-error"
 import { formatDateTime, formatQty } from "@/lib/format"
 import { useListState } from "@/lib/use-list-state"
@@ -41,6 +44,43 @@ const KEY_FIELDS: Record<ImportKind, string[]> = {
   PRODUCTS: ["productName", "optionValue", "sku", "regularPrice"],
   OPENING_STOCK: ["sku", "quantity", "unitCost"],
   CUSTOMERS: ["name", "mobile", "city"],
+  HISTORICAL_SALES: ["billId", "saleDate", "sku", "quantity", "unitPrice"],
+  EXPENSES: ["date", "category", "amount", "account"],
+}
+
+const LOCATION_LABEL: Partial<Record<ImportKind, { label: string; hint: string }>> = {
+  OPENING_STOCK: { label: "Where is this stock?", hint: "Opening stock lands here" },
+  HISTORICAL_SALES: { label: "Where were these sales made?", hint: "The store the past bills belong to" },
+}
+
+/** What each kind of approval does, in the owner's words, for the confirm dialog and the rolled-back note. */
+const EFFECT: Record<ImportKind, { approve: string; rollback: string; rolledBack: string }> = {
+  PRODUCTS: {
+    approve: "Creates the products now, with any new categories and brands.",
+    rollback: "The imported products and variants are archived and their SKUs freed.",
+    rolledBack: "The products are archived and their SKUs freed for a corrected file.",
+  },
+  OPENING_STOCK: {
+    approve: "Posts one opening-stock entry into the chosen location.",
+    rollback: "A reversal entry takes the imported stock back out.",
+    rolledBack: "The opening stock was reversed in the ledger.",
+  },
+  CUSTOMERS: {
+    approve: "Creates the customers now.",
+    rollback: "The imported customers are removed.",
+    rolledBack: "The customers were removed.",
+  },
+  HISTORICAL_SALES: {
+    approve:
+      "Records each bill as a completed sale on its own date, with its payments. Stock is not changed. Once approved, bills can't be rolled back; a mistake is corrected with a return or refund.",
+    rollback: "",
+    rolledBack: "",
+  },
+  EXPENSES: {
+    approve: "Records each expense on its own date, paid from its account.",
+    rollback: "Each imported expense is voided by a reversal entry dated today.",
+    rolledBack: "The expenses were voided.",
+  },
 }
 
 const STEPS = ["Upload", "Map columns", "Review rows", "Approve"]
@@ -79,8 +119,13 @@ function MappingForm({ batch, onDone }: { batch: ImportBatchDto; onDone?: () => 
   const map = useMapImport(batch.id)
   const templates = useImportTemplates(batch.kind)
   const locations = useLocations()
+  const accounts = useReceivingAccounts()
+  const expenseCategories = useExpenseCategories()
   const [mapping, setMapping] = useState<Record<string, string | null>>(batch.mapping ?? batch.suggestedMapping)
   const [locationId, setLocationId] = useState(batch.locationId ?? "")
+  const [options, setOptions] = useState<Record<string, string | null>>(batch.options)
+  const location = LOCATION_LABEL[batch.kind]
+  const choices = IMPORT_OPTIONS[batch.kind].filter((o) => mapping[o.whenMapped])
   const [templateName, setTemplateName] = useState("")
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [formError, setFormError] = useState<string | null>(null)
@@ -100,7 +145,7 @@ function MappingForm({ batch, onDone }: { batch: ImportBatchDto; onDone?: () => 
     setErrors({})
     setFormError(null)
     try {
-      await map.mutateAsync({ mapping, locationId: locationId || null, saveTemplateAs: templateName || null })
+      await map.mutateAsync({ mapping, locationId: locationId || null, options, saveTemplateAs: templateName || null })
       toast.success("Every row has been checked")
       onDone?.()
     } catch (err) {
@@ -134,8 +179,8 @@ function MappingForm({ batch, onDone }: { batch: ImportBatchDto; onDone?: () => 
     >
       <div className="space-y-4">
         <FormError message={formError} />
-        {batch.kind === "OPENING_STOCK" && (
-          <Field label="Where is this stock?" htmlFor="im-location" required error={errors.locationId}>
+        {location && IMPORT_KINDS_WITH_LOCATION.includes(batch.kind) && (
+          <Field label={location.label} htmlFor="im-location" required error={errors.locationId}>
             <Select id="im-location" value={locationId} onChange={(e) => setLocationId(e.target.value)}>
               <option value="">Choose a location…</option>
               {locations.data
@@ -178,12 +223,37 @@ function MappingForm({ batch, onDone }: { batch: ImportBatchDto; onDone?: () => 
                   ))}
                 </Select>
                 <p className="text-xs text-muted truncate" title={header ? sample[header] : undefined}>
-                  {header ? sample[header] || <span className="text-faint">(blank in row 2)</span> : ""}
+                  {header ? sample[header] || <span className="text-faint">(blank in the first row)</span> : ""}
                 </p>
               </div>
             )
           })}
         </div>
+        {choices.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {choices.map((o) => {
+              const list = o.type === "account" ? accounts.data : expenseCategories.data
+              return (
+                <Field key={o.key} label={o.label} htmlFor={`im-${o.key}`} required error={errors[`options.${o.key}`]}>
+                  <Select
+                    id={`im-${o.key}`}
+                    value={options[o.key] ?? ""}
+                    onChange={(e) => setOptions((x) => ({ ...x, [o.key]: e.target.value || null }))}
+                  >
+                    <option value="">Choose…</option>
+                    {list
+                      ?.filter((x) => x.isActive)
+                      .map((x) => (
+                        <option key={x.id} value={x.id}>
+                          {x.name}
+                        </option>
+                      ))}
+                  </Select>
+                </Field>
+              )
+            })}
+          </div>
+        )}
         <div className="flex flex-col sm:flex-row sm:items-end gap-3 justify-between">
           <Field
             label="Save this mapping for next time"
@@ -347,7 +417,7 @@ export default function ImportDetail({ id }: { id: string }) {
       </Link>
       <PageHeader
         title={`${batch.code} · ${IMPORT_KIND_LABELS[batch.kind]}`}
-        subtitle={`${batch.fileName} · ${formatQty(batch.totalRows)} rows · uploaded ${formatDateTime(batch.createdAt)}${batch.createdByName ? ` by ${batch.createdByName}` : ""}`}
+        subtitle={`${batch.fileName}${batch.sheetName ? ` › ${batch.sheetName}` : ""} · headings on row ${batch.headerRow} · ${formatQty(batch.totalRows)} rows · uploaded ${formatDateTime(batch.createdAt)}${batch.createdByName ? ` by ${batch.createdByName}` : ""}`}
         action={
           <>
             <ImportStatusBadge status={batch.status} />
@@ -398,7 +468,12 @@ export default function ImportDetail({ id }: { id: string }) {
               color="bg-yellow-50 dark:bg-yellow-500/15 text-yellow-600"
             />
             {batch.locationName ? (
-              <StatCard title="Location" value={batch.locationName} hint="Opening stock lands here" icon={<ListChecks size={18} />} />
+              <StatCard
+                title="Location"
+                value={batch.locationName}
+                hint={LOCATION_LABEL[batch.kind]?.hint ?? ""}
+                icon={<ListChecks size={18} />}
+              />
             ) : (
               <StatCard
                 title="Rows in file"
@@ -408,6 +483,16 @@ export default function ImportDetail({ id }: { id: string }) {
               />
             )}
           </div>
+
+          {batch.summary.length > 0 && (batch.status === "VALIDATED" || batch.status === "IMPORTED") && (
+            <Card title={batch.status === "VALIDATED" ? "What approving will do" : "What was imported"}>
+              <ul className="list-disc pl-5 space-y-1 text-sm text-muted">
+                {batch.summary.map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
+            </Card>
+          )}
 
           {batch.status === "VALIDATED" && (
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-border bg-surface p-4">
@@ -451,12 +536,7 @@ export default function ImportDetail({ id }: { id: string }) {
           {batch.status === "ROLLED_BACK" && (
             <div className="rounded-2xl border border-border bg-surface-2 p-4 text-sm text-muted">
               Rolled back {formatDateTime(batch.rolledBackAt)}
-              {batch.rolledBackByName ? ` by ${batch.rolledBackByName}` : ""}: {batch.rollbackReason}.{" "}
-              {batch.kind === "PRODUCTS"
-                ? "The products are archived and their SKUs freed for a corrected file."
-                : batch.kind === "OPENING_STOCK"
-                  ? "The opening stock was reversed in the ledger."
-                  : "The customers were removed."}
+              {batch.rolledBackByName ? ` by ${batch.rolledBackByName}` : ""}: {batch.rollbackReason}. {EFFECT[batch.kind].rolledBack}
             </div>
           )}
 
@@ -468,11 +548,7 @@ export default function ImportDetail({ id }: { id: string }) {
         <ConfirmDialog
           title={`Import ${formatQty(batch.validRows)} rows?`}
           tone="primary"
-          message={
-            batch.kind === "OPENING_STOCK"
-              ? `Posts one opening-stock entry into ${batch.locationName}. Rows are checked once more first.`
-              : "Creates the records now. Rows are checked once more first; if anything changed, nothing is imported."
-          }
+          message={`${EFFECT[batch.kind].approve} Rows are checked once more first; if anything changed, nothing is imported.`}
           confirmLabel="Approve import"
           loading={action.isPending}
           onConfirm={() => run("approve")}
@@ -494,13 +570,7 @@ export default function ImportDetail({ id }: { id: string }) {
           title="Roll back this import?"
           message={
             <div className="space-y-3">
-              <p>
-                {batch.kind === "PRODUCTS"
-                  ? "The imported products and variants are archived and their SKUs freed."
-                  : batch.kind === "OPENING_STOCK"
-                    ? "A reversal entry takes the imported stock back out."
-                    : "The imported customers are removed."}
-              </p>
+              <p>{EFFECT[batch.kind].rollback}</p>
               <Field label="Reason" htmlFor="im-reason" required>
                 <Textarea id="im-reason" rows={2} value={reason} maxLength={200} onChange={(e) => setReason(e.target.value)} />
               </Field>

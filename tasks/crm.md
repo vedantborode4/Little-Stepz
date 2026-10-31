@@ -468,3 +468,95 @@ Decisions (owner, 2026-10-31):
 - crm-api: 197/197 tests pass, and the build passes.
 - crm-web: typecheck and lint pass.
 
+
+## Real data migration (2026-11-01)
+
+The source is the owner's workbook `Little_Stepz_Complete_Dashboard_31_Oct_2026.xlsx`.
+
+**Owner decisions**
+- The workbook is the source of truth.
+- Categories: all 13 of the workbook's categories, exactly as named.
+- Brands: exactly as listed. "(No brand)" means the product has no brand.
+- The local SAMPLE/demo data is discarded.
+- The run goes on the local database first, and on production only after that.
+- Doubtful data is sent to the client before import. Product images are skipped for now.
+- Everything in the sheets goes into the CRM.
+- GST: one rate per category, which a product can override with its own rate.
+
+**Client inputs.** These come back in `Little_Stepz_Client_Questions_01_Nov_2026.xlsx`:
+- GST for each category, with product overrides.
+- Missing prices, costs and names.
+- Shelf count by location, including demo and damaged pieces.
+- 13 bills that are owing or overpaid.
+- Which account each payment method goes to, and the channel for each bill.
+- Customer mobile numbers.
+- Dates for the setup expenses, and which ones are assets.
+- The 193 open questions from the old sheet.
+- Stock movements with missing details.
+- Supplier balances. The CRM doesn't track these.
+
+**Build**
+- [x] **Import fixes.**
+  - A file over 5 MB gets a clear "file too large" message, not a 500.
+  - The user picks which sheet to import.
+  - The header row is found under title rows, or picked by the user.
+  - Merged-cell copies are not treated as duplicate headers.
+- [x] **GST by category.**
+  - Each category has a default GST rate.
+  - Products follow the category rate unless they have their own override.
+  - Changing a category's rate updates every product that follows it, with an audit entry.
+  - The product form shows "Use category rate" or a custom rate.
+  - In the products import the GST column is optional.
+- [x] **Clean baseline.** (Code done. Resetting the local database is waiting for the owner's explicit yes; Prisma refuses an AI-run reset without it.)
+  - The base seed stops creating the 7 demo categories.
+  - The expense categories come from the workbook's list.
+  - The local database is reset to migrations plus the base seed, with no `seed:demo`.
+- [x] **Products import creates missing categories and brands.** The preview lists the new ones before anything is approved.
+- [x] **New import type: historical sales.**
+  - Rows are grouped into bills by bill ID.
+  - Each bill is dated and recorded as completed (fulfilled) on its sale date.
+  - Lines keep the price charged, the discounts and the landed-cost snapshot. A blank cost stays "unknown".
+  - Payments are dated on the sale date and go to the account mapped for each method.
+  - Each bill carries its channel and its customer.
+  - Courier charges become expenses linked to the order.
+  - Stock is **not** moved, because the cut-over count already reflects these sales.
+  - Imported bills are marked as imported, and the batch can be rolled back.
+- [x] **New import type: expenses** (the 39 setup costs).
+- [ ] **Import files.**
+  - The CRM import files are built from the workbook plus the client's answers.
+  - The one later payment (₹12,200, 6 Oct) is entered on its bill.
+  - The ₹200 exchange refund is entered as a refund.
+- [ ] **Dry run on the local database.**
+  - Order: products, then the opening stock count, then customers, then history, then expenses.
+  - Owner approves each batch.
+  - Totals are reconciled against the workbook:
+    - Sales: ₹5,81,475 across 208 bills.
+    - Received: ₹5,82,185.
+    - Stock at landed cost: from the shelf count.
+- [ ] **Production run**, after the local run is signed off.
+
+**Not mapped.** Supplier balances have no home in the CRM (supplier payables were out of scope):
+- The Hot Wheels supplier credit of ₹20,420, and the 2 cases still owed.
+- The Anil Ji credit of ₹8,573.70 and the RMB ledger.
+
+These wait for the owner's answer on sheet 11.
+
+**Review of the build (2026-11-01)**
+- Imports read one sheet of a workbook. If the file has several sheets, the import asks which one. It finds the headings row under titles and group labels: the first row near the top that is nearly as full as the fullest. Row numbers match Excel.
+  - A file over 5 MB now gets a 413 `FILE_TOO_LARGE`. Before, this was a 500 "Something went wrong".
+  - Merged-cell copies, columns without a heading and repeated headings no longer break the upload.
+- GST by category:
+  - `Category.gstRate` and `Product.gstFromCategory` were added.
+  - Sales still snapshot `Product.gstRate`, which is kept equal to the category's rate while the product follows it.
+  - A category rate can't be cleared while products follow it.
+- The base seed no longer creates categories. Expense categories are the workbook's list, plus Courier and Packaging.
+- Past sales import (`HISTORICAL_SALES`):
+  - Each bill becomes a completed sale on its own date with `importBatchId`, its payments on that date (no invented gateway fee) and its courier charge as an order expense.
+  - Stock is not moved. A cost is written only if the file gives one; otherwise the line counts as unknown-cost units.
+  - A walk-in bill must be paid exactly. A named customer may owe the rest, or keep any excess as credit.
+  - These are locked money records, so the batch can't be rolled back.
+- Expenses import: categories are matched by name. Accounts are matched by name, or by method when that names exactly one account; anything ambiguous is refused with the choices. Rollback voids each expense.
+- Verification:
+  - crm-api builds, and 202/202 tests pass. New tests cover sheet choice, header detection, the size limit, past sales, expenses and category GST.
+  - crm-web typechecks and lints.
+  - Driven in Chrome against the test database: sheet picker, mapping with account choices, the check summary, the category GST field and the product GST choice.

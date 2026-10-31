@@ -74,6 +74,7 @@ export const toProductDetailDto = (p: DetailRow, stock: StockTotals): ProductDet
   notes: p.notes,
   hsnCode: p.hsnCode,
   gstRate: p.gstRate.toString(),
+  gstFromCategory: p.gstFromCategory,
   websiteProductId: p.websiteProductId,
   options: p.options.map((o) => ({ id: o.id, name: o.name, values: o.values.map((v) => ({ id: v.id, value: v.value })) })),
   variants: p.variants.map((v) => toVariantDto(v, stock)),
@@ -122,6 +123,7 @@ export const productAuditSnapshot = (p: {
   imageUrl: string | null;
   hsnCode: string | null;
   gstRate: Prisma.Decimal;
+  gstFromCategory: boolean;
   websiteProductId: string | null;
   description: string | null;
   notes: string | null;
@@ -135,6 +137,7 @@ export const productAuditSnapshot = (p: {
   imageUrl: p.imageUrl,
   hsnCode: p.hsnCode,
   gstRate: p.gstRate.toString(),
+  gstFromCategory: p.gstFromCategory,
   websiteProductId: p.websiteProductId,
   description: p.description,
   notes: p.notes,

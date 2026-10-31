@@ -29,9 +29,9 @@ importsRoutes.get("/templates", async (req: Request, res: Response) => {
 });
 
 importsRoutes.post("/", fileBody, async (req: Request, res: Response) => {
-  const { kind, fileName } = importUploadQuery.parse(req.query);
+  const query = importUploadQuery.parse(req.query);
   if (!Buffer.isBuffer(req.body) || req.body.length === 0) throw new ApiError(400, "IMPORT_FILE_INVALID", "Choose a file to upload");
-  sendData(res, await imports.uploadImport(kind, fileName, req.body, requestContext(req)), 201);
+  sendData(res, await imports.uploadImport(query, req.body, requestContext(req)), 201);
 });
 
 importsRoutes.get("/:id", async (req: Request, res: Response) => {

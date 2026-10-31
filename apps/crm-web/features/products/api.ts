@@ -17,6 +17,7 @@ import type {
   ProductListItemDto,
   SetMappingInput,
   SupplierDto,
+  UpdateCategoryInput,
   UpdateNamedEntityInput,
   UpdateProductInput,
   UpdateVariantInput,
@@ -52,7 +53,7 @@ export const useNamedList = (kind: NamedKind, includeInactive = false, enabled =
   })
 
 export const useSaveNamed = (kind: NamedKind) =>
-  useCatalogMutation(({ id, input }: { id?: string; input: NamedEntityInput | UpdateNamedEntityInput }) =>
+  useCatalogMutation(({ id, input }: { id?: string; input: NamedEntityInput | UpdateNamedEntityInput | UpdateCategoryInput }) =>
     id ? sendData<NamedEntityDto>("patch", `/${kind}/${id}`, input) : sendData<NamedEntityDto>("post", `/${kind}`, input),
   )
 

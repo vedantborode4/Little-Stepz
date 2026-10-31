@@ -262,3 +262,44 @@ describe("catalog permissions", () => {
     expect((await api().get("/api/v1/website-mapping").set(ops.auth)).status).toBe(403);
   });
 });
+
+describe("GST by category", () => {
+  const send = (method: "post" | "patch", path: string, body: object) => api()[method](`/api/v1${path}`).set(admin.auth).send(body);
+  const simple = (category: string, gstRate: string | null) => ({
+    name: `Tumbler ${uid()}`,
+    categoryId: category,
+    gstRate,
+    variants: [{ sku: `TB-${uid()}`, regularPrice: "1999" }],
+  });
+
+  it("lets products follow their category's rate or keep their own, and moves followers when the rate changes", async () => {
+    const bottles = (await send("post", "/categories", { name: `Bottles ${uid()}`, gstRate: "12" })).body.data;
+    expect(bottles).toMatchObject({ gstRate: "12" });
+
+    const follower = (await send("post", "/products", simple(bottles.id, null))).body.data;
+    const ownRate = (await send("post", "/products", simple(bottles.id, "18"))).body.data;
+    expect(follower).toMatchObject({ gstRate: "12", gstFromCategory: true });
+    expect(ownRate).toMatchObject({ gstRate: "18", gstFromCategory: false });
+
+    await send("patch", `/categories/${bottles.id}`, { gstRate: "5" }).expect(200);
+    const rate = async (id: string) => (await api().get(`/api/v1/products/${id}`).set(admin.auth)).body.data;
+    expect(await rate(follower.id)).toMatchObject({ gstRate: "5", gstFromCategory: true });
+    expect(await rate(ownRate.id)).toMatchObject({ gstRate: "18", gstFromCategory: false });
+
+    const cleared = await send("patch", `/categories/${bottles.id}`, { gstRate: null });
+    expect(cleared.body.error.code).toBe("CATEGORY_RATE_IN_USE");
+
+    // Clearing a product's own rate makes it follow; moving a follower takes the new category's rate.
+    await send("patch", `/products/${ownRate.id}`, { gstRate: null }).expect(200);
+    expect(await rate(ownRate.id)).toMatchObject({ gstRate: "5", gstFromCategory: true });
+    const premium = (await send("post", "/categories", { name: `Premium ${uid()}`, gstRate: "28" })).body.data;
+    await send("patch", `/products/${follower.id}`, { categoryId: premium.id }).expect(200);
+    expect(await rate(follower.id)).toMatchObject({ gstRate: "28", gstFromCategory: true });
+  });
+
+  it("asks for a rate when neither the product nor its category has one", async () => {
+    const res = await send("post", "/products", simple(categoryId, null));
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatchObject({ code: "GST_RATE_REQUIRED", details: { fieldErrors: { gstRate: [expect.any(String)] } } });
+  });
+});

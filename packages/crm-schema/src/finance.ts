@@ -13,17 +13,22 @@ export const CASH_SESSION_STATUSES = ["OPEN", "CLOSED"] as const;
 export type CashSessionStatus = (typeof CASH_SESSION_STATUSES)[number];
 export const CASH_SESSION_STATUS_LABELS: Record<CashSessionStatus, string> = { OPEN: "Open", CLOSED: "Closed" };
 
-/** Suggested categories; the owner can add or rename them. */
+/** The owner's own list (from their workbook), plus Courier and Packaging for costs tied to one order. */
 export const DEFAULT_EXPENSE_CATEGORIES = [
   "Rent",
-  "Salaries",
+  "Salaries & Wages",
   "Electricity",
-  "Packaging",
+  "Internet & Phone",
+  "Marketing & Ads",
+  "Maintenance & Repairs",
+  "Transport & Local Delivery",
+  "Bank & Card Charges",
+  "Software & Subscriptions",
+  "Office Supplies",
+  "Professional Fees",
   "Courier",
-  "Marketing",
-  "Repairs",
-  "Tea & snacks",
-  "Other",
+  "Packaging",
+  "Miscellaneous",
 ];
 
 const positiveMoney = money.refine((v) => Number(v) > 0, "Must be greater than 0");

@@ -23,6 +23,10 @@ export const PRICE_FIELD_LABELS: Record<PriceField, string> = {
 
 /** Common GST slabs. The owner's CA confirms the rate per HSN; this list only guards typos. */
 export const GST_RATES = ["0", "0.25", "3", "5", "12", "18", "28", "40"] as const;
+export type GstRate = (typeof GST_RATES)[number];
+
+/** A GST choice that may be left blank: "" and null both mean "use the category's rate" (or none, on a category). */
+export const optionalGstRate = z.union([z.literal(""), z.null(), z.enum(GST_RATES, "Choose a GST rate")]).transform((v) => v || null);
 
 export const CURRENCIES = [
   { code: "INR", label: "INR — Indian Rupee" },
@@ -32,17 +36,6 @@ export const CURRENCIES = [
 ] as const;
 export type CurrencyCode = (typeof CURRENCIES)[number]["code"];
 export const CURRENCY_CODES = CURRENCIES.map((c) => c.code) as [CurrencyCode, ...CurrencyCode[]];
-
-/** Categories the owner listed; more can be created in the app. */
-export const DEFAULT_CATEGORIES = [
-  "RC Cars",
-  "Hot Wheels",
-  "Premium Die-cast",
-  "Building Blocks",
-  "Toys",
-  "Stanley/Tumblers",
-  "Other",
-] as const;
 
 export const MAX_OPTIONS = 3;
 export const MAX_VARIANTS_PER_PRODUCT = 200;
@@ -100,6 +93,12 @@ export const updateNamedEntitySchema = z.object({ name: requiredText(60), isActi
 export type NamedEntityInput = z.infer<typeof namedEntitySchema>;
 export type UpdateNamedEntityInput = z.infer<typeof updateNamedEntitySchema>;
 
+/** A category also carries the GST rate its products use unless they have their own. */
+export const categorySchema = namedEntitySchema.extend({ gstRate: optionalGstRate.default(null) });
+export const updateCategorySchema = updateNamedEntitySchema.extend({ gstRate: optionalGstRate.optional() });
+export type CategoryInput = z.infer<typeof categorySchema>;
+export type UpdateCategoryInput = z.infer<typeof updateCategorySchema>;
+
 const supplierFields = {
   name: requiredText(120),
   country: optionalText(60),
@@ -149,7 +148,8 @@ const productFields = {
         .nullable(),
     )
     .nullish(),
-  gstRate: z.enum(GST_RATES, "Choose a GST rate"),
+  /** null follows the category's rate (and keeps following it when that changes). */
+  gstRate: optionalGstRate,
   websiteProductId: externalId,
 };
 

@@ -61,6 +61,7 @@ export type AuditAction =
   | "sale.allocated"
   | "sale.deallocated"
   | "sale.rescheduled"
+  | "sale.imported"
   | "payment.received"
   | "payment.voided"
   | "payment.settled_on_cancel"

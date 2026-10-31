@@ -58,6 +58,13 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
     return sendError(res, 400, "INVALID_JSON", "Request body is not valid JSON");
   }
 
+  // body-parser refuses an upload over the route's limit before reading it.
+  if (err instanceof Error && "type" in err && err.type === "entity.too.large") {
+    const limit = "limit" in err && typeof err.limit === "number" ? err.limit : null;
+    const mb = limit ? ` (the limit is ${Math.round(limit / (1024 * 1024))} MB)` : "";
+    return sendError(res, 413, "FILE_TOO_LARGE", `The file is too large${mb}`, { limitBytes: limit });
+  }
+
   logger.error({ err, requestId: req.id, method: req.method, url: req.originalUrl }, "unhandled error");
   return sendError(res, 500, "INTERNAL_ERROR", "Something went wrong. Please try again.");
 }

@@ -5,6 +5,7 @@ import { GST_RATES, PRODUCT_STATUS_LABELS, PRODUCT_STATUSES, type ProductStatus 
 import { Card } from "@/components/ui/Display"
 import { Field, Input, Select, Textarea } from "@/components/ui/Form"
 import { useCan } from "@/store/auth.store"
+import { useNamedList } from "./api"
 import { LookupSelect } from "./LookupSelect"
 
 /** The product-level fields shared by the create and edit forms. */
@@ -25,8 +26,16 @@ export interface ProductBasicsValues {
 export default function ProductBasicsFields({ form }: { form: UseFormReturn<ProductBasicsValues> }) {
   const can = useCan()
   const manage = can("products.manage")
-  const { register, setValue, formState } = form
+  const { register, setValue, formState, watch } = form
   const err = formState.errors
+  const categories = useNamedList("categories")
+  const categoryId = watch("categoryId")
+  const categoryRate = categories.data?.find((c) => c.id === categoryId)?.gstRate
+  const followLabel = categoryRate
+    ? `Category rate (${categoryRate}%)`
+    : categoryId
+      ? "Category rate (the category has none yet)"
+      : "Category rate"
   const select = (field: "categoryId" | "brandId" | "supplierId") => (id: string) =>
     setValue(field, id, { shouldDirty: true, shouldValidate: true })
 
@@ -87,12 +96,11 @@ export default function ProductBasicsFields({ form }: { form: UseFormReturn<Prod
           <Field
             label="GST rate"
             htmlFor="gstRate"
-            required
             error={err.gstRate?.message}
-            hint="Selling prices include GST. Confirm the rate with your CA."
+            hint="Keep the category's rate unless this product is taxed differently. Selling prices include GST; confirm rates with your CA."
           >
             <Select id="gstRate" {...register("gstRate")}>
-              <option value="">Choose a rate</option>
+              <option value="">{followLabel}</option>
               {GST_RATES.map((r) => (
                 <option key={r} value={r}>
                   {r}%

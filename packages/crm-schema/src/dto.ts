@@ -99,6 +99,8 @@ export interface NamedEntityDto {
   name: string;
   isActive: boolean;
   productCount: number;
+  /** Categories only: the GST % its products use unless they have their own. */
+  gstRate?: string | null;
 }
 
 export interface SupplierDto {
@@ -191,6 +193,8 @@ export interface ProductDetailDto {
   notes: string | null;
   hsnCode: string | null;
   gstRate: string;
+  /** The rate comes from the category and follows it when it changes. */
+  gstFromCategory: boolean;
   websiteProductId: string | null;
   options: ProductOptionDto[];
   variants: VariantDto[];
@@ -677,6 +681,8 @@ export interface SalesOrderDetailDto extends SalesOrderListItemDto {
   cancelReason: string | null;
   createdByName: string | null;
   stockDocument: { id: string; code: string } | null;
+  /** Set for a past sale brought in by an import: history only, its stock was never moved. */
+  importBatch: { id: string; code: string } | null;
   lines: SalesOrderLineDto[];
   totals: SaleTotalsDto;
   profit?: OrderProfitDto | null;
@@ -1201,6 +1207,8 @@ export interface ImportBatchListItemDto {
   kind: ImportKind;
   status: ImportBatchStatus;
   fileName: string;
+  /** The Excel sheet that was read (null for a CSV). */
+  sheetName: string | null;
   totalRows: number;
   validRows: number;
   errorRows: number;
@@ -1215,11 +1223,17 @@ export interface ImportBatchListItemDto {
 
 export interface ImportBatchDto extends ImportBatchListItemDto {
   headers: string[];
+  /** The row the column headings were found on. */
+  headerRow: number;
   /** Target field → header, as saved (null before mapping). */
   mapping: Record<string, string | null> | null;
   /** Saved mapping, else the best guess from template or header names. */
   suggestedMapping: Record<string, string | null>;
   locationId: string | null;
+  /** Choices made while mapping (see IMPORT_OPTIONS), by option key. */
+  options: Record<string, string | null>;
+  /** What approving will create, from the last check (new categories, bill and payment totals…). */
+  summary: string[];
   /** First rows of the file, keyed by header, to help map columns. */
   sample: Record<string, string>[];
   approvedByName: string | null;

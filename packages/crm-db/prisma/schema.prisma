@@ -199,6 +199,8 @@ model Category {
   id          String       @id @default(uuid())
   name        String
   nameKey     String       @unique
+  /// Default GST % for its products; a product follows it unless it has its own rate.
+  gstRate     Decimal?     @db.Decimal(5, 2)
   isActive    Boolean      @default(true)
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
@@ -267,7 +269,9 @@ model Product {
   description      String?
   notes            String?
   hsnCode          String?
+  /// The rate every sale snapshots. Kept equal to the category's rate while `gstFromCategory` is set.
   gstRate          Decimal       @db.Decimal(5, 2)
+  gstFromCategory  Boolean       @default(false)
   /// Read-only reference to the website's product id. Never used to write to the website.
   websiteProductId String?       @unique
   createdAt        DateTime      @default(now())
@@ -847,6 +851,9 @@ model SalesOrder {
   cancelReason    String?
   stockDocumentId String?          @unique
   stockDocument   StockDocument?   @relation("SalesOrderStockDocument", fields: [stockDocumentId], references: [id])
+  /// Set for past sales brought in by a historical import: recorded as history, no stock was moved.
+  importBatchId   String?
+  importBatch     ImportBatch?     @relation(fields: [importBatchId], references: [id])
   createdById     String?
   createdBy       User?            @relation(fields: [createdById], references: [id])
   createdAt       DateTime         @default(now())
@@ -865,6 +872,7 @@ model SalesOrder {
   @@index([fulfilledDate])
   @@index([channel])
   @@index([type, status])
+  @@index([importBatchId])
 }
 
 /// Price snapshot per item. `cogs` is fixed when the stock leaves (null until then).
@@ -1358,6 +1366,9 @@ enum ImportKind {
   PRODUCTS
   OPENING_STOCK
   CUSTOMERS
+  /// Past bills with their payments, recorded on their own dates without moving stock.
+  HISTORICAL_SALES
+  EXPENSES
 }
 
 enum ImportBatchStatus {
@@ -1401,11 +1412,18 @@ model ImportBatch {
   kind            ImportKind
   status          ImportBatchStatus @default(UPLOADED)
   fileName        String
+  /// The worksheet read from an Excel file, and the row its column headings were on.
+  sheetName       String?
+  headerRow       Int               @default(1)
   headers         Json
   mapping         Json?
-  /// Opening stock lands in this location.
+  /// Opening stock and historical sales land in this location.
   locationId      String?
   location        Location?         @relation(fields: [locationId], references: [id])
+  /// Choices made when mapping that aren't columns (which account a payment column went to…).
+  options         Json?
+  /// What approving will do, worked out by the check ("3 new categories", "₹5,81,475 of sales"…).
+  summary         Json?
   totalRows       Int
   validRows       Int               @default(0)
   errorRows       Int               @default(0)
@@ -1425,6 +1443,7 @@ model ImportBatch {
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
   rows            ImportRow[]
+  salesOrders     SalesOrder[]
 
   @@index([kind, createdAt])
 }
@@ -1433,7 +1452,7 @@ model ImportRow {
   id              String          @id @default(uuid())
   batchId         String
   batch           ImportBatch     @relation(fields: [batchId], references: [id])
-  /// Line number in the file (header is row 1).
+  /// Row number in the file or sheet, as the owner sees it in Excel.
   rowNumber       Int
   raw             Json
   mapped          Json?

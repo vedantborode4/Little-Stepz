@@ -287,7 +287,9 @@ function ProductView({ product }: { product: ProductDetailDto }) {
               <DetailRow label="Brand">{product.brand?.name ?? "—"}</DetailRow>
               <DetailRow label="Scale">{product.scale ?? "—"}</DetailRow>
               <DetailRow label="Main supplier">{product.supplier?.name ?? "—"}</DetailRow>
-              <DetailRow label="GST">{product.gstRate}%</DetailRow>
+              <DetailRow label="GST">
+                {product.gstRate}%{product.gstFromCategory ? " (category rate)" : ""}
+              </DetailRow>
               <DetailRow label="HSN">{product.hsnCode ?? "—"}</DetailRow>
               <DetailRow label="Website">
                 <MappingBadge state={productMappingState(product)} />

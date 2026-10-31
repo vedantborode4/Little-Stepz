@@ -21,6 +21,7 @@ export const orderDetailInclude = {
   location: { select: { id: true, name: true } },
   createdBy: { select: { name: true } },
   stockDocument: { select: { id: true, code: true } },
+  importBatch: { select: { id: true, code: true } },
   lines: {
     include: {
       variant: { select: { sku: true, name: true, product: { select: { name: true } } } },
@@ -163,6 +164,7 @@ export function toOrderDetailDto(o: DetailRow, visibility: Visibility): SalesOrd
     cancelReason: o.cancelReason,
     createdByName: o.createdBy?.name ?? null,
     stockDocument: o.stockDocument,
+    importBatch: o.importBatch,
     totals: toTotalsDto(o),
     lines: o.lines.map((l) => ({
       id: l.id,

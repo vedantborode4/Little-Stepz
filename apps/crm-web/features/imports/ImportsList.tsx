@@ -10,6 +10,7 @@ import {
   IMPORT_FIELDS,
   IMPORT_KIND_LABELS,
   IMPORT_KINDS,
+  IMPORT_MAX_BYTES,
   IMPORT_MAX_ROWS,
   type ImportBatchListItemDto,
   type ImportBatchStatus,
@@ -18,10 +19,10 @@ import {
 import Button from "@/components/ui/Button"
 import DataTable from "@/components/ui/DataTable"
 import { Badge, PageHeader, type BadgeTone } from "@/components/ui/Display"
-import { Field, FormError, Select } from "@/components/ui/Form"
+import { Field, FormError, Input, Select } from "@/components/ui/Form"
 import Modal from "@/components/ui/Modal"
 import { FilterSelect, ListToolbar, SearchInput } from "@/components/ui/Toolbar"
-import { errorMessage } from "@/lib/api-error"
+import { errorMessage, isApiError } from "@/lib/api-error"
 import { formatDateTime, formatQty } from "@/lib/format"
 import { useListState } from "@/lib/use-list-state"
 import { useImports, useUploadImport } from "./api"
@@ -40,13 +41,39 @@ export const ImportStatusBadge = ({ status }: { status: ImportBatchStatus }) => 
   <Badge tone={TONES[status]}>{IMPORT_BATCH_STATUS_LABELS[status]}</Badge>
 )
 
+const TOO_LARGE = `The file is larger than ${IMPORT_MAX_BYTES / (1024 * 1024)} MB. In Excel, copy the one sheet you need into a new workbook (or save it as .csv) and upload that.`
+
 function UploadModal({ onClose }: { onClose: () => void }) {
   const router = useRouter()
   const upload = useUploadImport()
   const [kind, setKind] = useState<ImportKind>("PRODUCTS")
   const [file, setFile] = useState<File | null>(null)
+  const [sheets, setSheets] = useState<string[] | null>(null)
+  const [sheet, setSheet] = useState("")
+  const [headerRow, setHeaderRow] = useState("")
   const [error, setError] = useState<string | null>(null)
   const required = IMPORT_FIELDS[kind].filter((f) => f.required).map((f) => f.label)
+
+  const chooseFile = (next: File | null) => {
+    setFile(next)
+    setSheets(null)
+    setSheet("")
+    setError(null)
+  }
+
+  const submit = async () => {
+    setError(null)
+    try {
+      const batch = await upload.mutateAsync({ kind, file: file!, sheet: sheet || undefined, headerRow: Number(headerRow) || undefined })
+      router.push(`/imports/${batch.id}`)
+    } catch (err) {
+      if (isApiError(err) && err.code === "IMPORT_PICK_SHEET" && Array.isArray(err.details.sheets)) {
+        setSheets(err.details.sheets as string[])
+        return
+      }
+      setError(isApiError(err) && err.code === "FILE_TOO_LARGE" ? TOO_LARGE : errorMessage(err))
+    }
+  }
 
   return (
     <Modal
@@ -57,20 +84,7 @@ function UploadModal({ onClose }: { onClose: () => void }) {
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button
-            icon={<Upload size={16} />}
-            loading={upload.isPending}
-            disabled={!file}
-            onClick={async () => {
-              setError(null)
-              try {
-                const batch = await upload.mutateAsync({ kind, file: file! })
-                router.push(`/imports/${batch.id}`)
-              } catch (err) {
-                setError(errorMessage(err))
-              }
-            }}
-          >
+          <Button icon={<Upload size={16} />} loading={upload.isPending} disabled={!file || (sheets !== null && !sheet)} onClick={submit}>
             Upload and preview
           </Button>
         </>
@@ -91,14 +105,43 @@ function UploadModal({ onClose }: { onClose: () => void }) {
           label="File"
           htmlFor="im-file"
           required
-          hint={`.csv or .xlsx (first sheet), header in the first row, up to ${formatQty(IMPORT_MAX_ROWS)} rows`}
+          hint={`.csv or .xlsx, up to ${IMPORT_MAX_BYTES / (1024 * 1024)} MB and ${formatQty(IMPORT_MAX_ROWS)} rows. Title rows above the column headings are skipped.`}
         >
           <input
             id="im-file"
             type="file"
             accept=".csv,.xlsx"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            onChange={(e) => chooseFile(e.target.files?.[0] ?? null)}
             className="block w-full text-sm text-muted file:mr-3 file:rounded-xl file:border-0 file:bg-primary/10 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-primary hover:file:bg-primary/15"
+          />
+        </Field>
+        {sheets && (
+          <Field
+            label="Which sheet?"
+            htmlFor="im-sheet"
+            required
+            hint={`This workbook has ${sheets.length} sheets; choose the one to import.`}
+          >
+            <Select id="im-sheet" value={sheet} onChange={(e) => setSheet(e.target.value)}>
+              <option value="">Choose a sheet</option>
+              {sheets.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
+        <Field label="Column headings are on row" htmlFor="im-header" hint="Leave blank to find them automatically.">
+          <Input
+            id="im-header"
+            type="number"
+            min={1}
+            max={100}
+            inputMode="numeric"
+            value={headerRow}
+            onChange={(e) => setHeaderRow(e.target.value)}
+            placeholder="Automatic"
           />
         </Field>
         <div className="rounded-xl bg-surface-2 p-3 text-xs text-muted space-y-1">
@@ -161,7 +204,7 @@ export default function ImportsList() {
     <div>
       <PageHeader
         title="Import Data"
-        subtitle="Bring in products, opening stock and customers from spreadsheets: map columns, review every row, approve, and roll back if needed."
+        subtitle="Bring in products, opening stock, customers, past sales and expenses from spreadsheets: map columns, review every row, then approve."
         action={
           <Button icon={<FileUp size={16} />} onClick={() => setUploading(true)}>
             Import a file
@@ -206,7 +249,7 @@ export default function ImportsList() {
         onRowClick={(b) => router.push(`/imports/${b.id}`)}
         getRowId={(b) => b.id}
         emptyTitle="No imports yet"
-        emptyHint="Start with products, then opening stock, then customers."
+        emptyHint="Start with products, then opening stock, customers, past sales and expenses."
         mobileCard={(b) => (
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">

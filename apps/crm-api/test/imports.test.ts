@@ -61,15 +61,16 @@ describe("Products & variants import", () => {
       [`Truck ${p}`, category, `TR-${p}-RED`, "18%", "₹1,180", "1,062", "Red", ""],
       [`Truck ${p}`, category, `TR-${p}-BLU`, "18", "1180", "", "Blue", ""],
       [`Plane ${p}`, category, `PL-${p}`, "12", "560", "", "", ""],
-      [`Boat ${p}`, "No such category", `BT-${p}`, "18", "300", "", "", ""],
+      [`Boat ${p}`, `Rateless ${p}`, `BT-${p}`, "", "300", "", "", ""],
       [`Kite ${p}`, category, `EX-${p}`, "18", "300", "", "", ""],
       [`Ball ${p}`, category, `BL-${p}`, "18", "300", "350", "", ""],
       [`Top ${p}`, category, `PL-${p}`, "18", "90", "", "", ""],
+      [`Car ${p}`, `Fresh ${p}`, `CR-${p}`, "5%", "200", "", "", ""],
     ]);
     const up = await upload("PRODUCTS", "catalog.csv", file);
     expect(up.status).toBe(201);
     const batch = up.body.data;
-    expect(batch).toMatchObject({ code: expect.stringMatching(/^IMP-\d{4}$/), status: "UPLOADED", totalRows: 7 });
+    expect(batch).toMatchObject({ code: expect.stringMatching(/^IMP-\d{4}$/), status: "UPLOADED", totalRows: 8 });
     expect(batch.suggestedMapping).toMatchObject({
       productName: "Item",
       category: "Category",
@@ -86,11 +87,14 @@ describe("Products & variants import", () => {
 
     const checked = await check(batch.id, { mapping: batch.suggestedMapping, saveTemplateAs: `Supplier sheet ${p}` });
     expect(checked.status).toBe(200);
-    expect(checked.body.data).toMatchObject({ status: "VALIDATED", validRows: 3, errorRows: 3, duplicateRows: 1 });
+    expect(checked.body.data).toMatchObject({ status: "VALIDATED", validRows: 4, errorRows: 3, duplicateRows: 1 });
+    expect(checked.body.data.summary).toEqual(
+      expect.arrayContaining([`New categories: Fresh ${p} (GST 5%).`, expect.stringMatching(/^3 product.s. with 4 variant/)]),
+    );
 
     const all = await rows(batch.id);
     expect(row(all, 2).status).toBe("VALID");
-    expect(row(all, 5).errors[0]).toMatch(/Unknown category/);
+    expect(row(all, 5).errors[0]).toMatch(/new category "Rateless .*" needs a rate/);
     expect(row(all, 6)).toMatchObject({ status: "DUPLICATE", duplicateOf: `SKU EX-${p} already exists` });
     expect(row(all, 7).errors.join()).toMatch(/Offer price/);
     expect(row(all, 8).errors[0]).toMatch(/repeated \(first on line 4\)/);
@@ -100,7 +104,7 @@ describe("Products & variants import", () => {
 
     const approved = await api().post(`/api/v1/imports/${batch.id}/approve`).set(admin.auth);
     expect(approved.status).toBe(200);
-    expect(approved.body.data).toMatchObject({ status: "IMPORTED", importedRows: 3, rollbackBlocker: null });
+    expect(approved.body.data).toMatchObject({ status: "IMPORTED", importedRows: 4, rollbackBlocker: null });
 
     const truck = await prisma.product.findFirst({
       where: { name: `Truck ${p}` },
@@ -111,7 +115,13 @@ describe("Products & variants import", () => {
     const red = truck!.variants.find((v) => v.sku === `TR-${p}-RED`)!;
     expect(red.regularPrice.toFixed(2)).toBe("1180.00");
     expect(red.offerPrice!.toFixed(2)).toBe("1062.00");
-    expect((await prisma.product.findFirst({ where: { name: `Plane ${p}` } }))!.gstRate.toString()).toBe("12");
+    // The existing category has no rate, so the file's rate is the product's own; the new category takes the file's rate.
+    const plane = await prisma.product.findFirst({ where: { name: `Plane ${p}` } });
+    expect(plane).toMatchObject({ gstFromCategory: false });
+    expect(plane!.gstRate.toString()).toBe("12");
+    const car = await prisma.product.findFirst({ where: { name: `Car ${p}` }, include: { category: true } });
+    expect(car).toMatchObject({ gstFromCategory: true, category: { name: `Fresh ${p}` } });
+    expect(car!.category.gstRate!.toString()).toBe("5");
 
     const rolled = await api().post(`/api/v1/imports/${batch.id}/rollback`).set(admin.auth).send({ reason: "Wrong price list" });
     expect(rolled.body.data).toMatchObject({ status: "ROLLED_BACK", rollbackReason: "Wrong price list" });
@@ -122,7 +132,7 @@ describe("Products & variants import", () => {
     // The SKUs are free again, so the corrected file can come in.
     const again = await upload("PRODUCTS", "catalog-fixed.csv", file);
     const rechecked = await check(again.body.data.id, { mapping: again.body.data.suggestedMapping });
-    expect(rechecked.body.data.validRows).toBe(3);
+    expect(rechecked.body.data.validRows).toBe(4);
   });
 
   it("refuses rollback once an imported item has stock", async () => {
@@ -316,7 +326,7 @@ describe("Import guards", () => {
   it("refuses bad files and non-admins, and never deletes history", async () => {
     expect((await upload("CUSTOMERS", "people.txt", Buffer.from("a,b"))).body.error.code).toBe("IMPORT_FILE_INVALID");
     expect((await upload("CUSTOMERS", "empty.csv", Buffer.from("Name\n"))).body.error.message).toMatch(/no rows/);
-    expect((await upload("CUSTOMERS", "dup.csv", Buffer.from("Name,name\nA,B"))).body.error.message).toMatch(/appears twice/);
+    expect((await upload("CUSTOMERS", "dup.csv", Buffer.from("Name,name\nA,B"))).body.data.headers).toEqual(["Name", "name (2)"]);
     expect((await upload("CUSTOMERS", "people.csv", Buffer.from("Name\nA"), cashier)).status).toBe(403);
     expect((await api().get("/api/v1/imports").set(cashier.auth)).status).toBe(403);
 

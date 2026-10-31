@@ -10,6 +10,8 @@ export class ApiRequestError extends Error {
     public readonly code: string,
     message: string,
     public readonly fieldErrors: FieldErrors = {},
+    /** Everything else the server sent with the error (e.g. the sheets to choose from). */
+    public readonly details: Record<string, unknown> = {},
   ) {
     super(message)
   }
@@ -27,6 +29,7 @@ export function toApiError(err: AxiosError<ApiErrorBody>): ApiRequestError {
     body?.code ?? "UNKNOWN",
     body?.message ?? "Something went wrong. Please try again.",
     body?.details?.fieldErrors ?? {},
+    (body?.details ?? {}) as Record<string, unknown>,
   )
 }
 

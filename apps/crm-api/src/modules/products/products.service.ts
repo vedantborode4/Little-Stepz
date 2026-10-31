@@ -76,6 +76,23 @@ async function assertReferences(tx: Tx, input: { categoryId?: string; brandId?: 
   }
 }
 
+/** A product either has its own GST rate or follows its category's (and keeps following it). */
+export async function resolveGst(tx: Tx, categoryId: string, gstRate: string | null) {
+  if (gstRate) return { gstRate: dec(gstRate), gstFromCategory: false };
+  const category = await tx.category.findUnique({ where: { id: categoryId }, select: { name: true, gstRate: true } });
+  if (!category?.gstRate) {
+    throw new ApiError(
+      400,
+      "GST_RATE_REQUIRED",
+      `${category?.name ?? "The category"} has no GST rate; choose one for this product or set it on the category`,
+      {
+        fieldErrors: { gstRate: ["Choose a rate; the category has none"] },
+      },
+    );
+  }
+  return { gstRate: category.gstRate, gstFromCategory: true };
+}
+
 export async function assertSkusFree(tx: Tx, skus: string[], exceptVariantId?: string) {
   const taken = await tx.variant.findMany({
     where: { sku: { in: skus }, id: exceptVariantId ? { not: exceptVariantId } : undefined },
@@ -127,9 +144,9 @@ export async function createProductInTx(tx: Tx, input: CreateProductInput, ctx: 
   await assertWebsiteProductIdFree(tx, input.websiteProductId);
   for (const v of input.variants) await assertWebsiteVariantIdFree(tx, v.websiteVariantId);
 
-  const { options, variants, ...fields } = input;
+  const { options, variants, gstRate, ...fields } = input;
   const product = await tx.product.create({
-    data: { ...fields, code: await nextCode(tx, "PRD"), gstRate: dec(fields.gstRate) },
+    data: { ...fields, code: await nextCode(tx, "PRD"), ...(await resolveGst(tx, input.categoryId, gstRate)) },
   });
   if (product.imageUrl) {
     await tx.productImage.create({
@@ -199,9 +216,13 @@ export async function updateProduct(id: string, input: UpdateProductInput, ctx: 
       }
     }
 
+    // A product that follows its category takes the new category's rate when it moves.
+    const { gstRate, ...fields } = input;
+    const categoryId = input.categoryId ?? before.categoryId;
+    const needsGst = gstRate !== undefined || (before.gstFromCategory && categoryId !== before.categoryId);
     const after = await tx.product.update({
       where: { id },
-      data: { ...input, gstRate: input.gstRate ? dec(input.gstRate) : undefined },
+      data: { ...fields, ...(needsGst && (await resolveGst(tx, categoryId, gstRate ?? null))) },
     });
     await recordAudit(tx, ctx, {
       action: "product.updated",

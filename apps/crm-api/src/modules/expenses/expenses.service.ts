@@ -147,68 +147,71 @@ async function assertExpenseRefs(tx: Tx, input: CreateExpenseInput) {
 
 /** Money spent. It leaves its account (and that day's cash count), but is never a sale or a refund. */
 export async function createExpense(input: CreateExpenseInput, ctx: RequestContext) {
-  const id = await withTransaction(async (tx) => {
-    await assertExpenseRefs(tx, input);
-    const businessDate = resolveBusinessDate(input.businessDate);
-    await assertCashDaysOpen(tx, [{ accountId: input.accountId, businessDate }]);
-    const expense = await tx.expense.create({
-      data: {
-        code: await nextCode(tx, "EXP", 5),
-        categoryId: input.categoryId,
-        kind: input.kind,
-        orderId: input.kind === "ORDER" ? (input.orderId ?? null) : null,
-        accountId: input.accountId,
-        amount: dec(input.amount),
-        businessDate,
-        vendor: input.vendor ?? null,
-        reference: input.reference ?? null,
-        notes: input.notes ?? null,
-        createdById: ctx.userId,
-      },
-    });
-    await recordAudit(tx, ctx, {
-      action: "expense.created",
-      entity: "Expense",
-      entityId: expense.id,
-      after: { code: expense.code, amount: input.amount, kind: input.kind, accountId: input.accountId },
-    });
-    return expense.id;
+  return getExpense(await withTransaction((tx) => createExpenseInTx(tx, ctx, input)));
+}
+
+/** Creates an expense inside the caller's transaction (imports record many at once); returns its id. */
+export async function createExpenseInTx(tx: Tx, ctx: RequestContext, input: CreateExpenseInput) {
+  await assertExpenseRefs(tx, input);
+  const businessDate = resolveBusinessDate(input.businessDate);
+  await assertCashDaysOpen(tx, [{ accountId: input.accountId, businessDate }]);
+  const expense = await tx.expense.create({
+    data: {
+      code: await nextCode(tx, "EXP", 5),
+      categoryId: input.categoryId,
+      kind: input.kind,
+      orderId: input.kind === "ORDER" ? (input.orderId ?? null) : null,
+      accountId: input.accountId,
+      amount: dec(input.amount),
+      businessDate,
+      vendor: input.vendor ?? null,
+      reference: input.reference ?? null,
+      notes: input.notes ?? null,
+      createdById: ctx.userId,
+    },
   });
-  return getExpense(id);
+  await recordAudit(tx, ctx, {
+    action: "expense.created",
+    entity: "Expense",
+    entityId: expense.id,
+    after: { code: expense.code, amount: input.amount, kind: input.kind, accountId: input.accountId },
+  });
+  return expense.id;
 }
 
 /** A mistaken expense is voided by a reversal row dated today; the original stays on record. */
 export async function voidExpense(id: string, reason: string, ctx: RequestContext) {
-  await withTransaction(async (tx) => {
-    await tx.$queryRaw`SELECT id FROM "Expense" WHERE id = ${id} FOR UPDATE`;
-    const original = await tx.expense.findUnique({ where: { id }, include: { reversedBy: { select: { code: true } } } });
-    if (!original) throw notFound("Expense");
-    if (original.reversalOfId) throw new ApiError(409, "CANNOT_VOID_REVERSAL", "A void can't be voided. Record the expense again instead.");
-    if (original.reversedBy)
-      throw new ApiError(409, "ALREADY_VOIDED", `${original.code} was already voided by ${original.reversedBy.code}`);
-    const today = resolveBusinessDate(undefined);
-    await assertCashDaysOpen(tx, [{ accountId: original.accountId, businessDate: today }]);
-    const reversal = await tx.expense.create({
-      data: {
-        code: await nextCode(tx, "EXP", 5),
-        categoryId: original.categoryId,
-        kind: original.kind,
-        orderId: original.orderId,
-        accountId: original.accountId,
-        amount: original.amount,
-        businessDate: today,
-        reference: original.code,
-        notes: reason,
-        reversalOfId: original.id,
-        createdById: ctx.userId,
-      },
-    });
-    await recordAudit(tx, ctx, {
-      action: "expense.voided",
-      entity: "Expense",
-      entityId: id,
-      after: { code: original.code, reversal: reversal.code, reason },
-    });
-  });
+  await withTransaction((tx) => voidExpenseInTx(tx, ctx, id, reason));
   return getExpense(id);
+}
+
+export async function voidExpenseInTx(tx: Tx, ctx: RequestContext, id: string, reason: string) {
+  await tx.$queryRaw`SELECT id FROM "Expense" WHERE id = ${id} FOR UPDATE`;
+  const original = await tx.expense.findUnique({ where: { id }, include: { reversedBy: { select: { code: true } } } });
+  if (!original) throw notFound("Expense");
+  if (original.reversalOfId) throw new ApiError(409, "CANNOT_VOID_REVERSAL", "A void can't be voided. Record the expense again instead.");
+  if (original.reversedBy) throw new ApiError(409, "ALREADY_VOIDED", `${original.code} was already voided by ${original.reversedBy.code}`);
+  const today = resolveBusinessDate(undefined);
+  await assertCashDaysOpen(tx, [{ accountId: original.accountId, businessDate: today }]);
+  const reversal = await tx.expense.create({
+    data: {
+      code: await nextCode(tx, "EXP", 5),
+      categoryId: original.categoryId,
+      kind: original.kind,
+      orderId: original.orderId,
+      accountId: original.accountId,
+      amount: original.amount,
+      businessDate: today,
+      reference: original.code,
+      notes: reason,
+      reversalOfId: original.id,
+      createdById: ctx.userId,
+    },
+  });
+  await recordAudit(tx, ctx, {
+    action: "expense.voided",
+    entity: "Expense",
+    entityId: id,
+    after: { code: original.code, reversal: reversal.code, reason },
+  });
 }

@@ -4,12 +4,12 @@ import type { ColumnDef } from "@tanstack/react-table"
 import { Pencil, Plus } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
-import { namedEntitySchema, type NamedEntityDto } from "@repo/crm-schema"
+import { categorySchema, GST_RATES, type NamedEntityDto } from "@repo/crm-schema"
 import Button from "@/components/ui/Button"
 import ConfirmDialog from "@/components/ui/ConfirmDialog"
 import DataTable from "@/components/ui/DataTable"
 import { Badge } from "@/components/ui/Display"
-import { Checkbox, Field, FormError, Input } from "@/components/ui/Form"
+import { Checkbox, Field, FormError, Input, Select } from "@/components/ui/Form"
 import Modal from "@/components/ui/Modal"
 import { ListToolbar } from "@/components/ui/Toolbar"
 import { errorMessage } from "@/lib/api-error"
@@ -34,19 +34,24 @@ export function NamedEntityModal({
   onSaved?: (e: NamedEntityDto) => void
 }) {
   const save = useSaveNamed(kind)
-  const { form, formError, submitWith } = useApiForm(namedEntitySchema, { name: entity?.name ?? "", isActive: entity?.isActive ?? true })
+  const isCategory = kind === "categories"
+  const { form, formError, submitWith } = useApiForm(categorySchema, {
+    name: entity?.name ?? "",
+    isActive: entity?.isActive ?? true,
+    gstRate: (entity?.gstRate ?? "") as (typeof GST_RATES)[number],
+  })
   const label = LABELS[kind].one
 
-  const onSubmit = submitWith(async (values) => {
-    const saved = await save.mutateAsync({ id: entity?.id, input: values })
-    toast.success(entity ? `Renamed to ${saved.name}` : `Added ${saved.name}`)
+  const onSubmit = submitWith(async ({ gstRate, ...values }) => {
+    const saved = await save.mutateAsync({ id: entity?.id, input: isCategory ? { ...values, gstRate } : values })
+    toast.success(entity ? `Saved ${saved.name}` : `Added ${saved.name}`)
     onSaved?.(saved)
     onClose()
   })
 
   return (
     <Modal
-      title={entity ? `Rename ${label}` : `New ${label}`}
+      title={entity ? `Edit ${label}` : `New ${label}`}
       onClose={onClose}
       width="max-w-sm"
       footer={
@@ -65,6 +70,23 @@ export function NamedEntityModal({
         <Field label="Name" htmlFor={`${kind}-name`} required error={form.formState.errors.name?.message}>
           <Input id={`${kind}-name`} autoFocus {...form.register("name")} />
         </Field>
+        {isCategory && (
+          <Field
+            label="GST rate"
+            htmlFor="categories-gst"
+            error={form.formState.errors.gstRate?.message}
+            hint="Products in this category use it unless they have their own rate. Changing it updates them."
+          >
+            <Select id="categories-gst" {...form.register("gstRate")}>
+              <option value="">No category rate</option>
+              {GST_RATES.map((r) => (
+                <option key={r} value={r}>
+                  {r}%
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
       </form>
     </Modal>
   )
@@ -92,6 +114,16 @@ export default function NamedEntityPanel({ kind }: { kind: NamedKind }) {
 
   const columns: ColumnDef<NamedEntityDto>[] = [
     { header: "Name", accessorKey: "name", meta: { cellClassName: "font-medium" } },
+    ...(kind === "categories"
+      ? [
+          {
+            id: "gst",
+            header: "GST",
+            meta: { align: "right" as const, cellClassName: "tabular" },
+            cell: ({ row }: { row: { original: NamedEntityDto } }) => (row.original.gstRate ? `${row.original.gstRate}%` : "—"),
+          },
+        ]
+      : []),
     { header: "Products", accessorKey: "productCount", meta: { align: "right", cellClassName: "tabular" } },
     {
       header: "Status",
@@ -105,7 +137,7 @@ export default function NamedEntityPanel({ kind }: { kind: NamedKind }) {
             cell: ({ row }: { row: { original: NamedEntityDto } }) => (
               <div className="flex justify-end gap-1">
                 <Button variant="ghost" size="sm" icon={<Pencil size={14} />} onClick={() => setEditing(row.original)}>
-                  Rename
+                  Edit
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => setToggling(row.original)}>
                   {row.original.isActive ? "Deactivate" : "Reactivate"}
@@ -150,12 +182,13 @@ export default function NamedEntityPanel({ kind }: { kind: NamedKind }) {
             <div>
               <p className="text-sm font-semibold text-text">{r.name}</p>
               <p className="text-xs text-muted">
+                {r.gstRate ? `GST ${r.gstRate}% · ` : ""}
                 {r.productCount} products{r.isActive ? "" : " · inactive"}
               </p>
             </div>
             {manage && (
               <Button variant="secondary" size="sm" onClick={() => setEditing(r)}>
-                Rename
+                Edit
               </Button>
             )}
           </div>

@@ -38,10 +38,10 @@ async function ensureSupplier(name: string, currency: "INR" | "CNY", country: st
   return existing?.id ?? (await createSupplier({ name, currency, country, isActive: true }, SYSTEM)).id;
 }
 
+/** Real categories come from the owner's product import; demo products bring their own. */
 async function categoryId(name: string) {
-  const category = await prisma.category.findUnique({ where: { nameKey: name.toLowerCase() } });
-  if (!category) throw new Error(`Category "${name}" missing — run the base seed first`);
-  return category.id;
+  const existing = await prisma.category.findUnique({ where: { nameKey: name.toLowerCase() } });
+  return existing?.id ?? (await createNamed("category", { name, isActive: true, gstRate: null }, SYSTEM)).id;
 }
 
 async function ensureProduct(input: CreateProductInput) {
