@@ -210,6 +210,37 @@ describe("Past sales import", () => {
     const rollback = await api().post(`/api/v1/imports/${batch.id}/rollback`).set(admin.auth).send({ reason: "Try again" });
     expect(rollback.body.error.code).toBe("IMPORT_IN_USE");
   });
+
+  it("charges the GST the file gives for a sale instead of the product's rate", async () => {
+    const t = uid();
+    const csv = [
+      "Sale Date,Transaction ID,Product SKU,Quantity Sold,Actual Selling Price,Cash Amount,Channel,GST %",
+      `2026-10-01,${t}-W,${skuA},1,1180,1180,Website,18%`,
+      `2026-10-01,${t}-S,${skuB},1,500,500,Store,0`,
+      `2026-10-01,${t}-P,${skuB},1,500,500,Store,`,
+      `2026-10-01,${t}-X,${skuB},1,500,500,Store,7`,
+    ].join("\n");
+    const up = await upload("HISTORICAL_SALES", "gst.csv", Buffer.from(csv));
+    expect(up.body.data.suggestedMapping).toMatchObject({ gstRate: "GST %", channel: "Channel" });
+    const checked = await check(up.body.data.id, {
+      mapping: up.body.data.suggestedMapping,
+      locationId: store,
+      options: { payment2Account: cash },
+    });
+    expect(checked.body.data).toMatchObject({ validRows: 3, errorRows: 1 });
+    expect((await rows(up.body.data.id)).find((r) => r.rowNumber === 5)!.errors[0]).toMatch(/^GST %: "7" should be one of/);
+    expect(checked.body.data.summary).toContain("Sales ₹2,180.00 including GST of ₹256.27.");
+
+    await api().post(`/api/v1/imports/${up.body.data.id}/approve`).set(admin.auth);
+    const orders = await prisma.salesOrder.findMany({ where: { importBatchId: up.body.data.id }, include: { lines: true } });
+    const byBill = new Map(orders.map((o) => [o.externalRef, o]));
+    expect(byBill.get(`${t}-W`)).toMatchObject({ channel: "WEBSITE" });
+    expect(byBill.get(`${t}-W`)!.gstTotal.toFixed(2)).toBe("180.00");
+    expect(byBill.get(`${t}-W`)!.lines[0]!.gstRate.toFixed(2)).toBe("18.00");
+    expect(byBill.get(`${t}-S`)!.gstTotal.toFixed(2)).toBe("0.00");
+    // A blank rate falls back to the product's (18% from its category).
+    expect(byBill.get(`${t}-P`)!.gstTotal.toFixed(2)).toBe("76.27");
+  });
 });
 
 describe("Expenses import", () => {

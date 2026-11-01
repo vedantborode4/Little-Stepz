@@ -16,6 +16,8 @@ import {
   STOCK_DOCUMENT_TYPE_LABELS,
   STOCK_REASON_LABELS,
   stockListQuery,
+  SUPPLIER_ENTRY_TYPES,
+  type SupplierEntryType,
   type Permission,
   type ReportFilter,
   type ReportKey,
@@ -573,6 +575,46 @@ export const REPORTS: ReportSpec[] = [
         Reason: l.reasonCode ? STOCK_REASON_LABELS[l.reasonCode] : "",
         Note: l.note ?? "",
       }));
+    },
+  },
+  {
+    key: "supplier-balances",
+    title: "Supplier balances",
+    description: "What each supplier holds of ours (advances, credit) or what we owe them, and how it built up.",
+    group: "Purchasing",
+    filters: [],
+    permissions: ["suppliers.ledger"],
+    async load() {
+      const [byType, lastDates] = await Promise.all([
+        prisma.supplierLedgerEntry.groupBy({ by: ["supplierId", "type"], _sum: { amount: true } }),
+        prisma.supplierLedgerEntry.groupBy({ by: ["supplierId"], _max: { businessDate: true } }),
+      ]);
+      const suppliers = await prisma.supplier.findMany({
+        where: { id: { in: lastDates.map((d) => d.supplierId) } },
+        orderBy: { name: "asc" },
+      });
+      const total = (supplierId: string, ...types: SupplierEntryType[]) =>
+        byType
+          .filter((r) => r.supplierId === supplierId && types.includes(r.type))
+          .reduce((s, r) => s.add(decOrZero(r._sum.amount)), new Decimal(0));
+      const last = new Map(lastDates.map((d) => [d.supplierId, d._max.businessDate]));
+      return suppliers.map((s) => {
+        const balance = total(s.id, ...SUPPLIER_ENTRY_TYPES);
+        return {
+          Supplier: s.name,
+          Country: s.country ?? "",
+          Position: balance.gt(0) ? "They hold our money" : balance.lt(0) ? "We owe them" : "Settled",
+          "They hold ours": Number(Decimal.max(balance, 0).toFixed(2)),
+          "We owe them": Number(Decimal.max(balance.neg(), 0).toFixed(2)),
+          "Opening & adjustments": Number(total(s.id, "OPENING", "ADJUSTMENT").toFixed(2)),
+          "Paid to them": Number(total(s.id, "PAYMENT").toFixed(2)),
+          "Goods received": Number(total(s.id, "GOODS_RECEIVED").neg().toFixed(2)),
+          "Refunds from them": Number(total(s.id, "REFUND").neg().toFixed(2)),
+          "Credit from them": Number(total(s.id, "CREDIT_NOTE").toFixed(2)),
+          "Last entry": last.get(s.id) ? fromDbDate(last.get(s.id)!) : "",
+          Active: s.isActive ? "Yes" : "No",
+        };
+      });
     },
   },
 ];

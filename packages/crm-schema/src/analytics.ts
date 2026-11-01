@@ -30,7 +30,7 @@ export const dashboardQuery = z.object({
 });
 export type DashboardQuery = z.infer<typeof dashboardQuery>;
 
-/** Report catalogue: the 17 reports the owner asked for. */
+/** Report catalogue: the 17 reports the owner asked for, plus supplier balances. */
 export const REPORT_KEYS = [
   "product-master",
   "variant-stock",
@@ -49,6 +49,7 @@ export const REPORT_KEYS = [
   "potential-profit",
   "damaged-stock",
   "stock-reconciliation",
+  "supplier-balances",
 ] as const;
 export type ReportKey = (typeof REPORT_KEYS)[number];
 

@@ -45,6 +45,8 @@ function Breakdown({ day }: { day: CashDayDto }) {
       {row("Expenses paid in cash", b.expenses, "−")}
       {row("Moved in from other accounts", b.transfersIn, "+")}
       {row("Deposited / moved out", b.transfersOut, "−")}
+      {Number(b.supplierPayments) > 0 && row("Paid to suppliers", b.supplierPayments, "−")}
+      {Number(b.supplierPayments) < 0 && row("Refunded by suppliers", b.supplierPayments.replace("-", ""), "+")}
       {row("Expected in the drawer", b.expected, "", true)}
     </div>
   )

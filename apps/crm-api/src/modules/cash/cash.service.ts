@@ -41,14 +41,17 @@ const toSessionDto = (s: Prisma.CashSessionGetPayload<{ include: typeof sessionI
 /**
  * What should be in the drawer at the end of the day, from the ledgers alone:
  * opening + cash received − cash refunded − cash expenses + transfers in −
- * transfers out (e.g. a bank deposit). Voids are netted against what they undo.
+ * transfers out (e.g. a bank deposit) − paid to suppliers. Voids are netted
+ * against what they undo.
  */
 export async function cashBreakdown(db: Db, accountId: string, date: Date, opening: Decimal): Promise<CashDayBreakdownDto> {
-  const [payments, expenses, transfersIn, transfersOut] = await Promise.all([
+  const [payments, expenses, transfersIn, transfersOut, suppliers] = await Promise.all([
     db.payment.groupBy({ by: ["direction", "reversalOfId"], where: { accountId, businessDate: date }, _sum: { amount: true } }),
     db.expense.groupBy({ by: ["reversalOfId"], where: { accountId, businessDate: date }, _sum: { amount: true } }),
     db.accountTransfer.aggregate({ where: { toAccountId: accountId, businessDate: date }, _sum: { amount: true } }),
     db.accountTransfer.aggregate({ where: { fromAccountId: accountId, businessDate: date }, _sum: { amount: true } }),
+    // Signed like the supplier balance: a payment out is positive, a refund back is negative, a void the opposite.
+    db.supplierLedgerEntry.aggregate({ where: { accountId, businessDate: date }, _sum: { amount: true } }),
   ]);
   let received = new Decimal(0);
   let refunded = new Decimal(0);
@@ -67,6 +70,7 @@ export async function cashBreakdown(db: Db, accountId: string, date: Date, openi
   );
   const tIn = decOrZero(transfersIn._sum.amount);
   const tOut = decOrZero(transfersOut._sum.amount);
+  const toSuppliers = decOrZero(suppliers._sum.amount);
   return {
     opening: money(opening),
     received: money(received),
@@ -74,7 +78,8 @@ export async function cashBreakdown(db: Db, accountId: string, date: Date, openi
     expenses: money(spent),
     transfersIn: money(tIn),
     transfersOut: money(tOut),
-    expected: money(opening.add(received).sub(refunded).sub(spent).add(tIn).sub(tOut)),
+    supplierPayments: money(toSuppliers),
+    expected: money(opening.add(received).sub(refunded).sub(spent).add(tIn).sub(tOut).sub(toSuppliers)),
   };
 }
 

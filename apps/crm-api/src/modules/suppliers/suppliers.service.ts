@@ -4,7 +4,9 @@ import { recordAudit } from "../../core/audit";
 import { withTransaction } from "../../core/db";
 import { ApiError, notFound, type RequestContext } from "../../core/http";
 import { buildOrderBy, pageWindow, paginated, searchAcross } from "../../core/list";
+import { Decimal, money } from "../../core/money";
 import { nameKey } from "../../core/sequence";
+import { supplierBalances } from "./supplier-ledger.service";
 
 export const toSupplierDto = (s: Supplier): SupplierDto => ({
   id: s.id,
@@ -22,7 +24,8 @@ export const toSupplierDto = (s: Supplier): SupplierDto => ({
 
 const SORTABLE = { name: "name", country: "country", createdAt: "createdAt" };
 
-export async function listSuppliers(query: ListQuery & { includeInactive?: boolean }) {
+/** `withBalance` is for callers allowed to see the supplier ledger; the balance is left off otherwise. */
+export async function listSuppliers(query: ListQuery & { includeInactive?: boolean }, withBalance = false) {
   const where: Prisma.SupplierWhereInput = {
     isActive: query.includeInactive ? undefined : true,
     OR: searchAcross(query.q, ["name", "contactName", "phone", "country"]),
@@ -31,7 +34,20 @@ export async function listSuppliers(query: ListQuery & { includeInactive?: boole
     prisma.supplier.findMany({ where, orderBy: buildOrderBy(query.sort, SORTABLE, "name:asc"), ...pageWindow(query) }),
     prisma.supplier.count({ where }),
   ]);
-  return paginated(rows.map(toSupplierDto), total, query);
+  if (!withBalance) return paginated(rows.map(toSupplierDto), total, query);
+  const balances = await supplierBalances(rows.map((s) => s.id));
+  return paginated(
+    rows.map((s) => ({ ...toSupplierDto(s), balance: money(balances.get(s.id) ?? new Decimal(0)) })),
+    total,
+    query,
+  );
+}
+
+export async function getSupplier(id: string, withBalance = false) {
+  const supplier = await prisma.supplier.findUnique({ where: { id } });
+  if (!supplier) throw notFound("Supplier");
+  if (!withBalance) return toSupplierDto(supplier);
+  return { ...toSupplierDto(supplier), balance: money((await supplierBalances([id])).get(id) ?? new Decimal(0)) };
 }
 
 const nameTaken = (name: string) =>

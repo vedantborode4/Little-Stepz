@@ -110,6 +110,7 @@ describe("closing the cash drawer", () => {
       expenses: "500.00",
       transfersIn: "0.00",
       transfersOut: "3000.00",
+      supplierPayments: "0.00",
       expected: "3500.00",
     });
 

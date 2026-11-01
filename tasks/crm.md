@@ -560,3 +560,72 @@ These wait for the owner's answer on sheet 11.
   - crm-api builds, and 202/202 tests pass. New tests cover sheet choice, header detection, the size limit, past sales, expenses and category GST.
   - crm-web typechecks and lints.
   - Driven in Chrome against the test database: sheet picker, mapping with account choices, the check summary, the category GST field and the product GST choice.
+
+## Owner answers and supplier balances (2026-11-01)
+
+**Owner decisions**
+- **GST.** Every category is 0%. Past **Website** bills carry 18% GST; every other bill carries 0%.
+- **No selling price (8 products).** The price is ₹11, a marker that tells the owner to set the real one.
+- **Placeholder products (15 PEND-/BUNDLE- rows).** Imported with price ₹1 and no stock.
+- **Other product details.**
+  - A blank landed cost stays blank.
+  - Loss-making prices are kept.
+  - Doubtful names are imported as they are.
+- **Stock.** Flagged shelf rows and products below zero start blank (zero); the client counts them in the CRM.
+- **Setup expenses (39).** All dated 22 Aug 2026 with the note "date to be set", paid from a new personal account, "Owner – setup funds".
+- **Customers.** Imported by name only, with no mobile number.
+- **Bills.**
+  - Walk-in bills that were paid short or paid extra go on one customer, "Old sheet – unnamed customers".
+  - OCT24-001 uses its actual line prices (₹4,300 billed, ₹3,800 received, ₹500 due).
+  - The 16 suspected duplicates are imported as they are.
+- **Payment accounts.** Left to the owner. How the old sheet's PhonePe, Cash and Online columns land is confirmed before the sales import.
+- **Supplier balances.** Tracked in the CRM as a supplier ledger.
+
+**Plan**
+- [x] **Per-bill GST in the past-sales import.** Add an optional "GST %" column that overrides the product's rate for that line.
+- [x] **Supplier ledger: data.**
+  - Add an append-only `SupplierLedgerEntry` table. Each entry has a type: opening balance, payment to supplier, goods received, refund from supplier, credit note or adjustment. It also carries a date, an optional account and an optional purchase link, and can be voided by a reversal row.
+  - The balance is positive when the supplier holds our money, negative when we owe them.
+- [x] **Supplier ledger: money.**
+  - Payments and refunds name the account the money moved through.
+  - Cash closing counts them, and closed cash days are refused.
+  - They are never expenses or sales.
+- [x] **Supplier ledger: API.**
+  - The supplier's ledger with its balance.
+  - Record an entry, and void an entry.
+  - Balances on the supplier list.
+  - A "Supplier balances" report.
+  - A new admin-only permission, `suppliers.ledger`.
+- [x] **Supplier ledger: web.**
+  - A supplier page with the balance, the ledger, a record-entry form and void.
+  - A Balance column on the supplier list.
+  - The report.
+- [x] **Tests** for balances, voids, cash closing, closed days and permissions.
+- [x] **Converter.** Turns the owner workbook and these answers into import files: products, opening stock, customers, past sales and expenses, plus the supplier opening balances (Hot Wheels supplier ₹20,420 in our favour, which includes the 2 Mainline cases still owed, and Anil Ji ₹8,573.70).
+- [ ] **Local dry run.** Only after the owner clears the files; reconcile the totals. (Rehearsed on a throwaway database, see below; waiting for clearance and the payment accounts.)
+
+**Review (2026-11-01)**
+- **Past-sales GST.** The past-sales import takes an optional "GST %" per line; blank uses the product's rate. Rates outside the GST list are errors. The same item twice on a bill must also agree on GST.
+- **Supplier ledger.**
+  - The `SupplierLedgerEntry` table is append-only, with a trigger and a `CHECK` tying the sign to the type and the account to payments and refunds. Voids are reversal rows dated today. There is one live opening balance per supplier, kept race-free by locking the supplier row.
+  - The ledger shows a running balance (a SQL window over date and recording time), and the type totals net out voids.
+  - Cash closing subtracts supplier payments made in cash, and a closed day refuses them.
+  - A new `suppliers.ledger` permission (admin only) controls balances on the supplier list, the supplier page, the ledger export and the "Supplier balances" report.
+- **Converter.** `apps/crm-api/scripts/convert-owner-workbook.ts` reads the workbook and writes the import files: products, opening stock, customers, past sales, later payments, setup expenses and supplier balances, plus `summary.txt`. It only writes files.
+  - The empty bill OCT31-006 (no items, no money) is left out.
+  - SEP29-004 sold one item on two rows a rupee apart (2 × ₹633 + 1 × ₹634). It becomes one line, 3 × ₹634 less ₹2, so the bill stays ₹1,900.
+  - Letter Heads Printing (₹0) is left out. Setup costs are not inside landed cost (the Product Master allocation column is empty), so they are not counted twice.
+- **Rehearsal.** Run on a throwaway database (`crm_rehearsal`, since dropped) through the API with the real files. Every batch checked with 0 errors and 0 duplicates. Results:
+  - 207 bills, ₹5,85,775 in sales; GST ₹2,744.37 on the Website bills; ₹5,82,185 received.
+  - ₹5,899 still owed and ₹2,309 held as customer credit. The difference, ₹3,590, equals sales minus money received.
+  - Courier ₹9,429 and setup ₹4,36,269.
+  - 21,086 pieces in stock.
+  - Supplier balances ₹28,993.70.
+  - 100 products / 102 variants, 13 categories at 0%, 13 brands, 8 customers.
+- **Verification.**
+  - crm-api builds, and 206/206 tests pass, with new tests for per-sale GST and the supplier ledger.
+  - crm-web typechecks and lints.
+  - Driven in Chrome against the rehearsal data: supplier list with balances, supplier page, recording a payment with its balance preview, entry detail, cash closing line, report, mobile and dark.
+- **Waiting on the owner.**
+  - Clearance to import into the local database.
+  - Which accounts the old sheet's PhonePe, Cash and Online money and the courier charges go to.

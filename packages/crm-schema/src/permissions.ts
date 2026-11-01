@@ -18,6 +18,8 @@ export const PERMISSIONS = [
   "purchases.view",
   "purchases.manage",
   "purchases.receive",
+  /** Money paid to and owed by suppliers: advances, goods received against them, refunds and credit. */
+  "suppliers.ledger",
   "sales.view",
   "sales.create",
   "sales.manage",

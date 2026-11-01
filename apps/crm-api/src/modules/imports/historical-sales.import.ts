@@ -1,5 +1,5 @@
 import { prisma, type SalesChannel, type Tx } from "@repo/crm-db/client";
-import { normalizeMobile, SALES_CHANNEL_LABELS, SALES_CHANNELS, skuSchema } from "@repo/crm-schema";
+import { GST_RATES, normalizeMobile, SALES_CHANNEL_LABELS, SALES_CHANNELS, skuSchema } from "@repo/crm-schema";
 import { recordAudit } from "../../core/audit";
 import { fromDbDate, todayIST, toDbDate } from "../../core/dates";
 import { ApiError, type RequestContext } from "../../core/http";
@@ -15,6 +15,7 @@ import {
   dateCell,
   duplicate,
   fail,
+  gstCell,
   inr,
   ok,
   type BatchRef,
@@ -53,6 +54,8 @@ interface BillLine {
   unitPrice: string;
   lineDiscount: string;
   unitCost: string | null;
+  /** The product's rate, unless the file gives one for this sale. */
+  gstRate: string;
 }
 
 interface BillPayload {
@@ -82,6 +85,9 @@ interface ParsedRow {
 }
 
 type CustomerRow = { id: string; code: string; name: string; mobile: string | null };
+type VariantRow = { id: string; product: { gstRate: { toString(): string } } };
+
+const gstRates: readonly string[] = GST_RATES;
 
 /** Customer by code, mobile or exact name; a name shared by several customers must be told apart. */
 function findCustomer(customers: CustomerRow[], text: string): { id: string } | { error: string } {
@@ -99,7 +105,7 @@ function parseRow(
   row: FieldRow,
   index: number,
   r: RowResult,
-  ctx: { variants: Map<string, { id: string }>; customers: CustomerRow[]; today: string },
+  ctx: { variants: Map<string, VariantRow>; customers: CustomerRow[]; today: string },
 ): ParsedRow {
   const f = row.fields;
   const billId = (f.billId ?? "").trim();
@@ -134,8 +140,11 @@ function parseRow(
     if (lineDiscount === false) fail(r, "Line discount: an amount with at most 2 decimals");
     const unitCost = costCell(f.unitCost);
     if (unitCost === false) fail(r, "Landed cost per piece: not an amount");
-    if (variant && sku && unitPrice && lineDiscount !== false && unitCost !== false) {
-      item = { sku, variantId: variant.id, quantity, unitPrice, lineDiscount: lineDiscount ?? "0", unitCost };
+    const gstText = gstCell(f.gstRate);
+    if (gstText && !gstRates.includes(gstText)) fail(r, `GST %: "${f.gstRate}" should be one of ${GST_RATES.join(", ")}`);
+    if (variant && sku && unitPrice && lineDiscount !== false && unitCost !== false && (!gstText || gstRates.includes(gstText))) {
+      const gstRate = gstText || dec(variant.product.gstRate.toString()).toString();
+      item = { sku, variantId: variant.id, quantity, unitPrice, lineDiscount: lineDiscount ?? "0", unitCost, gstRate };
     }
   }
 
@@ -170,7 +179,7 @@ function parseRow(
 const sum = (xs: Decimal[]) => xs.reduce((s, x) => s.add(x), new Decimal(0));
 const distinct = <T>(xs: (T | null)[]) => [...new Set(xs.filter((x): x is T => x !== null))];
 
-/** Same item twice on one bill becomes one line when price and cost agree; otherwise the owner must say which. */
+/** Same item twice on one bill becomes one line when price, cost and GST agree; otherwise the owner must say which. */
 function mergeItems(items: (BillLine & { sku: string })[]): { lines: BillLine[] } | { error: string } {
   const bySku = new Map<string, BillLine & { sku: string }>();
   for (const item of items) {
@@ -179,8 +188,8 @@ function mergeItems(items: (BillLine & { sku: string })[]): { lines: BillLine[] 
       bySku.set(item.sku, { ...item });
       continue;
     }
-    if (seen.unitPrice !== item.unitPrice || seen.unitCost !== item.unitCost) {
-      return { error: `${item.sku} is on this bill twice at different prices or costs; put it on one row` };
+    if (seen.unitPrice !== item.unitPrice || seen.unitCost !== item.unitCost || !dec(seen.gstRate).eq(item.gstRate)) {
+      return { error: `${item.sku} is on this bill twice at different prices, costs or GST; put it on one row` };
     }
     seen.quantity += item.quantity;
     seen.lineDiscount = dec(seen.lineDiscount).add(dec(item.lineDiscount)).toString();
@@ -205,7 +214,6 @@ export const historicalSalesImport: KindHandler<BillPayload> = {
       }),
     ]);
     const variantBySku = new Map(variants.map((v) => [v.sku, v]));
-    const variantById = new Map(variants.map((v) => [v.id, v]));
     const alreadyIn = new Map(existing.map((o) => [o.externalRef!, o.code]));
 
     const parsed = rows.map((row, i) => parseRow(row, i, results[i]!, { variants: variantBySku, customers, today: todayIST() }));
@@ -252,13 +260,7 @@ export const historicalSalesImport: KindHandler<BillPayload> = {
       const billDiscount = sum(billRows.map((p) => p.billDiscount));
       let total: Decimal;
       try {
-        const priced = merged.lines.map((l) => ({
-          quantity: l.quantity,
-          unitPrice: dec(l.unitPrice),
-          lineDiscount: dec(l.lineDiscount),
-          gstRate: dec(variantById.get(l.variantId)!.product.gstRate.toString()),
-        }));
-        total = computeSaleTotals(priced, billDiscount, new Decimal(0)).totals.grandTotal;
+        total = computeSaleTotals(priceLines(merged.lines), billDiscount, new Decimal(0)).totals.grandTotal;
       } catch (err) {
         if (!(err instanceof ApiError)) throw err;
         failAll(`Discount: ${err.message}`);
@@ -301,7 +303,7 @@ export const historicalSalesImport: KindHandler<BillPayload> = {
         },
       });
     }
-    return { results, units, summary: await historySummary(units, variantById) };
+    return { results, units, summary: await historySummary(units) };
   },
 
   async create(tx, ctx, batch, units) {
@@ -336,7 +338,10 @@ async function closedCashDays(accountIds: string[], dates: string[]) {
   return new Map(sessions.map((s) => [`${s.accountId}|${fromDbDate(s.businessDate)}`, s.account.name]));
 }
 
-async function historySummary(units: Unit<BillPayload>[], variants: Map<string, { product: { gstRate: { toString(): string } } }>) {
+const priceLines = (lines: BillLine[]) =>
+  lines.map((l) => ({ quantity: l.quantity, unitPrice: dec(l.unitPrice), lineDiscount: dec(l.lineDiscount), gstRate: dec(l.gstRate) }));
+
+async function historySummary(units: Unit<BillPayload>[]) {
   if (units.length === 0) return [];
   let sales = new Decimal(0);
   let gst = new Decimal(0);
@@ -345,16 +350,7 @@ async function historySummary(units: Unit<BillPayload>[], variants: Map<string, 
   let unknownCost = 0;
   const byAccount = new Map<string, Decimal>();
   for (const { payload } of units) {
-    const { totals } = computeSaleTotals(
-      payload.lines.map((l) => ({
-        quantity: l.quantity,
-        unitPrice: dec(l.unitPrice),
-        lineDiscount: dec(l.lineDiscount),
-        gstRate: dec(variants.get(l.variantId)!.product.gstRate.toString()),
-      })),
-      dec(payload.billDiscount),
-      new Decimal(0),
-    );
+    const { totals } = computeSaleTotals(priceLines(payload.lines), dec(payload.billDiscount), new Decimal(0));
     sales = sales.add(totals.grandTotal);
     gst = gst.add(totals.gstTotal);
     const paid = sum(payload.payments.map((p) => dec(p.amount)));
@@ -384,17 +380,9 @@ async function historySummary(units: Unit<BillPayload>[], variants: Map<string, 
 
 /** A past sale exactly as it happened: the price charged, its cost then, and the money taken that day. */
 async function createHistoricalBill(tx: Tx, ctx: RequestContext, batch: BatchRef, bill: BillPayload) {
-  const variants = await tx.variant.findMany({
-    where: { id: { in: bill.lines.map((l) => l.variantId) } },
-    include: { product: { select: { gstRate: true } } },
-  });
+  const variants = await tx.variant.findMany({ where: { id: { in: bill.lines.map((l) => l.variantId) } } });
   const byId = new Map(variants.map((v) => [v.id, v]));
-  const priced = bill.lines.map((l) => ({
-    quantity: l.quantity,
-    unitPrice: dec(l.unitPrice),
-    lineDiscount: dec(l.lineDiscount),
-    gstRate: dec(byId.get(l.variantId)!.product.gstRate.toString()),
-  }));
+  const priced = priceLines(bill.lines);
   const { lines, totals } = computeSaleTotals(priced, dec(bill.billDiscount), new Decimal(0));
   const customer = bill.customerId ? await tx.customer.findUnique({ where: { id: bill.customerId }, select: { name: true } }) : null;
   const date = toDbDate(bill.saleDate);

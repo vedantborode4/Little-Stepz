@@ -224,15 +224,25 @@ No new tables: a pre-order is a `SalesOrder` with `type = PRE_ORDER`, so its adv
 | `Expense` | Money spent from an account (`EXP-xxxxx`): category, **operating** or **for an order**, amount, date, paid to, reference | **Append-only.** Voided by a reversal row dated today (at most once). An order expense must name a confirmed order (DB `CHECK` too). Never a sale or a refund. |
 | `CashSession` | One cash drawer on one business day: opening amount; when closed, expected, counted and discrepancy (counted − expected) | Unique per drawer per day. Cash accounts only, never in the future. A `CHECK` keeps the discrepancy equal to counted − expected. |
 
-**Expected cash** = opening + cash received − cash refunded − cash expenses + transfers in − transfers out (e.g. a bank deposit).
+**Expected cash** = opening + cash received − cash refunded − cash expenses + transfers in − transfers out (e.g. a bank deposit) − cash paid to suppliers (net of supplier refunds in cash).
 - A void is netted against what it undoes.
 - The opening amount defaults to the count at the last close.
 
 **Closing.**
 - Closing records the count and the discrepancy and **locks the day**.
-- While a drawer's day is closed, `assertCashDaysOpen` refuses any payment, refund, void, expense or transfer posted to that drawer on that date, from every writer of money.
+- While a drawer's day is closed, `assertCashDaysOpen` refuses any payment, refund, void, expense, transfer or supplier payment posted to that drawer on that date, from every writer of money.
 - The discrepancy is recorded for the owner, and never posted to sales or payments.
 - An admin (`cash.reopen`) can reopen a day with a reason. The previous count stays in the audit log.
+
+### Supplier ledger (added 2026-11-01)
+
+| Model | Purpose | Key rules |
+|---|---|---|
+| `SupplierLedgerEntry` | Money between the business and one supplier (`SLE-xxxxx`): opening balance, payment to the supplier, goods received, refund from the supplier, credit from the supplier, adjustment. Date, signed amount, the account money moved through (payments and refunds only), an optional received purchase (goods only), reference, notes | **Append-only** (trigger). Voided by a reversal row dated today (at most once, never a void of a void). A `CHECK` ties the sign to the type and the account to payments and refunds. One live opening balance per supplier. |
+
+- **Balance** = Σ amount. Positive means the supplier holds our money (an advance or credit); negative means we owe them. Each entry shows the running balance in date order.
+- Payments and refunds move money through an account, so cash closing counts them and a closed cash day refuses them. They are never expenses, sales or stock cost; landed cost still comes from purchases.
+- Only `suppliers.ledger` (admins) sees balances, the ledger and the "Supplier balances" report. Others see suppliers without a balance.
 
 ## Phase 12: stock reconciliation
 
@@ -342,7 +352,7 @@ Shown separately: **sold below list price**, Σ max(regular − unit price, 0) �
 - Products are created whole or not at all.
 - Approval re-checks every row and imports nothing if anything changed since the check.
 - Opening stock is one `OPENING` document with `sourceType = IMPORT`. It can only be reversed through the batch's rollback.
-- Past sales: rows sharing a bill ID are one bill on one date. The same item twice on a bill becomes one line when price and cost agree. A walk-in bill must be paid exactly; a named customer may owe the rest or keep any excess as credit. Payments are dated on the sale date, and the courier charge is an order expense. Stock is not moved, because the cut-over count already reflects these sales. A bill whose ID is already on an order is a duplicate.
+- Past sales: rows sharing a bill ID are one bill on one date. The same item twice on a bill becomes one line when price, cost and GST agree. A "GST %" column sets the rate for that sale; blank uses the product's. A walk-in bill must be paid exactly; a named customer may owe the rest or keep any excess as credit. Payments are dated on the sale date, and the courier charge is an order expense. Stock is not moved, because the cut-over count already reflects these sales. A bill whose ID is already on an order is a duplicate.
 
 **Rollback** is allowed while nothing the batch created has been used since. "Used" means stock movements, sales, purchases, prices or counts for items; orders, payments, prices, credit or merges for customers; or any other movement of the imported stock.
 - Products and variants are archived, with SKUs renamed `SKU~IMP-xxxx`, because append-only price history means they can't be deleted.

@@ -67,6 +67,7 @@ model User {
   importsApproved      ImportBatch[]         @relation("ImportApprovedBy")
   importsRolledBack    ImportBatch[]         @relation("ImportRolledBackBy")
   syncRuns             SyncRun[]
+  supplierEntries      SupplierLedgerEntry[]
 }
 
 /// Opaque refresh tokens, stored only as a SHA-256 hash. Each login starts a
@@ -176,11 +177,12 @@ model ReceivingAccount {
   createdAt  DateTime      @default(now())
   updatedAt  DateTime      @updatedAt
 
-  payments     Payment[]
-  transfersOut AccountTransfer[] @relation("TransferFrom")
-  transfersIn  AccountTransfer[] @relation("TransferTo")
-  expenses     Expense[]
-  cashSessions CashSession[]
+  payments        Payment[]
+  transfersOut    AccountTransfer[]     @relation("TransferFrom")
+  transfersIn     AccountTransfer[]     @relation("TransferTo")
+  expenses        Expense[]
+  cashSessions    CashSession[]
+  supplierEntries SupplierLedgerEntry[]
 }
 
 // ─── Document numbering ──────────────────────────────────────────────────────
@@ -219,23 +221,24 @@ model Brand {
 }
 
 model Supplier {
-  id          String             @id @default(uuid())
+  id          String                @id @default(uuid())
   name        String
-  nameKey     String             @unique
+  nameKey     String                @unique
   country     String?
   /// ISO code of the currency the supplier invoices in (CNY for RMB).
-  currency    String             @default("INR")
+  currency    String                @default("INR")
   contactName String?
   phone       String?
   email       String?
   address     String?
   gstin       String?
   notes       String?
-  isActive    Boolean            @default(true)
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
+  isActive    Boolean               @default(true)
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
   products    Product[]
   purchases   PurchaseShipment[]
+  ledger      SupplierLedgerEntry[]
 }
 
 enum ProductStatus {
@@ -602,6 +605,7 @@ model PurchaseShipment {
   charges         ShipmentCharge[]
   costAdjustments CostAdjustment[]
   returns         PurchaseReturn[]
+  supplierEntries SupplierLedgerEntry[]
 
   @@index([supplierId])
   @@index([status, invoiceDate])
@@ -1234,6 +1238,55 @@ model ExpenseCategory {
 enum ExpenseKind {
   OPERATING
   ORDER
+}
+
+/// Money between the business and a supplier: advances paid, goods received
+/// against them, refunds and credit. Append-only; a mistake is voided by a
+/// reversal row dated the day it is voided.
+model SupplierLedgerEntry {
+  id           String               @id @default(uuid())
+  code         String               @unique
+  supplierId   String
+  supplier     Supplier             @relation(fields: [supplierId], references: [id])
+  type         SupplierEntryType
+  /// Signed: positive when the supplier holds more of our money (we paid, or
+  /// they gave credit), negative when we owe them more (goods received, refund).
+  amount       Decimal              @db.Decimal(14, 2)
+  businessDate DateTime             @db.Date
+  /// The account the money moved through; PAYMENT and REFUND only. Its cash
+  /// closing counts the movement.
+  accountId    String?
+  account      ReceivingAccount?    @relation(fields: [accountId], references: [id])
+  /// The purchase the goods came on; GOODS_RECEIVED only, optional.
+  purchaseId   String?
+  purchase     PurchaseShipment?    @relation(fields: [purchaseId], references: [id])
+  reference    String?
+  notes        String?
+  reversalOfId String?              @unique
+  reversalOf   SupplierLedgerEntry? @relation("SupplierEntryReversal", fields: [reversalOfId], references: [id])
+  reversedBy   SupplierLedgerEntry? @relation("SupplierEntryReversal")
+  createdById  String?
+  createdBy    User?                @relation(fields: [createdById], references: [id])
+  createdAt    DateTime             @default(now())
+
+  @@index([supplierId, businessDate])
+  @@index([accountId, businessDate])
+  @@index([purchaseId])
+}
+
+enum SupplierEntryType {
+  /// What stood between us and the supplier before the CRM.
+  OPENING
+  /// We paid the supplier (an advance, or settling what we owe).
+  PAYMENT
+  /// Goods or a bill received, using up an advance or adding to what we owe.
+  GOODS_RECEIVED
+  /// The supplier paid money back to us.
+  REFUND
+  /// The supplier credited us without paying (returned goods, a shipping refund).
+  CREDIT_NOTE
+  /// A correction agreed with the supplier.
+  ADJUSTMENT
 }
 
 /// Money spent, from one of the business's accounts. Never a sale or a refund.

@@ -109,6 +109,7 @@ export const IMPORT_FIELDS: Record<ImportKind, ImportField[]> = {
     field("lineDiscount", "Line discount (₹)", false, ["line discount", "discount"]),
     field("billDiscount", "Bill discount (₹)", false, ["bill discount", "bill discount (once per bill)"], "Whole-bill discount; added up across the bill's rows"),
     field("unitCost", "Landed cost per piece", false, ["landed cost", "landed cost / piece", "unit cost", "cost"], "Blank means the cost is unknown; it is never guessed"),
+    field("gstRate", "GST % on this sale", false, ["gst", "gst %", "gst rate", "tax rate"], "Blank uses the product's rate"),
     field("payment1", "Payment 1 (₹)", false, ["phonepe amount", "phonepe", "upi"], "Choose below which account it went into"),
     field("payment2", "Payment 2 (₹)", false, ["cash amount", "cash"], "Choose below which account it went into"),
     field("payment3", "Payment 3 (₹)", false, ["online amount", "online", "card"], "Choose below which account it went into"),

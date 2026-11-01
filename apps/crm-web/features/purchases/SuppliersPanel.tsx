@@ -2,6 +2,7 @@
 
 import type { ColumnDef } from "@tanstack/react-table"
 import { Pencil, Plus } from "lucide-react"
+import Link from "next/link"
 import { useState } from "react"
 import { toast } from "sonner"
 import { createSupplierSchema, CURRENCIES, type SupplierDto } from "@repo/crm-schema"
@@ -16,11 +17,12 @@ import { errorMessage } from "@/lib/api-error"
 import { downloadExport } from "@/lib/download"
 import { useApiForm } from "@/lib/use-api-form"
 import { useListState } from "@/lib/use-list-state"
+import { useCan } from "@/store/auth.store"
 import { useSuppliers } from "../products/api"
 import { useSaveSupplier } from "./api"
-import { PurchaseTabs } from "./shared"
+import { BalanceBadge, PurchaseTabs } from "./shared"
 
-function SupplierModal({ supplier, onClose }: { supplier: SupplierDto | null; onClose: () => void }) {
+export function SupplierModal({ supplier, onClose }: { supplier: SupplierDto | null; onClose: () => void }) {
   const save = useSaveSupplier()
   const { form, formError, submitWith } = useApiForm(createSupplierSchema, {
     name: supplier?.name ?? "",
@@ -102,6 +104,7 @@ function SupplierModal({ supplier, onClose }: { supplier: SupplierDto | null; on
 }
 
 export default function SuppliersPanel() {
+  const can = useCan()
   const [showInactive, setShowInactive] = useState(false)
   const { state, update, params } = useListState({ sort: "name:asc" })
   const { data, isLoading } = useSuppliers({ ...params, includeInactive: showInactive })
@@ -110,7 +113,16 @@ export default function SuppliersPanel() {
   const [toggling, setToggling] = useState<SupplierDto | null>(null)
 
   const columns: ColumnDef<SupplierDto>[] = [
-    { id: "name", header: "Supplier", meta: { sortKey: "name", cellClassName: "font-medium" }, cell: ({ row }) => row.original.name },
+    {
+      id: "name",
+      header: "Supplier",
+      meta: { sortKey: "name", cellClassName: "font-medium" },
+      cell: ({ row }) => (
+        <Link href={`/purchases/suppliers/${row.original.id}`} className="text-primary hover:underline">
+          {row.original.name}
+        </Link>
+      ),
+    },
     {
       id: "country",
       header: "Country",
@@ -124,6 +136,16 @@ export default function SuppliersPanel() {
       cell: ({ row }) =>
         [row.original.contactName, row.original.phone].filter(Boolean).join(" · ") || <span className="text-faint">—</span>,
     },
+    ...(can("suppliers.ledger")
+      ? [
+          {
+            id: "balance",
+            header: "Balance",
+            meta: { cellClassName: "whitespace-nowrap" },
+            cell: ({ row }) => <BalanceBadge balance={row.original.balance ?? "0"} />,
+          } satisfies ColumnDef<SupplierDto>,
+        ]
+      : []),
     {
       id: "status",
       header: "Status",
@@ -147,7 +169,10 @@ export default function SuppliersPanel() {
 
   return (
     <div>
-      <PageHeader title="Purchases & Shipments" subtitle="Suppliers you buy from, and the currency they invoice in." />
+      <PageHeader
+        title="Purchases & Shipments"
+        subtitle="Suppliers you buy from, the currency they invoice in, and what they hold of yours or you owe them."
+      />
       <PurchaseTabs />
       <ListToolbar
         actions={
@@ -176,10 +201,15 @@ export default function SuppliersPanel() {
         emptyTitle="No suppliers yet"
         mobileCard={(s) => (
           <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold">{s.name}</p>
+            <Link href={`/purchases/suppliers/${s.id}`} className="min-w-0">
+              <p className="text-sm font-semibold text-primary">{s.name}</p>
               <p className="text-xs text-muted">{[s.country, s.currency, s.contactName].filter(Boolean).join(" · ")}</p>
-            </div>
+              {s.balance !== undefined && (
+                <p className="text-xs mt-0.5">
+                  <BalanceBadge balance={s.balance} />
+                </p>
+              )}
+            </Link>
             <Button variant="secondary" size="sm" onClick={() => setEditing(s)}>
               Edit
             </Button>

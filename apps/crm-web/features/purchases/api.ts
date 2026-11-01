@@ -10,10 +10,14 @@ import type {
   PurchaseListItemDto,
   PurchaseReturnInput,
   ReceivePurchaseInput,
+  CreateSupplierEntryInput,
   SupplierDto,
+  SupplierLedgerDto,
+  SupplierLedgerEntryDto,
   UpdateSupplierInput,
 } from "@repo/crm-schema"
 import { getData, sendData } from "@/lib/api-client"
+import { financeKeys } from "../finance/api"
 import { inventoryKeys } from "../inventory/api"
 import { catalogKeys } from "../products/api"
 
@@ -76,3 +80,47 @@ export const useSaveSupplier = () => {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: catalogKeys.all }),
   })
 }
+
+// ─── Supplier ledger ─────────────────────────────────────────────────────────
+
+const supplierKeys = {
+  detail: (id: string) => [...catalogKeys.all, "supplier", id] as const,
+  ledger: (id: string, params: object) => [...catalogKeys.all, "supplier-ledger", id, params] as const,
+  entry: (id: string) => [...catalogKeys.all, "supplier-entry", id] as const,
+}
+
+export const useSupplier = (id: string) =>
+  useQuery({ queryKey: supplierKeys.detail(id), queryFn: () => getData<SupplierDto>(`/suppliers/${id}`) })
+
+export const useSupplierLedger = (id: string, params: object, enabled = true) =>
+  useQuery({
+    queryKey: supplierKeys.ledger(id, params),
+    queryFn: () => getData<SupplierLedgerDto>(`/suppliers/${id}/ledger`, params),
+    placeholderData: keepPreviousData,
+    enabled,
+  })
+
+export const useSupplierEntry = (id: string) =>
+  useQuery({ queryKey: supplierKeys.entry(id), queryFn: () => getData<SupplierLedgerEntryDto>(`/suppliers/ledger-entries/${id}`) })
+
+/** Payments and refunds move money through an account, so the cash day refreshes too. */
+function useSupplierLedgerMutation<TInput>(fn: (input: TInput) => Promise<SupplierLedgerEntryDto>) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: catalogKeys.all })
+      queryClient.invalidateQueries({ queryKey: financeKeys.all })
+    },
+  })
+}
+
+export const useRecordSupplierEntry = (supplierId: string) =>
+  useSupplierLedgerMutation((input: CreateSupplierEntryInput) =>
+    sendData<SupplierLedgerEntryDto>("post", `/suppliers/${supplierId}/ledger`, input),
+  )
+
+export const useVoidSupplierEntry = (id: string) =>
+  useSupplierLedgerMutation((reason: string) =>
+    sendData<SupplierLedgerEntryDto>("post", `/suppliers/ledger-entries/${id}/void`, { reason }),
+  )

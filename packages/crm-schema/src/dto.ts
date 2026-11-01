@@ -11,8 +11,9 @@ import type { ImportBatchStatus, ImportKind, ImportRowStatus } from "./imports";
 import type { SyncConnection, SyncMode, SyncRunStatus, SyncSource } from "./sync";
 import type { LocationType, PaymentMethod, Role } from "./enums";
 import type { StockBucket, StockDocumentType, StockReasonCode, StockState } from "./inventory";
-import type { AllocationMethod, ChargeType, PurchaseStatus } from "./purchases";
+import type { AllocationMethod, ChargeType, PurchaseStatus, SupplierEntryType } from "./purchases";
 import type { Permission } from "./permissions";
+import type { Paginated } from "./common";
 
 /**
  * Response shapes. crm-api mappers are typed against these, so a field the API
@@ -115,6 +116,8 @@ export interface SupplierDto {
   gstin: string | null;
   notes: string | null;
   isActive: boolean;
+  /** Supplier ledger balance (positive: they hold our money; negative: we owe them). Only for `suppliers.ledger`. */
+  balance?: string;
 }
 
 export interface RefDto {
@@ -951,6 +954,8 @@ export interface CashDayBreakdownDto {
   transfersIn: string;
   /** Deposits to the bank and other moves out. */
   transfersOut: string;
+  /** Paid to suppliers in cash, less refunds they paid back in cash. */
+  supplierPayments: string;
   expected: string;
 }
 
@@ -1454,4 +1459,37 @@ export interface ApiErrorBody {
     message: string;
     details?: { formErrors?: string[]; fieldErrors?: Record<string, string[] | undefined> } & Record<string, unknown>;
   };
+}
+
+// ─── Supplier ledger ─────────────────────────────────────────────────────────
+
+export interface SupplierLedgerEntryDto {
+  id: string;
+  code: string;
+  type: SupplierEntryType;
+  /** Signed: positive raises what the supplier holds of ours, negative raises what we owe. */
+  amount: string;
+  /** The supplier's balance after this entry, in ledger order (date, then time recorded). */
+  balanceAfter: string;
+  businessDate: string;
+  account: { id: string; name: string; isPersonal: boolean } | null;
+  purchase: { id: string; code: string } | null;
+  reference: string | null;
+  notes: string | null;
+  reversalOf: { id: string; code: string } | null;
+  reversedBy: { id: string; code: string } | null;
+  createdByName: string | null;
+  createdAt: string;
+}
+
+/** Each type's net total (voids netted against what they undo) and the balance they add up to. */
+export interface SupplierBalanceDto {
+  balance: string;
+  totals: Record<SupplierEntryType, string>;
+  entryCount: number;
+  lastEntryDate: string | null;
+}
+
+export interface SupplierLedgerDto extends Paginated<SupplierLedgerEntryDto> {
+  summary: SupplierBalanceDto;
 }

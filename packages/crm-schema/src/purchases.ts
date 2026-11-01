@@ -168,3 +168,75 @@ export const purchaseListQuery = listQuery.extend({
   to: isoDate.optional(),
 });
 export type PurchaseListQuery = z.infer<typeof purchaseListQuery>;
+
+// ─── Supplier ledger ─────────────────────────────────────────────────────────
+
+export const SUPPLIER_ENTRY_TYPES = ["OPENING", "PAYMENT", "GOODS_RECEIVED", "REFUND", "CREDIT_NOTE", "ADJUSTMENT"] as const;
+export type SupplierEntryType = (typeof SUPPLIER_ENTRY_TYPES)[number];
+export const SUPPLIER_ENTRY_TYPE_LABELS: Record<SupplierEntryType, string> = {
+  OPENING: "Opening balance",
+  PAYMENT: "Paid to supplier",
+  GOODS_RECEIVED: "Goods received",
+  REFUND: "Refund from supplier",
+  CREDIT_NOTE: "Credit from supplier",
+  ADJUSTMENT: "Adjustment",
+};
+/** What each type does to the balance, in words for the entry form. */
+export const SUPPLIER_ENTRY_TYPE_HINTS: Record<SupplierEntryType, string> = {
+  OPENING: "What stood between you and this supplier before the CRM.",
+  PAYMENT: "Money you paid them: an advance, or settling what you owe. It leaves the account you choose.",
+  GOODS_RECEIVED: "Goods or a bill you received from them, worth this much. It uses up your advance or adds to what you owe.",
+  REFUND: "Money they paid back to you. It arrives in the account you choose.",
+  CREDIT_NOTE: "Credit they gave you without paying (returned goods, a shipping refund).",
+  ADJUSTMENT: "A correction agreed with the supplier. Say why.",
+};
+/** Types whose money moves through one of our accounts (and so through its cash closing). */
+export const SUPPLIER_ENTRY_TYPES_WITH_ACCOUNT: readonly SupplierEntryType[] = ["PAYMENT", "REFUND"];
+/** Types the owner points either way; the others have a fixed direction. */
+export const SUPPLIER_ENTRY_TYPES_WITH_DIRECTION: readonly SupplierEntryType[] = ["OPENING", "ADJUSTMENT"];
+
+/** OURS: the supplier holds our money (an advance or credit). THEIRS: we owe the supplier. */
+export const SUPPLIER_BALANCE_DIRECTIONS = ["OURS", "THEIRS"] as const;
+export type SupplierBalanceDirection = (typeof SUPPLIER_BALANCE_DIRECTIONS)[number];
+export const SUPPLIER_BALANCE_DIRECTION_LABELS: Record<SupplierBalanceDirection, string> = {
+  OURS: "The supplier holds our money",
+  THEIRS: "We owe the supplier",
+};
+
+const positiveAmount = money.refine((v) => Number(v) > 0, "Must be greater than 0");
+const optionalId = z
+  .union([z.literal(""), z.string().uuid()])
+  .transform((v) => v || null)
+  .nullish();
+
+export const createSupplierEntrySchema = z
+  .object({
+    type: z.enum(SUPPLIER_ENTRY_TYPES, "Choose what happened"),
+    amount: positiveAmount,
+    direction: z.enum(SUPPLIER_BALANCE_DIRECTIONS).optional(),
+    /** PAYMENT and REFUND: the account the money left or arrived in. Ignored for other types. */
+    accountId: optionalId,
+    /** GOODS_RECEIVED: the purchase the goods came on, if it is in the CRM. Ignored for other types. */
+    purchaseId: optionalId,
+    businessDate: isoDate.optional(),
+    reference: optionalText(80),
+    notes: optionalText(500),
+  })
+  .superRefine((v, ctx) => {
+    if (SUPPLIER_ENTRY_TYPES_WITH_DIRECTION.includes(v.type) && !v.direction)
+      ctx.addIssue({ code: "custom", path: ["direction"], message: "Choose which way the balance goes" });
+    if (SUPPLIER_ENTRY_TYPES_WITH_ACCOUNT.includes(v.type) && !v.accountId)
+      ctx.addIssue({ code: "custom", path: ["accountId"], message: "Choose the account the money moved through" });
+    if (v.type === "ADJUSTMENT" && !v.notes) ctx.addIssue({ code: "custom", path: ["notes"], message: "Say why the balance is adjusted" });
+  });
+export type CreateSupplierEntryInput = z.infer<typeof createSupplierEntrySchema>;
+
+export const voidSupplierEntrySchema = z.object({ reason: requiredText(200) });
+
+export const supplierLedgerQuery = listQuery.extend({
+  type: z.enum(SUPPLIER_ENTRY_TYPES).optional(),
+  accountId: optionalFilterId,
+  from: isoDate.optional(),
+  to: isoDate.optional(),
+});
+export type SupplierLedgerQuery = z.infer<typeof supplierLedgerQuery>;
