@@ -150,6 +150,12 @@ export const cancelOrderSchema = z.object({
 });
 export type CancelOrderInput = z.infer<typeof cancelOrderSchema>;
 
+export const fulfilOrderSchema = z.object({
+  /** The day the goods actually left; revenue and the stock entry are dated to it. Blank is today. */
+  fulfilledDate: isoDate.optional(),
+});
+export type FulfilOrderInput = z.infer<typeof fulfilOrderSchema>;
+
 export const salesListQuery = listQuery.extend({
   status: z.enum(SALES_ORDER_STATUSES).optional(),
   channel: z.enum(SALES_CHANNELS).optional(),

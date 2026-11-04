@@ -11,7 +11,7 @@ import { Card, DetailRow, EmptyState, PageHeader, Skeleton } from "@/components/
 import { Field, Input, Textarea } from "@/components/ui/Form"
 import Modal from "@/components/ui/Modal"
 import { errorMessage } from "@/lib/api-error"
-import { formatDate, formatDateTime, formatMoney } from "@/lib/format"
+import { formatDate, formatDateTime, formatMoney, todayIST } from "@/lib/format"
 import { useCan } from "@/store/auth.store"
 import { StockDocumentModal } from "../inventory/StockModals"
 import OrderPaymentsCard from "../payments/OrderPayments"
@@ -19,7 +19,7 @@ import ReturnModal from "../returns/ReturnModal"
 import ShipmentPanel, { CreateShipmentModal } from "../shipping/ShipmentPanel"
 import { RefundBadge, ReturnDetailModal } from "../returns/ReturnsList"
 import { AccountSelect } from "../payments/shared"
-import { useCancelOrder, useDeallocate, useExpectedArrival, useOrder, useOrderAction, type OrderAction } from "./api"
+import { useCancelOrder, useDeallocate, useExpectedArrival, useFulfilOrder, useOrder, useOrderAction, type OrderAction } from "./api"
 import { OrderStatusBadge, OrderTypeBadge, PriceSourceBadge } from "./shared"
 
 const EVENT_LABELS: Record<string, string> = {
@@ -36,6 +36,7 @@ const EVENT_LABELS: Record<string, string> = {
   allocated: "Stock allocated",
   deallocated: "Allocation released",
   rescheduled: "Expected date changed",
+  redated: "Revenue date corrected",
   returned: "Items returned",
   shipment_rto: "Shipment coming back (RTO)",
   shipment_returned: "Shipment back with us",
@@ -75,6 +76,46 @@ function ReleaseDialog({ order, onClose }: { order: SalesOrderDetailDto; onClose
         try {
           await release.mutateAsync(reason.trim())
           toast.success("Allocation released")
+          onClose()
+        } catch (err) {
+          toast.error(errorMessage(err))
+        }
+      }}
+    />
+  )
+}
+
+/** A counter sale entered late is handed over on its order date; anything else leaves today unless changed. */
+function FulfilDialog({ order, label, onClose }: { order: SalesOrderDetailDto; label: string; onClose: () => void }) {
+  const fulfil = useFulfilOrder(order.id)
+  const today = todayIST()
+  const [date, setDate] = useState(order.fulfilment === "COUNTER" ? order.orderDate : today)
+  const valid = date >= order.orderDate && date <= today
+  return (
+    <ConfirmDialog
+      title={`${label} ${order.code}?`}
+      message={
+        <div className="space-y-3">
+          <p>The items leave stock and the sale counts as revenue on the day below.</p>
+          <Field
+            label={order.fulfilment === "COUNTER" ? "Handed over on" : "Dispatched on"}
+            htmlFor="fulfil-date"
+            required
+            hint={order.orderDate < today ? `Ordered on ${formatDate(order.orderDate)}. Use the day the goods actually left.` : undefined}
+          >
+            <Input id="fulfil-date" type="date" min={order.orderDate} max={today} value={date} onChange={(e) => setDate(e.target.value)} />
+          </Field>
+        </div>
+      }
+      confirmLabel={label}
+      confirmDisabled={!valid}
+      tone="primary"
+      loading={fulfil.isPending}
+      onCancel={onClose}
+      onConfirm={async () => {
+        try {
+          await fulfil.mutateAsync(date)
+          toast.success(ACTION_COPY.fulfil.done)
           onClose()
         } catch (err) {
           toast.error(errorMessage(err))
@@ -533,11 +574,12 @@ function OrderView({ o }: { o: SalesOrderDetailDto }) {
         </div>
       </div>
 
-      {confirming && (
+      {confirming === "fulfil" && <FulfilDialog order={o} label={fulfilLabel} onClose={() => setConfirming(null)} />}
+      {confirming && confirming !== "fulfil" && (
         <ConfirmDialog
-          title={confirming === "fulfil" ? `${fulfilLabel} ${o.code}?` : `${ACTION_COPY[confirming].label}?`}
+          title={`${ACTION_COPY[confirming].label}?`}
           message={ACTION_COPY[confirming].confirm}
-          confirmLabel={confirming === "fulfil" ? fulfilLabel : ACTION_COPY[confirming].label}
+          confirmLabel={ACTION_COPY[confirming].label}
           tone="primary"
           loading={pending === confirming}
           onCancel={() => setConfirming(null)}

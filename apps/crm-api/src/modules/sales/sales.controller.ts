@@ -4,6 +4,7 @@ import {
   cancelOrderSchema,
   deallocateSchema,
   expectedArrivalSchema,
+  fulfilOrderSchema,
   preOrderListQuery,
   FULFILMENT_METHOD_LABELS,
   idParam,
@@ -102,7 +103,8 @@ export async function fulfil(req: Request, res: Response) {
   const fulfilment = await sales.fulfilmentOf(id);
   const allowed = fulfilment === "COUNTER" ? can(req, "sales.create") : can(req, "shipping.manage") || can(req, "sales.manage");
   if (!allowed) throw forbidden();
-  sendData(res, await sales.fulfilOrder(id, requestContext(req), visibility(req)));
+  const { fulfilledDate } = fulfilOrderSchema.parse(req.body ?? {});
+  sendData(res, await sales.fulfilOrder(id, requestContext(req), visibility(req), fulfilledDate));
 }
 
 export async function deliver(req: Request, res: Response) {

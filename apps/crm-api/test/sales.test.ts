@@ -3,7 +3,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@repo/crm-db/client";
 import { dec } from "../src/core/money";
 import { resolveUnitPrice } from "../src/modules/sales/pricing";
-import { financialYear } from "../src/modules/sales/sales.service";
+import { financialYear, redateFulfilment } from "../src/modules/sales/sales.service";
 import { computeSaleTotals } from "../src/modules/sales/totals";
 import { api, sessionAs, type TestSession } from "./helpers";
 
@@ -408,6 +408,44 @@ describe("records, visibility and revenue timing", () => {
     const after = await summary();
     expect(Number(after.grossSales) - Number(before.grossSales)).toBe(2000);
     expect(after.orders - before.orders).toBe(1);
+  });
+
+  it("hands a late-entered order over on its real day, and moves an earlier handover's revenue back", async () => {
+    const daysAgo = (n: number) => {
+      const d = new Date(`${today()}T00:00:00Z`);
+      d.setUTCDate(d.getUTCDate() - n);
+      return d.toISOString().slice(0, 10);
+    };
+    const summary = async (day: string) =>
+      (await api().get("/api/v1/sales/summary").query({ from: day, to: day }).set(admin.auth)).body.data;
+    const fulfil = (id: string, body: object = {}) => api().post(`/api/v1/sales/${id}/fulfil`).set(cashier.auth).send(body);
+    const variantId = await simple({}, 3);
+    const late = await order(cashier, { channel: "STORE", orderDate: daysAgo(5), confirm: true, lines: [{ variantId, quantity: 1 }] });
+    const id = late.body.data.id;
+
+    expect((await fulfil(id, { fulfilledDate: daysAgo(6) })).body.error.code).toBe("BEFORE_ORDER_DATE");
+    expect((await fulfil(id, { fulfilledDate: daysAgo(-1) })).body.error.code).toBe("FUTURE_DATE");
+    const before = await summary(daysAgo(5));
+    const handed = await fulfil(id, { fulfilledDate: daysAgo(5) });
+    expect(handed.body.data).toMatchObject({ status: "COMPLETED", fulfilledDate: daysAgo(5) });
+    expect(handed.body.data.events.at(-1)).toMatchObject({ action: "handed_over", note: `Handed over on ${daysAgo(5)}` });
+    expect(Number((await summary(daysAgo(5))).grossSales) - Number(before.grossSales)).toBe(1000);
+    const document = await prisma.stockDocument.findFirstOrThrow({ where: { sourceId: id } });
+    expect(document.businessDate.toISOString().slice(0, 10)).toBe(daysAgo(5));
+
+    // Handed over before handover took a date: revenue landed on the click day.
+    const earlier = await order(cashier, { channel: "STORE", orderDate: daysAgo(3), confirm: true, lines: [{ variantId, quantity: 1 }] });
+    const earlierId = earlier.body.data.id;
+    expect((await fulfil(earlierId)).body.data.fulfilledDate).toBe(today());
+    const ctx = { userId: admin.userId, ip: null, userAgent: null, requestId: null };
+    await expect(redateFulfilment(earlierId, daysAgo(4), "Entered late", ctx)).rejects.toMatchObject({ code: "INVALID_DATE" });
+    await expect(redateFulfilment(earlierId, daysAgo(-1), "Entered late", ctx)).rejects.toMatchObject({ code: "INVALID_DATE" });
+    expect(await redateFulfilment(earlierId, daysAgo(3), "Entered late", ctx)).toBe(true);
+    const moved = (await api().get(`/api/v1/sales/${earlierId}`).set(admin.auth)).body.data;
+    expect(moved.fulfilledDate).toBe(daysAgo(3));
+    expect(moved.events.at(-1)).toMatchObject({ action: "redated", note: `Revenue moved from ${today()} to ${daysAgo(3)}: Entered late` });
+    expect(await prisma.auditLog.count({ where: { action: "sale.redated", entityId: earlierId } })).toBe(1);
+    expect(await redateFulfilment(earlierId, daysAgo(3), "Again", ctx)).toBe(false);
   });
 
   it("leaves unknown-cost units out of profit instead of guessing", async () => {

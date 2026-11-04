@@ -121,7 +121,7 @@ Source of truth: `packages/crm-db/prisma/schema.prisma`. This page explains the 
 - Reservations take the same per-variant lock as stock postings, so two orders can't claim the last unit.
 - Cancelling is only allowed before fulfilment and releases reservations. After fulfilment it's a return (phase 9).
 
-**Revenue** is recognised at fulfilment (`fulfilledDate`, IST): handover or dispatch. `GET /sales/summary` reports fulfilled orders only.
+**Revenue** is recognised at fulfilment (`fulfilledDate`, IST): handover or dispatch. `GET /sales/summary` reports fulfilled orders only. `POST /sales/:id/fulfil` takes an optional `fulfilledDate` (from the order date to today) for a sale entered late; the stock entry is dated to it too. `redateFulfilment` (run through `pnpm --filter crm-api redate-handovers`) moves an earlier handover's revenue back towards its order date, with an event and an audit row; its stock entry keeps its day.
 - Gross profit = net sales excl. GST − COGS, over lines whose cost is fully known.
 - The "before GST" figure (price − cost) is shown alongside it, labelled as such.
 

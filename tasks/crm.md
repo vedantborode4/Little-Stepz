@@ -629,3 +629,14 @@ These wait for the owner's answer on sheet 11.
 - **Waiting on the owner.**
   - Clearance to import into the local database.
   - Which accounts the old sheet's PhonePe, Cash and Online money and the courier charges go to.
+
+## Backdated handovers (2026-11-04)
+
+Sales entered late through the order form showed their order date, but Hand over stamped today, so profit and the sales reports counted them on the click day.
+
+- [x] Hand over / Dispatch takes the day the goods left (`fulfilledDate`): not before the order date, not in the future. Revenue and the stock entry are dated to it; a past day is noted on the order's timeline.
+- [x] The order page asks for that day. Counter orders default to the order date; delivery orders to today.
+- [x] `redateFulfilment` moves an already handed-over order's revenue back to an earlier day (from the order date up to its current revenue day), with an order event and an audit row. The stock entry keeps its day, since movements are append-only.
+- [x] `pnpm --filter crm-api redate-handovers` lists every fulfilled order whose revenue day is after its order date; `--apply <codes>` or `--apply all` moves them to their order date.
+- [x] Tests: dated handover, date limits, stock document date, revenue on the sale day, redating and its limits.
+- [ ] Run the list on the CRM where the late entries were made, then apply for the codes the owner confirms.

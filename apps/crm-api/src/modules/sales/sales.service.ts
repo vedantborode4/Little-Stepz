@@ -11,7 +11,7 @@ import {
   type SellableSearchQuery,
 } from "@repo/crm-schema";
 import { recordAudit, type AuditAction } from "../../core/audit";
-import { resolveBusinessDate, todayIST, toDbDate } from "../../core/dates";
+import { fromDbDate, resolveBusinessDate, todayIST, toDbDate } from "../../core/dates";
 import { withTransaction } from "../../core/db";
 import { ApiError, forbidden, notFound, type RequestContext } from "../../core/http";
 import { buildOrderBy, pageWindow, paginated } from "../../core/list";
@@ -327,7 +327,7 @@ const dueDateFor = (orderDate: string, creditDays: number | null | undefined, ex
  * each line's cost of goods. Its own reservations are released first, so they
  * cover it; nothing else's are touched.
  */
-async function deductOrderStock(tx: Tx, ctx: RequestContext, order: { id: string; code: string; locationId: string }) {
+async function deductOrderStock(tx: Tx, ctx: RequestContext, order: { id: string; code: string; locationId: string }, businessDate: Date) {
   const lines = await tx.salesOrderLine.findMany({ where: { orderId: order.id }, select: { id: true, variantId: true, quantity: true } });
   await releaseReservations(
     tx,
@@ -336,7 +336,7 @@ async function deductOrderStock(tx: Tx, ctx: RequestContext, order: { id: string
   );
   const document = await postStockDocument(tx, ctx, {
     type: "SALE",
-    businessDate: resolveBusinessDate(undefined),
+    businessDate,
     reason: `Sale ${order.code}`,
     reference: order.code,
     sourceType: "SALE",
@@ -494,7 +494,7 @@ export async function createPosSale(input: PosSaleInput, ctx: RequestContext, ri
           lines: { createMany: { data: lineRows(cart) } },
         },
       });
-      const document = await deductOrderStock(tx, ctx, order);
+      const document = await deductOrderStock(tx, ctx, order, toDbDate(today));
       const now = new Date();
       await tx.salesOrder.update({
         where: { id: order.id },
@@ -700,28 +700,74 @@ export async function setExpectedArrival(id: string, expectedArrival: string | n
   return getOrder(id, visibility);
 }
 
+/**
+ * The day goods left, which is the day revenue counts and stock drops. A sale
+ * entered late is handed over on its real day: never before the order, never in the future.
+ */
+function resolveFulfilledDate(order: { code: string; orderDate: Date }, isoDate: string | undefined) {
+  const date = isoDate ?? todayIST();
+  const orderDate = fromDbDate(order.orderDate);
+  if (date < orderDate) {
+    throw new ApiError(400, "BEFORE_ORDER_DATE", `${order.code} was ordered on ${orderDate}; it can't leave before that`, {
+      fieldErrors: { fulfilledDate: ["Before the order date"] },
+    });
+  }
+  return resolveBusinessDate(date);
+}
+
 /** Handover (counter) or dispatch (delivery): the moment stock leaves and revenue is recognised. */
 /** Handover or dispatch inside the caller's transaction (shipments dispatch through here too). */
-export async function fulfilInTx(tx: Tx, ctx: RequestContext, id: string) {
+export async function fulfilInTx(tx: Tx, ctx: RequestContext, id: string, fulfilledOn?: string) {
   const order = await lockOrder(tx, id);
   const action = order.fulfilment === "COUNTER" ? "handed over" : "dispatched";
   if (order.status !== "CONFIRMED" && order.status !== "PACKED") throw wrongStatus(order.code, order.status, action);
   if (order.stockDocumentId) throw new ApiError(409, "ALREADY_FULFILLED", `${order.code} has already left stock`);
   assertAllocated(order);
+  const fulfilledDate = resolveFulfilledDate(order, fulfilledOn);
 
-  const document = await deductOrderStock(tx, ctx, order);
+  const document = await deductOrderStock(tx, ctx, order, fulfilledDate);
   const status = order.fulfilment === "COUNTER" ? "COMPLETED" : "DISPATCHED";
   await tx.salesOrder.update({
     where: { id },
-    data: { status, fulfilledAt: new Date(), fulfilledDate: toDbDate(todayIST()), stockDocumentId: document.id },
+    data: { status, fulfilledAt: new Date(), fulfilledDate, stockDocumentId: document.id },
   });
-  await addEvent(tx, ctx, id, order.fulfilment === "COUNTER" ? "handed_over" : "dispatched", status);
-  await audit(tx, ctx, "sale.fulfilled", order, { status, stockDocument: document.code });
+  const day = fromDbDate(fulfilledDate);
+  const note = day === todayIST() ? undefined : `${order.fulfilment === "COUNTER" ? "Handed over" : "Dispatched"} on ${day}`;
+  await addEvent(tx, ctx, id, order.fulfilment === "COUNTER" ? "handed_over" : "dispatched", status, note);
+  await audit(tx, ctx, "sale.fulfilled", order, { status, fulfilledDate: day, stockDocument: document.code });
 }
 
-export async function fulfilOrder(id: string, ctx: RequestContext, visibility: Visibility) {
-  await withTransaction((tx) => fulfilInTx(tx, ctx, id));
+export async function fulfilOrder(id: string, ctx: RequestContext, visibility: Visibility, fulfilledDate?: string) {
+  await withTransaction((tx) => fulfilInTx(tx, ctx, id, fulfilledDate));
   return getOrder(id, visibility);
+}
+
+/**
+ * Moves a handed-over sale's revenue back to the day it really happened, for
+ * sales entered late before handover took a date. Only earlier, never before
+ * the order date. The stock entry keeps its day: movements are append-only.
+ */
+export async function redateFulfilment(id: string, isoDate: string, reason: string, ctx: RequestContext) {
+  return withTransaction(async (tx) => {
+    const order = await lockOrder(tx, id);
+    if (!order.fulfilledDate) throw new ApiError(409, "NOT_FULFILLED", `${order.code} hasn't left stock yet`);
+    const from = fromDbDate(order.fulfilledDate);
+    const orderDate = fromDbDate(order.orderDate);
+    if (isoDate < orderDate || isoDate > from) {
+      throw new ApiError(400, "INVALID_DATE", `${order.code}'s revenue can move to a day from ${orderDate} to ${from}`);
+    }
+    if (isoDate === from) return false;
+    await tx.salesOrder.update({ where: { id }, data: { fulfilledDate: toDbDate(isoDate) } });
+    await addEvent(tx, ctx, id, "redated", null, `Revenue moved from ${from} to ${isoDate}: ${reason}`);
+    await recordAudit(tx, ctx, {
+      action: "sale.redated",
+      entity: "SalesOrder",
+      entityId: id,
+      before: { code: order.code, fulfilledDate: from },
+      after: { code: order.code, fulfilledDate: isoDate, reason },
+    });
+    return true;
+  });
 }
 
 export async function deliverInTx(tx: Tx, ctx: RequestContext, id: string) {

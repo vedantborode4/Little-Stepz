@@ -81,6 +81,8 @@ export const useSaveOrder = () =>
 export type OrderAction = "confirm" | "pack" | "fulfil" | "deliver" | "allocate"
 export const useOrderAction = (id: string) =>
   useSalesMutation((action: OrderAction) => sendData<SalesOrderDetailDto>("post", `/sales/${id}/${action}`))
+export const useFulfilOrder = (id: string) =>
+  useSalesMutation((fulfilledDate: string) => sendData<SalesOrderDetailDto>("post", `/sales/${id}/fulfil`, { fulfilledDate }))
 export const useCancelOrder = (id: string) =>
   useSalesMutation((input: CancelOrderInput) => sendData<SalesOrderDetailDto>("post", `/sales/${id}/cancel`, input))
 
