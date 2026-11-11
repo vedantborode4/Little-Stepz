@@ -17,6 +17,7 @@ import {
   salesOrderSchema,
   salesSummaryQuery,
   sellableSearchQuery,
+  setOrderSalespersonSchema,
 } from "@repo/crm-schema";
 import { can } from "../../core/auth";
 import { sendExport } from "../../core/export";
@@ -26,7 +27,7 @@ import * as preOrders from "./preorders";
 import { salesSummary } from "./sales.reports";
 import * as sales from "./sales.service";
 
-const visibility = (req: Request): Visibility => ({ costs: can(req, "costs.view") });
+const visibility = (req: Request): Visibility => ({ costs: can(req, "costs.view"), commission: can(req, "commission.manage") });
 const rights = (req: Request): sales.SaleRights => ({ overridePrice: can(req, "sales.manage") });
 
 export async function list(req: Request, res: Response) {
@@ -149,4 +150,10 @@ export async function waitingItems(_req: Request, res: Response) {
 export async function allocateAvailable(req: Request, res: Response) {
   const { variantId } = allocateAvailableSchema.parse(req.body ?? {});
   sendData(res, await preOrders.allocateAvailable(variantId, requestContext(req)));
+}
+
+export async function setSalesperson(req: Request, res: Response) {
+  const { id } = idParam.parse(req.params);
+  const { salespersonId } = setOrderSalespersonSchema.parse(req.body);
+  sendData(res, await sales.setSalesperson(id, salespersonId ?? null, requestContext(req), visibility(req)));
 }

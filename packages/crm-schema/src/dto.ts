@@ -686,6 +686,9 @@ export interface SalesOrderDetailDto extends SalesOrderListItemDto {
   stockDocument: { id: string; code: string } | null;
   /** Set for a past sale brought in by an import: history only, its stock was never moved. */
   importBatch: { id: string; code: string } | null;
+  salesperson: SalespersonOptionDto | null;
+  /** The commission % frozen on the sale; only for those who manage commission. */
+  commissionRate?: string | null;
   lines: SalesOrderLineDto[];
   totals: SaleTotalsDto;
   profit?: OrderProfitDto | null;
@@ -939,6 +942,8 @@ export interface ExpenseDto {
   notes: string | null;
   reversalOf: { id: string; code: string } | null;
   reversedBy: { id: string; code: string } | null;
+  /** Set on a commission payout. */
+  salesperson: SalespersonOptionDto | null;
   createdByName: string | null;
   createdAt: string;
 }
@@ -1492,4 +1497,64 @@ export interface SupplierBalanceDto {
 
 export interface SupplierLedgerDto extends Paginated<SupplierLedgerEntryDto> {
   summary: SupplierBalanceDto;
+}
+
+// ─── Commission ──────────────────────────────────────────────────────────────
+
+/** What the till sees when picking who made a sale: never the rate. */
+export interface SalespersonOptionDto {
+  id: string;
+  staffCode: string;
+  name: string;
+}
+
+export interface SalespersonDto extends SalespersonOptionDto {
+  commissionRate: string;
+  isActive: boolean;
+}
+
+/**
+ * One line of a salesperson's commission: a fulfilled sale (positive) or a
+ * return on one of their sales (negative). `base` is the goods value excluding GST.
+ */
+export interface CommissionEntryDto {
+  kind: "SALE" | "RETURN";
+  date: string;
+  order: { id: string; code: string };
+  salesReturn: { id: string; code: string } | null;
+  rate: string;
+  base: string;
+  commission: string;
+}
+
+/** A salesperson's figures for a period; `owed` is all time (earned − paid), negative when paid ahead. */
+export interface CommissionTotalsDto {
+  sales: number;
+  salesValue: string;
+  earned: string;
+  returned: string;
+  net: string;
+  paid: string;
+  owed: string;
+}
+
+export interface CommissionSummaryRowDto extends CommissionTotalsDto {
+  salesperson: SalespersonDto;
+}
+
+export interface CommissionSummaryDto {
+  from: string;
+  to: string;
+  rows: CommissionSummaryRowDto[];
+  totals: CommissionTotalsDto;
+}
+
+export interface CommissionDetailDto {
+  from: string;
+  to: string;
+  salesperson: SalespersonDto;
+  totals: CommissionTotalsDto;
+  entries: CommissionEntryDto[];
+  /** Payouts dated in the period, voids included. */
+  payouts: ExpenseDto[];
 }

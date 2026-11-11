@@ -2,7 +2,7 @@
 
 import { CheckCircle2, Printer, RotateCcw, ShoppingCart } from "lucide-react"
 import Link from "next/link"
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { SALES_CHANNEL_LABELS, SALES_CHANNELS, type SalesChannel, type SalesOrderDetailDto } from "@repo/crm-schema"
 import Button from "@/components/ui/Button"
 import { PageHeader, Skeleton } from "@/components/ui/Display"
@@ -12,6 +12,8 @@ import { errorMessage } from "@/lib/api-error"
 import { formatMoney } from "@/lib/format"
 import { uuid } from "@/lib/uuid"
 import { useCan } from "@/store/auth.store"
+import { useSalespersonOptions } from "../commission/api"
+import SalespersonSelect from "../commission/SalespersonSelect"
 import { useCustomerCredit } from "../payments/api"
 import TenderEditor, { tenderBalance, type TenderLine } from "../payments/TenderEditor"
 import { useLocations } from "../settings/api"
@@ -24,11 +26,13 @@ import { cartPayload, useCart, type Cart } from "./use-cart"
 function CheckoutModal({
   cart,
   customerId,
+  salespersonId,
   onClose,
   onDone,
 }: {
   cart: Cart
   customerId: string | null
+  salespersonId: string
   onClose: () => void
   onDone: (sale: SalesOrderDetailDto) => void
 }) {
@@ -63,6 +67,7 @@ function CheckoutModal({
             .map((t) => ({ accountId: t.accountId, amount: t.amount, reference: t.reference || null })),
           excessToCredit,
           creditAmount: creditAmount.trim() || "0",
+          salespersonId: salespersonId || null,
         }),
       )
     } catch (err) {
@@ -153,8 +158,35 @@ function SaleDone({ sale, onNext }: { sale: SalesOrderDetailDto; onNext: () => v
   )
 }
 
+const SALESPERSON_KEY = "crm.pos.salesperson"
+
+/** The till keeps its last salesperson across sales (one person usually runs it for a shift). */
+function useTillSalesperson() {
+  const options = useSalespersonOptions()
+  const [salespersonId, setSalespersonId] = useState("")
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(SALESPERSON_KEY)
+      if (saved && options.data?.some((o) => o.id === saved)) setSalespersonId(saved)
+    } catch {
+      // Storage unavailable: start with no salesperson.
+    }
+  }, [options.data])
+  const choose = (id: string) => {
+    setSalespersonId(id)
+    try {
+      if (id) localStorage.setItem(SALESPERSON_KEY, id)
+      else localStorage.removeItem(SALESPERSON_KEY)
+    } catch {
+      // Not remembered; still used for this sale.
+    }
+  }
+  return [salespersonId, choose] as const
+}
+
 function Register({ locations }: { locations: { id: string; name: string }[] }) {
   const can = useCan()
+  const [salespersonId, setSalespersonId] = useTillSalesperson()
   const search = useRef<HTMLInputElement>(null)
   const initial = {
     customerId: null,
@@ -242,6 +274,12 @@ function Register({ locations }: { locations: { id: string; name: string }[] }) 
               />
             </Field>
           </div>
+          <SalespersonSelect
+            id="pos-salesperson"
+            value={salespersonId}
+            onChange={setSalespersonId}
+            hint="Stays selected for the next sale"
+          />
         </section>
 
         <section className="bg-surface border border-border rounded-2xl p-4 space-y-4">
@@ -274,6 +312,7 @@ function Register({ locations }: { locations: { id: string; name: string }[] }) 
         <CheckoutModal
           cart={cart}
           customerId={customer?.id ?? null}
+          salespersonId={salespersonId}
           onClose={() => setCheckingOut(false)}
           onDone={(sale) => {
             setCheckingOut(false)

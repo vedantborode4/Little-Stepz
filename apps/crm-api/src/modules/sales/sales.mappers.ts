@@ -7,6 +7,8 @@ import { returnListInclude, toReturnListItemDto } from "../returns/returns.mappe
 
 export interface Visibility {
   costs: boolean;
+  /** Sees the commission rate frozen on the sale. */
+  commission?: boolean;
 }
 
 export const orderListInclude = {
@@ -22,6 +24,7 @@ export const orderDetailInclude = {
   createdBy: { select: { name: true } },
   stockDocument: { select: { id: true, code: true } },
   importBatch: { select: { id: true, code: true } },
+  salesperson: { select: { id: true, staffCode: true, name: true } },
   lines: {
     include: {
       variant: { select: { sku: true, name: true, product: { select: { name: true } } } },
@@ -165,6 +168,8 @@ export function toOrderDetailDto(o: DetailRow, visibility: Visibility): SalesOrd
     createdByName: o.createdBy?.name ?? null,
     stockDocument: o.stockDocument,
     importBatch: o.importBatch,
+    salesperson: o.salesperson,
+    ...(visibility.commission && { commissionRate: o.commissionRate?.toString() ?? null }),
     totals: toTotalsDto(o),
     lines: o.lines.map((l) => ({
       id: l.id,

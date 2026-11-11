@@ -224,6 +224,19 @@ No new tables: a pre-order is a `SalesOrder` with `type = PRE_ORDER`, so its adv
 | `Expense` | Money spent from an account (`EXP-xxxxx`): category, **operating** or **for an order**, amount, date, paid to, reference | **Append-only.** Voided by a reversal row dated today (at most once). An order expense must name a confirmed order (DB `CHECK` too). Never a sale or a refund. |
 | `CashSession` | One cash drawer on one business day: opening amount; when closed, expected, counted and discrepancy (counted − expected) | Unique per drawer per day. Cash accounts only, never in the future. A `CHECK` keeps the discrepancy equal to counted − expected. |
 
+### Commission (added 2026-11-11)
+
+| Model | Purpose | Key rules |
+|---|---|---|
+| `Salesperson` | Staff who earn commission: staff ID (`staffCode`, unique case-insensitively via `staffKey`), name, `commissionRate` % | Not CRM users. Never deleted, only deactivated. Rate 0–100 (DB `CHECK`). |
+| `SalesOrder.salespersonId` + `commissionRate` | Who made the sale and their % **frozen** when they were put on it | Both set or both null (DB `CHECK`). Not covered by the post-DRAFT lock, so an admin can change it later (event + audit). |
+| `Expense.salespersonId` | Marks an expense as a commission payout (category "Staff commission", seeded by the migration) | Copied onto a void's reversal row. Manual expenses can't use that category. |
+
+Commission is **not stored**; it is worked out from frozen rows (`modules/commission/commission-maths.ts`):
+- A fulfilled sale earns `round2(rate × Σ line taxableValue)` on its `fulfilledDate`. Shipping and GST never earn.
+- Each return takes back `round2(rate × returned so far) − round2(rate × returned before)`, using its lines' `taxableValue`, on the return's `businessDate`. A full return nets to exactly 0.
+- Owed = all-time net commission − payouts (net of voids).
+
 **Expected cash** = opening + cash received − cash refunded − cash expenses + transfers in − transfers out (e.g. a bank deposit) − cash paid to suppliers (net of supplier refunds in cash).
 - A void is netted against what it undoes.
 - The opening amount defaults to the count at the last close.

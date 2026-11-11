@@ -19,6 +19,7 @@ import { Field, FormError, Input, Select, Textarea } from "@/components/ui/Form"
 import { errorMessage } from "@/lib/api-error"
 import { todayIST } from "@/lib/format"
 import { useCan } from "@/store/auth.store"
+import SalespersonSelect from "../commission/SalespersonSelect"
 import { useLocations } from "../settings/api"
 import { useSaveOrder } from "./api"
 import CartLines, { CartTotals } from "./CartLines"
@@ -59,6 +60,7 @@ function OrderEditor({ order, type, locations }: Props & { locations: { id: stri
   const [externalRef, setExternalRef] = useState(order?.externalRef ?? "")
   const [notes, setNotes] = useState(order?.notes ?? "")
   const [expectedArrival, setExpectedArrival] = useState(order?.expectedArrival ?? "")
+  const [salespersonId, setSalespersonId] = useState(order?.salesperson?.id ?? "")
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState<"draft" | "confirm" | null>(null)
   const c = cart.cart
@@ -78,6 +80,7 @@ function OrderEditor({ order, type, locations }: Props & { locations: { id: stri
           expectedArrival: expectedArrival || undefined,
           externalRef: externalRef.trim() || null,
           notes: notes.trim() || null,
+          salespersonId: salespersonId || null,
           confirm,
         },
       })
@@ -173,6 +176,7 @@ function OrderEditor({ order, type, locations }: Props & { locations: { id: stri
                   <Input id="o-ref" value={externalRef} onChange={(e) => setExternalRef(e.target.value)} />
                 </Field>
               </div>
+              <SalespersonSelect id="o-salesperson" value={salespersonId} onChange={setSalespersonId} current={order?.salesperson} />
             </div>
           </Card>
 

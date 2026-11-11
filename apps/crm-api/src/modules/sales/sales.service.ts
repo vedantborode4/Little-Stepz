@@ -17,6 +17,7 @@ import { ApiError, forbidden, notFound, type RequestContext } from "../../core/h
 import { buildOrderBy, pageWindow, paginated } from "../../core/list";
 import { dec, Decimal, money } from "../../core/money";
 import { nextCode } from "../../core/sequence";
+import { resolveSalesperson } from "../commission/salespeople.service";
 import { assertActiveLocations } from "../inventory/inventory.service";
 import { availableAt, releaseReservations, reserveStock } from "../inventory/reservations";
 import { postStockDocument } from "../inventory/stock-engine";
@@ -477,10 +478,13 @@ export async function createPosSale(input: PosSaleInput, ctx: RequestContext, ri
       // Customer before stock, the order every path that holds both uses (credit limit, credit, overpayment).
       if (cart.customer) await lockCustomer(tx, cart.customer.id);
       await assertTenderCovers(tx, input, cart);
+      const { salespersonId, commissionRate } = await resolveSalesperson(tx, input.salespersonId);
       const today = todayIST();
       const order = await tx.salesOrder.create({
         data: {
           ...headerAmounts(cart),
+          salespersonId,
+          commissionRate,
           code: await nextCode(tx, `SO-${financialYear(today)}`, 5),
           type: "REGULAR",
           channel: input.channel,
@@ -547,9 +551,12 @@ export async function createOrder(input: SalesOrderInput, ctx: RequestContext, r
     assertOrderShape(input, cart.customer);
     const orderDate = input.orderDate ?? todayIST();
     resolveBusinessDate(orderDate);
+    const { salespersonId, commissionRate } = await resolveSalesperson(tx, input.salespersonId);
     const order = await tx.salesOrder.create({
       data: {
         ...headerAmounts(cart),
+        salespersonId,
+        commissionRate,
         code: await nextCode(tx, `SO-${financialYear(orderDate)}`, 5),
         type: input.type,
         channel: input.channel,
@@ -581,11 +588,18 @@ export async function updateDraft(id: string, input: SalesOrderInput, ctx: Reque
     assertOrderShape(input, cart.customer);
     const orderDate = input.orderDate ?? todayIST();
     resolveBusinessDate(orderDate);
+    // Re-saving a draft with the same salesperson keeps their frozen rate.
+    const commission =
+      input.salespersonId && input.salespersonId === before.salespersonId
+        ? { salespersonId: before.salespersonId, commissionRate: before.commissionRate }
+        : await resolveSalesperson(tx, input.salespersonId);
     await tx.salesOrderLine.deleteMany({ where: { orderId: id } });
     await tx.salesOrder.update({
       where: { id },
       data: {
         ...headerAmounts(cart),
+        salespersonId: commission.salespersonId,
+        commissionRate: commission.commissionRate,
         type: input.type,
         channel: input.channel,
         fulfilment: input.fulfilment,
@@ -780,6 +794,35 @@ export async function deliverInTx(tx: Tx, ctx: RequestContext, id: string) {
 
 export async function deliverOrder(id: string, ctx: RequestContext, visibility: Visibility) {
   await withTransaction((tx) => deliverInTx(tx, ctx, id));
+  return getOrder(id, visibility);
+}
+
+/**
+ * Puts a salesperson on a sale, changes them, or clears them (admin only). The
+ * sale takes the new salesperson's current rate. Their commission, and that of any
+ * returns on the sale, moves with it.
+ */
+export async function setSalesperson(id: string, salespersonId: string | null, ctx: RequestContext, visibility: Visibility) {
+  await withTransaction(async (tx) => {
+    const order = await lockOrder(tx, id);
+    if (order.status === "CANCELLED") throw wrongStatus(order.code, order.status, "given a salesperson");
+    if (order.importBatchId) throw new ApiError(409, "IMPORTED_SALE", `${order.code} is imported history and earns no commission`);
+    if ((salespersonId ?? null) === order.salespersonId) return;
+    const previous = order.salespersonId
+      ? await tx.salesperson.findUnique({ where: { id: order.salespersonId }, select: { name: true, staffCode: true } })
+      : null;
+    const next = await resolveSalesperson(tx, salespersonId);
+    await tx.salesOrder.update({ where: { id }, data: { salespersonId: next.salespersonId, commissionRate: next.commissionRate } });
+    const label = (p: { name: string; staffCode: string } | null) => (p ? `${p.name} (${p.staffCode})` : "none");
+    await addEvent(tx, ctx, id, "salesperson_changed", null, `Salesperson: ${label(previous)} → ${label(next.salesperson)}`);
+    await recordAudit(tx, ctx, {
+      action: "sale.salesperson_changed",
+      entity: "SalesOrder",
+      entityId: id,
+      before: { code: order.code, salespersonId: order.salespersonId, commissionRate: order.commissionRate?.toString() ?? null },
+      after: { code: order.code, salespersonId: next.salespersonId, commissionRate: next.commissionRate?.toString() ?? null },
+    });
+  });
   return getOrder(id, visibility);
 }
 

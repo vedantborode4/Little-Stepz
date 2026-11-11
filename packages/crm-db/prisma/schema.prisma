@@ -860,6 +860,11 @@ model SalesOrder {
   importBatch     ImportBatch?     @relation(fields: [importBatchId], references: [id])
   createdById     String?
   createdBy       User?            @relation(fields: [createdById], references: [id])
+  /// Who made the sale, for commission. Optional; set at checkout or by an admin later.
+  salespersonId   String?
+  salesperson     Salesperson?     @relation(fields: [salespersonId], references: [id])
+  /// The salesperson's commission % when they were put on the sale; later rate changes don't touch it.
+  commissionRate  Decimal?         @db.Decimal(5, 2)
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
@@ -877,6 +882,7 @@ model SalesOrder {
   @@index([channel])
   @@index([type, status])
   @@index([importBatchId])
+  @@index([salespersonId])
 }
 
 /// Price snapshot per item. `cogs` is fixed when the stock leaves (null until then).
@@ -1223,6 +1229,25 @@ model ShipmentEvent {
   @@index([shipmentId, createdAt])
 }
 
+// ─── Commission ──────────────────────────────────────────────────────────────
+
+/// Staff who earn commission on the sales they make. Not CRM users: they are
+/// picked at checkout by whoever runs the till. Never deleted, only deactivated.
+model Salesperson {
+  id             String       @id @default(uuid())
+  /// The staff ID the admin gives them, e.g. S01.
+  staffCode      String
+  staffKey       String       @unique
+  name           String
+  /// % of a sale's goods value excluding GST.
+  commissionRate Decimal      @db.Decimal(5, 2)
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  salesOrders    SalesOrder[]
+  payouts        Expense[]
+}
+
 // ─── Expenses & cash closing ─────────────────────────────────────────────────
 
 model ExpenseCategory {
@@ -1292,31 +1317,35 @@ enum SupplierEntryType {
 /// Money spent, from one of the business's accounts. Never a sale or a refund.
 /// Append-only: a mistake is voided by a reversal row (at most once).
 model Expense {
-  id           String           @id @default(uuid())
-  code         String           @unique
-  categoryId   String
-  category     ExpenseCategory  @relation(fields: [categoryId], references: [id])
-  kind         ExpenseKind
+  id            String           @id @default(uuid())
+  code          String           @unique
+  categoryId    String
+  category      ExpenseCategory  @relation(fields: [categoryId], references: [id])
+  kind          ExpenseKind
   /// Set for ORDER expenses (packaging, extra courier for one order).
-  orderId      String?
-  order        SalesOrder?      @relation(fields: [orderId], references: [id])
-  accountId    String
-  account      ReceivingAccount @relation(fields: [accountId], references: [id])
-  amount       Decimal          @db.Decimal(14, 2)
-  businessDate DateTime         @db.Date
-  vendor       String?
-  reference    String?
-  notes        String?
-  reversalOfId String?          @unique
-  reversalOf   Expense?         @relation("ExpenseReversal", fields: [reversalOfId], references: [id])
-  reversedBy   Expense?         @relation("ExpenseReversal")
-  createdById  String?
-  createdBy    User?            @relation(fields: [createdById], references: [id])
-  createdAt    DateTime         @default(now())
+  orderId       String?
+  order         SalesOrder?      @relation(fields: [orderId], references: [id])
+  accountId     String
+  account       ReceivingAccount @relation(fields: [accountId], references: [id])
+  amount        Decimal          @db.Decimal(14, 2)
+  businessDate  DateTime         @db.Date
+  vendor        String?
+  reference     String?
+  notes         String?
+  reversalOfId  String?          @unique
+  reversalOf    Expense?         @relation("ExpenseReversal", fields: [reversalOfId], references: [id])
+  reversedBy    Expense?         @relation("ExpenseReversal")
+  createdById   String?
+  createdBy     User?            @relation(fields: [createdById], references: [id])
+  /// Set on a commission payout: the salesperson it was paid to.
+  salespersonId String?
+  salesperson   Salesperson?     @relation(fields: [salespersonId], references: [id])
+  createdAt     DateTime         @default(now())
 
   @@index([businessDate])
   @@index([accountId, businessDate])
   @@index([orderId])
+  @@index([salespersonId])
 }
 
 enum CashSessionStatus {

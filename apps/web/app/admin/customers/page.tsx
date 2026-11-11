@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Search, ArrowUpDown } from "lucide-react"
 import {
@@ -133,12 +134,26 @@ export default function AdminCustomersPage() {
                   {customers.map((c) => (
                     <tr
                       key={c.id}
-                      onClick={() => router.push(`/admin/customers/${c.id}`)}
+                      onClick={(e) => {
+                        const href = `/admin/customers/${c.id}`
+                        if (e.ctrlKey || e.metaKey) window.open(href, "_blank")
+                        else router.push(href)
+                      }}
+                      onAuxClick={(e) => {
+                        if (e.button === 1) window.open(`/admin/customers/${c.id}`, "_blank")
+                      }}
                       className="border-b border-border last:border-0 hover:bg-surface-2 cursor-pointer transition"
                     >
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-text">{c.name}</span>
+                          <Link
+                            href={`/admin/customers/${c.id}`}
+                            onClick={(e) => e.stopPropagation()}
+                            onAuxClick={(e) => e.stopPropagation()}
+                            className="font-medium text-text hover:text-primary transition"
+                          >
+                            {c.name}
+                          </Link>
                           {c.isAffiliate && (
                             <span className="text-[10px] font-bold uppercase tracking-wide bg-secondary/15 text-secondary px-1.5 py-0.5 rounded-full">
                               Affiliate
@@ -165,10 +180,10 @@ export default function AdminCustomersPage() {
           {/* Mobile cards */}
           <div className="md:hidden space-y-2.5">
             {customers.map((c) => (
-              <button
+              <Link
                 key={c.id}
-                onClick={() => router.push(`/admin/customers/${c.id}`)}
-                className="w-full text-left bg-surface border border-border rounded-2xl p-4 hover:border-primary transition"
+                href={`/admin/customers/${c.id}`}
+                className="block w-full text-left bg-surface border border-border rounded-2xl p-4 hover:border-primary transition"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -192,7 +207,7 @@ export default function AdminCustomersPage() {
                   <span>Joined {date(c.registeredAt)}</span>
                   <span>AOV {inr(c.aov)}</span>
                 </div>
-              </button>
+              </Link>
             ))}
           </div>
 

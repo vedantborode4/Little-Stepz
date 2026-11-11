@@ -13,6 +13,8 @@ import Modal from "@/components/ui/Modal"
 import { errorMessage } from "@/lib/api-error"
 import { formatDate, formatDateTime, formatMoney, todayIST } from "@/lib/format"
 import { useCan } from "@/store/auth.store"
+import { useSetOrderSalesperson } from "../commission/api"
+import SalespersonSelect from "../commission/SalespersonSelect"
 import { StockDocumentModal } from "../inventory/StockModals"
 import OrderPaymentsCard from "../payments/OrderPayments"
 import ReturnModal from "../returns/ReturnModal"
@@ -37,6 +39,7 @@ const EVENT_LABELS: Record<string, string> = {
   deallocated: "Allocation released",
   rescheduled: "Expected date changed",
   redated: "Revenue date corrected",
+  salesperson_changed: "Salesperson changed",
   returned: "Items returned",
   shipment_rto: "Shipment coming back (RTO)",
   shipment_returned: "Shipment back with us",
@@ -162,6 +165,47 @@ function ArrivalModal({ order, onClose }: { order: SalesOrderDetailDto; onClose:
   )
 }
 
+/** Admin only: the sale takes the new salesperson's current rate, and its commission moves with it. */
+function SalespersonModal({ order, onClose }: { order: SalesOrderDetailDto; onClose: () => void }) {
+  const save = useSetOrderSalesperson(order.id)
+  const [salespersonId, setSalespersonId] = useState(order.salesperson?.id ?? "")
+  return (
+    <Modal
+      title={`Salesperson for ${order.code}`}
+      onClose={onClose}
+      width="max-w-md"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            loading={save.isPending}
+            onClick={async () => {
+              try {
+                await save.mutateAsync(salespersonId || null)
+                toast.success("Salesperson updated")
+                onClose()
+              } catch (err) {
+                toast.error(errorMessage(err))
+              }
+            }}
+          >
+            Save
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-3">
+        <SalespersonSelect id="od-salesperson" value={salespersonId} onChange={setSalespersonId} current={order.salesperson} />
+        <p className="text-xs text-muted">
+          A different salesperson gets their current commission %. The sale&apos;s commission, and any returns on it, move to them.
+        </p>
+      </div>
+    </Modal>
+  )
+}
+
 function th(label: string, right = false) {
   return (
     <th
@@ -248,6 +292,7 @@ function OrderView({ o }: { o: SalesOrderDetailDto }) {
   const [returning, setReturning] = useState(false)
   const [openReturn, setOpenReturn] = useState<string | null>(null)
   const [shipping, setShipping] = useState(false)
+  const [editingSalesperson, setEditingSalesperson] = useState(false)
   // A delivery order with a shipment moves through the shipment, so its own buttons step aside.
   const tracked = o.activeShipment !== null
   const returnable = o.fulfilledAt !== null && o.lines.some((l) => l.quantity > l.returnedQty)
@@ -552,6 +597,15 @@ function OrderView({ o }: { o: SalesOrderDetailDto }) {
                 </DetailRow>
               )}
               <DetailRow label="Created by">{o.createdByName ?? "—"}</DetailRow>
+              <DetailRow label="Salesperson">
+                {o.salesperson ? `${o.salesperson.name} (${o.salesperson.staffCode})` : "—"}
+                {o.commissionRate != null && o.salesperson && <span className="text-faint"> · {o.commissionRate}%</span>}
+                {can("commission.manage") && o.status !== "CANCELLED" && !o.importBatch && (
+                  <button className="ml-2 text-primary hover:underline" onClick={() => setEditingSalesperson(true)}>
+                    Change
+                  </button>
+                )}
+              </DetailRow>
             </dl>
             {o.notes && <p className="mt-3 text-sm text-muted whitespace-pre-line">{o.notes}</p>}
           </Card>
@@ -592,6 +646,7 @@ function OrderView({ o }: { o: SalesOrderDetailDto }) {
       {returning && <ReturnModal order={o} onClose={() => setReturning(false)} />}
       {openReturn && <ReturnDetailModal id={openReturn} onClose={() => setOpenReturn(null)} />}
       {rescheduling && <ArrivalModal order={o} onClose={() => setRescheduling(false)} />}
+      {editingSalesperson && <SalespersonModal order={o} onClose={() => setEditingSalesperson(false)} />}
       {documentId && <StockDocumentModal documentId={documentId} onClose={() => setDocumentId(null)} onOpenDocument={setDocumentId} />}
     </div>
   )

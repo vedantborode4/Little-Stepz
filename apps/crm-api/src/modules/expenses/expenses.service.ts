@@ -1,11 +1,13 @@
 import { prisma, Prisma, type Tx } from "@repo/crm-db/client";
-import type {
-  CreateExpenseInput,
-  ExpenseCategoryDto,
-  ExpenseCategoryInput,
-  ExpenseDto,
-  ExpenseListQuery,
-  UpdateExpenseCategoryInput,
+import {
+  COMMISSION_EXPENSE_CATEGORY,
+  type CreateExpenseInput,
+  type ExpenseCategoryDto,
+  type ExpenseCategoryInput,
+  type ExpenseDto,
+  type ExpenseKind,
+  type ExpenseListQuery,
+  type UpdateExpenseCategoryInput,
 } from "@repo/crm-schema";
 import { recordAudit } from "../../core/audit";
 import { fromDbDate, resolveBusinessDate, toDbDate } from "../../core/dates";
@@ -64,16 +66,17 @@ export async function updateCategory(id: string, input: UpdateExpenseCategoryInp
 
 // ─── Expenses ────────────────────────────────────────────────────────────────
 
-const expenseInclude = {
+export const expenseInclude = {
   category: { select: { id: true, name: true } },
   order: { select: { id: true, code: true } },
   account: { select: { id: true, name: true, isPersonal: true } },
   reversalOf: { select: { id: true, code: true } },
   reversedBy: { select: { id: true, code: true } },
+  salesperson: { select: { id: true, staffCode: true, name: true } },
   createdBy: { select: { name: true } },
 } satisfies Prisma.ExpenseInclude;
 
-const toExpenseDto = (e: Prisma.ExpenseGetPayload<{ include: typeof expenseInclude }>): ExpenseDto => ({
+export const toExpenseDto = (e: Prisma.ExpenseGetPayload<{ include: typeof expenseInclude }>): ExpenseDto => ({
   id: e.id,
   code: e.code,
   category: e.category,
@@ -87,6 +90,7 @@ const toExpenseDto = (e: Prisma.ExpenseGetPayload<{ include: typeof expenseInclu
   notes: e.notes,
   reversalOf: e.reversalOf,
   reversedBy: e.reversedBy,
+  salesperson: e.salesperson,
   createdByName: e.createdBy?.name ?? null,
   createdAt: e.createdAt.toISOString(),
 });
@@ -129,17 +133,19 @@ export async function listExpenses(query: ExpenseListQuery) {
 }
 
 async function assertExpenseRefs(tx: Tx, input: CreateExpenseInput) {
-  const [category, account, order] = await Promise.all([
-    tx.expenseCategory.findUnique({ where: { id: input.categoryId }, select: { isActive: true } }),
-    tx.receivingAccount.findUnique({ where: { id: input.accountId }, select: { isActive: true } }),
+  const [category, order] = await Promise.all([
+    tx.expenseCategory.findUnique({ where: { id: input.categoryId }, select: { isActive: true, nameKey: true } }),
     input.orderId ? tx.salesOrder.findUnique({ where: { id: input.orderId }, select: { status: true } }) : Promise.resolve(null),
   ]);
   if (!category?.isActive)
     throw new ApiError(400, "INVALID_CATEGORY", "Choose an active category", {
       fieldErrors: { categoryId: ["Choose an active category"] },
     });
-  if (!account?.isActive)
-    throw new ApiError(400, "INVALID_ACCOUNT", "Choose an active account", { fieldErrors: { accountId: ["Choose an active account"] } });
+  // A payout entered here would have no salesperson, so it would never count against what they're owed.
+  if (category.nameKey === nameKey(COMMISSION_EXPENSE_CATEGORY))
+    throw new ApiError(400, "USE_COMMISSION_PAYOUT", "Record commission payouts on the Commission page", {
+      fieldErrors: { categoryId: ["Record commission payouts on the Commission page"] },
+    });
   if (input.orderId && (!order || order.status === "DRAFT")) {
     throw new ApiError(400, "INVALID_ORDER", "Choose a confirmed order", { fieldErrors: { orderId: ["Choose a confirmed order"] } });
   }
@@ -153,6 +159,38 @@ export async function createExpense(input: CreateExpenseInput, ctx: RequestConte
 /** Creates an expense inside the caller's transaction (imports record many at once); returns its id. */
 export async function createExpenseInTx(tx: Tx, ctx: RequestContext, input: CreateExpenseInput) {
   await assertExpenseRefs(tx, input);
+  return insertExpense(tx, ctx, {
+    categoryId: input.categoryId,
+    kind: input.kind,
+    orderId: input.kind === "ORDER" ? (input.orderId ?? null) : null,
+    accountId: input.accountId,
+    amount: input.amount,
+    businessDate: input.businessDate,
+    vendor: input.vendor ?? null,
+    reference: input.reference ?? null,
+    notes: input.notes ?? null,
+  });
+}
+
+export interface NewExpense {
+  categoryId: string;
+  kind: ExpenseKind;
+  orderId?: string | null;
+  accountId: string;
+  amount: string;
+  businessDate?: string;
+  vendor: string | null;
+  reference: string | null;
+  notes: string | null;
+  /** Set for a commission payout. */
+  salespersonId?: string | null;
+}
+
+/** Saves an expense whose category and order are already checked; returns its id. */
+export async function insertExpense(tx: Tx, ctx: RequestContext, input: NewExpense) {
+  const account = await tx.receivingAccount.findUnique({ where: { id: input.accountId }, select: { isActive: true } });
+  if (!account?.isActive)
+    throw new ApiError(400, "INVALID_ACCOUNT", "Choose an active account", { fieldErrors: { accountId: ["Choose an active account"] } });
   const businessDate = resolveBusinessDate(input.businessDate);
   await assertCashDaysOpen(tx, [{ accountId: input.accountId, businessDate }]);
   const expense = await tx.expense.create({
@@ -160,13 +198,14 @@ export async function createExpenseInTx(tx: Tx, ctx: RequestContext, input: Crea
       code: await nextCode(tx, "EXP", 5),
       categoryId: input.categoryId,
       kind: input.kind,
-      orderId: input.kind === "ORDER" ? (input.orderId ?? null) : null,
+      orderId: input.orderId ?? null,
       accountId: input.accountId,
       amount: dec(input.amount),
       businessDate,
-      vendor: input.vendor ?? null,
-      reference: input.reference ?? null,
-      notes: input.notes ?? null,
+      vendor: input.vendor,
+      reference: input.reference,
+      notes: input.notes,
+      salespersonId: input.salespersonId ?? null,
       createdById: ctx.userId,
     },
   });
@@ -174,7 +213,13 @@ export async function createExpenseInTx(tx: Tx, ctx: RequestContext, input: Crea
     action: "expense.created",
     entity: "Expense",
     entityId: expense.id,
-    after: { code: expense.code, amount: input.amount, kind: input.kind, accountId: input.accountId },
+    after: {
+      code: expense.code,
+      amount: input.amount,
+      kind: input.kind,
+      accountId: input.accountId,
+      ...(input.salespersonId && { salespersonId: input.salespersonId }),
+    },
   });
   return expense.id;
 }
@@ -200,6 +245,7 @@ export async function voidExpenseInTx(tx: Tx, ctx: RequestContext, id: string, r
       kind: original.kind,
       orderId: original.orderId,
       accountId: original.accountId,
+      salespersonId: original.salespersonId,
       amount: original.amount,
       businessDate: today,
       reference: original.code,

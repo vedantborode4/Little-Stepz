@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react"
 import { scrollToTopOf } from "../../../lib/utils/scroll"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Plus, Search, Pencil, Trash2 } from "lucide-react"
 import { AdminProductService, AdminProduct } from "../../../lib/services/admin-product.service"
@@ -109,13 +110,13 @@ export default function AdminProductsTable() {
                   <tr key={p.id} className="border-t border-border hover:bg-surface-2/50 transition">
                     <td className="p-4"><input type="checkbox" checked={selected.includes(p.id)} onChange={() => toggleSelect(p.id)} className="rounded accent-primary"/></td>
                     <td className="p-4">
-                      <div className="flex items-center gap-3">
+                      <Link href={`/admin/products/${p.id}`} className="group flex items-center gap-3">
                         <img src={p.images?.[0]?.url || "/placeholder.webp"} className="w-10 h-10 object-cover rounded-xl border border-border shrink-0" alt={p.name}/>
                         <div>
-                          <p className="font-medium text-text max-w-[320px] truncate">{p.name}</p>
+                          <p className="font-medium text-text max-w-[320px] truncate group-hover:text-primary transition">{p.name}</p>
                           <p className="text-xs text-faint font-mono max-w-[320px] truncate">{p.slug}</p>
                         </div>
-                      </div>
+                      </Link>
                     </td>
                     <td className="p-4 text-muted">{p.category?.name || "—"}</td>
                     <td className="p-4 font-semibold text-text">
@@ -137,7 +138,7 @@ export default function AdminProductsTable() {
                     </td>
                     <td className="p-4">
                       <div className="flex items-center justify-end gap-2">
-                        <button onClick={() => router.push(`/admin/products/${p.id}`)} className="p-1.5 rounded-lg hover:bg-surface-2 text-faint hover:text-muted transition"><Pencil size={14} /></button>
+                        <Link href={`/admin/products/${p.id}`} title="Edit" className="p-1.5 rounded-lg hover:bg-surface-2 text-faint hover:text-muted transition"><Pencil size={14} /></Link>
                         <button onClick={() => setDeleteId(p.id)} className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/15 text-faint hover:text-red-500 transition"><Trash2 size={14} /></button>
                       </div>
                     </td>
@@ -152,9 +153,11 @@ export default function AdminProductsTable() {
           <div className="sm:hidden divide-y divide-border">
             {data.map(p => (
               <div key={p.id} className="p-4 flex items-center gap-3">
-                <img src={p.images?.[0]?.url || "/placeholder.webp"} className="w-12 h-12 object-cover rounded-xl border border-border shrink-0" alt={p.name}/>
+                <Link href={`/admin/products/${p.id}`} className="shrink-0">
+                  <img src={p.images?.[0]?.url || "/placeholder.webp"} className="w-12 h-12 object-cover rounded-xl border border-border" alt={p.name}/>
+                </Link>
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-text truncate text-sm">{p.name}</p>
+                  <Link href={`/admin/products/${p.id}`} className="block font-medium text-text truncate text-sm">{p.name}</Link>
                   <p className="text-xs text-muted">{p.category?.name || "—"} · ₹{(p.isOnSale && p.salePrice != null ? Number(p.salePrice) : p.price)?.toLocaleString()}{p.isOnSale && p.salePrice != null && <span className="line-through text-faint ml-1">₹{p.price?.toLocaleString()}</span>}</p>
                   <div className="flex items-center gap-2 mt-1">
                     <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${p.inStock ? "bg-green-50 dark:bg-green-500/15 text-green-600 dark:text-green-400" : "bg-red-50 dark:bg-red-500/15 text-red-500 dark:text-red-400"}`}>
@@ -164,7 +167,7 @@ export default function AdminProductsTable() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
-                  <button onClick={() => router.push(`/admin/products/${p.id}`)} className="p-2 rounded-xl hover:bg-surface-2 text-faint hover:text-muted transition"><Pencil size={14} /></button>
+                  <Link href={`/admin/products/${p.id}`} title="Edit" className="p-2 rounded-xl hover:bg-surface-2 text-faint hover:text-muted transition"><Pencil size={14} /></Link>
                   <button onClick={() => setDeleteId(p.id)} className="p-2 rounded-xl hover:bg-red-50 dark:hover:bg-red-500/15 text-faint hover:text-red-500 transition"><Trash2 size={14} /></button>
                 </div>
               </div>

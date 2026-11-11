@@ -40,6 +40,8 @@ export const PERMISSIONS = [
   /** Unlocking a closed cash day to correct it. */
   "cash.reopen",
   "expenses.manage",
+  /** Salespeople, their commission rates, commission earned and payouts. */
+  "commission.manage",
   "stockcount.perform",
   "stockcount.approve",
   "reports.view",

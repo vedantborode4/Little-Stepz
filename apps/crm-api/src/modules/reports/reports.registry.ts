@@ -28,6 +28,7 @@ import { EXPORT_MAX_ROWS } from "../../core/list";
 import { Decimal, decOrZero, money } from "../../core/money";
 import { maskMobile } from "../../core/pii";
 import { profitBreakdown, valuation } from "../analytics/analytics.service";
+import { commissionSummary } from "../commission/commission.service";
 import { stockTotals } from "../inventory/inventory.service";
 import { listLedger, listStock } from "../inventory/inventory.queries";
 import { listAdvances, listOutstanding, listPayments } from "../payments/payments.queries";
@@ -615,6 +616,30 @@ export const REPORTS: ReportSpec[] = [
           Active: s.isActive ? "Yes" : "No",
         };
       });
+    },
+  },
+  {
+    key: "salesperson-commission",
+    title: "Salesperson commission",
+    description: "Commission each salesperson earned in the period (sales less returns), what was paid, and what is still owed.",
+    group: "Sales",
+    filters: ["dateRange"],
+    permissions: ["commission.manage"],
+    async load(q) {
+      const { rows } = await commissionSummary(window(q, 30));
+      return rows.map((r) => ({
+        "Staff ID": r.salesperson.staffCode,
+        Salesperson: r.salesperson.name,
+        "Rate now (%)": Number(r.salesperson.commissionRate),
+        Sales: r.sales,
+        "Sales value excl. GST": num(r.salesValue),
+        Earned: num(r.earned),
+        "Taken back by returns": num(r.returned),
+        "Net commission": num(r.net),
+        "Paid in period": num(r.paid),
+        "Owed now (all time)": num(r.owed),
+        Active: r.salesperson.isActive ? "Yes" : "No",
+      }));
     },
   },
 ];

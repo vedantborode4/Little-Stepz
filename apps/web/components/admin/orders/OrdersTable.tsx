@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { Eye } from "lucide-react"
 import OrderStatusBadge from "./OrderStatusBadge"
 import OrderRowActions from "./OrderRowActions"
@@ -11,7 +11,6 @@ import type { AdminOrder } from "../../../lib/services/admin-order.service"
 interface Props { data: AdminOrder[]; refresh: () => void }
 
 export default function OrdersTable({ data, refresh }: Props) {
-  const router = useRouter()
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
 
   if (!data?.length) {
@@ -69,10 +68,10 @@ export default function OrdersTable({ data, refresh }: Props) {
                   </td>
                   <td className="p-4" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-end gap-2">
-                      <button onClick={() => router.push(`/admin/orders/${order.id}`)}
+                      <Link href={`/admin/orders/${order.id}`}
                         className="p-1.5 rounded-lg hover:bg-surface-2 text-faint hover:text-muted transition" title="View detail">
                         <Eye size={14} />
-                      </button>
+                      </Link>
                       <OrderRowActions order={order} refresh={refresh} />
                     </div>
                   </td>
@@ -110,10 +109,10 @@ export default function OrdersTable({ data, refresh }: Props) {
               </span>
             </div>
             <div className="flex items-center gap-2 pt-1 border-t border-border" onClick={(e) => e.stopPropagation()}>
-              <button onClick={() => router.push(`/admin/orders/${order.id}`)}
+              <Link href={`/admin/orders/${order.id}`}
                 className="flex items-center gap-1.5 text-xs text-primary font-medium hover:underline">
                 <Eye size={13} /> View Detail
-              </button>
+              </Link>
               <div className="ml-auto"><OrderRowActions order={order} refresh={refresh} /></div>
             </div>
           </div>

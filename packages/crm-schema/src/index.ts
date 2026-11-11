@@ -12,6 +12,7 @@ export * from "./payments";
 export * from "./returns";
 export * from "./shipping";
 export * from "./finance";
+export * from "./commission";
 export * from "./stockcount";
 export * from "./analytics";
 export * from "./imports";

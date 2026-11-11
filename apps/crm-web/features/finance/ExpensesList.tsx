@@ -5,7 +5,14 @@ import { Plus } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
 import { toast } from "sonner"
-import { EXPENSE_KIND_LABELS, EXPENSE_KINDS, type ExpenseDto, type ExpenseKind, type SalesOrderListItemDto } from "@repo/crm-schema"
+import {
+  COMMISSION_EXPENSE_CATEGORY,
+  EXPENSE_KIND_LABELS,
+  EXPENSE_KINDS,
+  type ExpenseDto,
+  type ExpenseKind,
+  type SalesOrderListItemDto,
+} from "@repo/crm-schema"
 import Button from "@/components/ui/Button"
 import DataTable from "@/components/ui/DataTable"
 import { Badge, DetailRow, PageHeader } from "@/components/ui/Display"
@@ -135,11 +142,13 @@ function ExpenseModal({ onClose }: { onClose: () => void }) {
           <Field label="Category" htmlFor="ex-cat" required>
             <Select id="ex-cat" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
               <option value="">Choose…</option>
-              {categories.data?.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
+              {categories.data
+                ?.filter((c) => c.name !== COMMISSION_EXPENSE_CATEGORY)
+                .map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
             </Select>
           </Field>
           <Field label="Type" htmlFor="ex-kind">
@@ -180,7 +189,7 @@ function ExpenseModal({ onClose }: { onClose: () => void }) {
   )
 }
 
-function ExpenseDetail({ id, onClose }: { id: string; onClose: () => void }) {
+export function ExpenseDetail({ id, onClose }: { id: string; onClose: () => void }) {
   const { data } = useExpense(id)
   const voidIt = useVoidExpense(id)
   const [voiding, setVoiding] = useState(false)

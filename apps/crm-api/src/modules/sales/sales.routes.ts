@@ -26,6 +26,7 @@ salesRoutes.post("/:id/cancel", requirePermission("sales.manage"), controller.ca
 salesRoutes.post("/:id/allocate", allocate, controller.allocate);
 salesRoutes.post("/:id/deallocate", requirePermission("sales.manage"), controller.deallocate);
 salesRoutes.put("/:id/expected-arrival", sell, controller.expectedArrival);
+salesRoutes.put("/:id/salesperson", requirePermission("commission.manage"), controller.setSalesperson);
 
 export const preOrdersRoutes = Router();
 

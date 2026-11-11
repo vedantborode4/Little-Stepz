@@ -109,6 +109,8 @@ export const posSaleSchema = z
     fulfilment: z.literal("COUNTER").default("COUNTER"),
     idempotencyKey: z.string().uuid(),
     notes: optionalText(1000),
+    /** Who made the sale, for commission. Optional. */
+    salespersonId: optionalId,
     /** Split tender: one entry per account the money went to. Walk-ins must pay in full. */
     payments: z.array(tenderSchema).max(10).default([]),
     /** Money beyond the total is kept as the customer's credit (needs a customer). */
@@ -137,6 +139,8 @@ export const salesOrderSchema = z
       .optional(),
     externalRef: optionalText(80),
     notes: optionalText(1000),
+    /** Who made the sale, for commission. Optional. */
+    salespersonId: optionalId,
     /** Save straight to Confirmed (reserves stock) instead of Draft. */
     confirm: z.boolean().default(false),
   })
