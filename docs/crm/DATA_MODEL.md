@@ -228,13 +228,14 @@ No new tables: a pre-order is a `SalesOrder` with `type = PRE_ORDER`, so its adv
 
 | Model | Purpose | Key rules |
 |---|---|---|
-| `Salesperson` | Staff who earn commission: staff ID (`staffCode`, unique case-insensitively via `staffKey`), name, `commissionRate` % | Not CRM users. Never deleted, only deactivated. Rate 0–100 (DB `CHECK`). |
+| `Salesperson` | Staff who earn commission: staff ID (`staffCode`, unique case-insensitively via `staffKey`), name, `commissionRate` % of gross profit | Not CRM users. Never deleted, only deactivated. Rate 0–100 (DB `CHECK`). The staff ID is assigned on create (`S` + one past the highest S-number, under an advisory lock) and never changes. |
 | `SalesOrder.salespersonId` + `commissionRate` | Who made the sale and their % **frozen** when they were put on it | Both set or both null (DB `CHECK`). Not covered by the post-DRAFT lock, so an admin can change it later (event + audit). |
 | `Expense.salespersonId` | Marks an expense as a commission payout (category "Staff commission", seeded by the migration) | Copied onto a void's reversal row. Manual expenses can't use that category. |
 
 Commission is **not stored**; it is worked out from frozen rows (`modules/commission/commission-maths.ts`):
-- A fulfilled sale earns `round2(rate × Σ line taxableValue)` on its `fulfilledDate`. Shipping and GST never earn.
-- Each return takes back `round2(rate × returned so far) − round2(rate × returned before)`, using its lines' `taxableValue`, on the return's `businessDate`. A full return nets to exactly 0.
+- Gross profit of a sale = Σ over lines of (taxableValue × known-cost units ÷ quantity − `cogs`). Units in `unknownCostQty` earn nothing. Shipping and GST never earn.
+- A fulfilled sale earns `round2(max(gross profit, 0) × rate)` on its `fulfilledDate`. A loss earns 0 and never reduces other commission.
+- Each return recomputes what is still out on every line (units returned in full leave exactly 0; known-cost units come back first, at their `cogs`). It takes back the drop in `round2(max(profit left, 0) × rate)`, on the return's `businessDate`. A full return nets to exactly 0.
 - Owed = all-time net commission − payouts (net of voids).
 
 **Expected cash** = opening + cash received − cash refunded − cash expenses + transfers in − transfers out (e.g. a bank deposit) − cash paid to suppliers (net of supplier refunds in cash).

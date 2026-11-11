@@ -1,6 +1,6 @@
 # CRM — Salesperson commission
 
-Admin keeps a list of salespeople (staff ID + name + commission %). The cashier
+Admin keeps a list of salespeople (name + commission %; the staff ID is assigned automatically). The cashier
 optionally picks one at checkout (POS) or on the order form. The salesperson earns
 their % of the sale's **goods value excluding GST** (line taxable values; shipping
 never earns), counted on the day the sale is **handed over / dispatched**. Returns
@@ -81,3 +81,16 @@ Admin records payouts, so the CRM shows earned, paid and still owed per salesper
 **Follow-ups**
 - Finish the click-through once Docker runs: checkout → order page "Change" → Commission page → Record payout → Cash Closing shows the payout.
 - Production: `deploy/crm/deploy.sh main` runs `migrate deploy`, which applies the migration.
+
+## Change (2026-11-11): gross profit basis and automatic staff IDs
+
+Agreed with the owner:
+- **Commission is a % of gross profit**: goods value excluding GST minus cost of goods (`cogs`).
+- **Units without a recorded cost earn nothing** and are flagged in the breakdown.
+- **A loss-making sale earns 0** and never reduces other commission.
+- **All sales are recalculated on the new basis.** Nothing is stored per sale except the rate, and no payouts had been made.
+- **Staff IDs (S01, S02…) are assigned on create and are read-only.** Existing IDs keep theirs, and new ones continue from the highest S-number.
+
+No migration is needed: the table columns stay the same and only the maths and the forms change.
+
+**Checks:** crm-api `tsc`, crm-web `check-types` + `lint` are clean. The commission maths was checked with a script (awkward partial returns net to 0, loss earns 0, cost-missing units earn nothing). The Vitest suite was updated for the new figures, but **it hasn't been run**: Docker Desktop wouldn't start, so there was no test database.

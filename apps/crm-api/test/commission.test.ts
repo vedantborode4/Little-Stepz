@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import { beforeAll, describe, expect, it } from "vitest";
 import { dec } from "../src/core/money";
-import { commissionEntries, totalEntries } from "../src/modules/commission/commission-maths";
+import { commissionEntries, totalEntries, type CommissionLine, type CommissionReturn } from "../src/modules/commission/commission-maths";
 import { api, sessionAs, type TestSession } from "./helpers";
 
 let admin: TestSession;
@@ -35,7 +35,7 @@ beforeAll(async () => {
   ).body.data.id;
 });
 
-/** ₹118 incl. 18% GST: ₹100 of goods value per unit. */
+/** ₹118 incl. 18% GST at a ₹50 cost: ₹100 of goods value and ₹50 of gross profit per unit. */
 async function item(stock = 20) {
   const res = await api()
     .post("/api/v1/products")
@@ -53,7 +53,7 @@ async function salesperson(rate: string) {
   const res = await api()
     .post("/api/v1/salespeople")
     .set(admin.auth)
-    .send({ staffCode: `s-${uid()}`, name: `Seller ${uid()}`, commissionRate: rate });
+    .send({ name: `Seller ${uid()}`, commissionRate: rate });
   expect(res.status).toBe(201);
   return res.body.data as { id: string; staffCode: string; commissionRate: string };
 }
@@ -86,43 +86,63 @@ const giveBack = (orderId: string, orderLineId: string, quantity: number) =>
     });
 
 describe("commission maths (pure)", () => {
-  it("takes back a sale returned in awkward parts to exactly zero", () => {
-    const base = { id: "o", code: "SO-1", salespersonId: "p", rate: dec("3.33"), fulfilledDate: "2026-11-01" };
-    const parts = ["33.34", "33.33", "33.34"];
-    const entries = commissionEntries({
-      ...base,
-      goodsTaxable: dec("100.01"),
-      returns: parts.map((t, i) => ({
-        id: `r${i}`,
-        code: `RET-${i}`,
-        businessDate: "2026-11-02",
-        createdAt: new Date(i),
-        taxable: dec(t),
-      })),
-    });
-    expect(entries.map((e) => e.commission.toFixed(2))).toEqual(["3.33", "-1.11", "-1.11", "-1.11"]);
-    expect(totalEntries(entries)).toMatchObject({ sales: 1 });
+  const order = (lines: CommissionLine[], returns: CommissionReturn[] = [], rate = "10") => ({
+    id: "o",
+    code: "SO-1",
+    salespersonId: "p",
+    rate: dec(rate),
+    fulfilledDate: "2026-11-01",
+    lines,
+    returns,
+  });
+  const line = (quantity: number, taxable: string, cogs: string, unknownCostQty = 0): CommissionLine => ({
+    id: "l1",
+    quantity,
+    taxable: dec(taxable),
+    cogs: dec(cogs),
+    unknownCostQty,
+  });
+  const giveBack = (i: number, quantity: number, cogs: string, unknownCostQty = 0): CommissionReturn => ({
+    id: `r${i}`,
+    code: `RET-${i}`,
+    businessDate: "2026-11-02",
+    createdAt: new Date(i),
+    lines: [{ orderLineId: "l1", quantity, cogs: dec(cogs), unknownCostQty }],
+  });
+
+  it("pays the rate on gross profit and takes it back to exactly zero over awkward partial returns", () => {
+    const entries = commissionEntries(
+      order([line(3, "100.01", "30.00")], [giveBack(1, 1, "10.00"), giveBack(2, 1, "10.00"), giveBack(3, 1, "10.00")], "3.33"),
+    );
+    expect(entries[0]).toMatchObject({ kind: "SALE" });
+    expect(entries[0]!.profit.toFixed(2)).toBe("70.01");
+    expect(entries[0]!.commission.toFixed(2)).toBe("2.33");
+    expect(entries).toHaveLength(4);
     expect(totalEntries(entries).net.toFixed(2)).toBe("0.00");
+    expect(totalEntries(entries).grossProfit.toFixed(2)).toBe("0.00");
+  });
+
+  it("earns nothing on a loss-making sale, and its return takes nothing back", () => {
+    const entries = commissionEntries(order([line(1, "100.00", "120.00")], [giveBack(1, 1, "120.00")]));
+    expect(entries.map((e) => e.commission.toFixed(2))).toEqual(["0.00", "0.00"]);
+  });
+
+  it("earns nothing on units without a cost and counts them", () => {
+    const [sale] = commissionEntries(order([line(2, "200.00", "50.00", 1)]));
+    expect(sale!.profit.toFixed(2)).toBe("50.00");
+    expect(sale!.commission.toFixed(2)).toBe("5.00");
+    expect(sale!.costMissingUnits).toBe(1);
   });
 
   it("earns nothing before the goods leave", () => {
-    const entries = commissionEntries({
-      id: "o",
-      code: "SO-2",
-      salespersonId: "p",
-      rate: dec(5),
-      fulfilledDate: null,
-      goodsTaxable: dec(100),
-      returns: [],
-    });
-    expect(entries).toEqual([]);
+    expect(commissionEntries({ ...order([line(1, "100.00", "0")]), fulfilledDate: null })).toEqual([]);
   });
 });
 
 describe("salespeople and who can see what", () => {
   it("lets the till pick a salesperson by name without ever seeing rates or earnings", async () => {
     const p = await salesperson("2.5");
-    expect(p.staffCode).toMatch(/^S-/);
+    expect(p.staffCode).toMatch(/^S\d{2,}$/);
 
     const options = await api().get("/api/v1/salespeople/options").set(cashier.auth);
     expect(options.status).toBe(200);
@@ -130,9 +150,7 @@ describe("salespeople and who can see what", () => {
     expect(mine).toEqual({ id: p.id, staffCode: p.staffCode, name: expect.any(String) });
 
     expect((await api().get("/api/v1/salespeople").set(cashier.auth)).status).toBe(403);
-    expect(
-      (await api().post("/api/v1/salespeople").set(cashier.auth).send({ staffCode: "X1", name: "X", commissionRate: "1" })).status,
-    ).toBe(403);
+    expect((await api().post("/api/v1/salespeople").set(cashier.auth).send({ name: "X", commissionRate: "1" })).status).toBe(403);
     expect((await api().get("/api/v1/commission").query({ from: today(), to: today() }).set(cashier.auth)).status).toBe(403);
 
     const v = await item();
@@ -144,14 +162,13 @@ describe("salespeople and who can see what", () => {
     expect(asAdmin.commissionRate).toBe("2.5");
   });
 
-  it("rejects a taken staff ID and an inactive salesperson at checkout", async () => {
+  it("gives staff IDs in order, ignores a typed one, and refuses an inactive salesperson at checkout", async () => {
     const p = await salesperson("1");
-    const clash = await api()
-      .post("/api/v1/salespeople")
-      .set(admin.auth)
-      .send({ staffCode: p.staffCode.toLowerCase(), name: "Dup", commissionRate: "1" });
-    expect(clash.status).toBe(409);
-    expect(clash.body.error.code).toBe("STAFF_CODE_TAKEN");
+    const next = await api().post("/api/v1/salespeople").set(admin.auth).send({ staffCode: "MINE", name: "Next", commissionRate: "1" });
+    expect(next.status).toBe(201);
+    expect(next.body.data.staffCode).toBe(`S${String(Number(p.staffCode.slice(1)) + 1).padStart(2, "0")}`);
+    const renamed = await api().patch(`/api/v1/salespeople/${p.id}`).set(admin.auth).send({ staffCode: "MINE", name: "Renamed" });
+    expect(renamed.body.data).toMatchObject({ staffCode: p.staffCode, name: "Renamed" });
 
     await api().patch(`/api/v1/salespeople/${p.id}`).set(admin.auth).send({ isActive: false });
     const res = await sale(await item(), 1, p.id);
@@ -172,17 +189,26 @@ describe("Scenario — a salesperson's commission through a rate change, returns
 
     let d = await detail(p.id);
     expect(d.entries.map((e: { kind: string; rate: string; commission: string }) => [e.kind, e.rate, e.commission])).toEqual([
-      ["SALE", "2.5", "7.50"],
-      ["SALE", "5", "10.00"],
+      ["SALE", "2.5", "3.75"],
+      ["SALE", "5", "5.00"],
     ]);
-    expect(d.totals).toMatchObject({ sales: 2, salesValue: "500.00", earned: "17.50", returned: "0.00", net: "17.50", owed: "17.50" });
+    expect(d.totals).toMatchObject({
+      sales: 2,
+      salesValue: "500.00",
+      grossProfit: "250.00",
+      costMissingUnits: 0,
+      earned: "8.75",
+      returned: "0.00",
+      net: "8.75",
+      owed: "8.75",
+    });
 
-    // The first sale comes back in two goes: its whole 7.50 is taken back, nothing more.
+    // The first sale comes back in two goes: its whole 3.75 is taken back, nothing more.
     const line = first.lines[0].id as string;
     expect((await giveBack(first.id, line, 1)).status).toBe(201);
     expect((await giveBack(first.id, line, 2)).status).toBe(201);
     d = await detail(p.id);
-    expect(d.totals).toMatchObject({ earned: "17.50", returned: "7.50", net: "10.00", owed: "10.00" });
+    expect(d.totals).toMatchObject({ grossProfit: "100.00", earned: "8.75", returned: "3.75", net: "5.00", owed: "5.00" });
 
     const payout = await api()
       .post("/api/v1/commission/payouts")
@@ -191,18 +217,18 @@ describe("Scenario — a salesperson's commission through a rate change, returns
     expect(payout.status).toBe(201);
     expect(payout.body.data).toMatchObject({ amount: "4.00", category: { name: "Staff commission" }, salesperson: { id: p.id } });
     d = await detail(p.id);
-    expect(d.totals).toMatchObject({ paid: "4.00", owed: "6.00" });
+    expect(d.totals).toMatchObject({ paid: "4.00", owed: "1.00" });
     expect(d.payouts).toHaveLength(1);
 
     const voided = await api().post(`/api/v1/expenses/${payout.body.data.id}/void`).set(admin.auth).send({ reason: "Wrong amount" });
     expect(voided.status).toBe(200);
     d = await detail(p.id);
-    expect(d.totals).toMatchObject({ paid: "0.00", owed: "10.00" });
+    expect(d.totals).toMatchObject({ paid: "0.00", owed: "5.00" });
 
     const summary = (await api().get("/api/v1/commission").query({ from: today(), to: today() }).set(admin.auth)).body.data;
     expect(summary.rows.find((r: { salesperson: { id: string } }) => r.salesperson.id === p.id)).toMatchObject({
-      net: "10.00",
-      owed: "10.00",
+      net: "5.00",
+      owed: "5.00",
     });
     expect(second.salesperson.id).toBe(p.id);
   });
@@ -244,7 +270,7 @@ describe("orders, reassignment and cancellation", () => {
     expect((await api().put(`/api/v1/sales/${dropped.id}/salesperson`).set(admin.auth).send({ salespersonId: b.id })).status).toBe(409);
 
     expect((await api().post(`/api/v1/sales/${kept.id}/fulfil`).set(admin.auth)).status).toBe(200);
-    expect((await detail(a.id)).totals).toMatchObject({ sales: 1, earned: "10.00" });
+    expect((await detail(a.id)).totals).toMatchObject({ sales: 1, earned: "5.00" });
 
     expect((await api().put(`/api/v1/sales/${kept.id}/salesperson`).set(cashier.auth).send({ salespersonId: b.id })).status).toBe(403);
     const moved = await api().put(`/api/v1/sales/${kept.id}/salesperson`).set(admin.auth).send({ salespersonId: b.id });
@@ -252,7 +278,7 @@ describe("orders, reassignment and cancellation", () => {
     expect(moved.body.data).toMatchObject({ salesperson: { id: b.id }, commissionRate: "4" });
     expect(moved.body.data.events.at(-1)).toMatchObject({ action: "salesperson_changed" });
     expect((await detail(a.id)).totals).toMatchObject({ sales: 0, earned: "0.00" });
-    expect((await detail(b.id)).totals).toMatchObject({ sales: 1, earned: "4.00" });
+    expect((await detail(b.id)).totals).toMatchObject({ sales: 1, earned: "2.00" });
 
     const cleared = await api().put(`/api/v1/sales/${kept.id}/salesperson`).set(admin.auth).send({ salespersonId: "" });
     expect(cleared.body.data).toMatchObject({ salesperson: null, commissionRate: null });

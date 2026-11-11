@@ -1515,7 +1515,8 @@ export interface SalespersonDto extends SalespersonOptionDto {
 
 /**
  * One line of a salesperson's commission: a fulfilled sale (positive) or a
- * return on one of their sales (negative). `base` is the goods value excluding GST.
+ * return on one of their sales (negative). Commission is the rate on `profit`:
+ * goods value excluding GST less the cost of goods, never below zero per sale.
  */
 export interface CommissionEntryDto {
   kind: "SALE" | "RETURN";
@@ -1523,14 +1524,24 @@ export interface CommissionEntryDto {
   order: { id: string; code: string };
   salesReturn: { id: string; code: string } | null;
   rate: string;
-  base: string;
+  /** Goods value excluding GST. */
+  value: string;
+  /** Gross profit on units with a known cost. */
+  profit: string;
   commission: string;
+  /** Units without a known cost; they earn nothing. */
+  costMissingUnits: number;
 }
 
 /** A salesperson's figures for a period; `owed` is all time (earned − paid), negative when paid ahead. */
 export interface CommissionTotalsDto {
   sales: number;
+  /** Net of returns, excluding GST. */
   salesValue: string;
+  /** Net of returns, on units with a known cost. */
+  grossProfit: string;
+  /** Units sold without a known cost, net of returns; they earned nothing. */
+  costMissingUnits: number;
   earned: string;
   returned: string;
   net: string;

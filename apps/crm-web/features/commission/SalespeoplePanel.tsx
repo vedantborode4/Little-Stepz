@@ -17,7 +17,6 @@ import { useSalespeople, useSaveSalesperson } from "./api"
 function SalespersonModal({ person, onClose }: { person: SalespersonDto | null; onClose: () => void }) {
   const save = useSaveSalesperson()
   const { form, formError, submitWith } = useApiForm(createSalespersonSchema, {
-    staffCode: person?.staffCode ?? "",
     name: person?.name ?? "",
     commissionRate: person?.commissionRate ?? "",
     isActive: person?.isActive ?? true,
@@ -46,22 +45,24 @@ function SalespersonModal({ person, onClose }: { person: SalespersonDto | null; 
     >
       <form id="salesperson-form" onSubmit={onSubmit} className="space-y-4" noValidate>
         <FormError message={formError} />
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Staff ID" htmlFor="sp-code" required error={e.staffCode?.message} hint="e.g. S01">
-            <Input id="sp-code" autoCapitalize="characters" {...register("staffCode")} />
-          </Field>
-          <Field
-            label="Commission %"
-            htmlFor="sp-rate"
-            required
-            error={e.commissionRate?.message}
-            hint={person ? "Applies to sales from now on" : "Of the sale value excluding GST"}
-          >
-            <Input id="sp-rate" inputMode="decimal" placeholder="2.5" {...register("commissionRate")} />
-          </Field>
-        </div>
+        {person ? (
+          <p className="text-sm text-muted">
+            Staff ID <span className="font-mono font-semibold text-text">{person.staffCode}</span>
+          </p>
+        ) : (
+          <p className="text-sm text-muted">A staff ID (S01, S02…) is given automatically when you save.</p>
+        )}
         <Field label="Name" htmlFor="sp-name" required error={e.name?.message}>
           <Input id="sp-name" {...register("name")} />
+        </Field>
+        <Field
+          label="Commission % of gross profit"
+          htmlFor="sp-rate"
+          required
+          error={e.commissionRate?.message}
+          hint={person ? "A new % applies to sales from now on" : "Gross profit = sale value excluding GST minus the cost of the goods"}
+        >
+          <Input id="sp-rate" inputMode="decimal" placeholder="2.5" {...register("commissionRate")} />
         </Field>
         <Checkbox id="sp-active" label="Active (can be picked at checkout)" {...register("isActive")} />
       </form>
@@ -108,7 +109,8 @@ export default function SalespeoplePanel() {
         }
       >
         <p className="text-sm text-muted">
-          Staff picked at checkout earn their % of the sale value excluding GST. A rate change applies to new sales only.
+          Staff picked at checkout earn their % of each sale&apos;s gross profit (sale value excluding GST minus cost). Staff IDs are given
+          automatically. A rate change applies to new sales only.
         </p>
       </ListToolbar>
       <DataTable
@@ -121,7 +123,7 @@ export default function SalespeoplePanel() {
         onPageChange={() => {}}
         getRowId={(p) => p.id}
         emptyTitle="No salespeople yet"
-        emptyHint="Add your sales staff with their staff ID and commission %."
+        emptyHint="Add your sales staff with their commission %."
         mobileCard={(p) => (
           <div className="flex items-center justify-between gap-3">
             <div>

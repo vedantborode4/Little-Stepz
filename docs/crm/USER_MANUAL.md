@@ -1067,7 +1067,10 @@ There is also **"Staff commission"**. It isn't offered under "Record expense": c
 **Menu:** Finance → "Commission". **Admin only.**
 
 **How commission is worked out**
-- A salesperson earns **their % of the sale value excluding GST** (after discounts; shipping never counts).
+- A salesperson earns **their % of the sale's gross profit**: the sale value excluding GST (after discounts; shipping never counts) minus what the goods cost.
+  - Example: an item sold for ₹1,180 including 18% GST is ₹1,000 excluding GST. If it cost ₹500, the gross profit is ₹500, and 2% commission is ₹10.
+- Items with **no recorded cost earn nothing**. They're marked "units without cost" in the salesperson's details so you can see which sales were affected. Record costs when stock comes in to avoid this.
+- A sale made **at a loss earns ₹0**. It never reduces the commission earned on other sales.
 - It counts on the day the sale is **handed over or dispatched**, the same day the sale counts as revenue. A confirmed order that hasn't left yet earns nothing, and a cancelled order never earns.
 - A **return** takes back the commission on what came back, on the day of the return. A sale returned in full ends at exactly ₹0.
 - The % is **fixed on each sale** when the salesperson is put on it. Changing someone's rate in Settings only affects sales made afterwards.
@@ -1075,7 +1078,7 @@ There is also **"Staff commission"**. It isn't offered under "Record expense": c
 
 **The page**
 1. Choose the dates (it opens on this month).
-2. Each salesperson's row shows: **Sales**, **Value excl. GST**, **Earned**, **Taken back** (returns), **Net**, **Paid** in those dates, and **Owed now**.
+2. Each salesperson's row shows: **Sales**, **Net sales excl. GST**, **Gross profit**, **Earned**, **Taken back** (returns), **Net**, **Paid** in those dates, and **Owed now**. A red * next to the gross profit means some items had no cost and earned nothing.
    - **Owed now** is all time: everything earned minus everything paid. "Paid ahead" means more was paid than earned so far.
 3. Click a row to see every sale and return behind the figures, and the payouts in those dates.
 4. **Export** gives the same table as a spreadsheet (also under Reports → "Salesperson commission").
@@ -1304,8 +1307,8 @@ Receiving accounts are everywhere money comes in: the cash drawer, PhonePe, a ba
 ### Salespeople
 
 Staff who earn commission on the sales they make. They don't need a CRM login: the cashier picks them at checkout.
-- **"Add salesperson"**: enter the **"Staff ID"** (e.g. S01; letters, digits and dashes, saved in capitals), the **"Name"** and the **"Commission %"** of the sale value excluding GST.
-- **"Edit"**: change the name, staff ID or %. A new % applies to **sales from now on**; sales already made keep the % they were made at.
+- **"Add salesperson"**: enter the **"Name"** and the **"Commission % of gross profit"**. The CRM gives each person a **staff ID** automatically (S01, S02, S03…). It's shown in the list, at the till and on the Commission page, and it never changes.
+- **"Edit"**: change the name or %. A new % applies to **sales from now on**; sales already made keep the % they were made at.
 - Untick **"Active"** when someone leaves. They're no longer offered at checkout, but their history and anything still owed to them stay on the Commission page.
 
 ### Users & roles

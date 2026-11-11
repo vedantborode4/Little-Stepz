@@ -149,7 +149,7 @@ function DetailModal({ id, period, onPay, onClose }: { id: string; period: Perio
         </p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
           {[
-            ["Sales value", formatMoney(t.salesValue)],
+            ["Gross profit", formatMoney(t.grossProfit)],
             ["Earned", formatMoney(t.earned)],
             ["Taken back", formatMoney(t.returned)],
             ["Paid", formatMoney(t.paid)],
@@ -168,6 +168,7 @@ function DetailModal({ id, period, onPay, onClose }: { id: string; period: Perio
                 <th className={`${head} text-left`}>Date</th>
                 <th className={`${head} text-left`}>Sale</th>
                 <th className={`${head} text-right`}>Value excl. GST</th>
+                <th className={`${head} text-right`}>Gross profit</th>
                 <th className={`${head} text-right`}>Rate</th>
                 <th className={`${head} text-right`}>Commission</th>
               </tr>
@@ -175,7 +176,7 @@ function DetailModal({ id, period, onPay, onClose }: { id: string; period: Perio
             <tbody className="divide-y divide-border">
               {data.entries.length === 0 && (
                 <tr>
-                  <td colSpan={5} className={`${cell} text-center text-faint`}>
+                  <td colSpan={6} className={`${cell} text-center text-faint`}>
                     No sales or returns in this period
                   </td>
                 </tr>
@@ -192,8 +193,16 @@ function DetailModal({ id, period, onPay, onClose }: { id: string; period: Perio
                         <Badge tone="yellow">Return {e.salesReturn.code}</Badge>
                       </span>
                     )}
+                    {e.costMissingUnits > 0 && (
+                      <span className="ml-2" title="These units have no recorded cost, so they earn no commission">
+                        <Badge tone="red">
+                          {e.costMissingUnits} unit{e.costMissingUnits === 1 ? "" : "s"} without cost
+                        </Badge>
+                      </span>
+                    )}
                   </td>
-                  <td className={`${cell} text-right tabular`}>{formatMoney(e.base)}</td>
+                  <td className={`${cell} text-right tabular`}>{formatMoney(e.value)}</td>
+                  <td className={`${cell} text-right tabular`}>{formatMoney(e.profit)}</td>
                   <td className={`${cell} text-right tabular`}>{e.rate}%</td>
                   <td className={`${cell} text-right tabular font-medium`}>{formatMoney(e.commission)}</td>
                 </tr>
@@ -256,7 +265,18 @@ export default function CommissionPage() {
     },
     { id: "rate", header: "Rate now", meta: { align: "right" }, cell: ({ row }) => `${row.original.salesperson.commissionRate}%` },
     { id: "sales", header: "Sales", meta: { align: "right" }, cell: ({ row }) => row.original.sales },
-    { id: "value", header: "Value excl. GST", meta: { align: "right" }, cell: ({ row }) => formatMoney(row.original.salesValue) },
+    { id: "value", header: "Net sales excl. GST", meta: { align: "right" }, cell: ({ row }) => formatMoney(row.original.salesValue) },
+    {
+      id: "profit",
+      header: "Gross profit",
+      meta: { align: "right" },
+      cell: ({ row }) => (
+        <span title={row.original.costMissingUnits > 0 ? `${row.original.costMissingUnits} units without cost earned nothing` : undefined}>
+          {formatMoney(row.original.grossProfit)}
+          {row.original.costMissingUnits > 0 && <span className="text-red-500"> *</span>}
+        </span>
+      ),
+    },
     { id: "earned", header: "Earned", meta: { align: "right" }, cell: ({ row }) => formatMoney(row.original.earned) },
     { id: "returned", header: "Taken back", meta: { align: "right" }, cell: ({ row }) => formatMoney(row.original.returned) },
     {
@@ -278,7 +298,7 @@ export default function CommissionPage() {
     <div className="space-y-4 sm:space-y-5">
       <PageHeader
         title="Commission"
-        subtitle="Commission counts when a sale is handed over or dispatched, on its value excluding GST; returns take it back. Owed is all time."
+        subtitle="Commission is a % of gross profit (sale value excluding GST minus cost), counted when a sale is handed over or dispatched; returns take it back, and items without a recorded cost or sold at a loss earn nothing. Owed is all time."
         action={
           <Button icon={<HandCoins size={16} />} onClick={() => setPaying({ initial: null })} disabled={rows.length === 0}>
             Record payout

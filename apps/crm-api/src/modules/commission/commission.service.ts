@@ -11,7 +11,7 @@ import {
 import { fromDbDate, toDbDate } from "../../core/dates";
 import { withTransaction } from "../../core/db";
 import { notFound, type RequestContext } from "../../core/http";
-import { dec, Decimal, money } from "../../core/money";
+import { dec, Decimal, decOrZero, money } from "../../core/money";
 import { nameKey } from "../../core/sequence";
 import { expenseInclude, getExpense, insertExpense, toExpenseDto } from "../expenses/expenses.service";
 import { commissionEntries, totalEntries, type CommissionEntry } from "./commission-maths";
@@ -31,8 +31,16 @@ async function allEntries(db: Db, salespersonId?: string): Promise<CommissionEnt
       salespersonId: true,
       commissionRate: true,
       fulfilledDate: true,
-      lines: { select: { taxableValue: true } },
-      returns: { select: { id: true, code: true, businessDate: true, createdAt: true, lines: { select: { taxableValue: true } } } },
+      lines: { select: { id: true, quantity: true, taxableValue: true, cogs: true, unknownCostQty: true } },
+      returns: {
+        select: {
+          id: true,
+          code: true,
+          businessDate: true,
+          createdAt: true,
+          lines: { select: { orderLineId: true, quantity: true, cogs: true, unknownCostQty: true } },
+        },
+      },
     },
   });
   return orders.flatMap((o) =>
@@ -42,13 +50,24 @@ async function allEntries(db: Db, salespersonId?: string): Promise<CommissionEnt
       salespersonId: o.salespersonId!,
       rate: dec(o.commissionRate!.toString()),
       fulfilledDate: fromDbDate(o.fulfilledDate!),
-      goodsTaxable: sum(o.lines, (l) => l.taxableValue),
+      lines: o.lines.map((l) => ({
+        id: l.id,
+        quantity: l.quantity,
+        taxable: dec(l.taxableValue.toString()),
+        cogs: decOrZero(l.cogs),
+        unknownCostQty: l.unknownCostQty,
+      })),
       returns: o.returns.map((r) => ({
         id: r.id,
         code: r.code,
         businessDate: fromDbDate(r.businessDate),
         createdAt: r.createdAt,
-        taxable: sum(r.lines, (l) => l.taxableValue),
+        lines: r.lines.map((l) => ({
+          orderLineId: l.orderLineId,
+          quantity: l.quantity,
+          cogs: decOrZero(l.cogs),
+          unknownCostQty: l.unknownCostQty,
+        })),
       })),
     }),
   );
@@ -74,6 +93,8 @@ function totalsDto(period: CommissionEntry[], all: CommissionEntry[], paidInPeri
   return {
     sales: t.sales,
     salesValue: money(t.salesValue),
+    grossProfit: money(t.grossProfit),
+    costMissingUnits: t.costMissingUnits,
     earned: money(t.earned),
     returned: money(t.returned),
     net: money(t.net),
@@ -85,6 +106,8 @@ function totalsDto(period: CommissionEntry[], all: CommissionEntry[], paidInPeri
 const addTotals = (a: CommissionTotalsDto, b: CommissionTotalsDto): CommissionTotalsDto => ({
   sales: a.sales + b.sales,
   salesValue: money(dec(a.salesValue).add(b.salesValue)),
+  grossProfit: money(dec(a.grossProfit).add(b.grossProfit)),
+  costMissingUnits: a.costMissingUnits + b.costMissingUnits,
   earned: money(dec(a.earned).add(b.earned)),
   returned: money(dec(a.returned).add(b.returned)),
   net: money(dec(a.net).add(b.net)),
@@ -95,6 +118,8 @@ const addTotals = (a: CommissionTotalsDto, b: CommissionTotalsDto): CommissionTo
 const ZERO_TOTALS: CommissionTotalsDto = {
   sales: 0,
   salesValue: "0.00",
+  grossProfit: "0.00",
+  costMissingUnits: 0,
   earned: "0.00",
   returned: "0.00",
   net: "0.00",
@@ -165,8 +190,10 @@ export async function commissionDetail(salespersonId: string, query: CommissionQ
       order: e.order,
       salesReturn: e.salesReturn,
       rate: e.rate.toString(),
-      base: money(e.base),
+      value: money(e.value),
+      profit: money(e.profit),
       commission: money(e.commission),
+      costMissingUnits: e.costMissingUnits,
     })),
     payouts: payoutRows.map(toExpenseDto),
   };

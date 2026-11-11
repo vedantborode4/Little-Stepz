@@ -4,18 +4,10 @@ import { isoDate, money, optionalId, optionalText, percent, requiredText } from 
 /** Commission payouts are expenses in this category (created by the migration). */
 export const COMMISSION_EXPENSE_CATEGORY = "Staff commission";
 
-const staffCode = z
-  .string()
-  .trim()
-  .toUpperCase()
-  .min(1, "Required")
-  .max(20)
-  .regex(/^[A-Z0-9-]+$/, "Letters, digits and dashes only");
-
+/** The staff ID (S01, S02…) is assigned by the CRM when a salesperson is added and never changes. */
 const salespersonFields = {
-  staffCode,
   name: requiredText(80),
-  /** % of a sale's goods value excluding GST. */
+  /** % of a sale's gross profit (goods value excluding GST less cost of goods). */
   commissionRate: percent,
   isActive: z.boolean(),
 };

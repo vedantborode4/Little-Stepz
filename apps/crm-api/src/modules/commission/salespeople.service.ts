@@ -14,10 +14,20 @@ export const toSalespersonDto = (s: Salesperson): SalespersonDto => ({
   isActive: s.isActive,
 });
 
-const codeTaken = (code: string) =>
-  new ApiError(409, "STAFF_CODE_TAKEN", `Staff ID ${code} is already in use`, {
-    fieldErrors: { staffCode: [`Staff ID ${code} is already in use`] },
-  });
+/**
+ * The next staff ID: S01, S02… one past the highest S-number in use (IDs typed
+ * by hand before IDs were assigned keep theirs). Serialised so two admins adding
+ * people at once can't get the same ID.
+ */
+async function nextStaffCode(tx: Tx) {
+  await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext('crm.salesperson.staff_code'))`;
+  const codes = await tx.salesperson.findMany({ select: { staffCode: true } });
+  const highest = codes.reduce((max, { staffCode }) => {
+    const n = /^S(\d+)$/.exec(staffCode);
+    return n ? Math.max(max, Number(n[1])) : max;
+  }, 0);
+  return `S${String(highest + 1).padStart(2, "0")}`;
+}
 
 /** The till's picker: active salespeople, without their rates. */
 export async function listOptions(): Promise<SalespersonOptionDto[]> {
@@ -38,10 +48,15 @@ export async function listSalespeople(includeInactive: boolean): Promise<Salespe
 
 export async function createSalesperson(input: CreateSalespersonInput, ctx: RequestContext) {
   return withTransaction(async (tx) => {
-    const staffKey = nameKey(input.staffCode);
-    if (await tx.salesperson.findUnique({ where: { staffKey } })) throw codeTaken(input.staffCode);
+    const staffCode = await nextStaffCode(tx);
     const row = await tx.salesperson.create({
-      data: { staffCode: input.staffCode, staffKey, name: input.name, commissionRate: dec(input.commissionRate), isActive: input.isActive },
+      data: {
+        staffCode,
+        staffKey: nameKey(staffCode),
+        name: input.name,
+        commissionRate: dec(input.commissionRate),
+        isActive: input.isActive,
+      },
     });
     await recordAudit(tx, ctx, { action: "salesperson.created", entity: "Salesperson", entityId: row.id, after: toSalespersonDto(row) });
     return toSalespersonDto(row);
@@ -53,16 +68,10 @@ export async function updateSalesperson(id: string, input: UpdateSalespersonInpu
   return withTransaction(async (tx) => {
     const before = await tx.salesperson.findUnique({ where: { id } });
     if (!before) throw notFound("Salesperson");
-    const staffKey = input.staffCode ? nameKey(input.staffCode) : undefined;
-    if (staffKey) {
-      const clash = await tx.salesperson.findUnique({ where: { staffKey } });
-      if (clash && clash.id !== id) throw codeTaken(input.staffCode!);
-    }
     const after = await tx.salesperson.update({
       where: { id },
       data: {
         ...input,
-        ...(staffKey && { staffKey }),
         ...(input.commissionRate !== undefined && { commissionRate: dec(input.commissionRate) }),
       },
     });

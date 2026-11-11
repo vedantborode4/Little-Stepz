@@ -621,7 +621,8 @@ export const REPORTS: ReportSpec[] = [
   {
     key: "salesperson-commission",
     title: "Salesperson commission",
-    description: "Commission each salesperson earned in the period (sales less returns), what was paid, and what is still owed.",
+    description:
+      "Commission each salesperson earned on gross profit in the period (sales less returns), what was paid, and what is still owed.",
     group: "Sales",
     filters: ["dateRange"],
     permissions: ["commission.manage"],
@@ -632,7 +633,9 @@ export const REPORTS: ReportSpec[] = [
         Salesperson: r.salesperson.name,
         "Rate now (%)": Number(r.salesperson.commissionRate),
         Sales: r.sales,
-        "Sales value excl. GST": num(r.salesValue),
+        "Net sales excl. GST": num(r.salesValue),
+        "Gross profit": num(r.grossProfit),
+        "Units without cost": r.costMissingUnits,
         Earned: num(r.earned),
         "Taken back by returns": num(r.returned),
         "Net commission": num(r.net),
