@@ -5,17 +5,19 @@ import { Boxes, LayoutDashboard, Menu, MoreHorizontal, ShoppingCart, Users } fro
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useCallback, useEffect, useState } from "react"
+import type { Permission } from "@repo/crm-schema"
 import { isActivePath } from "@/lib/nav"
+import { useCan } from "@/store/auth.store"
 import Sidebar from "./Sidebar"
 import ThemeToggle from "./ThemeToggle"
 
 const DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === "true"
 
-const mobileTabs = [
-  { label: "Home", href: "/", icon: LayoutDashboard },
-  { label: "POS", href: "/pos", icon: ShoppingCart },
-  { label: "Stock", href: "/inventory", icon: Boxes },
-  { label: "Customers", href: "/customers", icon: Users },
+const mobileTabs: { label: string; href: string; icon: typeof Users; permission: Permission }[] = [
+  { label: "Home", href: "/", icon: LayoutDashboard, permission: "dashboard.view" },
+  { label: "POS", href: "/pos", icon: ShoppingCart, permission: "sales.create" },
+  { label: "Stock", href: "/inventory", icon: Boxes, permission: "inventory.view" },
+  { label: "Customers", href: "/customers", icon: Users, permission: "customers.view" },
 ]
 
 /** Locks page scroll under the open drawer and closes it on Escape or navigation. */
@@ -39,6 +41,7 @@ function useDrawer(open: boolean, close: () => void) {
 
 export default function CrmShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const can = useCan()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const closeDrawer = useCallback(() => setDrawerOpen(false), [])
   useDrawer(drawerOpen, closeDrawer)
@@ -91,22 +94,24 @@ export default function CrmShell({ children }: { children: React.ReactNode }) {
           aria-label="Quick"
         >
           <div className="flex">
-            {mobileTabs.map(({ label, href, icon: Icon }) => {
-              const active = isActivePath(pathname, href)
-              return (
-                <Link
-                  key={href}
-                  href={href}
-                  className={clsx(
-                    "flex flex-col items-center justify-center gap-0.5 flex-1 py-2.5 text-[10px] font-medium transition-colors",
-                    active ? "text-primary" : "text-faint hover:text-muted",
-                  )}
-                >
-                  <Icon size={18} strokeWidth={active ? 2.5 : 2} />
-                  {label}
-                </Link>
-              )
-            })}
+            {mobileTabs
+              .filter((t) => can(t.permission))
+              .map(({ label, href, icon: Icon }) => {
+                const active = isActivePath(pathname, href)
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    className={clsx(
+                      "flex flex-col items-center justify-center gap-0.5 flex-1 py-2.5 text-[10px] font-medium transition-colors",
+                      active ? "text-primary" : "text-faint hover:text-muted",
+                    )}
+                  >
+                    <Icon size={18} strokeWidth={active ? 2.5 : 2} />
+                    {label}
+                  </Link>
+                )
+              })}
             <button
               onClick={() => setDrawerOpen(true)}
               className="flex flex-col items-center justify-center gap-0.5 flex-1 py-2.5 text-[10px] font-medium text-faint hover:text-muted"

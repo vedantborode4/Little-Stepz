@@ -1,18 +1,34 @@
 import { prisma, type Salesperson, type Tx } from "@repo/crm-db/client";
-import type { CreateSalespersonInput, SalespersonDto, SalespersonOptionDto, UpdateSalespersonInput } from "@repo/crm-schema";
+import type { CreateSalespersonInput, SalespersonDto, SalespersonPickDto, UpdateSalespersonInput } from "@repo/crm-schema";
 import { recordAudit } from "../../core/audit";
 import { withTransaction } from "../../core/db";
 import { ApiError, notFound, type RequestContext } from "../../core/http";
 import { dec } from "../../core/money";
 import { nameKey } from "../../core/sequence";
 
-export const toSalespersonDto = (s: Salesperson): SalespersonDto => ({
+export const salespersonInclude = { user: { select: { id: true, name: true } } } as const;
+
+export const toSalespersonDto = (s: Salesperson & { user: { id: string; name: string } | null }): SalespersonDto => ({
   id: s.id,
   staffCode: s.staffCode,
   name: s.name,
   commissionRate: s.commissionRate.toString(),
   isActive: s.isActive,
+  user: s.user,
 });
+
+/** A login sees one salesperson's commission, so it can be linked to only one, and only while it's active. */
+async function assertLinkable(tx: Tx, userId: string | null | undefined, salespersonId?: string) {
+  if (!userId) return;
+  const user = await tx.user.findUnique({ where: { id: userId }, include: { salesperson: { select: { id: true, name: true } } } });
+  if (!user?.isActive) {
+    throw new ApiError(400, "INVALID_LOGIN", "Choose an active CRM login", { fieldErrors: { userId: ["Choose an active CRM login"] } });
+  }
+  if (user.salesperson && user.salesperson.id !== salespersonId) {
+    const message = `This login is already linked to ${user.salesperson.name}`;
+    throw new ApiError(409, "LOGIN_TAKEN", message, { fieldErrors: { userId: [message] } });
+  }
+}
 
 /**
  * The next staff ID: S01, S02… one past the highest S-number in use (IDs typed
@@ -20,7 +36,7 @@ export const toSalespersonDto = (s: Salesperson): SalespersonDto => ({
  * people at once can't get the same ID.
  */
 async function nextStaffCode(tx: Tx) {
-  await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext('crm.salesperson.staff_code'))`;
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('crm.salesperson.staff_code'))`;
   const codes = await tx.salesperson.findMany({ select: { staffCode: true } });
   const highest = codes.reduce((max, { staffCode }) => {
     const n = /^S(\d+)$/.exec(staffCode);
@@ -29,18 +45,20 @@ async function nextStaffCode(tx: Tx) {
   return `S${String(highest + 1).padStart(2, "0")}`;
 }
 
-/** The till's picker: active salespeople, without their rates. */
-export async function listOptions(): Promise<SalespersonOptionDto[]> {
-  return prisma.salesperson.findMany({
+/** The till's picker: active salespeople, without their rates, marking the one linked to this login. */
+export async function listOptions(userId: string): Promise<SalespersonPickDto[]> {
+  const rows = await prisma.salesperson.findMany({
     where: { isActive: true },
-    select: { id: true, staffCode: true, name: true },
+    select: { id: true, staffCode: true, name: true, userId: true },
     orderBy: [{ name: "asc" }, { staffCode: "asc" }],
   });
+  return rows.map(({ userId: linked, ...rest }) => ({ ...rest, isMine: linked === userId }));
 }
 
 export async function listSalespeople(includeInactive: boolean): Promise<SalespersonDto[]> {
   const rows = await prisma.salesperson.findMany({
     where: includeInactive ? {} : { isActive: true },
+    include: salespersonInclude,
     orderBy: [{ isActive: "desc" }, { name: "asc" }],
   });
   return rows.map(toSalespersonDto);
@@ -48,6 +66,7 @@ export async function listSalespeople(includeInactive: boolean): Promise<Salespe
 
 export async function createSalesperson(input: CreateSalespersonInput, ctx: RequestContext) {
   return withTransaction(async (tx) => {
+    await assertLinkable(tx, input.userId);
     const staffCode = await nextStaffCode(tx);
     const row = await tx.salesperson.create({
       data: {
@@ -56,7 +75,9 @@ export async function createSalesperson(input: CreateSalespersonInput, ctx: Requ
         name: input.name,
         commissionRate: dec(input.commissionRate),
         isActive: input.isActive,
+        userId: input.userId ?? null,
       },
+      include: salespersonInclude,
     });
     await recordAudit(tx, ctx, { action: "salesperson.created", entity: "Salesperson", entityId: row.id, after: toSalespersonDto(row) });
     return toSalespersonDto(row);
@@ -66,14 +87,16 @@ export async function createSalesperson(input: CreateSalespersonInput, ctx: Requ
 /** A new rate applies to sales made from now on; sales already made keep the rate frozen on them. */
 export async function updateSalesperson(id: string, input: UpdateSalespersonInput, ctx: RequestContext) {
   return withTransaction(async (tx) => {
-    const before = await tx.salesperson.findUnique({ where: { id } });
+    const before = await tx.salesperson.findUnique({ where: { id }, include: salespersonInclude });
     if (!before) throw notFound("Salesperson");
+    await assertLinkable(tx, input.userId, id);
     const after = await tx.salesperson.update({
       where: { id },
       data: {
         ...input,
         ...(input.commissionRate !== undefined && { commissionRate: dec(input.commissionRate) }),
       },
+      include: salespersonInclude,
     });
     await recordAudit(tx, ctx, {
       action: "salesperson.updated",

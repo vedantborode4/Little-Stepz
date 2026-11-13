@@ -96,7 +96,11 @@ export default function SalesList({ type, title = "Sales Orders" }: { type?: "RE
     <div>
       <PageHeader
         title={title}
-        subtitle="Counter sales, shipped and wholesale orders. Revenue counts when an order is handed over or dispatched."
+        subtitle={
+          can("sales.view.all")
+            ? "Counter sales, shipped and wholesale orders. Revenue counts when an order is handed over or dispatched."
+            : "Sales you made, plus counter orders waiting for pickup."
+        }
         action={
           <>
             {can("sales.create") && (

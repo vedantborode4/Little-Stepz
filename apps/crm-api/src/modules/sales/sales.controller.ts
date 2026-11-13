@@ -26,13 +26,14 @@ import type { Visibility } from "./sales.mappers";
 import * as preOrders from "./preorders";
 import { salesSummary } from "./sales.reports";
 import * as sales from "./sales.service";
+import { salesScope } from "./scope";
 
 const visibility = (req: Request): Visibility => ({ costs: can(req, "costs.view"), commission: can(req, "commission.manage") });
 const rights = (req: Request): sales.SaleRights => ({ overridePrice: can(req, "sales.manage") });
 
 export async function list(req: Request, res: Response) {
   const query = salesListQuery.parse(req.query);
-  const result = await sales.listOrders(query);
+  const result = await sales.listOrders(query, salesScope(req));
   if (query.format) {
     return sendExport(res, {
       filename: "sales-orders",
@@ -69,7 +70,7 @@ export async function quote(req: Request, res: Response) {
 }
 
 export async function summary(req: Request, res: Response) {
-  sendData(res, await salesSummary(salesSummaryQuery.parse(req.query), visibility(req)));
+  sendData(res, await salesSummary(salesSummaryQuery.parse(req.query), visibility(req), salesScope(req)));
 }
 
 export async function pos(req: Request, res: Response) {
@@ -136,11 +137,11 @@ export async function expectedArrival(req: Request, res: Response) {
 }
 
 export async function listPreOrders(req: Request, res: Response) {
-  sendData(res, await preOrders.listPreOrders(preOrderListQuery.parse(req.query)));
+  sendData(res, await preOrders.listPreOrders(preOrderListQuery.parse(req.query), salesScope(req)));
 }
 
-export async function preOrderSummary(_req: Request, res: Response) {
-  sendData(res, await preOrders.preOrderSummary());
+export async function preOrderSummary(req: Request, res: Response) {
+  sendData(res, await preOrders.preOrderSummary(salesScope(req)));
 }
 
 export async function waitingItems(_req: Request, res: Response) {

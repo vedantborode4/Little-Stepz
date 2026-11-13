@@ -160,11 +160,16 @@ function SaleDone({ sale, onNext }: { sale: SalesOrderDetailDto; onNext: () => v
 
 const SALESPERSON_KEY = "crm.pos.salesperson"
 
-/** The till keeps its last salesperson across sales (one person usually runs it for a shift). */
+/**
+ * The till starts on the signed-in user's own salesperson when their login is linked to one; otherwise on its last
+ * pick (one person usually runs it for a shift). A pick then stays across sales until changed.
+ */
 function useTillSalesperson() {
   const options = useSalespersonOptions()
   const [salespersonId, setSalespersonId] = useState("")
   useEffect(() => {
+    const mine = options.data?.find((o) => o.isMine)
+    if (mine) return setSalespersonId(mine.id)
     try {
       const saved = localStorage.getItem(SALESPERSON_KEY)
       if (saved && options.data?.some((o) => o.id === saved)) setSalespersonId(saved)

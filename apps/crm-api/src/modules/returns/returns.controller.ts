@@ -3,13 +3,14 @@ import { createReturnSchema, idParam, REFUND_METHOD_LABELS, returnListQuery, ret
 import { can } from "../../core/auth";
 import { sendExport } from "../../core/export";
 import { requestContext, sendData } from "../../core/http";
+import { salesScope } from "../sales/scope";
 import * as returns from "./returns.service";
 
 const rights = (req: Request): returns.ReturnRights => ({ refund: can(req, "payments.refund"), costs: can(req, "costs.view") });
 
 export async function list(req: Request, res: Response) {
   const query = returnListQuery.parse(req.query);
-  const result = await returns.listReturns(query);
+  const result = await returns.listReturns(query, salesScope(req));
   if (query.format) {
     return sendExport(res, {
       filename: "returns",
@@ -33,7 +34,7 @@ export async function list(req: Request, res: Response) {
 
 export async function get(req: Request, res: Response) {
   const { id } = idParam.parse(req.params);
-  sendData(res, await returns.getReturn(id, can(req, "costs.view")));
+  sendData(res, await returns.getReturn(id, can(req, "costs.view"), salesScope(req)));
 }
 
 export async function preview(req: Request, res: Response) {

@@ -148,7 +148,11 @@ export default function PreOrdersBoard() {
     <div className="space-y-4 sm:space-y-5">
       <PageHeader
         title="Pre-orders"
-        subtitle="Sold before the stock arrives. Advances are held until handover; stock is allocated oldest first when it lands."
+        subtitle={
+          can("sales.view.all")
+            ? "Sold before the stock arrives. Advances are held until handover; stock is allocated oldest first when it lands."
+            : "Pre-orders you took, plus counter pre-orders waiting for pickup."
+        }
         action={
           can("sales.create") && (
             <Link href="/pre-orders/new">

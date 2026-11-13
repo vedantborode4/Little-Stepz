@@ -230,7 +230,7 @@ describe("allocation rules", () => {
       .post("/api/v1/sales")
       .set(admin.auth)
       .send({ locationId: store, channel: "WHATSAPP", customerId: a, lines: [{ variantId, quantity: 1 }] });
-    const onDraft = await receive(cashier, {
+    const onDraft = await receive(admin, {
       customerId: a,
       accountId: cash,
       amount: "1000",
@@ -238,7 +238,7 @@ describe("allocation rules", () => {
     });
     expect(onDraft.body.error.code).toBe("ORDER_NOT_PAYABLE");
     const o = await order(a, variantId);
-    const wrong = await receive(cashier, {
+    const wrong = await receive(admin, {
       customerId: b,
       accountId: cash,
       amount: "1000",

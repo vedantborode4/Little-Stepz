@@ -171,6 +171,15 @@ export type AdjustmentInput = z.infer<typeof adjustmentSchema>;
 export const reverseStockDocumentSchema = z.object({ reason: requiredText(200) });
 export type ReverseStockDocumentInput = z.infer<typeof reverseStockDocumentSchema>;
 
+const landedUnitCost = money.refine((v) => Number(v) > 0, "Enter a cost above 0");
+
+/** A landed cost per piece set after the stock is in: stock on hand moves to it, and sales costed by it follow. */
+export const setLandedCostSchema = z.object({ unitCost: landedUnitCost, reason: requiredText(200) });
+export type SetLandedCostInput = z.infer<typeof setLandedCostSchema>;
+
+export const setLandedCostPreviewSchema = z.object({ unitCost: landedUnitCost });
+export type SetLandedCostPreviewInput = z.infer<typeof setLandedCostPreviewSchema>;
+
 const optionalFilterId = z
   .union([z.literal(""), z.string().uuid()])
   .transform((v) => v || undefined)

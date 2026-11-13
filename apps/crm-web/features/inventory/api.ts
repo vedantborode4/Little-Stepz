@@ -2,10 +2,13 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import type {
   AdjustmentInput,
   BucketMoveInput,
+  LandedCostEntryDto,
   LedgerRowDto,
   OpeningStockInput,
   Paginated,
   ReverseStockDocumentInput,
+  SetLandedCostInput,
+  SetLandedCostPreviewDto,
   StockDocumentDto,
   StockRowDto,
   StockSummaryDto,
@@ -88,3 +91,23 @@ export const useReverseDocument = () =>
   useStockMutation(({ id, input }: { id: string; input: ReverseStockDocumentInput }) =>
     sendData<StockDocumentDto>("post", `/inventory/documents/${id}/reverse`, input),
   )
+
+/** What a landed cost would change; the API works it out and saves nothing. */
+export const useLandedCostPreview = (variantId: string, unitCost: string | null) =>
+  useQuery({
+    queryKey: [...inventoryKeys.all, "landed-cost-preview", variantId, unitCost] as const,
+    queryFn: () => sendData<SetLandedCostPreviewDto>("post", `/inventory/variants/${variantId}/landed-cost/preview`, { unitCost }),
+    enabled: unitCost !== null,
+    retry: false,
+    gcTime: 0,
+  })
+
+/** A new cost re-values stock and can re-cost past sales, profit and commission, so every cached screen refreshes. */
+export function useSetLandedCost() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ variantId, input }: { variantId: string; input: SetLandedCostInput }) =>
+      sendData<LandedCostEntryDto>("post", `/inventory/variants/${variantId}/landed-cost`, input),
+    onSuccess: () => queryClient.invalidateQueries(),
+  })
+}

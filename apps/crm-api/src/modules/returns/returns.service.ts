@@ -14,6 +14,7 @@ import { giveBack } from "../payments/ledger";
 import { addEvent } from "../sales/sales.service";
 import { refundDue, returnLineAmounts, shippingRefundAmounts } from "./return-maths";
 import { returnDetailInclude, returnListInclude, toReturnDto, toReturnListItemDto } from "./returns.mappers";
+import { scopeWhere, type SalesScope } from "../sales/scope";
 
 export interface ReturnRights {
   /** Money back as a refund payment (credit only needs return rights). */
@@ -244,17 +245,18 @@ export async function createReturn(orderId: string, input: CreateReturnInput, ct
     });
     return returnId;
   });
-  return getReturn(id, rights.costs);
+  return getReturn(id, rights.costs, null);
 }
 
-export async function getReturn(id: string, costs: boolean) {
-  const row = await prisma.salesReturn.findUnique({ where: { id }, include: returnDetailInclude });
+export async function getReturn(id: string, costs: boolean, scope: SalesScope) {
+  const row = await prisma.salesReturn.findFirst({ where: { id, order: scopeWhere(scope) }, include: returnDetailInclude });
   if (!row) throw notFound("Return");
   return toReturnDto(row, costs);
 }
 
-export async function listReturns(query: ReturnListQuery) {
+export async function listReturns(query: ReturnListQuery, scope: SalesScope) {
   const where: Prisma.SalesReturnWhereInput = {
+    AND: [{ order: scopeWhere(scope) }],
     order: query.customerId ? { customerId: query.customerId } : undefined,
     businessDate:
       query.from || query.to

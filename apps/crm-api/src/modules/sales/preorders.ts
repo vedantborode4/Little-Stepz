@@ -7,6 +7,7 @@ import { pageWindow, paginated } from "../../core/list";
 import { Decimal, decOrZero, money } from "../../core/money";
 import { availableAt } from "../inventory/reservations";
 import { allocateInTx } from "./sales.service";
+import { inScope, scopeWhere, type SalesScope } from "./scope";
 
 const OPEN_STATUSES = ["CONFIRMED", "PACKED"] as const;
 
@@ -14,6 +15,8 @@ const preOrderSelect = {
   id: true,
   code: true,
   status: true,
+  fulfilment: true,
+  createdById: true,
   locationId: true,
   orderDate: true,
   createdAt: true,
@@ -100,7 +103,7 @@ function toRow(o: PreOrderRow, queue: Map<string, { state: PreOrderStockState; p
   };
 }
 
-export async function listPreOrders(query: PreOrderListQuery) {
+export async function listPreOrders(query: PreOrderListQuery, scope: SalesScope) {
   const today = toDbDate(todayIST());
   const search: Prisma.SalesOrderWhereInput = {
     customerId: query.customerId,
@@ -117,7 +120,12 @@ export async function listPreOrders(query: PreOrderListQuery) {
     openPreOrders(),
     query.includeClosed
       ? prisma.salesOrder.findMany({
-          where: { type: "PRE_ORDER", NOT: { status: { in: [...OPEN_STATUSES, "DRAFT"] }, fulfilledAt: null }, ...search },
+          where: {
+            type: "PRE_ORDER",
+            NOT: { status: { in: [...OPEN_STATUSES, "DRAFT"] }, fulfilledAt: null },
+            AND: [scopeWhere(scope)],
+            ...search,
+          },
           select: preOrderSelect,
           orderBy: [{ orderDate: "desc" }, { createdAt: "desc" }],
           take: 500,
@@ -135,18 +143,19 @@ export async function listPreOrders(query: PreOrderListQuery) {
         ),
       )
     : null;
-  let rows = [...open.filter((o) => !visible || visible.has(o.id)), ...closed].map((o) => toRow(o, result, today));
+  let rows = [...open.filter((o) => inScope(scope, o) && (!visible || visible.has(o.id))), ...closed].map((o) => toRow(o, result, today));
   if (query.state) rows = rows.filter((r) => r.stockState === query.state);
   if (query.overdue !== undefined) rows = rows.filter((r) => r.overdue === query.overdue);
   const { skip, take } = pageWindow(query);
   return paginated(rows.slice(skip, skip + take), rows.length, query);
 }
 
-export async function preOrderSummary(): Promise<PreOrderSummaryDto> {
+export async function preOrderSummary(scope: SalesScope): Promise<PreOrderSummaryDto> {
   const today = toDbDate(todayIST());
-  const open = await openPreOrders();
-  const { result } = await stockQueue(open);
-  const count = (state: PreOrderStockState) => [...result.values()].filter((r) => r.state === state).length;
+  const all = await openPreOrders();
+  const { result } = await stockQueue(all);
+  const open = all.filter((o) => inScope(scope, o));
+  const count = (state: PreOrderStockState) => open.filter((o) => result.get(o.id)?.state === state).length;
   const advances = open.reduce((s, o) => s.add(o.allocations.reduce((t, a) => t.add(decOrZero(a.amount)), new Decimal(0))), new Decimal(0));
   return {
     open: open.length,

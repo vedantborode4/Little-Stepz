@@ -17,6 +17,7 @@ import { lockVariants } from "../inventory/stock-engine";
 import { createProductInTx } from "../products/products.service";
 import { expensesImport } from "./expenses.import";
 import { historicalSalesImport } from "./historical-sales.import";
+import { landedCostsImport } from "./landed-costs.import";
 import {
   blankToUndefined,
   costCell,
@@ -515,4 +516,5 @@ export const IMPORT_HANDLERS: Record<ImportKind, KindHandler<unknown>> = {
   CUSTOMERS: customers,
   HISTORICAL_SALES: historicalSalesImport,
   EXPENSES: expensesImport,
+  LANDED_COSTS: landedCostsImport,
 };

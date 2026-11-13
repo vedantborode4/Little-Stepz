@@ -18,7 +18,7 @@ const label = (p: SalespersonOptionDto) => `${p.name} (${p.staffCode})`
 /** Who made the sale, for commission. Hidden when no salespeople have been set up. */
 export default function SalespersonSelect({ id, value, onChange, current, hint }: Props) {
   const { data } = useSalespersonOptions()
-  const options = [...(data ?? [])]
+  const options: SalespersonOptionDto[] = [...(data ?? [])]
   if (current && !options.some((o) => o.id === current.id)) options.unshift(current)
   if (options.length === 0) return null
   return (

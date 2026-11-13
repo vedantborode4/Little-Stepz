@@ -3,7 +3,7 @@ import Transfers from "@/features/payments/Transfers"
 
 export default function TransfersPage() {
   return (
-    <RequirePermission permission="payments.view">
+    <RequirePermission permission="payments.transfer">
       <Transfers />
     </RequirePermission>
   )

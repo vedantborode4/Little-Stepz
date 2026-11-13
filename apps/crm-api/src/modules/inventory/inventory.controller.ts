@@ -3,9 +3,11 @@ import {
   adjustmentSchema,
   bucketMoveSchema,
   idParam,
+  setLandedCostPreviewSchema,
   ledgerQuery,
   openingStockSchema,
   reverseStockDocumentSchema,
+  setLandedCostSchema,
   STOCK_BUCKET_LABELS,
   STOCK_DOCUMENT_TYPE_LABELS,
   STOCK_REASON_LABELS,
@@ -18,6 +20,7 @@ import { sendExport, type ExportColumn } from "../../core/export";
 import { requestContext, sendData } from "../../core/http";
 import * as queries from "./inventory.queries";
 import * as inventory from "./inventory.service";
+import * as landedCosts from "./landed-cost-entries";
 
 const visibility = (req: Request): queries.Visibility => ({ costs: can(req, "costs.view") });
 const num = (v: string | null | undefined) => (v == null ? null : Number(v));
@@ -125,4 +128,14 @@ export async function reverse(req: Request, res: Response) {
   const { id } = idParam.parse(req.params);
   const input = reverseStockDocumentSchema.parse(req.body);
   await respondWithDocument(req, res, await inventory.reverseStockDocument(id, input, requestContext(req)));
+}
+
+export async function previewLandedCost(req: Request, res: Response) {
+  const { id } = idParam.parse(req.params);
+  sendData(res, await landedCosts.previewLandedCost(id, setLandedCostPreviewSchema.parse(req.body), requestContext(req)));
+}
+
+export async function setLandedCost(req: Request, res: Response) {
+  const { id } = idParam.parse(req.params);
+  sendData(res, await landedCosts.setLandedCost(id, setLandedCostSchema.parse(req.body), requestContext(req)), 201);
 }

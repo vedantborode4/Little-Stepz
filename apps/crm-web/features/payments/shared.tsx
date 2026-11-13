@@ -4,6 +4,7 @@ import { PAYMENT_STATUS_LABELS, type PaymentStatus } from "@repo/crm-schema"
 import { Badge, type BadgeTone } from "@/components/ui/Display"
 import { Select } from "@/components/ui/Form"
 import LinkTabs from "@/components/ui/Tabs"
+import { useCan } from "@/store/auth.store"
 import { useReceivingAccounts } from "../settings/api"
 
 const TONES: Record<PaymentStatus, BadgeTone> = { UNPAID: "red", PARTIAL: "yellow", PAID: "green", OVERPAID: "purple", REFUNDED: "gray" }
@@ -13,16 +14,22 @@ export const PaymentStatusBadge = ({ status }: { status: PaymentStatus }) => (
 )
 
 export function PaymentTabs() {
+  const can = useCan()
   return (
-    <LinkTabs
-      tabs={[
-        { label: "Collections", href: "/payments", exact: true },
-        { label: "Payments", href: "/payments/list" },
-        { label: "Outstanding", href: "/payments/outstanding" },
-        { label: "Advances", href: "/payments/advances" },
-        { label: "Transfers", href: "/payments/transfers" },
-      ]}
-    />
+    <>
+      <LinkTabs
+        tabs={[
+          { label: "Collections", href: "/payments", exact: true },
+          { label: "Payments", href: "/payments/list" },
+          { label: "Outstanding", href: "/payments/outstanding" },
+          { label: "Advances", href: "/payments/advances" },
+          ...(can("payments.transfer") ? [{ label: "Transfers", href: "/payments/transfers" }] : []),
+        ]}
+      />
+      {!can("payments.view.all") && (
+        <p className="-mt-3 mb-4 text-xs text-muted">You see the payments you recorded, and balances on orders you created.</p>
+      )}
+    </>
   )
 }
 

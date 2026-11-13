@@ -5,9 +5,10 @@ import type {
   CommissionSummaryDto,
   CreateSalespersonInput,
   ExpenseDto,
+  MyCommissionDto,
   SalesOrderDetailDto,
   SalespersonDto,
-  SalespersonOptionDto,
+  SalespersonPickDto,
   UpdateSalespersonInput,
 } from "@repo/crm-schema"
 import { getData, sendData } from "@/lib/api-client"
@@ -21,11 +22,13 @@ export const commissionKeys = {
   salespeople: (includeInactive: boolean) => [...commissionKeys.all, "salespeople", includeInactive] as const,
   summary: (params: object) => [...commissionKeys.all, "summary", params] as const,
   detail: (id: string, params: object) => [...commissionKeys.all, "detail", id, params] as const,
+  mine: (params: object) => [...commissionKeys.all, "mine", params] as const,
+  payouts: (params: object) => [...commissionKeys.all, "payouts", params] as const,
 }
 
 /** The checkout picker: active salespeople, names and staff IDs only. */
 export const useSalespersonOptions = (enabled = true) =>
-  useQuery({ queryKey: commissionKeys.options(), queryFn: () => getData<SalespersonOptionDto[]>("/salespeople/options"), enabled })
+  useQuery({ queryKey: commissionKeys.options(), queryFn: () => getData<SalespersonPickDto[]>("/salespeople/options"), enabled })
 
 export const useSalespeople = (includeInactive = true) =>
   useQuery({
@@ -42,6 +45,13 @@ export const useCommissionDetail = (id: string | null, params: { from: string; t
     queryFn: () => getData<CommissionDetailDto>(`/commission/salespeople/${id}`, params),
     enabled: Boolean(id),
   })
+
+/** The signed-in user's own commission, through the salesperson linked to their login. */
+export const useMyCommission = (params: { from: string; to: string }) =>
+  useQuery({ queryKey: commissionKeys.mine(params), queryFn: () => getData<MyCommissionDto>("/commission/me", params) })
+
+export const useCommissionPayouts = (params: { from: string; to: string }) =>
+  useQuery({ queryKey: commissionKeys.payouts(params), queryFn: () => getData<ExpenseDto[]>("/commission/payouts", params) })
 
 export function useSaveSalesperson() {
   const queryClient = useQueryClient()

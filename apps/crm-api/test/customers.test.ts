@@ -97,7 +97,7 @@ describe("customer profiles", () => {
   it("lets cashiers create customers but not operations staff", async () => {
     expect((await createCustomer({ mobile: mobile() }, cashier)).status).toBe(201);
     expect((await createCustomer({ mobile: mobile() }, ops)).status).toBe(403);
-    expect((await api().get("/api/v1/customers").set(ops.auth)).status).toBe(200);
+    expect((await api().get("/api/v1/customers").set(ops.auth)).status).toBe(403);
   });
 });
 

@@ -7,6 +7,7 @@ import {
   type CommissionSummaryDto,
   type CommissionTotalsDto,
   type ExpenseDto,
+  type MyCommissionDto,
 } from "@repo/crm-schema";
 import { fromDbDate, toDbDate } from "../../core/dates";
 import { withTransaction } from "../../core/db";
@@ -15,7 +16,7 @@ import { dec, Decimal, decOrZero, money } from "../../core/money";
 import { nameKey } from "../../core/sequence";
 import { expenseInclude, getExpense, insertExpense, toExpenseDto } from "../expenses/expenses.service";
 import { commissionEntries, totalEntries, type CommissionEntry } from "./commission-maths";
-import { toSalespersonDto } from "./salespeople.service";
+import { salespersonInclude, toSalespersonDto } from "./salespeople.service";
 
 type Db = Tx | typeof prisma;
 
@@ -86,6 +87,13 @@ async function allPayouts(db: Db, salespersonId?: string) {
   }));
 }
 
+/** All-time net commission (earned less taken back by returns) per salesperson. */
+export async function netCommission(db: Db, salespersonIds: string[]): Promise<Map<string, Decimal>> {
+  const net = new Map<string, Decimal>();
+  for (const id of salespersonIds) net.set(id, totalEntries(await allEntries(db, id)).net);
+  return net;
+}
+
 const inPeriod = (q: CommissionQuery) => (r: { date: string }) => r.date >= q.from && r.date <= q.to;
 
 function totalsDto(period: CommissionEntry[], all: CommissionEntry[], paidInPeriod: Decimal, paidAllTime: Decimal): CommissionTotalsDto {
@@ -130,7 +138,7 @@ const ZERO_TOTALS: CommissionTotalsDto = {
 /** Each salesperson's commission for the period, and what is still owed to them overall. */
 export async function commissionSummary(query: CommissionQuery): Promise<CommissionSummaryDto> {
   const [people, entries, payouts] = await Promise.all([
-    prisma.salesperson.findMany({ orderBy: [{ isActive: "desc" }, { name: "asc" }] }),
+    prisma.salesperson.findMany({ include: salespersonInclude, orderBy: [{ isActive: "desc" }, { name: "asc" }] }),
     allEntries(prisma),
     allPayouts(prisma),
   ]);
@@ -160,7 +168,7 @@ export async function commissionSummary(query: CommissionQuery): Promise<Commiss
 
 /** One salesperson's sales and returns in the period, with the payouts made to them. */
 export async function commissionDetail(salespersonId: string, query: CommissionQuery): Promise<CommissionDetailDto> {
-  const person = await prisma.salesperson.findUnique({ where: { id: salespersonId } });
+  const person = await prisma.salesperson.findUnique({ where: { id: salespersonId }, include: salespersonInclude });
   if (!person) throw notFound("Salesperson");
   const [entries, payouts, payoutRows] = await Promise.all([
     allEntries(prisma, salespersonId),
@@ -197,6 +205,49 @@ export async function commissionDetail(salespersonId: string, query: CommissionQ
     })),
     payouts: payoutRows.map(toExpenseDto),
   };
+}
+
+/**
+ * The commission of the salesperson linked to this login: what each sale and
+ * return earned or took back, never the sale value or profit behind it.
+ */
+export async function myCommission(userId: string, query: CommissionQuery): Promise<MyCommissionDto> {
+  const person = await prisma.salesperson.findUnique({ where: { userId } });
+  const empty = { sales: 0, earned: "0.00", returned: "0.00", net: "0.00", paid: "0.00", owed: "0.00" };
+  if (!person) return { from: query.from, to: query.to, salesperson: null, totals: empty, entries: [], payouts: [] };
+  const detail = await commissionDetail(person.id, query);
+  const { sales, earned, returned, net, paid, owed } = detail.totals;
+  return {
+    from: query.from,
+    to: query.to,
+    salesperson: { id: person.id, staffCode: person.staffCode, name: person.name, commissionRate: person.commissionRate.toString() },
+    totals: { sales, earned, returned, net, paid, owed },
+    entries: detail.entries.map((e) => ({
+      kind: e.kind,
+      date: e.date,
+      orderCode: e.order.code,
+      returnCode: e.salesReturn?.code ?? null,
+      rate: e.rate,
+      commission: e.commission,
+    })),
+    payouts: detail.payouts.map((p) => ({
+      id: p.id,
+      code: p.code,
+      businessDate: p.businessDate,
+      amount: p.reversalOf ? money(dec(p.amount).neg()) : p.amount,
+      reference: p.reference,
+    })),
+  };
+}
+
+/** Every commission payout dated in the period, voids included, newest first. */
+export async function listPayouts(query: CommissionQuery): Promise<ExpenseDto[]> {
+  const rows = await prisma.expense.findMany({
+    where: { salespersonId: { not: null }, businessDate: { gte: toDbDate(query.from), lte: toDbDate(query.to) } },
+    include: expenseInclude,
+    orderBy: [{ businessDate: "desc" }, { createdAt: "desc" }],
+  });
+  return rows.map(toExpenseDto);
 }
 
 /**

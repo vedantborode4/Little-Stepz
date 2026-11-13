@@ -209,7 +209,7 @@ describe("shipped orders reserve at confirmation and deduct at dispatch", () => 
   it("holds stock, blocks others from taking it, then deducts once at dispatch", async () => {
     const variantId = await simple({}, 5);
     const buyer = await customer();
-    const created = await order(admin, { customerId: buyer, fulfilment: "DELIVERY", confirm: true, lines: [{ variantId, quantity: 4 }] });
+    const created = await order(cashier, { customerId: buyer, fulfilment: "DELIVERY", confirm: true, lines: [{ variantId, quantity: 4 }] });
     expect(created.status).toBe(201);
     expect(created.body.data.status).toBe("CONFIRMED");
     expect(created.body.data.lines[0].reservedQty).toBe(4);

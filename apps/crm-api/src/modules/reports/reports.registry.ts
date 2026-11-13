@@ -70,7 +70,7 @@ const costCols = (ctx: ReportContext, cols: Row): Row => (ctx.costs ? cols : {})
 async function salesByPeriod(periods: { label: string; from: string; to: string }[], ctx: ReportContext): Promise<Row[]> {
   const out: Row[] = [];
   for (const p of periods) {
-    const s = await salesSummary({ from: p.from, to: p.to }, { costs: ctx.costs });
+    const s = await salesSummary({ from: p.from, to: p.to }, { costs: ctx.costs }, null);
     out.push({
       Period: p.label,
       Orders: s.orders,
@@ -310,7 +310,7 @@ export const REPORTS: ReportSpec[] = [
     permissions: ["payments.view"],
     async load(q) {
       const w = window(q, 31);
-      const { items } = await listPayments(paymentListQuery.parse({ ...all, ...w }));
+      const { items } = await listPayments(paymentListQuery.parse({ ...all, ...w }), null);
       return items.map((p) => ({
         Payment: p.code,
         Date: p.businessDate,
@@ -335,7 +335,7 @@ export const REPORTS: ReportSpec[] = [
     filters: ["customer"],
     permissions: ["payments.view"],
     async load(q) {
-      const { items } = await listOutstanding(outstandingQuery.parse({ ...all, customerId: q.customerId }));
+      const { items } = await listOutstanding(outstandingQuery.parse({ ...all, customerId: q.customerId }), null);
       return items.map((o) => ({
         Order: o.code,
         Customer: o.customer?.name ?? "Walk-in",
@@ -360,7 +360,7 @@ export const REPORTS: ReportSpec[] = [
     filters: ["customer"],
     permissions: ["payments.view"],
     async load(q) {
-      const { items } = await listAdvances(advancesQuery.parse({ ...all, customerId: q.customerId }));
+      const { items } = await listAdvances(advancesQuery.parse({ ...all, customerId: q.customerId }), null);
       return items.map((a) => ({
         Order: a.code,
         Type: SALES_ORDER_TYPE_LABELS[a.type],

@@ -58,13 +58,13 @@ async function customer(extra: Record<string, unknown> = {}) {
 }
 
 /** A completed POS sale; walk-ins pay the quoted total in cash unless `payments` is given. */
-async function sale(lines: { variantId: string; quantity: number }[], extra: Record<string, unknown> = {}) {
+async function sale(lines: { variantId: string; quantity: number }[], extra: Record<string, unknown> = {}, session = admin) {
   const body: Record<string, unknown> = { locationId: store, channel: "STORE", idempotencyKey: randomUUID(), lines, ...extra };
   if (!("payments" in extra) && !extra.customerId) {
-    const quote = await api().post("/api/v1/sales/quote").set(admin.auth).send(body);
+    const quote = await api().post("/api/v1/sales/quote").set(session.auth).send(body);
     body.payments = [{ accountId: cash, amount: quote.body.data.totals.grandTotal }];
   }
-  const res = await api().post("/api/v1/sales/pos").set(admin.auth).send(body);
+  const res = await api().post("/api/v1/sales/pos").set(session.auth).send(body);
   expect(res.status).toBe(201);
   return res.body.data as { id: string; code: string; lines: { id: string; variantId: string }[]; grandTotal: string };
 }
@@ -295,7 +295,7 @@ describe("exchanges", () => {
 
   it("lists returns and lets cashiers see them but not create them", async () => {
     const v = await item("500");
-    const s = await sale([{ variantId: v, quantity: 1 }]);
+    const s = await sale([{ variantId: v, quantity: 1 }], {}, cashier);
     expect((await ret(s.id, { lines: [{ orderLineId: lineOf(s, v), quantity: 1, condition: "RESELLABLE" }] }, cashier)).status).toBe(403);
     await ret(s.id, {
       lines: [{ orderLineId: lineOf(s, v), quantity: 1, condition: "RESELLABLE" }],

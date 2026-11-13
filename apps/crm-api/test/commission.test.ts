@@ -147,7 +147,7 @@ describe("salespeople and who can see what", () => {
     const options = await api().get("/api/v1/salespeople/options").set(cashier.auth);
     expect(options.status).toBe(200);
     const mine = options.body.data.find((o: { id: string }) => o.id === p.id);
-    expect(mine).toEqual({ id: p.id, staffCode: p.staffCode, name: expect.any(String) });
+    expect(mine).toEqual({ id: p.id, staffCode: p.staffCode, name: expect.any(String), isMine: false });
 
     expect((await api().get("/api/v1/salespeople").set(cashier.auth)).status).toBe(403);
     expect((await api().post("/api/v1/salespeople").set(cashier.auth).send({ name: "X", commissionRate: "1" })).status).toBe(403);

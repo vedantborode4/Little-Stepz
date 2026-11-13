@@ -23,7 +23,7 @@ const packageParams = z.object({ id: z.string().uuid(), packageId: z.string().uu
 
 export const shipmentsRoutes = Router();
 
-shipmentsRoutes.get("/", requireAnyPermission("shipping.manage", "sales.view"), async (req: Request, res: Response) => {
+shipmentsRoutes.get("/", requireAnyPermission("shipping.manage", "sales.view.all"), async (req: Request, res: Response) => {
   const query = shipmentListQuery.parse(req.query);
   const result = await shipments.listShipments(query);
   if (query.format) {
@@ -48,11 +48,11 @@ shipmentsRoutes.get("/", requireAnyPermission("shipping.manage", "sales.view"), 
   sendData(res, result);
 });
 
-shipmentsRoutes.get("/summary", requireAnyPermission("shipping.manage", "sales.view"), async (_req: Request, res: Response) => {
+shipmentsRoutes.get("/summary", requireAnyPermission("shipping.manage", "sales.view.all"), async (_req: Request, res: Response) => {
   sendData(res, await shipments.shipmentSummary());
 });
 
-shipmentsRoutes.get("/:id", requireAnyPermission("shipping.manage", "sales.view"), async (req: Request, res: Response) => {
+shipmentsRoutes.get("/:id", requireAnyPermission("shipping.manage", "sales.view.all"), async (req: Request, res: Response) => {
   const { id } = idParam.parse(req.params);
   sendData(res, await shipments.getShipment(id));
 });

@@ -15,15 +15,21 @@ export const PERMISSIONS = [
   "inventory.move",
   /** Opening stock, write-offs, adjustments and reversals — corrections that change physical stock. */
   "inventory.adjust",
+  /** Setting an item's landed cost after its stock is in — revalues stock and re-costs the sales it covers. */
+  "inventory.cost",
   "purchases.view",
   "purchases.manage",
   "purchases.receive",
   /** Money paid to and owed by suppliers: advances, goods received against them, refunds and credit. */
   "suppliers.ledger",
   "sales.view",
+  /** Every sale. Without it, `sales.view` shows only the user's own sales plus open counter orders waiting for pickup. */
+  "sales.view.all",
   "sales.create",
   "sales.manage",
   "payments.view",
+  /** Every payment. Without it, `payments.view` shows only payments the user recorded, and only their own orders' balances. */
+  "payments.view.all",
   "payments.record",
   "payments.refund",
   /** Moving money between receiving accounts (e.g. cash to bank). */
@@ -42,6 +48,8 @@ export const PERMISSIONS = [
   "expenses.manage",
   /** Salespeople, their commission rates, commission earned and payouts. */
   "commission.manage",
+  /** "My commission": the commission of the salesperson linked to the user's login. */
+  "commission.view.own",
   "stockcount.perform",
   "stockcount.approve",
   "reports.view",
@@ -56,7 +64,6 @@ export type Permission = (typeof PERMISSIONS)[number];
 export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   ADMIN: PERMISSIONS,
   CASHIER: [
-    "dashboard.view",
     "products.view",
     "inventory.view",
     "sales.view",
@@ -67,18 +74,16 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "customers.manage",
     "customers.contact.reveal",
     "cash.close",
-    "reports.view",
+    "commission.view.own",
   ],
   OPS: [
-    "dashboard.view",
     "products.view",
     "inventory.view",
     "inventory.move",
     "purchases.view",
     "purchases.receive",
     "sales.view",
-    "customers.view",
-    "customers.contact.reveal",
+    "sales.view.all",
     "shipping.manage",
     "stockcount.perform",
   ],

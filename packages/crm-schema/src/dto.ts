@@ -357,6 +357,45 @@ export interface VariantStockCardDto {
   stock: StockRowDto;
   reconciliation: StockReconciliationDto;
   recent: LedgerRowDto[];
+  /** Landed costs set by hand, newest first; only for roles that see costs. */
+  landedCosts?: LandedCostEntryDto[];
+}
+
+export interface LandedCostEntryDto {
+  id: string;
+  code: string;
+  unitCost: string;
+  previousUnitCost: string | null;
+  stockQty: number;
+  unknownStockQty: number;
+  stockValueChange: string;
+  filledSoldQty: number;
+  recostedSoldQty: number;
+  cogsChange: string;
+  reason: string;
+  importBatchCode: string | null;
+  createdByName: string | null;
+  createdAt: string;
+}
+
+/** What setting a landed cost would change, worked out without saving. */
+export interface SetLandedCostPreviewDto {
+  sku: string;
+  unitCost: string;
+  previousUnitCost: string | null;
+  stockQty: number;
+  unknownStockQty: number;
+  stockValueBefore: string;
+  stockValueAfter: string;
+  filledSoldQty: number;
+  recostedSoldQty: number;
+  /** Sales whose cost changes. */
+  orders: number;
+  cogsChange: string;
+  /** Workbook-imported past sales of this item with no cost; they stay unknown. */
+  untouchedHistoricalQty: number;
+  /** Net commission change per salesperson whose sales are re-costed (negative = less earned). */
+  commission: { salespersonId: string; name: string; staffCode: string; change: string }[];
 }
 
 export interface VariantSearchResultDto {
@@ -1508,9 +1547,16 @@ export interface SalespersonOptionDto {
   name: string;
 }
 
+/** The till's picker; `isMine` marks the salesperson linked to the signed-in user. */
+export interface SalespersonPickDto extends SalespersonOptionDto {
+  isMine: boolean;
+}
+
 export interface SalespersonDto extends SalespersonOptionDto {
   commissionRate: string;
   isActive: boolean;
+  /** The CRM login that sees this commission on "My commission". */
+  user: { id: string; name: string } | null;
 }
 
 /**
@@ -1568,4 +1614,25 @@ export interface CommissionDetailDto {
   entries: CommissionEntryDto[];
   /** Payouts dated in the period, voids included. */
   payouts: ExpenseDto[];
+}
+
+/** A line of "My commission": the commission only, never the sale value or profit behind it. */
+export interface MyCommissionEntryDto {
+  kind: "SALE" | "RETURN";
+  date: string;
+  orderCode: string;
+  returnCode: string | null;
+  rate: string;
+  commission: string;
+}
+
+/** What a salesperson sees of their own commission. `salesperson` is null when their login isn't linked to one. */
+export interface MyCommissionDto {
+  from: string;
+  to: string;
+  salesperson: (SalespersonOptionDto & { commissionRate: string }) | null;
+  totals: Pick<CommissionTotalsDto, "sales" | "earned" | "returned" | "net" | "paid" | "owed">;
+  entries: MyCommissionEntryDto[];
+  /** Payouts dated in the period; a void shows as a negative amount. */
+  payouts: { id: string; code: string; businessDate: string; amount: string; reference: string | null }[];
 }

@@ -4,22 +4,26 @@ import type { ColumnDef } from "@tanstack/react-table"
 import { Pencil, Plus } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
-import { createSalespersonSchema, type SalespersonDto } from "@repo/crm-schema"
+import { createSalespersonSchema, ROLE_LABELS, type SalespersonDto } from "@repo/crm-schema"
 import Button from "@/components/ui/Button"
 import DataTable from "@/components/ui/DataTable"
 import { Badge } from "@/components/ui/Display"
-import { Checkbox, Field, FormError, Input } from "@/components/ui/Form"
+import { Checkbox, Field, FormError, Input, Select } from "@/components/ui/Form"
 import Modal from "@/components/ui/Modal"
 import { ListToolbar } from "@/components/ui/Toolbar"
 import { useApiForm } from "@/lib/use-api-form"
+import { useUsers } from "../users/api"
 import { useSalespeople, useSaveSalesperson } from "./api"
 
 function SalespersonModal({ person, onClose }: { person: SalespersonDto | null; onClose: () => void }) {
   const save = useSaveSalesperson()
+  const users = useUsers({ limit: 100, sort: "name:asc" })
+  const logins = (users.data?.items ?? []).filter((u) => u.isActive || u.id === person?.user?.id)
   const { form, formError, submitWith } = useApiForm(createSalespersonSchema, {
     name: person?.name ?? "",
     commissionRate: person?.commissionRate ?? "",
     isActive: person?.isActive ?? true,
+    userId: person?.user?.id ?? "",
   })
   const { register, formState } = form
   const e = formState.errors
@@ -64,6 +68,21 @@ function SalespersonModal({ person, onClose }: { person: SalespersonDto | null; 
         >
           <Input id="sp-rate" inputMode="decimal" placeholder="2.5" {...register("commissionRate")} />
         </Field>
+        <Field
+          label="CRM login"
+          htmlFor="sp-user"
+          error={e.userId?.message}
+          hint={'Whoever signs in with this login sees this commission under "My commission", and the till picks them by default.'}
+        >
+          <Select id="sp-user" {...register("userId")}>
+            <option value="">Not linked</option>
+            {logins.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.name} ({ROLE_LABELS[u.role]})
+              </option>
+            ))}
+          </Select>
+        </Field>
         <Checkbox id="sp-active" label="Active (can be picked at checkout)" {...register("isActive")} />
       </form>
     </Modal>
@@ -83,6 +102,7 @@ export default function SalespeoplePanel() {
       meta: { align: "right", cellClassName: "tabular" },
       cell: ({ row }) => `${row.original.commissionRate}%`,
     },
+    { id: "login", header: "CRM login", cell: ({ row }) => row.original.user?.name ?? <span className="text-faint">Not linked</span> },
     {
       id: "status",
       header: "Status",
@@ -132,6 +152,7 @@ export default function SalespeoplePanel() {
               </p>
               <p className="text-xs text-muted">
                 {p.commissionRate}% · {p.isActive ? "Active" : "Inactive"}
+                {p.user && ` · login ${p.user.name}`}
               </p>
             </div>
             <Button variant="secondary" size="sm" onClick={() => setEditing(p)}>

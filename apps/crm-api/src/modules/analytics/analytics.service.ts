@@ -38,7 +38,7 @@ export async function profitWaterfall(query: AnalyticsRangeQuery): Promise<Profi
   const dates = range(query);
   const fulfilled: Prisma.SalesOrderWhereInput = { fulfilledAt: { not: null }, fulfilledDate: dates };
   const [summary, orders, returns, shipping, fees, expenses, reductions, lateCharges] = await Promise.all([
-    salesSummary(query, { costs: true }),
+    salesSummary(query, { costs: true }, null),
     prisma.salesOrder.aggregate({
       where: fulfilled,
       _count: true,
@@ -325,7 +325,7 @@ export async function dashboard(query: DashboardQuery, rights: DashboardRights):
 
   const period = async (from: string, to: string) => {
     if (scoped) return scopedSales(scope, from, to);
-    const s = await salesSummary({ from, to }, { costs: false });
+    const s = await salesSummary({ from, to }, { costs: false }, null);
     return { grossSales: s.grossSales, netSales: s.netSales, orders: s.orders };
   };
   // Filtered to products, only their lines count: whole-order totals would carry other items and shipping.
@@ -470,9 +470,9 @@ export async function dashboard(query: DashboardQuery, rights: DashboardRights):
 
   if (rights.payments) {
     const [todayCollections, monthCollections, advances, outstanding] = await Promise.all([
-      collections({ from: today, to: today }),
-      collections(monthRange),
-      advancesSummary(),
+      collections({ from: today, to: today }, null),
+      collections(monthRange, null),
+      advancesSummary(null),
       outstandingSummary({}),
     ]);
     const method = (m: string) => todayCollections.byMethod.find((x) => x.method === m)?.net ?? "0.00";

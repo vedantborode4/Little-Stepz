@@ -3,6 +3,7 @@ import type { SalesSummaryDto, SalesSummaryQuery } from "@repo/crm-schema";
 import { toDbDate } from "../../core/dates";
 import { decOrZero, money } from "../../core/money";
 import type { Visibility } from "./sales.mappers";
+import { scopeWhere, type SalesScope } from "./scope";
 
 /**
  * Sales recognised in a period: orders fulfilled (handed over or dispatched) on
@@ -11,9 +12,9 @@ import type { Visibility } from "./sales.mappers";
  * whose cost is fully known; returned units take their revenue back, and their
  * cost too unless they were written off.
  */
-export async function salesSummary(query: SalesSummaryQuery, visibility: Visibility): Promise<SalesSummaryDto> {
+export async function salesSummary(query: SalesSummaryQuery, visibility: Visibility, scope: SalesScope): Promise<SalesSummaryDto> {
   const range = { gte: toDbDate(query.from), lte: toDbDate(query.to) };
-  const where: Prisma.SalesOrderWhereInput = { fulfilledAt: { not: null }, fulfilledDate: range };
+  const where: Prisma.SalesOrderWhereInput = { fulfilledAt: { not: null }, fulfilledDate: range, AND: [scopeWhere(scope)] };
   const [orders, byChannel, lines, returns, returnLines] = await Promise.all([
     prisma.salesOrder.aggregate({
       where,
@@ -23,11 +24,14 @@ export async function salesSummary(query: SalesSummaryQuery, visibility: Visibil
     prisma.salesOrder.groupBy({ by: ["channel"], where, _count: true, _sum: { grandTotal: true }, orderBy: { channel: "asc" } }),
     prisma.salesOrderLine.aggregate({ where: { order: where }, _sum: { quantity: true, taxableValue: true, unknownCostQty: true } }),
     prisma.salesReturn.aggregate({
-      where: { businessDate: range },
+      where: { businessDate: range, order: scopeWhere(scope) },
       _count: true,
       _sum: { amount: true, taxableValue: true, gstAmount: true },
     }),
-    prisma.salesReturnLine.aggregate({ where: { salesReturn: { businessDate: range } }, _sum: { quantity: true, taxableValue: true } }),
+    prisma.salesReturnLine.aggregate({
+      where: { salesReturn: { businessDate: range, order: scopeWhere(scope) } },
+      _sum: { quantity: true, taxableValue: true },
+    }),
   ]);
 
   const summary: SalesSummaryDto = {

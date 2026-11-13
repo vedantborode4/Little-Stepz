@@ -28,12 +28,12 @@ export async function receivePayment(input: ReceivePaymentInput, ctx: RequestCon
       excessToCredit: input.excessToCredit,
     });
   });
-  return getPayment(payment.id);
+  return getPayment(payment.id, null);
 }
 
 export async function voidPaymentById(id: string, reason: string, ctx: RequestContext) {
   await withTransaction((tx) => voidPayment(tx, ctx, id, reason));
-  return getPayment(id);
+  return getPayment(id, null);
 }
 
 export async function applyCustomerCredit(customerId: string, input: ApplyCreditInput, ctx: RequestContext) {

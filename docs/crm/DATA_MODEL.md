@@ -65,6 +65,7 @@ Source of truth: `packages/crm-db/prisma/schema.prisma`. This page explains the 
 | `ShipmentCharge` | Freight, customs duty, clearing, IGST, GST, transport, insurance, other; in INR or the purchase currency (converted at the purchase rate) | `isRecoverableTax` charges (IGST/GST by default) are **kept out of inventory cost** and reported as input tax credit. Locked with the parent. |
 | `CostAdjustment` (+ lines) | A charge that arrived after receipt | **Append-only.** Split by the chosen method. For each line, the share for units still on hand revalues stock (`revalueStock`) and the rest goes to cost of sales. Recoverable tax is only recorded. |
 | `PurchaseReturn` (+ lines) | Goods sent back to the supplier from a received purchase | **Append-only.** Can't exceed received − already returned. Posts a `PURCHASE_RETURN` stock document at the current average cost. |
+| `LandedCostEntry` (+ `LandedCostSaleLine`) | A landed cost set by an admin for one variant after its stock is in (by hand or a `LANDED_COSTS` import) | **Append-only.** Stock on hand (`VariantCost`) moves to the new cost; sales lines that left with an unknown cost get it and lines an earlier entry costed (tracked in `LandedCostSaleLine`) are re-costed, with their return lines worked out again. Lines costed at dispatch from a known cost and workbook-imported sales never change. Sold costs and return lines are otherwise locked by triggers; only a transaction that sets `crm.landed_cost_entry` to its own entry may re-cost them. The stock ledger is not rewritten. |
 
 **Landed unit cost** = unit price × exchange rate + (allocated non-recoverable charges ÷ quantity).
 - Charges are split **by purchase value** by default (duty is value-based), or by quantity, weight or volume.
@@ -228,7 +229,7 @@ No new tables: a pre-order is a `SalesOrder` with `type = PRE_ORDER`, so its adv
 
 | Model | Purpose | Key rules |
 |---|---|---|
-| `Salesperson` | Staff who earn commission: staff ID (`staffCode`, unique case-insensitively via `staffKey`), name, `commissionRate` % of gross profit | Not CRM users. Never deleted, only deactivated. Rate 0–100 (DB `CHECK`). The staff ID is assigned on create (`S` + one past the highest S-number, under an advisory lock) and never changes. |
+| `Salesperson` | Staff who earn commission: staff ID (`staffCode`, unique case-insensitively via `staffKey`), name, `commissionRate` % of gross profit | Not CRM users. Never deleted, only deactivated. Rate 0–100 (DB `CHECK`). The staff ID is assigned on create (`S` + one past the highest S-number, under an advisory lock) and never changes. Optional `userId` (unique) links the CRM login that sees this commission on "My commission" and is preselected at the till; `ON DELETE SET NULL`. |
 | `SalesOrder.salespersonId` + `commissionRate` | Who made the sale and their % **frozen** when they were put on it | Both set or both null (DB `CHECK`). Not covered by the post-DRAFT lock, so an admin can change it later (event + audit). |
 | `Expense.salespersonId` | Marks an expense as a commission payout (category "Staff commission", seeded by the migration) | Copied onto a void's reversal row. Manual expenses can't use that category. |
 

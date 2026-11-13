@@ -7,7 +7,7 @@ import {
   includeInactiveQuery,
   updateSalespersonSchema,
 } from "@repo/crm-schema";
-import { requireAnyPermission, requirePermission } from "../../core/auth";
+import { currentUser, requireAnyPermission, requirePermission } from "../../core/auth";
 import { requestContext, sendData } from "../../core/http";
 import * as commission from "./commission.service";
 import * as salespeople from "./salespeople.service";
@@ -17,8 +17,8 @@ const manage = requirePermission("commission.manage");
 export const salespeopleRoutes = Router();
 
 /** The checkout picker: names and staff IDs only. */
-salespeopleRoutes.get("/options", requireAnyPermission("sales.create", "commission.manage"), async (_req: Request, res: Response) => {
-  sendData(res, await salespeople.listOptions());
+salespeopleRoutes.get("/options", requireAnyPermission("sales.create", "commission.manage"), async (req: Request, res: Response) => {
+  sendData(res, await salespeople.listOptions(currentUser(req).id));
 });
 
 salespeopleRoutes.get("/", manage, async (req: Request, res: Response) => {
@@ -36,6 +36,11 @@ salespeopleRoutes.patch("/:id", manage, async (req: Request, res: Response) => {
 });
 
 export const commissionRoutes = Router();
+
+commissionRoutes.get("/me", requirePermission("commission.view.own"), async (req: Request, res: Response) => {
+  sendData(res, await commission.myCommission(currentUser(req).id, commissionQuery.parse(req.query)));
+});
+
 commissionRoutes.use(manage);
 
 commissionRoutes.get("/", async (req: Request, res: Response) => {
@@ -45,6 +50,10 @@ commissionRoutes.get("/", async (req: Request, res: Response) => {
 commissionRoutes.get("/salespeople/:id", async (req: Request, res: Response) => {
   const { id } = idParam.parse(req.params);
   sendData(res, await commission.commissionDetail(id, commissionQuery.parse(req.query)));
+});
+
+commissionRoutes.get("/payouts", async (req: Request, res: Response) => {
+  sendData(res, await commission.listPayouts(commissionQuery.parse(req.query)));
 });
 
 commissionRoutes.post("/payouts", async (req: Request, res: Response) => {

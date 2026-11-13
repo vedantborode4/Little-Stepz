@@ -259,15 +259,8 @@ describe("Dashboard", () => {
     expect(asAdmin.inventory.costValue).toEqual(expect.any(String));
     expect(asAdmin.payments).toEqual(expect.objectContaining({ collectedToday: expect.any(String), advances: expect.any(String) }));
 
-    const asCashier = (await api().get("/api/v1/analytics/dashboard").set(cashier.auth)).body.data;
-    expect(asCashier.payments).toBeDefined();
-    expect(asCashier.profit).toBeUndefined();
-    expect(asCashier.inventory.costValue).toBeUndefined();
-
-    const asOps = (await api().get("/api/v1/analytics/dashboard").set(ops.auth)).body.data;
-    expect(asOps.payments).toBeUndefined();
-    expect(asOps.profit).toBeUndefined();
-    expect(asOps.collectionsByMethod).toBeUndefined();
+    expect((await api().get("/api/v1/analytics/dashboard").set(cashier.auth)).status).toBe(403);
+    expect((await api().get("/api/v1/analytics/dashboard").set(ops.auth)).status).toBe(403);
   });
 
   it("scopes stock and charts to a category", async () => {
@@ -314,16 +307,12 @@ describe("Dashboard", () => {
 });
 
 describe("Reports", () => {
-  it("lists every report to an admin and hides the financial ones from a cashier", async () => {
+  it("lists every report to an admin and none to cashiers or operations staff", async () => {
     const all = (await api().get("/api/v1/reports").set(admin.auth)).body.data as { key: string }[];
     expect(all.map((r) => r.key).sort()).toEqual([...REPORT_KEYS].sort());
 
-    const forCashier = ((await api().get("/api/v1/reports").set(cashier.auth)).body.data as { key: string }[]).map((r) => r.key);
-    expect(forCashier).not.toContain("profit-by-product");
-    expect(forCashier).not.toContain("inventory-valuation");
-    expect(forCashier).not.toContain("purchase-history");
-    expect(forCashier).toContain("daily-sales");
-    expect((await api().get("/api/v1/reports/profit-by-product").set(cashier.auth)).status).toBe(403);
+    expect((await api().get("/api/v1/reports").set(cashier.auth)).status).toBe(403);
+    expect((await api().get("/api/v1/reports/daily-sales").set(cashier.auth)).status).toBe(403);
     expect((await api().get("/api/v1/reports").set(ops.auth)).status).toBe(403);
   });
 
@@ -340,13 +329,7 @@ describe("Reports", () => {
     expect(xlsx.headers["content-type"]).toContain("spreadsheetml");
   });
 
-  it("keeps cost columns from a cashier and masks customer phone numbers", async () => {
-    const asAdmin = (await api().get("/api/v1/reports/variant-stock").query({ categoryId }).set(admin.auth)).body.data;
-    const asCashier = (await api().get("/api/v1/reports/variant-stock").query({ categoryId }).set(cashier.auth)).body.data;
-    expect(asAdmin.columns).toContain("Stock value");
-    expect(asCashier.columns).not.toContain("Stock value");
-    expect(asCashier.rows.length).toBe(asAdmin.rows.length);
-
+  it("masks customer phone numbers in reports", async () => {
     const purchases = (await api().get("/api/v1/reports/customer-purchases").query({ from: today(), to: today() }).set(admin.auth)).body
       .data;
     const mobile = purchases.columns.indexOf("Mobile");

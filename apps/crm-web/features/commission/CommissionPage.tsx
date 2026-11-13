@@ -1,11 +1,12 @@
 "use client"
 
 import type { ColumnDef } from "@tanstack/react-table"
+import clsx from "clsx"
 import { HandCoins, Wallet } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
 import { toast } from "sonner"
-import type { CommissionSummaryRowDto, SalespersonDto } from "@repo/crm-schema"
+import type { CommissionSummaryRowDto, ExpenseDto, SalespersonDto } from "@repo/crm-schema"
 import Button from "@/components/ui/Button"
 import DataTable from "@/components/ui/DataTable"
 import { Badge, Card, PageHeader, StatCard } from "@/components/ui/Display"
@@ -17,7 +18,7 @@ import { downloadExport } from "@/lib/download"
 import { formatDate, formatMoney, todayIST } from "@/lib/format"
 import { ExpenseDetail } from "../finance/ExpensesList"
 import { AccountSelect } from "../payments/shared"
-import { useCommissionDetail, useCommissionSummary, useRecordPayout } from "./api"
+import { useCommissionDetail, useCommissionPayouts, useCommissionSummary, useRecordPayout } from "./api"
 
 type Period = { from: string; to: string }
 
@@ -240,12 +241,188 @@ function DetailModal({ id, period, onPay, onClose }: { id: string; period: Perio
   )
 }
 
+type View = "summary" | "toPay" | "payouts"
+
+const VIEWS: { key: View; label: string }[] = [
+  { key: "summary", label: "Summary" },
+  { key: "toPay", label: "To pay" },
+  { key: "payouts", label: "Payouts" },
+]
+
+/** Everyone owed commission right now (all time), most owed first, each with a one-click payout. */
+function ToPay({ rows, loading, onPay }: { rows: CommissionSummaryRowDto[]; loading: boolean; onPay: (id: string) => void }) {
+  const owing = rows.filter((r) => Number(r.owed) > 0).sort((a, b) => Number(b.owed) - Number(a.owed))
+  const total = owing.reduce((s, r) => s + Number(r.owed), 0)
+  const columns: ColumnDef<CommissionSummaryRowDto>[] = [
+    {
+      id: "name",
+      header: "Salesperson",
+      cell: ({ row }) => (
+        <span>
+          <span className="font-medium">{row.original.salesperson.name}</span>{" "}
+          <span className="font-mono text-xs text-muted">{row.original.salesperson.staffCode}</span>
+        </span>
+      ),
+    },
+    { id: "login", header: "CRM login", cell: ({ row }) => row.original.salesperson.user?.name ?? <span className="text-faint">—</span> },
+    {
+      id: "owed",
+      header: "To pay",
+      meta: { align: "right", cellClassName: "font-semibold tabular" },
+      cell: ({ row }) => formatMoney(row.original.owed),
+    },
+    {
+      id: "pay",
+      meta: { align: "right" },
+      cell: ({ row }) => (
+        <Button size="sm" icon={<HandCoins size={14} />} onClick={() => onPay(row.original.salesperson.id)}>
+          Pay
+        </Button>
+      ),
+    },
+  ]
+  return (
+    <Card>
+      <p className="text-sm text-muted mb-3">
+        Total to pay <span className="font-semibold text-text tabular">{formatMoney(total)}</span> to {owing.length}{" "}
+        {owing.length === 1 ? "person" : "people"}. This is everything earned and not yet paid, all time.
+      </p>
+      <DataTable
+        columns={columns}
+        data={loading ? undefined : owing}
+        total={owing.length}
+        page={1}
+        limit={100}
+        loading={loading}
+        onPageChange={() => {}}
+        getRowId={(r) => r.salesperson.id}
+        emptyTitle="Nothing to pay"
+        emptyHint="Everyone has been paid all the commission they've earned."
+        mobileCard={(r) => (
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold truncate">
+                {r.salesperson.name} <span className="font-mono text-xs text-muted">{r.salesperson.staffCode}</span>
+              </p>
+              <p className="text-sm font-semibold tabular">{formatMoney(r.owed)}</p>
+            </div>
+            <Button size="sm" onClick={() => onPay(r.salesperson.id)}>
+              Pay
+            </Button>
+          </div>
+        )}
+      />
+    </Card>
+  )
+}
+
+/** Every payout dated in the period, voids included. */
+function Payouts({ period, dates }: { period: Period; dates: React.ReactNode }) {
+  const { data, isLoading } = useCommissionPayouts(period)
+  const [openId, setOpenId] = useState<string | null>(null)
+  const signed = (p: ExpenseDto) => (p.reversalOf ? -Number(p.amount) : Number(p.amount))
+  const columns: ColumnDef<ExpenseDto>[] = [
+    { id: "date", header: "Date", meta: { cellClassName: "whitespace-nowrap" }, cell: ({ row }) => formatDate(row.original.businessDate) },
+    { id: "code", header: "Payout", meta: { cellClassName: "font-mono text-xs" }, cell: ({ row }) => row.original.code },
+    {
+      id: "to",
+      header: "Paid to",
+      cell: ({ row }) =>
+        row.original.salesperson ? (
+          <span>
+            {row.original.salesperson.name} <span className="font-mono text-xs text-muted">{row.original.salesperson.staffCode}</span>
+          </span>
+        ) : null,
+    },
+    { id: "account", header: "Paid from", cell: ({ row }) => row.original.account.name },
+    {
+      id: "reference",
+      header: "Reference",
+      cell: ({ row }) => (
+        <span>
+          {row.original.reference ?? ""}
+          {row.original.reversalOf && <span className="text-faint"> · voids {row.original.reversalOf.code}</span>}
+          {row.original.reversedBy && (
+            <span className="ml-2">
+              <Badge tone="gray">Voided</Badge>
+            </span>
+          )}
+        </span>
+      ),
+    },
+    {
+      id: "amount",
+      header: "Amount",
+      meta: { align: "right", cellClassName: "tabular font-medium" },
+      cell: ({ row }) => formatMoney(signed(row.original)),
+    },
+  ]
+  const total = (data ?? []).reduce((s, p) => s + signed(p), 0)
+  return (
+    <Card>
+      <ListToolbar>{dates}</ListToolbar>
+      <p className="text-sm text-muted mb-3">
+        Paid out in these dates <span className="font-semibold text-text tabular">{formatMoney(total)}</span>, after voids.
+      </p>
+      <DataTable
+        columns={columns}
+        data={data}
+        total={data?.length ?? 0}
+        page={1}
+        limit={1000}
+        loading={isLoading}
+        onPageChange={() => {}}
+        onRowClick={(p) => setOpenId(p.id)}
+        getRowId={(p) => p.id}
+        emptyTitle="No payouts in these dates"
+        mobileCard={(p) => (
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold truncate">
+                {p.salesperson ? `${p.salesperson.name} (${p.salesperson.staffCode})` : p.code}
+              </p>
+              <p className="text-xs text-muted">
+                {formatDate(p.businessDate)} · {p.account.name}
+                {p.reversedBy && " · voided"}
+              </p>
+            </div>
+            <p className="text-sm font-semibold tabular">{formatMoney(signed(p))}</p>
+          </div>
+        )}
+      />
+      {openId && <ExpenseDetail id={openId} onClose={() => setOpenId(null)} />}
+    </Card>
+  )
+}
+
 export default function CommissionPage() {
   const [period, setPeriod] = useState<Period>(() => ({ from: `${todayIST().slice(0, 7)}-01`, to: todayIST() }))
   const { data, isLoading } = useCommissionSummary(period)
   const [openId, setOpenId] = useState<string | null>(null)
   const [paying, setPaying] = useState<{ initial: string | null } | null>(null)
+  const [view, setView] = useState<View>("summary")
   const rows = data?.rows ?? []
+  const owingCount = rows.filter((r) => Number(r.owed) > 0).length
+  const dates = (
+    <div className="flex gap-2">
+      <Input
+        type="date"
+        aria-label="From date"
+        value={period.from}
+        max={period.to}
+        onChange={(e) => e.target.value && setPeriod((p) => ({ ...p, from: e.target.value }))}
+        className="py-2 sm:w-40"
+      />
+      <Input
+        type="date"
+        aria-label="To date"
+        value={period.to}
+        min={period.from}
+        onChange={(e) => e.target.value && setPeriod((p) => ({ ...p, to: e.target.value }))}
+        className="py-2 sm:w-40"
+      />
+    </div>
+  )
 
   const columns: ColumnDef<CommissionSummaryRowDto>[] = [
     {
@@ -310,26 +487,29 @@ export default function CommissionPage() {
         <StatCard title="Paid out" value={formatMoney(data?.totals.paid ?? 0)} hint="In the period" icon={<Wallet size={18} />} />
         <StatCard title="Owed now" value={formatMoney(data?.totals.owed ?? 0)} hint="All salespeople, all time" />
       </div>
-      <Card>
+      <div role="tablist" className="flex gap-1 overflow-x-auto scrollbar-none border-b border-border -mx-4 px-4 sm:mx-0 sm:px-0">
+        {VIEWS.map((v) => (
+          <button
+            key={v.key}
+            type="button"
+            role="tab"
+            aria-selected={view === v.key}
+            onClick={() => setView(v.key)}
+            className={clsx(
+              "px-3 sm:px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 -mb-px transition-colors",
+              view === v.key ? "border-primary text-primary" : "border-transparent text-muted hover:text-text",
+            )}
+          >
+            {v.label}
+            {v.key === "toPay" && owingCount > 0 && <span className="ml-1.5 text-xs text-muted">({owingCount})</span>}
+          </button>
+        ))}
+      </div>
+      {view === "toPay" && <ToPay rows={rows} loading={isLoading} onPay={(id) => setPaying({ initial: id })} />}
+      {view === "payouts" && <Payouts period={period} dates={dates} />}
+      <Card className={view === "summary" ? undefined : "hidden"}>
         <ListToolbar actions={<ExportMenu onExport={(format) => downloadExport("/reports/salesperson-commission", period, format)} />}>
-          <div className="flex gap-2">
-            <Input
-              type="date"
-              aria-label="From date"
-              value={period.from}
-              max={period.to}
-              onChange={(e) => e.target.value && setPeriod((p) => ({ ...p, from: e.target.value }))}
-              className="py-2 sm:w-40"
-            />
-            <Input
-              type="date"
-              aria-label="To date"
-              value={period.to}
-              min={period.from}
-              onChange={(e) => e.target.value && setPeriod((p) => ({ ...p, to: e.target.value }))}
-              className="py-2 sm:w-40"
-            />
-          </div>
+          {dates}
         </ListToolbar>
         <DataTable
           columns={columns}

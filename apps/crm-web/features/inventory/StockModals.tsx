@@ -1,6 +1,6 @@
 "use client"
 
-import { CheckCircle2, RotateCcw, XCircle } from "lucide-react"
+import { CheckCircle2, IndianRupee, RotateCcw, XCircle } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 import { STOCK_REASON_LABELS, type StockReconciliationDto } from "@repo/crm-schema"
@@ -13,6 +13,7 @@ import { errorMessage } from "@/lib/api-error"
 import { formatDate, formatDateTime, formatMoney } from "@/lib/format"
 import { useCan } from "@/store/auth.store"
 import { useReverseDocument, useStockDocument, useVariantStockCard } from "./api"
+import { LandedCostHistory, SetLandedCostModal } from "./LandedCostModal"
 import { BucketBadge, DocTypeBadge, LineCost, Qty, StockStateBadge } from "./shared"
 
 /** Records that own a stock entry; their entries are corrected from the record, not here. */
@@ -68,7 +69,9 @@ export function StockCardModal({
   onClose: () => void
   onOpenDocument: (id: string) => void
 }) {
+  const can = useCan()
   const { data, isLoading } = useVariantStockCard(variantId)
+  const [settingCost, setSettingCost] = useState(false)
   const s = data?.stock
 
   return (
@@ -124,15 +127,31 @@ export function StockCardModal({
           </div>
 
           {s.avgUnitCost !== undefined && (
-            <dl className="rounded-xl border border-border px-4">
-              <DetailRow label="Average landed cost">{s.avgUnitCost ? formatMoney(s.avgUnitCost) : "Unknown"}</DetailRow>
-              <DetailRow label="Stock value (known cost)">{formatMoney(s.stockValue)}</DetailRow>
-              {(s.unvaluedQty ?? 0) > 0 && (
-                <DetailRow label="Units with unknown cost">
-                  <span className="text-yellow-700 dark:text-yellow-400">{s.unvaluedQty} — not valued, never guessed</span>
-                </DetailRow>
+            <div>
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <h3 className="text-sm font-semibold">Landed cost</h3>
+                {can("inventory.cost") && (
+                  <Button size="sm" variant="secondary" icon={<IndianRupee size={14} />} onClick={() => setSettingCost(true)}>
+                    Set landed cost
+                  </Button>
+                )}
+              </div>
+              <dl className="rounded-xl border border-border px-4">
+                <DetailRow label="Average landed cost">{s.avgUnitCost ? formatMoney(s.avgUnitCost) : "Unknown"}</DetailRow>
+                <DetailRow label="Stock value (known cost)">{formatMoney(s.stockValue)}</DetailRow>
+                {(s.unvaluedQty ?? 0) > 0 && (
+                  <DetailRow label="Units with unknown cost">
+                    <span className="text-yellow-700 dark:text-yellow-400">{s.unvaluedQty} — not valued, never guessed</span>
+                  </DetailRow>
+                )}
+              </dl>
+              {data.landedCosts && data.landedCosts.length > 0 && (
+                <div className="mt-3">
+                  <h4 className="text-xs font-semibold uppercase text-muted mb-1">Landed cost changes</h4>
+                  <LandedCostHistory entries={data.landedCosts} />
+                </div>
               )}
-            </dl>
+            </div>
           )}
 
           <div>
@@ -159,6 +178,14 @@ export function StockCardModal({
             )}
           </div>
         </div>
+      )}
+      {settingCost && s && (
+        <SetLandedCostModal
+          variantId={variantId}
+          title={`${s.productName} — ${s.variantName}`}
+          currentCost={s.avgUnitCost ?? null}
+          onClose={() => setSettingCost(false)}
+        />
       )}
     </Modal>
   )

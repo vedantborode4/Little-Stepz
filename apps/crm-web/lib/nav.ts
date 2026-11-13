@@ -81,6 +81,7 @@ export const navSections: NavSection[] = [
       { label: "Cash Closing", href: "/cash", icon: Calculator, permission: "cash.close", phase: 11 },
       { label: "Expenses", href: "/expenses", icon: Wallet, permission: "expenses.manage", phase: 11 },
       { label: "Commission", href: "/commission", icon: HandCoins, permission: "commission.manage", phase: 14 },
+      { label: "My Commission", href: "/my-commission", icon: HandCoins, permission: "commission.view.own", phase: 14 },
       { label: "Profit & Analytics", href: "/analytics", icon: BarChart3, permission: "reports.financial", phase: 13 },
       { label: "Reports", href: "/reports", icon: FileSpreadsheet, permission: "reports.view", phase: 13 },
     ],

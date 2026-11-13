@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { listQuery, requiredText } from "./common";
 
-export const IMPORT_KINDS = ["PRODUCTS", "OPENING_STOCK", "CUSTOMERS", "HISTORICAL_SALES", "EXPENSES"] as const;
+export const IMPORT_KINDS = ["PRODUCTS", "OPENING_STOCK", "CUSTOMERS", "HISTORICAL_SALES", "EXPENSES", "LANDED_COSTS"] as const;
 export type ImportKind = (typeof IMPORT_KINDS)[number];
 export const IMPORT_KIND_LABELS: Record<ImportKind, string> = {
   PRODUCTS: "Products & variants",
@@ -9,13 +9,17 @@ export const IMPORT_KIND_LABELS: Record<ImportKind, string> = {
   CUSTOMERS: "Customers",
   HISTORICAL_SALES: "Past sales (history)",
   EXPENSES: "Expenses",
+  LANDED_COSTS: "Landed costs",
 };
 
 /** Kinds that need a stock location chosen before checking. */
 export const IMPORT_KINDS_WITH_LOCATION: readonly ImportKind[] = ["OPENING_STOCK", "HISTORICAL_SALES"];
 
-/** Kinds whose approved records are locked money records: they are corrected with returns and refunds, not rolled back. */
-export const IMPORT_KINDS_WITHOUT_ROLLBACK: readonly ImportKind[] = ["HISTORICAL_SALES"];
+/**
+ * Kinds that can't be rolled back once approved: past sales are corrected with returns and refunds,
+ * landed costs by setting a new cost.
+ */
+export const IMPORT_KINDS_WITHOUT_ROLLBACK: readonly ImportKind[] = ["HISTORICAL_SALES", "LANDED_COSTS"];
 
 export const IMPORT_BATCH_STATUSES = ["UPLOADED", "VALIDATED", "IMPORTED", "ROLLED_BACK", "CANCELLED"] as const;
 export type ImportBatchStatus = (typeof IMPORT_BATCH_STATUSES)[number];
@@ -127,6 +131,17 @@ export const IMPORT_FIELDS: Record<ImportKind, ImportField[]> = {
     field("vendor", "Paid to", false, ["vendor", "paid to", "supplier"]),
     field("reference", "Reference", false, ["reference", "bill no", "invoice no"]),
   ],
+  LANDED_COSTS: [
+    field("sku", "SKU", true, ["sku", "code", "item code"]),
+    field(
+      "unitCost",
+      "Landed cost per piece",
+      true,
+      ["landed cost", "landed cost / piece", "landed price", "unit cost", "cost", "cost price", "purchase price"],
+      "Stock on hand moves to this cost; sales of it with no cost get it",
+    ),
+    field("reason", "Reason", false, ["reason", "notes", "remarks"], "Blank records the import's code"),
+  ],
 };
 
 export type ImportOptionType = "account" | "expenseCategory";
@@ -152,6 +167,7 @@ export const IMPORT_OPTIONS: Record<ImportKind, ImportOption[]> = {
     { key: "courierCategory", label: "Courier expense category", type: "expenseCategory", whenMapped: "courier" },
   ],
   EXPENSES: [],
+  LANDED_COSTS: [],
 };
 
 const sheetName = z

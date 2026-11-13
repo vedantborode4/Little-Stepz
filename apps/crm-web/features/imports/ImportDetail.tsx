@@ -46,6 +46,7 @@ const KEY_FIELDS: Record<ImportKind, string[]> = {
   CUSTOMERS: ["name", "mobile", "city"],
   HISTORICAL_SALES: ["billId", "saleDate", "sku", "quantity", "unitPrice"],
   EXPENSES: ["date", "category", "amount", "account"],
+  LANDED_COSTS: ["sku", "unitCost", "reason"],
 }
 
 const LOCATION_LABEL: Partial<Record<ImportKind, { label: string; hint: string }>> = {
@@ -80,6 +81,12 @@ const EFFECT: Record<ImportKind, { approve: string; rollback: string; rolledBack
     approve: "Records each expense on its own date, paid from its account.",
     rollback: "Each imported expense is voided by a reversal entry dated today.",
     rolledBack: "The expenses were voided.",
+  },
+  LANDED_COSTS: {
+    approve:
+      "Sets each item's landed cost: its stock on hand moves to the new cost, and sales of it that had no cost, or were costed by an earlier landed cost, are costed at it. Profit and commission follow. This can't be rolled back; set the cost again on the item to correct it.",
+    rollback: "",
+    rolledBack: "",
   },
 }
 

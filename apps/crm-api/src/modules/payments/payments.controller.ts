@@ -16,16 +16,21 @@ import {
   transferListQuery,
   voidPaymentSchema,
 } from "@repo/crm-schema";
+import { can, currentUser } from "../../core/auth";
 import { sendExport } from "../../core/export";
 import { requestContext, sendData } from "../../core/http";
 import * as queries from "./payments.queries";
 import * as payments from "./payments.service";
+import { assertOrdersInScope } from "../sales/scope";
+
+/** Without `payments.view.all` (a cashier): payments they recorded, and balances on orders they created. */
+const ownOnly = (req: Request) => (can(req, "payments.view.all") ? null : currentUser(req).id);
 
 const customerLabel = (c: { name: string; code: string } | null) => (c ? `${c.name} (${c.code})` : "Walk-in");
 
 export async function list(req: Request, res: Response) {
   const query = paymentListQuery.parse(req.query);
-  const result = await queries.listPayments(query);
+  const result = await queries.listPayments(query, ownOnly(req));
   if (query.format) {
     return sendExport(res, {
       filename: "payments",
@@ -54,11 +59,16 @@ export async function list(req: Request, res: Response) {
 
 export async function get(req: Request, res: Response) {
   const { id } = idParam.parse(req.params);
-  sendData(res, await queries.getPayment(id));
+  sendData(res, await queries.getPayment(id, ownOnly(req)));
 }
 
 export async function receive(req: Request, res: Response) {
-  sendData(res, await payments.receivePayment(receivePaymentSchema.parse(req.body), requestContext(req)), 201);
+  const input = receivePaymentSchema.parse(req.body);
+  await assertOrdersInScope(
+    req,
+    input.allocations.map((a) => a.orderId),
+  );
+  sendData(res, await payments.receivePayment(input, requestContext(req)), 201);
 }
 
 export async function voidPayment(req: Request, res: Response) {
@@ -74,7 +84,9 @@ export async function credit(req: Request, res: Response) {
 
 export async function applyCredit(req: Request, res: Response) {
   const { id } = idParam.parse(req.params);
-  sendData(res, await payments.applyCustomerCredit(id, applyCreditSchema.parse(req.body), requestContext(req)));
+  const input = applyCreditSchema.parse(req.body);
+  await assertOrdersInScope(req, [input.orderId]);
+  sendData(res, await payments.applyCustomerCredit(id, input, requestContext(req)));
 }
 
 export async function refundCredit(req: Request, res: Response) {
@@ -83,12 +95,12 @@ export async function refundCredit(req: Request, res: Response) {
 }
 
 export async function collections(req: Request, res: Response) {
-  sendData(res, await queries.collections(collectionsQuery.parse(req.query)));
+  sendData(res, await queries.collections(collectionsQuery.parse(req.query), ownOnly(req)));
 }
 
 export async function outstanding(req: Request, res: Response) {
   const query = outstandingQuery.parse(req.query);
-  const result = await queries.listOutstanding(query);
+  const result = await queries.listOutstanding(query, ownOnly(req));
   if (query.format) {
     return sendExport(res, {
       filename: "outstanding",
@@ -115,7 +127,7 @@ export async function outstanding(req: Request, res: Response) {
 
 export async function outstandingSummary(req: Request, res: Response) {
   const { customerId } = outstandingQuery.pick({ customerId: true }).parse(req.query);
-  sendData(res, await queries.outstandingSummary({ customerId }));
+  sendData(res, await queries.outstandingSummary({ customerId }, undefined, ownOnly(req)));
 }
 
 export async function listTransfers(req: Request, res: Response) {
@@ -133,9 +145,9 @@ export async function reverseTransfer(req: Request, res: Response) {
 }
 
 export async function advances(req: Request, res: Response) {
-  sendData(res, await queries.listAdvances(advancesQuery.parse(req.query)));
+  sendData(res, await queries.listAdvances(advancesQuery.parse(req.query), ownOnly(req)));
 }
 
-export async function advancesSummary(_req: Request, res: Response) {
-  sendData(res, await queries.advancesSummary());
+export async function advancesSummary(req: Request, res: Response) {
+  sendData(res, await queries.advancesSummary(ownOnly(req)));
 }

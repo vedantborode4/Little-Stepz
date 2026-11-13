@@ -60,8 +60,10 @@ const toPaymentListItemDto = (p: PaymentRow): PaymentListItemDto => ({
 
 const PAYMENT_SORTS = { businessDate: "businessDate", code: "code", amount: "amount", createdAt: "createdAt" };
 
-export async function listPayments(query: PaymentListQuery) {
+/** `recordedBy` limits everything to payments that user entered; null means all. */
+export async function listPayments(query: PaymentListQuery, recordedBy: string | null) {
   const where: Prisma.PaymentWhereInput = {
+    createdById: recordedBy ?? undefined,
     direction: query.direction,
     method: query.method,
     accountId: query.accountId,
@@ -89,8 +91,8 @@ export async function listPayments(query: PaymentListQuery) {
   return paginated(rows.map(toPaymentListItemDto), total, query);
 }
 
-export async function getPayment(id: string): Promise<PaymentDetailDto> {
-  const p = await prisma.payment.findUnique({ where: { id }, include: paymentInclude });
+export async function getPayment(id: string, recordedBy: string | null): Promise<PaymentDetailDto> {
+  const p = await prisma.payment.findFirst({ where: { id, createdById: recordedBy ?? undefined }, include: paymentInclude });
   if (!p) throw notFound("Payment");
   return {
     ...toPaymentListItemDto(p),
@@ -133,20 +135,27 @@ export async function customerCredit(customerId: string): Promise<CustomerCredit
  * "refunded"), so a mistake and its correction cancel out. Transfers between
  * accounts are shown per account but are never received money.
  */
-export async function collections(query: CollectionsQuery): Promise<CollectionsDto> {
+export async function collections(query: CollectionsQuery, recordedBy: string | null): Promise<CollectionsDto> {
   const range = { gte: toDbDate(query.from), lte: toDbDate(query.to) };
+  const paymentWhere = { businessDate: range, createdById: recordedBy ?? undefined };
   const [payments, accounts, transfers, allocations, creditEntries] = await Promise.all([
     prisma.payment.findMany({
-      where: { businessDate: range },
+      where: paymentWhere,
       select: { accountId: true, method: true, direction: true, amount: true, fee: true, reversalOfId: true },
     }),
     prisma.receivingAccount.findMany({ select: { id: true, name: true, method: true, isPersonal: true }, orderBy: { name: "asc" } }),
-    prisma.accountTransfer.findMany({ where: { businessDate: range }, select: { fromAccountId: true, toAccountId: true, amount: true } }),
+    // Moving money between accounts is the admin's job, so a cashier's own collections never include transfers.
+    recordedBy
+      ? []
+      : prisma.accountTransfer.findMany({
+          where: { businessDate: range },
+          select: { fromAccountId: true, toAccountId: true, amount: true },
+        }),
     prisma.paymentAllocation.findMany({
-      where: { payment: { businessDate: range } },
+      where: { payment: paymentWhere },
       select: { amount: true, order: { select: { channel: true } } },
     }),
-    prisma.customerCreditEntry.findMany({ where: { payment: { businessDate: range } }, select: { amount: true } }),
+    prisma.customerCreditEntry.findMany({ where: { payment: paymentWhere }, select: { amount: true } }),
   ]);
 
   type Acc = { received: Decimal; refunded: Decimal; fees: Decimal; transfersIn: Decimal; transfersOut: Decimal; count: number };
@@ -243,8 +252,10 @@ export async function collections(query: CollectionsQuery): Promise<CollectionsD
  * and 60+ days. Orders not yet handed over or dispatched are included but
  * flagged: that balance isn't a receivable until the goods go.
  */
-function outstandingSql(query: Pick<OutstandingQuery, "customerId" | "q">, today: string) {
+/** `createdBy` limits it to orders that user created; null means all. */
+function outstandingSql(query: Pick<OutstandingQuery, "customerId" | "q">, today: string, createdBy: string | null) {
   const conditions: Prisma.Sql[] = [Prisma.sql`o.status NOT IN ('DRAFT', 'CANCELLED')`];
+  if (createdBy) conditions.push(Prisma.sql`o."createdById" = ${createdBy}`);
   if (query.customerId) conditions.push(Prisma.sql`o."customerId" = ${query.customerId}`);
   if (query.q) {
     const like = `%${query.q}%`;
@@ -291,8 +302,8 @@ interface OutstandingSqlRow {
   bucket: AgeingBucket;
 }
 
-export async function listOutstanding(query: OutstandingQuery) {
-  const base = outstandingSql(query, todayIST());
+export async function listOutstanding(query: OutstandingQuery, createdBy: string | null) {
+  const base = outstandingSql(query, todayIST(), createdBy);
   const bucket = query.bucket ? Prisma.sql`WHERE bucket = ${query.bucket}` : Prisma.empty;
   const { skip, take } = pageWindow(query);
   const [rows, counted] = await Promise.all([
@@ -322,8 +333,9 @@ export async function listOutstanding(query: OutstandingQuery) {
 export async function outstandingSummary(
   query: Pick<OutstandingQuery, "customerId">,
   db: Tx | typeof prisma = prisma,
+  createdBy: string | null = null,
 ): Promise<OutstandingSummaryDto> {
-  const base = outstandingSql(query, todayIST());
+  const base = outstandingSql(query, todayIST(), createdBy);
   const [row] = await db.$queryRaw<
     {
       orders: number;
@@ -415,8 +427,9 @@ export async function getTransfer(id: string) {
  * It's owed to the customer in goods (a liability), and only becomes revenue
  * when the order is fulfilled.
  */
-function advancesSql(query: Pick<AdvancesQuery, "type" | "customerId" | "q">) {
+function advancesSql(query: Pick<AdvancesQuery, "type" | "customerId" | "q">, createdBy: string | null) {
   const conditions: Prisma.Sql[] = [Prisma.sql`o."fulfilledAt" IS NULL`, Prisma.sql`o.status NOT IN ('DRAFT', 'CANCELLED')`];
+  if (createdBy) conditions.push(Prisma.sql`o."createdById" = ${createdBy}`);
   if (query.type) conditions.push(Prisma.sql`o.type = ${query.type}::"SalesOrderType"`);
   if (query.customerId) conditions.push(Prisma.sql`o."customerId" = ${query.customerId}`);
   if (query.q) {
@@ -435,8 +448,8 @@ function advancesSql(query: Pick<AdvancesQuery, "type" | "customerId" | "q">) {
     )`;
 }
 
-export async function listAdvances(query: AdvancesQuery) {
-  const base = advancesSql(query);
+export async function listAdvances(query: AdvancesQuery, createdBy: string | null) {
+  const base = advancesSql(query, createdBy);
   const { skip, take } = pageWindow(query);
   const [rows, counted] = await Promise.all([
     prisma.$queryRaw<
@@ -471,10 +484,10 @@ export async function listAdvances(query: AdvancesQuery) {
   return paginated(items, counted[0]?.count ?? 0, query);
 }
 
-export async function advancesSummary(): Promise<AdvancesSummaryDto> {
+export async function advancesSummary(createdBy: string | null): Promise<AdvancesSummaryDto> {
   const [row] = await prisma.$queryRaw<
     { orders: number; total: Prisma.Decimal; pre: Prisma.Decimal; regular: Prisma.Decimal }[]
-  >`${advancesSql({})}
+  >`${advancesSql({}, createdBy)}
     SELECT COUNT(*)::int AS orders, COALESCE(SUM(paid), 0) AS total,
       COALESCE(SUM(paid) FILTER (WHERE type = 'PRE_ORDER'), 0) AS pre,
       COALESCE(SUM(paid) FILTER (WHERE type = 'REGULAR'), 0) AS regular

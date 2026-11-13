@@ -10,6 +10,8 @@ const salespersonFields = {
   /** % of a sale's gross profit (goods value excluding GST less cost of goods). */
   commissionRate: percent,
   isActive: z.boolean(),
+  /** The CRM login that sees this salesperson's commission; "" or null unlinks it. */
+  userId: optionalId,
 };
 
 export const createSalespersonSchema = z.object({ ...salespersonFields, isActive: salespersonFields.isActive.default(true) });

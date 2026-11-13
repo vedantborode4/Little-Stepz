@@ -14,6 +14,7 @@ import { fromDbDate, toDbDate } from "../../core/dates";
 import { ApiError, notFound } from "../../core/http";
 import { buildOrderBy, pageWindow, paginated } from "../../core/list";
 import { Decimal, money, moneyOrNull } from "../../core/money";
+import { landedCostHistory } from "./landed-cost-entries";
 
 /** Whether the caller may see costs; cost fields are left out entirely when not. */
 export interface Visibility {
@@ -346,7 +347,7 @@ export async function variantStockCard(variantId: string, visibility: Visibility
   const rows = await prisma.$queryRaw<StockSqlRow[]>`${base} SELECT * FROM stated`;
   if (!rows.length) throw notFound("Variant");
   const [stock] = await attachLocationsAndCosts(rows, visibility);
-  const [reconciliation, recent] = await Promise.all([
+  const [reconciliation, recent, landedCosts] = await Promise.all([
     reconcileVariant(variantId, stock!.physical),
     prisma.stockMovement.findMany({
       where: { variantId },
@@ -354,6 +355,7 @@ export async function variantStockCard(variantId: string, visibility: Visibility
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: 25,
     }),
+    visibility.costs ? landedCostHistory(variantId) : undefined,
   ]);
-  return { stock: stock!, reconciliation, recent: recent.map((m) => toLedgerRow(m, visibility)) };
+  return { stock: stock!, reconciliation, recent: recent.map((m) => toLedgerRow(m, visibility)), ...(landedCosts && { landedCosts }) };
 }

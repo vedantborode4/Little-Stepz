@@ -57,6 +57,7 @@ model User {
   shipments            Shipment[]
   shipmentEvents       ShipmentEvent[]
   expenses             Expense[]
+  salesperson          Salesperson?
   cashOpened           CashSession[]         @relation("CashOpenedBy")
   cashClosed           CashSession[]         @relation("CashClosedBy")
   stockCounts          StockCount[]          @relation("StockCountCreatedBy")
@@ -68,6 +69,7 @@ model User {
   importsRolledBack    ImportBatch[]         @relation("ImportRolledBackBy")
   syncRuns             SyncRun[]
   supplierEntries      SupplierLedgerEntry[]
+  landedCostEntries    LandedCostEntry[]
 }
 
 /// Opaque refresh tokens, stored only as a SHA-256 hash. Each login starts a
@@ -375,6 +377,7 @@ model Variant {
   salesReturnLines    SalesReturnLine[]
   stockCountLines     StockCountLine[]
   images              ProductImage[]
+  landedCostEntries   LandedCostEntry[]
 
   @@unique([productId, optionKey])
   @@index([productId])
@@ -680,6 +683,56 @@ model CostAdjustmentLine {
   toCostOfSales Decimal        @db.Decimal(18, 6)
 }
 
+/// A landed cost set by hand for one variant, after its stock came in. Stock on
+/// hand moves to this cost; sales that left with an unknown cost, and sales an
+/// earlier entry costed, are costed at it. Append-only.
+model LandedCostEntry {
+  id               String       @id @default(uuid())
+  code             String       @unique
+  variantId        String
+  variant          Variant      @relation(fields: [variantId], references: [id])
+  unitCost         Decimal      @db.Decimal(18, 6)
+  /// Average cost of the stock on hand before (null when none of it had a known cost).
+  previousUnitCost Decimal?     @db.Decimal(18, 6)
+  /// Units on hand moved to the new cost, and how many of them had no cost before.
+  stockQty         Int
+  unknownStockQty  Int
+  stockValueChange Decimal      @db.Decimal(18, 6)
+  /// Sold units that had no cost and got this one; sold units an earlier entry costed.
+  filledSoldQty    Int
+  recostedSoldQty  Int
+  /// Net change to cost of goods sold across those sales and their returns.
+  cogsChange       Decimal      @db.Decimal(18, 6)
+  reason           String
+  importBatchId    String?
+  importBatch      ImportBatch? @relation(fields: [importBatchId], references: [id])
+  createdById      String?
+  createdBy        User?        @relation(fields: [createdById], references: [id])
+  createdAt        DateTime     @default(now())
+
+  saleLines LandedCostSaleLine[]
+
+  @@index([variantId, createdAt])
+  @@index([importBatchId])
+}
+
+/// The units of a sales line whose cost came from a landed-cost entry rather
+/// than from stock with a known cost. A later entry for the variant re-costs them.
+model LandedCostSaleLine {
+  id          String          @id @default(uuid())
+  orderLineId String          @unique
+  orderLine   SalesOrderLine  @relation(fields: [orderLineId], references: [id])
+  variantId   String
+  quantity    Int
+  unitCost    Decimal         @db.Decimal(18, 6)
+  /// The entry that set the current cost.
+  entryId     String
+  entry       LandedCostEntry @relation(fields: [entryId], references: [id])
+
+  @@index([variantId])
+  @@index([entryId])
+}
+
 /// Goods sent back to the supplier from a received purchase. Append-only.
 model PurchaseReturn {
   id              String           @id @default(uuid())
@@ -912,6 +965,7 @@ model SalesOrderLine {
 
   reservations Reservation[]
   returnLines  SalesReturnLine[]
+  landedCost   LandedCostSaleLine?
 
   @@unique([orderId, variantId])
   @@index([variantId])
@@ -1235,13 +1289,16 @@ model ShipmentEvent {
 /// picked at checkout by whoever runs the till. Never deleted, only deactivated.
 model Salesperson {
   id             String       @id @default(uuid())
-  /// The staff ID the admin gives them, e.g. S01.
+  /// The staff ID the CRM assigns, e.g. S01. Never changes.
   staffCode      String
   staffKey       String       @unique
   name           String
-  /// % of a sale's goods value excluding GST.
+  /// % of a sale's gross profit (goods value excluding GST less cost of goods).
   commissionRate Decimal      @db.Decimal(5, 2)
   isActive       Boolean      @default(true)
+  /// The CRM login that sees this salesperson's commission on "My commission".
+  userId         String?      @unique
+  user           User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
   salesOrders    SalesOrder[]
@@ -1451,6 +1508,8 @@ enum ImportKind {
   /// Past bills with their payments, recorded on their own dates without moving stock.
   HISTORICAL_SALES
   EXPENSES
+  /// Landed costs set for items whose stock is already in.
+  LANDED_COSTS
 }
 
 enum ImportBatchStatus {
@@ -1526,6 +1585,7 @@ model ImportBatch {
   updatedAt       DateTime          @updatedAt
   rows            ImportRow[]
   salesOrders     SalesOrder[]
+  landedCosts     LandedCostEntry[]
 
   @@index([kind, createdAt])
 }

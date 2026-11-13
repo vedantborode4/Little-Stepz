@@ -65,7 +65,8 @@ Every user has one of three roles. The menu only shows what your role is allowed
 
 | Area | Admin (owner) | Cashier | Operations |
 |---|:-:|:-:|:-:|
-| Dashboard | ✓ | ✓ | ✓ |
+| Dashboard | ✓ | – | – |
+| Sales Orders, Pre-orders, Returns | all | own + pickups | all |
 | POS, new orders, new pre-orders | ✓ | ✓ | – |
 | Record payments, use customer credit | ✓ | ✓ | – |
 | Add and edit customers | ✓ | ✓ | – |
@@ -75,18 +76,27 @@ Every user has one of three roles. The menu only shows what your role is allowed
 | Receive purchases | ✓ | – | ✓ |
 | Count stock | ✓ | – | ✓ |
 | Cash Closing | ✓ | ✓ | – |
-| Reports | ✓ | ✓ (no cost or profit) | – |
+| Reports | ✓ | – | – |
+| Stock levels | ✓ | ✓ (no costs) | ✓ (no costs) |
+| Customers and their phone numbers | ✓ | ✓ | – |
 | Cancel orders, returns, refunds, voids | ✓ | – | – |
 | Set a manual price, customer prices | ✓ | – | – |
 | Products, prices, purchases, suppliers | ✓ | view only | view only (no costs) |
 | Expenses, Profit & Analytics | ✓ | – | – |
 | Pick the salesperson on a sale | ✓ | ✓ | – |
 | Salespeople, commission rates, commission and payouts | ✓ | – | – |
+| See their own commission ("My Commission") | ✓ | ✓ (if linked) | – |
 | Opening stock, write-offs, adjustments | ✓ | – | – |
 | Approve stock counts | ✓ | – | – |
 | Settings, users, import, audit | ✓ | – | – |
 
 **Cashiers and Operations never see costs or profit.**
+
+**A cashier sees only their own sales.** In Sales Orders, Pre-orders and Returns, a cashier sees the sales they made under their own login, plus any **counter order waiting for pickup**, whoever took it. That way, whoever is on shift can take the balance and hand the order over. Once it's handed over, it goes back to being visible only to the cashier who took it. Admin and Operations see every sale. Give **each cashier their own login**: a shared login shares its sales too.
+
+**The same goes for payments.** On the Payments pages, a cashier sees only the payments they recorded, and only balances and advances on orders they created. They don't see the Transfers tab. A cashier can take money only for orders they can see. **Cash Closing** still shows every payment in the drawer, because the cashier counts the whole drawer.
+
+Cashiers start on **POS** and Operations on **Sales Orders** when they sign in. Only the admin has the Dashboard.
 
 ---
 
@@ -205,12 +215,12 @@ Do these once, in this order, before the shop starts using the CRM. The Dashboar
 
 ## 6. Dashboard
 
-**Menu:** "Dashboard" (on phones: "Home"). Everyone can see it, but each role sees different blocks.
+**Menu:** "Dashboard" (on phones: "Home"). Admin only.
 
 The Dashboard is a summary page. It shows:
 
 - **Sales:** "Today", "Yesterday", "This month" and "Lifetime", with and without GST. It also splits this month's sales into retail vs wholesale and store vs online.
-- **Payments** (Admin and Cashier): "Collected today", "Gateway today", "Advances held" and "Outstanding". Click a card to open the details.
+- **Payments:** "Collected today", "Gateway today", "Advances held" and "Outstanding". Click a card to open the details.
 - **Profit** (Admin only): "Gross profit", "Contribution profit", "Discounts given" and "Potential profit".
 - **Inventory:** "Products", "Available units" and "Purchased / sold". Admins also see "Stock cost value"; others see "Low / out of stock".
 - **Charts:** "Sales, last 30 days", "Collections this month", "Top products this month" and "Category mix this month".
@@ -296,7 +306,7 @@ The **"Sale complete"** screen shows the order number and total. If money is sti
 
 ## 8. Sales Orders — delivery and counter orders
 
-**Menu:** Sell → "Sales Orders". Everyone can view. Admin and Cashier can create.
+**Menu:** Sell → "Sales Orders". Everyone can view; a cashier sees only their own sales plus counter orders waiting for pickup. Admin and Cashier can create.
 
 Use a Sales Order when the customer **isn't paying and taking the goods right now**. For example:
 - **"Courier delivery":** a WhatsApp or Instagram order that you ship.
@@ -456,7 +466,7 @@ The cards at the top show "Open", "Awaiting stock", "Ready to allocate", "Alloca
 
 ## 10. Customers
 
-**Menu:** Sell → "Customers". Everyone can view. Admin and Cashier can add and edit.
+**Menu:** Sell → "Customers". For Admin and Cashier.
 
 ### Find a customer
 
@@ -534,9 +544,9 @@ If the same person was added twice, merge them. The duplicate's orders, payments
 
 ## 11. Payments
 
-**Menu:** Sell → "Payments". For Admin and Cashier.
+**Menu:** Sell → "Payments". For Admin and Cashier. A cashier sees only the payments they recorded, and only balances on orders they created, and has no "Transfers" tab.
 
-There are five tabs.
+There are five tabs (four for a cashier).
 
 ### Collections — how much came in
 
@@ -857,6 +867,25 @@ Every stock entry is permanent. To undo a wrong one:
 
 Entries made by a purchase, sale, return, stock count or import can't be reversed here. Correct them where they came from.
 
+### Set or change an item's landed cost (Admin)
+
+Use this when stock was uploaded without a cost, or when an item's cost was wrong or has changed.
+1. Go to Inventory → **"Stock levels"** and click the item to open its stock card.
+2. Under **"Landed cost"**, click **"Set landed cost"**.
+3. Enter the **"Landed cost per piece (₹)"** and a **"Reason"**, e.g. "Supplier bill received".
+4. Check what will change, then click **"Set landed cost"**.
+
+What changes:
+- All stock of the item on hand, in every location, moves to the new cost.
+- Sales of it that had no cost get the new cost, and so do their returns. Their profit and the salesperson's commission are worked out again.
+- Sales costed by an earlier "Set landed cost" move to the new cost too, so a typing mistake is fixed everywhere.
+- Sales costed from a purchase bill, or from opening stock entered with a cost, never change.
+- Past sales brought in from a spreadsheet keep their blank cost.
+
+It can't be undone; to correct it, set the cost again. Every change is listed under **"Landed cost changes"** on the stock card. For many items at once, import a **"Landed costs"** file ([Import Data](#22-import-data-spreadsheets)).
+
+> If commission was already paid out and the new cost lowers the profit, the salesperson can show as overpaid.
+
 ---
 
 ## 16. Purchases and suppliers
@@ -1083,6 +1112,10 @@ There is also **"Staff commission"**. It isn't offered under "Record expense": c
 3. Click a row to see every sale and return behind the figures, and the payouts in those dates.
 4. **Export** gives the same table as a spreadsheet (also under Reports → "Salesperson commission").
 
+**"To pay" tab:** everyone who is owed commission right now, most owed first, with the total to pay at the top. This is all time, whatever dates are chosen. Click **"Pay"** on a row: the payout form opens with that person and the full amount owed already filled in.
+
+**"Payouts" tab:** every commission payout in the chosen dates (who was paid, from which account, the reference), with voided ones marked. Click one to see it or void it.
+
 **Pay commission**
 1. Click **"Record payout"** (on the page, or inside a salesperson's details).
 2. Choose **"Paid to"**. The amount fills in with what they're owed; change it if you pay part.
@@ -1090,6 +1123,15 @@ There is also **"Staff commission"**. It isn't offered under "Record expense": c
 4. Click **"Record payout"**.
 
 The payout is saved as an expense in "Staff commission". It leaves that account and shows in that day's cash count. To undo a wrong payout, click it in the salesperson's details (or on the Expenses page) and **"Void…"** it.
+
+### My Commission
+
+**Menu:** Finance → "My Commission". For a cashier whose login the admin has **linked to a salesperson** (Settings → Salespeople → "CRM login"). Without that link, the page says so.
+
+- Choose the dates (it opens on this month).
+- **"Earned"**: your commission in those dates, after returns. **"Paid to you"**: payouts in those dates. **"Still owed to you"**: everything earned minus everything paid, all time.
+- The list shows each sale and return with your % and the commission on it. It never shows the sale's value, cost or profit.
+- **"Payments to you in these dates"** lists each payout. A cancelled payout shows as a minus amount.
 
 ---
 
@@ -1139,7 +1181,7 @@ Filter by product, location and category.
 
 ## 21. Reports
 
-**Menu:** Finance → "Reports". For Admin and Cashier. Cashiers don't see cost or profit reports or columns.
+**Menu:** Finance → "Reports". Admin only.
 
 ### Run a report
 
@@ -1177,6 +1219,7 @@ Bring in data from Excel (.xlsx) or CSV files instead of typing it.
 - **"Customers"**
 - **"Past sales (history)"**
 - **"Expenses"**
+- **"Landed costs"**: SKU and landed cost per piece, for stock that is already in. Each row works like **"Set landed cost"** on the item.
 
 **Limits:** up to 5 MB and 5,000 rows per file.
 
@@ -1219,6 +1262,8 @@ Open an imported batch and click **"Roll back"**. Type a **"Reason"** and click 
 This is only possible while nothing the import created has been used (sold, moved, priced and so on). If rollback is blocked, the screen tells you why and what to do instead.
 
 > ⚠️ **Past sales can never be rolled back.** Correct them with returns or refunds. Try a past-sales file on a test copy first.
+>
+> **Landed costs can't be rolled back either.** Set the cost again on the item to correct one.
 
 ### Cancel an import
 
@@ -1308,7 +1353,8 @@ Receiving accounts are everywhere money comes in: the cash drawer, PhonePe, a ba
 
 Staff who earn commission on the sales they make. They don't need a CRM login: the cashier picks them at checkout.
 - **"Add salesperson"**: enter the **"Name"** and the **"Commission % of gross profit"**. The CRM gives each person a **staff ID** automatically (S01, S02, S03…). It's shown in the list, at the till and on the Commission page, and it never changes.
-- **"Edit"**: change the name or %. A new % applies to **sales from now on**; sales already made keep the % they were made at.
+- **"CRM login"** (optional): if this salesperson also signs in to the CRM, choose their login. They then see their own commission under **"My Commission"**, and the till picks them as the salesperson automatically when they sign in (they can still change it). One login can be linked to one salesperson only. Choose "Not linked" to remove the link.
+- **"Edit"**: change the name, % or login. A new % applies to **sales from now on**; sales already made keep the % they were made at.
 - Untick **"Active"** when someone leaves. They're no longer offered at checkout, but their history and anything still owed to them stay on the Commission page.
 
 ### Users & roles
@@ -1363,7 +1409,8 @@ Nothing is deleted. Use the right correction:
 | Stock count approved wrongly | Open the count → "Reverse" | Admin |
 | Cash day closed too early | "Reopen day" | Admin |
 | Same customer added twice | "Merge into…" (can't be undone) | Admin |
-| Import went wrong | "Roll back" (not for past sales) | Admin |
+| Import went wrong | "Roll back" (not for past sales or landed costs) | Admin |
+| Stock uploaded without a cost, or an item's cost is wrong | Stock card → "Set landed cost" | Admin |
 | Price changed by mistake | Edit the variant again. History keeps both changes. | Admin |
 
 ---

@@ -25,6 +25,7 @@ import { applyCredit, lockCustomer, recordReceipt, settleCancelledOrder } from "
 import { outstandingSummary } from "../payments/payments.queries";
 import { resolveUnitPrice } from "./pricing";
 import { orderDetailInclude, orderListInclude, toOrderDetailDto, toOrderListItemDto, type Visibility } from "./sales.mappers";
+import { scopeWhere, type SalesScope } from "./scope";
 import { computeSaleTotals } from "./totals";
 
 export interface SaleRights {
@@ -218,8 +219,9 @@ const READY_FOR: Record<NonNullable<SalesListQuery["readyFor"]>, Prisma.SalesOrd
   return: { fulfilledAt: { not: null }, status: { not: "CANCELLED" } },
 };
 
-export async function listOrders(query: SalesListQuery) {
+export async function listOrders(query: SalesListQuery, scope: SalesScope) {
   const where: Prisma.SalesOrderWhereInput = {
+    AND: [scopeWhere(scope)],
     status: query.status,
     channel: query.channel,
     type: query.type,

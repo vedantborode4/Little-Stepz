@@ -5,6 +5,7 @@ import * as controller from "./inventory.controller";
 const view = requirePermission("inventory.view");
 const move = requirePermission("inventory.move");
 const adjust = requirePermission("inventory.adjust");
+const cost = requirePermission("inventory.cost");
 
 export const inventoryRoutes = Router();
 
@@ -21,3 +22,6 @@ inventoryRoutes.post("/opening", adjust, controller.opening);
 inventoryRoutes.post("/write-offs", adjust, controller.writeOff);
 inventoryRoutes.post("/adjustments", adjust, controller.adjust);
 inventoryRoutes.post("/documents/:id/reverse", adjust, controller.reverse);
+
+inventoryRoutes.post("/variants/:id/landed-cost/preview", cost, controller.previewLandedCost);
+inventoryRoutes.post("/variants/:id/landed-cost", cost, controller.setLandedCost);
