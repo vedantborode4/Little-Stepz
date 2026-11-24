@@ -95,6 +95,7 @@ export default function ProductDetailView({ product: initialProduct }: { product
           <ProductGallery
             key={resolvedVariant?.id ?? "product"}
             images={resolvedVariant?.images?.length ? resolvedVariant.images : product.images}
+            name={product.name}
           />
         </div>
         <ProductInfo

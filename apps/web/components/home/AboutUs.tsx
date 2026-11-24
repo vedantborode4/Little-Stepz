@@ -3,7 +3,7 @@ const FEATURES = [
     emoji: "🏎️",
     iconBg: "bg-primary/10",
     title: "RC Cars & Diecast",
-    desc: "Officially licensed RC cars — Ferrari, Bugatti, Mercedes, Lamborghini. Premium 1:12 scale diecast hypercar models sourced directly from global manufacturers.",
+    desc: "Officially licensed RC cars — Lamborghini, McLaren, Bugatti, Mercedes-AMG. Premium 1:12 scale diecast hypercar models sourced directly from global manufacturers.",
   },
   {
     emoji: "🚚",
@@ -15,7 +15,7 @@ const FEATURES = [
     emoji: "🏆",
     iconBg: "bg-primary/10",
     title: "Collectibles",
-    desc: "Rare limited-edition figures, licensed Stanley tumblers, hobby-grade rock crawlers and exclusive imports — curated for collectors and enthusiasts.",
+    desc: "Rare limited-edition figures, insulated tumblers, hobby-grade rock crawlers and exclusive imports — curated for collectors and enthusiasts.",
   },
   {
     emoji: "🛡️",
@@ -49,7 +49,7 @@ export default function AboutUs() {
             </p>
             <p>
               As a direct importer, wholesaler, and retailer, we source officially licensed
-              RC cars — Ferrari, Bugatti, Mercedes-Benz, Lamborghini, McLaren — alongside
+              RC cars — Lamborghini, McLaren, Bugatti, Maserati, Mercedes-AMG — alongside
               premium 1:12 scale diecast models, rock crawlers, and limited-edition collectibles.
             </p>
             <p>

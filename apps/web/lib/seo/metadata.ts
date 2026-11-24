@@ -2,22 +2,56 @@ import type { Metadata } from "next"
 import { BRAND, DESCRIPTION, OG_IMAGE, SITE_URL, absolute } from "./site"
 
 /**
- * Google truncates titles around 60 characters. The root layout sets a
- * `%s | Little Stepz` template, so every page title gets the brand appended
- * automatically — page titles must therefore NOT repeat the brand, and must be
- * budgeted against the space the suffix will take.
+ * Google truncates titles around 60 characters. Page titles are passed in
+ * without the store name; titleTag() adds " | Little Stepz" when it fits and
+ * returns the result as an absolute title (see titleTag for why the root
+ * layout's template is not relied on).
  */
-const SUFFIX_LEN = BRAND.length + 3 // " | Little Stepz"
-const TITLE_BUDGET = 60 - SUFFIX_LEN
+const SUFFIX = ` | ${BRAND}`
+const TITLE_MAX = 60
+const TITLE_BUDGET = TITLE_MAX - SUFFIX.length // room left once " | Little Stepz" is added
 const DESC_MAX = 155
+const BRAND_SUFFIX_RE = new RegExp(`\\s*\\|\\s*${BRAND}$`, "i")
 
-/** Trim to a word boundary rather than cutting mid-word. */
+/** Cut at a word boundary and drop dangling separators. Never adds "…". */
+export function fitWords(text: string, max: number): string {
+  const clean = text.replace(/\s+/g, " ").trim()
+  if (clean.length <= max) return clean
+  const cut = clean.slice(0, max + 1)
+  const space = cut.lastIndexOf(" ")
+  return (space > max * 0.5 ? cut.slice(0, space) : clean.slice(0, max)).replace(/[\s—–\-:,;(|/&]+$/, "")
+}
+
+/**
+ * Fit text into `max` characters without an ellipsis (audit LS-09 / LS-10).
+ * A literal "…" in a title or meta description only makes the cut visible in
+ * search results; ending on a whole sentence (or at least a whole word) reads as
+ * finished copy. Prefers the last full sentence that keeps at least half the text.
+ */
 export function clamp(text: string, max: number): string {
   const clean = text.replace(/\s+/g, " ").trim()
   if (clean.length <= max) return clean
-  const cut = clean.slice(0, max - 1)
-  const space = cut.lastIndexOf(" ")
-  return `${(space > max * 0.6 ? cut.slice(0, space) : cut).replace(/[\s—–-]+$/, "")}…`
+  const head = clean.slice(0, max)
+  const sentenceEnd = Math.max(head.lastIndexOf(". "), head.lastIndexOf("! "), head.lastIndexOf("? "))
+  if (sentenceEnd >= max * 0.5) return head.slice(0, sentenceEnd + 1)
+  return fitWords(clean, max)
+}
+
+/**
+ * The full <title> for a page (audit LS-09): never longer than 60 characters,
+ * never ending in "…", with " | Little Stepz" added whenever it still fits.
+ *
+ * Built here and returned as an absolute title because the root layout's
+ * `%s | Little Stepz` template never reached product or category pages:
+ * app/products/layout.tsx sets a plain-string title, and a string title drops
+ * the inherited template for every route below it. That is why no product title
+ * on the live site carried the store name.
+ */
+export function titleTag(text: string): string {
+  const clean = text.replace(/\s+/g, " ").trim().replace(BRAND_SUFFIX_RE, "")
+  if (clean.length <= TITLE_BUDGET) return `${clean}${SUFFIX}`
+  if (clean.length <= TITLE_MAX) return clean
+  return `${fitWords(clean, TITLE_BUDGET)}${SUFFIX}`
 }
 
 export function pageMetadata(opts: {
@@ -30,7 +64,7 @@ export function pageMetadata(opts: {
   noindex?: boolean
   type?: "website" | "article"
 }): Metadata {
-  const title = clamp(opts.title, TITLE_BUDGET)
+  const title = titleTag(opts.title)
   const description = clamp(opts.description, DESC_MAX)
   const url = absolute(opts.path)
   const image = opts.image ?? OG_IMAGE
@@ -43,14 +77,14 @@ export function pageMetadata(opts: {
     : { url: image, alt: title }
 
   return {
-    title,
+    title: { absolute: title },
     description,
     alternates: { canonical: url },
     robots: opts.noindex
       ? { index: false, follow: true }
       : { index: true, follow: true },
     openGraph: {
-      title: `${title} | ${BRAND}`,
+      title,
       description,
       url,
       siteName: BRAND,
@@ -60,7 +94,7 @@ export function pageMetadata(opts: {
     },
     twitter: {
       card: "summary_large_image",
-      title: `${title} | ${BRAND}`,
+      title,
       description,
       images: [image],
     },
@@ -68,8 +102,10 @@ export function pageMetadata(opts: {
 }
 
 /**
- * Product titles carry no brand — the root template appends it. Category is
- * appended only when the name is short enough to leave room for it.
+ * Fallback product title when the admin Meta Title is empty. Carries no store
+ * name — titleTag() adds it when there is room. The category is appended only
+ * when name + category still leave room for the store name; long names are
+ * passed through whole so titleTag() can keep up to 60 characters of them.
  */
 export function productMetaTitle(name: string, categoryName?: string): string {
   const clean = name.replace(/\s+/g, " ").trim()
@@ -77,7 +113,7 @@ export function productMetaTitle(name: string, categoryName?: string): string {
     const withCat = `${clean} — ${categoryName}`
     if (withCat.length <= TITLE_BUDGET) return withCat
   }
-  return clamp(clean, TITLE_BUDGET)
+  return clean
 }
 
 /** Detects the spec-sheet descriptions used throughout this catalogue. */

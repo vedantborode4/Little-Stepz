@@ -16,7 +16,14 @@ const scrollToSlide = (el: HTMLDivElement | null, index: number, smooth = false)
   el.scrollTo({ left: index * el.clientWidth, behavior: smooth ? "smooth" : "auto" })
 }
 
-export default function ProductGallery({ images }: { images: ProductImage[] }) {
+/**
+ * Alt text for a gallery image (audit LS-17): the alt saved in the admin, else
+ * the product name with the image's position, so no product photo is unnamed.
+ */
+const altFor = (img: ProductImage, i: number, name?: string) =>
+  img.alt?.trim() || (name ? `${name} — image ${i + 1}` : "")
+
+export default function ProductGallery({ images, name }: { images: ProductImage[]; name?: string }) {
   const [active, setActive] = useState(0)
   const [zoomed, setZoomed] = useState(false)
 
@@ -113,7 +120,7 @@ export default function ProductGallery({ images }: { images: ProductImage[] }) {
               <div key={img.id} className="w-full flex-shrink-0 snap-center overflow-hidden">
                 <Image
                   src={cldFit(img.url, 1200)}
-                  alt=""
+                  alt={altFor(img, i, name)}
                   width={800}
                   height={800}
                   loading={Math.abs(i - active) <= 1 ? "eager" : "lazy"}
@@ -175,6 +182,8 @@ export default function ProductGallery({ images }: { images: ProductImage[] }) {
           {images?.map((img, i) => (
             <button
               key={img.id}
+              type="button"
+              aria-label={`Show image ${i + 1}`}
               onClick={() => {
                 setActive(i)
                 scrollToSlide(trackRef.current, i, true)
@@ -229,11 +238,11 @@ export default function ProductGallery({ images }: { images: ProductImage[] }) {
               onScroll={(e) => syncActive(e.currentTarget)}
               className="flex overflow-x-auto overscroll-x-contain snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             >
-              {slides.map((img) => (
+              {slides.map((img, i) => (
                 <div key={img.id} className="w-full flex-shrink-0 snap-center">
                   <Image
                     src={img.url}
-                    alt=""
+                    alt={altFor(img, i, name)}
                     width={800}
                     height={800}
                     className="object-contain w-full h-auto max-h-[80vh]"

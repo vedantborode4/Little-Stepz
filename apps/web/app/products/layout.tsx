@@ -1,4 +1,3 @@
-import { Suspense } from "react"
 import { pageMetadata } from "../../lib/seo/metadata"
 
 /**
@@ -8,7 +7,7 @@ import { pageMetadata } from "../../lib/seo/metadata"
 export const metadata = pageMetadata({
   title: "All Products — RC Cars, Diecast & More",
   description:
-    "Browse the full Little Stepz catalogue — officially licensed RC cars, diecast models, Hot Wheels Premium, building blocks, Stanley tumblers and more. Delivered across India.",
+    "Browse the full Little Stepz catalogue — officially licensed RC cars, diecast models, Hot Wheels Premium, building blocks, insulated tumblers and more. Delivered across India.",
   path: "/products",
 })
 
@@ -17,8 +16,10 @@ export default function ProductsLayout({
 }: {
   children: React.ReactNode
 }) {
-  // The listing page reads useSearchParams() for filter/sort/page state, which
-  // needs a Suspense boundary to prerender — without one the build throws and
-  // the route falls back to fully client-side rendering, undoing the SSR win.
-  return <Suspense>{children}</Suspense>
+  // No Suspense boundary here (audit LS-21). It used to wrap every route under
+  // /products, so product and category pages streamed their shell with HTTP 200
+  // before the page could call notFound(): unknown product URLs answered 200
+  // instead of 404. The boundary the listing's useSearchParams() needs now lives
+  // in app/products/page.tsx, around the listing only.
+  return children
 }

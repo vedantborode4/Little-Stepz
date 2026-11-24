@@ -4,14 +4,8 @@ import { ROBOTS_BLOCKED, SITE_URL } from "../lib/seo/site"
 /**
  * Serves /robots.txt (proposal §4.1 — currently HTTP 404 in production).
  *
- * AI crawlers are split deliberately into two groups:
- *   - Citation/search bots are allowed: they drive AI Overviews, ChatGPT Search
- *     and Perplexity referrals, which is the point of the GEO work stream.
- *   - Training-corpus bots (Google-Extended, CCBot) are listed separately so the
- *     client can make that call independently — allowing them permits model
- *     training on the catalogue and earns no referral traffic in return.
- *
- * TODO(client): confirm the training-bot stance, then delete whichever block loses.
+ * All crawlers, AI citation and training bots included, share one rule set —
+ * see the note above robots() below.
  */
 
 // Trailing slash so `/account` blocks `/account/*` without catching a future
@@ -23,20 +17,15 @@ const disallow = ROBOTS_BLOCKED.map((p) => `${p}/`)
 // discovery but never indexed; canonical tags collapse them onto clean URLs.
 const paramDisallow = ["/*?*sort=", "/*?*page=", "/*?*search=", "/*?*priceMin=", "/*?*priceMax="]
 
-const CITATION_BOTS = [
-  "OAI-SearchBot", // ChatGPT Search index
-  "ChatGPT-User", // live fetch when a user asks
-  "PerplexityBot",
-  "Perplexity-User",
-  "ClaudeBot", // current Anthropic crawler — `anthropic-ai`/`Claude-Web` are retired
-  "Claude-User",
-  "Applebot-Extended",
-  "Bingbot",
-  "DuckDuckBot",
-]
-
-const TRAINING_BOTS = ["Google-Extended", "CCBot", "GPTBot", "Bytespider", "Amazonbot"]
-
+// One group for every crawler (audit LS-22). The per-bot groups (OAI-SearchBot,
+// PerplexityBot, ClaudeBot, Bingbot, GPTBot, CCBot, …) all allowed the same paths
+// as `*`, but a crawler that finds a group naming it ignores `*` entirely — so
+// those bots never received the query-parameter rules and crawled every
+// ?sort= / ?page= / ?search= variant. Search and AI crawlers are all still allowed.
+//
+// To opt out of AI *training* later (does not affect AI Overviews or ChatGPT
+// citations), add a group such as { userAgent: ["GPTBot", "CCBot",
+// "Google-Extended"], disallow: "/" } — a named group must repeat every rule it needs.
 export default function robots(): MetadataRoute.Robots {
   return {
     rules: [
@@ -45,19 +34,6 @@ export default function robots(): MetadataRoute.Robots {
         allow: "/",
         disallow: [...disallow, ...paramDisallow],
       },
-      // Allowed: these send referral traffic back.
-      ...CITATION_BOTS.map((userAgent) => ({
-        userAgent,
-        allow: "/",
-        disallow,
-      })),
-      // Allowed today. Flip `allow` to `disallow: "/"` if the client opts out of
-      // AI training use — this does not affect AI Overviews or ChatGPT citations.
-      ...TRAINING_BOTS.map((userAgent) => ({
-        userAgent,
-        allow: "/",
-        disallow,
-      })),
     ],
     sitemap: `${SITE_URL}/sitemap.xml`,
     host: SITE_URL,

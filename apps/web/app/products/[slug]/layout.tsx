@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
 import JsonLd from "../../../components/seo/JsonLd"
-import { getProductBySlug } from "../../../lib/seo/catalogue"
+import { getProductBySlug, missingProduct } from "../../../lib/seo/catalogue"
 import {
   pageMetadata,
   productMetaDescription,
@@ -23,9 +23,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
   const product = await getProductBySlug(slug)
 
-  if (!product) {
-    return { title: "Product not found", robots: { index: false, follow: true } }
-  }
+  // Resolve the 404 here too: metadata is settled before the page body, so this
+  // is the earliest point where the response status can still become 404.
+  if (!product) return missingProduct(slug)
 
   return pageMetadata({
     title: product.metaTitle || productMetaTitle(product.name, product.category?.name),
@@ -50,7 +50,7 @@ export default async function ProductLayout({
   const { slug } = await params
   const product = await getProductBySlug(slug)
 
-  if (!product) return <>{children}</>
+  if (!product) return missingProduct(slug)
 
   const crumbs = [
     { name: "Home", path: "/" },
@@ -78,6 +78,7 @@ export default async function ProductLayout({
             price: product.price,
             salePrice: product.salePrice,
             inStock: product.inStock,
+            preOrder: !!product.preOrderEnabled,
             categoryName: product.category?.name,
             brand: product.brand,
             gtin: product.gtin,

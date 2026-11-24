@@ -45,7 +45,7 @@ export async function GET() {
 
 > ${BRAND} is an online retailer based in ${CONTACT.locality}, India, selling officially
 > licensed remote-control cars, diecast scale models, Hot Wheels premium sets, building-block
-> kits, Stanley tumblers and collectible toys, shipped across India.
+> kits, insulated tumblers and collectible toys, shipped across India.
 
 ${BRAND} sells ${products.length} products across ${live.length} categories, priced ${range}.
 Orders are placed on the website and paid up front with card, UPI, net-banking or wallet.
@@ -82,7 +82,7 @@ ${categoryLines}
 - Product prices are in Indian Rupees (INR) and exclude any applicable shipping.
 - Stock and pricing change; treat ${SITE_URL}/products as authoritative over cached copies.
 - "Officially licensed" describes cars made under licence from the marque
-  (Ferrari, Lamborghini, McLaren, Bugatti, Mercedes-Benz, Land Rover, Maserati);
+  (Lamborghini, McLaren, Bugatti, Mercedes-AMG, Land Rover, Maserati, Formula E);
   ${BRAND} is a retailer, not the manufacturer.
 `
 

@@ -1,7 +1,7 @@
 /**
  * Per-category SEO copy.
  *
- * Every one of the 16 categories in the live database has `description: null`,
+ * Every category in the live database has `description: null`,
  * so there is nothing to derive titles or meta descriptions from. This file is
  * the interim source of truth (proposal §4.3).
  *
@@ -23,12 +23,12 @@ export interface CategoryCopy {
 
 export const CATEGORY_COPY: Record<string, CategoryCopy> = {
   "licensed-cars": {
-    title: "Officially Licensed RC Cars — Ferrari & More",
+    title: "Officially Licensed RC Cars — 1:10 to 1:14 Scale",
     description:
-      "Officially licensed remote-control cars from Ferrari, Lamborghini, McLaren, Bugatti, Maserati, Mercedes-AMG and Land Rover. 1:12 and 1:14 scale, delivered across India.",
+      "Officially licensed RC cars — Lamborghini, McLaren, Bugatti, Maserati, Mercedes-AMG, Land Rover and Formula E. 1:10 to 1:14 scale, shipped across India.",
     h1: "Officially Licensed RC Cars",
     intro:
-      "Little Stepz stocks officially licensed remote-control cars built under licence from the marque, including Ferrari, Lamborghini, McLaren, Bugatti, Maserati, Mercedes-AMG and Land Rover. Most models are 1:12 or 1:14 scale with 2.4GHz control and rechargeable battery packs. Licensed models reproduce the real car's bodywork, badging and proportions, which generic replicas cannot legally do.",
+      "Little Stepz stocks officially licensed remote-control cars by RW, built under licence from the car makers: the Lamborghini Aventador and Sián, McLaren 765LT, Bugatti Divo, Maserati MC20, Mercedes-AMG GT R Pro, Land Rover Defender 90 and the ABB FIA Formula E Gen3 race car. Most are 1:12 scale with 2.4GHz control and rechargeable batteries, and reproduce the real car's bodywork, badging and proportions.",
   },
   "rc-cars": {
     title: "RC Cars — Remote Control Cars Online",
@@ -37,6 +37,51 @@ export const CATEGORY_COPY: Record<string, CategoryCopy> = {
     h1: "RC Cars",
     intro:
       "Little Stepz sells remote-control cars ranging from pocket-sized 1:64 drift models to full hobby-grade machines. All RC cars listed here use 2.4GHz radio control, which allows several cars to run at once without interference, and ship with rechargeable battery packs.",
+  },
+
+  "construction-vehicles": {
+    title: "Remote Control Excavators & RC Construction Toys",
+    description:
+      "Huina remote control excavators, dump trucks, wheel loaders, cranes and mixers in 1:14, 1:16 and 1:18 scale. RC construction toys shipped across India.",
+    h1: "RC Construction Vehicles",
+    intro:
+      "Little Stepz stocks Huina remote-control construction vehicles — excavators, dump and tipper trucks, wheel loaders, bulldozers, cranes, forklifts, concrete mixers and trailer sets — in 1:14, 1:16, 1:18 and 1:64 scale. Huina models use 2.4GHz multi-channel controllers (9 to 32 channels), so the boom, arm, bucket and tipper move independently, and most add working lights and sound.",
+  },
+
+  "drift-car": {
+    title: "RC Drift Cars — Mini 1:64, 1:43 & 1:24 Scale",
+    description:
+      "RC drift cars with gyroscope and LED lights — mini 1:64 alloy, 1:43 and 1:24 full-proportional models with 2.4GHz remotes. Shipped across India.",
+    h1: "RC Drift Cars",
+    intro:
+      "Little Stepz stocks remote-control drift cars from pocket-sized 1:64 alloy models to 1:24 full-proportional cars with gyroscope stabilisation. Drift cars use hard, low-grip tyres and 4WD so they slide through corners on smooth floors, and most include LED lights, spare drift tyres and rechargeable batteries.",
+  },
+
+  "hobby-grade-cars": {
+    title: "Hobby Grade RC Cars — Brushless 4WD Trucks",
+    description:
+      "Hobby-grade RC cars — brushless 4WD monster trucks, buggies and crawlers from SUCHIYU, Mirana, RCMAX and Passion. Shipped across India.",
+    h1: "Hobby Grade RC Cars",
+    intro:
+      "Hobby-grade RC cars use proportional steering and throttle, replaceable parts and, in most cases, brushless motors, which is what separates them from toy-grade remote-control cars. Little Stepz stocks brushless 4WD monster trucks, short-course trucks, buggies and crawlers from SUCHIYU, Mirana, RCMAX and Passion.",
+  },
+
+  "ai-toys": {
+    title: "AI Robot Toys — Smart Walking Robots for Kids",
+    description:
+      "Smart walking robot toys for kids with app and remote control, a Bluetooth speaker, voice and clap control. Shipped across India from Hyderabad.",
+    h1: "AI Robot Toys",
+    intro:
+      "Little Stepz stocks interactive robot toys such as the Mirana Moonwalker, a walking robot driven by remote or phone app, with a built-in Bluetooth speaker, clap detection, talk-back and AR games. They suit children who want a robot that responds to them rather than one that only moves.",
+  },
+
+  transformers: {
+    title: "Transformers Model Kits — YOLOPARK AMK Pro",
+    description:
+      "YOLOPARK AMK Pro pre-assembled Transformers model kits — Optimus Prime, Megatron and Soundwave. Collector-grade figures, shipped across India.",
+    h1: "Transformers Model Kits",
+    intro:
+      "Little Stepz stocks YOLOPARK AMK Pro pre-assembled Transformers model kits, including G1 Optimus Prime, G1 Megatron and the Bumblebee-movie Optimus Prime and Soundwave. AMK Pro kits arrive largely pre-built with articulated joints and accessories, so they are ready to display in minutes rather than hours.",
   },
   "hyper-go-cars": {
     title: "MJX Hyper Go RC Cars — Brushless 4WD Crawlers",
@@ -87,12 +132,12 @@ export const CATEGORY_COPY: Record<string, CategoryCopy> = {
       "Little Stepz stocks building-block kits covering formula racing cars, sports cars, retro cruiser and racing motorcycles, transformable mecha cars, and a 133-piece electric magnetic levitation track set. These are display-grade construction sets aimed at older builders rather than pre-school toys.",
   },
   "stanley-bottles": {
-    title: "Stanley Quencher Tumblers — 40 oz",
+    title: "40 oz Insulated Tumblers with Handle & Straw",
     description:
-      "Stanley Quencher H2.0 FlowState 40 oz tumblers, including Disney, Hello Kitty, Labubu and LoveShackFancy limited editions. Available at Little Stepz India.",
-    h1: "Stanley Quencher Tumblers",
+      "40 oz insulated stainless steel tumblers with handle and straw in bow, floral, pastel and cartoon prints. Gift-boxed, shipped across India from Hyderabad.",
+    h1: "Tumblers",
     intro:
-      "The Stanley Quencher H2.0 FlowState is a 40 oz vacuum-insulated stainless steel tumbler with a rotating three-position lid and a handle sized for one-hand carry. Little Stepz stocks limited-edition collaborations including Disney, Hello Kitty, Labubu, Karol G, Jennie and LoveShackFancy. Limited editions are produced in fixed runs and are not restocked once sold out.",
+      "Little Stepz stocks 40 oz insulated stainless steel tumblers with a carry handle and a straw lid, in bow, floral, toile, pastel and cartoon prints. Most arrive gift-boxed, which makes them a popular birthday and Mother's Day gift. Limited prints are not restocked once they sell out.",
   },
   "fidget-toys": {
     title: "Fidget Toys — Mechanical Spinners & Balls",
@@ -143,20 +188,12 @@ export const CATEGORY_COPY: Record<string, CategoryCopy> = {
     intro:
       "Little Stepz stocks educational and e-learning toys aimed at learning through play. This category is currently being restocked.",
   },
-  transformers: {
-    title: "Transformers — Convertible Robot Figures",
-    description:
-      "Transformers and convertible robot figures at Little Stepz. Collector and play grade, delivered across India.",
-    h1: "Transformers",
-    intro:
-      "Little Stepz stocks Transformers and convertible robot figures. This category is currently being restocked.",
-  },
 }
 
 export function categoryCopy(slug: string, name: string): CategoryCopy {
   return (
     CATEGORY_COPY[slug] ?? {
-      title: `${name} — Buy Online`,
+      title: `${name} — Shop Online in India`,
       description: `Shop ${name} at Little Stepz. Authentic products, directly imported and delivered across India.`,
       h1: name,
       intro: `Little Stepz stocks ${name}, directly imported and delivered across India.`,

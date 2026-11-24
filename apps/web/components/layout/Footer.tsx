@@ -78,12 +78,17 @@ export default function Footer() {
             <h4 className="font-semibold text-white mb-3 sm:mb-4 text-sm">Categories</h4>
             <ul className="space-y-2 text-sm">
               {[
-                { label: "Blocks", slug: "blocks" },
-                { label: "Die Cast Cars", slug: "die-cast-cars" },
-                { label: "Hyper go Cars", slug: "hyper-go-cars" },
-                { label: "Licensed Cars", slug: "licensed-cars" },
                 { label: "RC Cars", slug: "rc-cars" },
-                { label: "Stanley Bottles", slug: "stanley-bottles" },
+                { label: "Hobby Grade RC Cars", slug: "hobby-grade-cars" },
+                { label: "RC Rock Crawlers", slug: "rc-crawlers" },
+                { label: "RC Drift Cars", slug: "drift-car" },
+                { label: "RC Construction Vehicles", slug: "construction-vehicles" },
+                { label: "Licensed RC Cars", slug: "licensed-cars" },
+                { label: "MJX Hyper Go", slug: "hyper-go-cars" },
+                { label: "Hot Wheels Premium", slug: "hot-wheels" },
+                { label: "Diecast Model Cars", slug: "die-cast-cars" },
+                { label: "Building Blocks", slug: "blocks" },
+                { label: "Tumblers", slug: "stanley-bottles" },
               ].map((item) => (
                 <li key={item.slug}>
                   <Link href={`/products/category/${item.slug}`} className="text-gray-400 hover:text-white transition text-xs sm:text-sm">

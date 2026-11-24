@@ -1,6 +1,4 @@
-import { notFound } from "next/navigation"
-
-import { getFullProductBySlug } from "../../../lib/seo/catalogue"
+import { getFullProductBySlug, missingProduct } from "../../../lib/seo/catalogue"
 import ProductDetailView from "../../../components/products/details/ProductDetailView"
 
 /**
@@ -17,7 +15,7 @@ export default async function ProductDetailsPage({ params }: Props) {
   const { slug } = await params
   const product = await getFullProductBySlug(slug)
 
-  if (!product) notFound()
+  if (!product) return missingProduct(slug)
 
   return <ProductDetailView product={product} />
 }

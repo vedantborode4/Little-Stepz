@@ -31,8 +31,8 @@ export const TAGLINE = "Hyderabad's Premium Destination for Toys, Diecast & Coll
 
 export const DESCRIPTION =
   "Shop premium toys, diecast models, RC cars and collectibles at Little Stepz. " +
-  "Officially licensed Ferrari, Lamborghini, McLaren and Bugatti RC cars, Hot Wheels " +
-  "premium sets, building blocks and Stanley tumblers. Delivered across India."
+  "Officially licensed Lamborghini, McLaren and Bugatti RC cars, Hot Wheels " +
+  "premium sets, building blocks and insulated tumblers. Delivered across India."
 
 export const CONTACT = {
   phone: SUPPORT_PHONE_DISPLAY,
@@ -112,7 +112,7 @@ export const NOINDEX_ROUTES = [
  * content — excluded from the sitemap and set to noindex,follow until stocked.
  * Re-check before each release; sitemap.ts also filters on live product count.
  */
-export const EMPTY_CATEGORIES = ["anime", "e-learning-toys", "transformers"]
+export const EMPTY_CATEGORIES = ["anime", "e-learning-toys"]
 
 export const absolute = (path: string) =>
   `${SITE_URL}${path.startsWith("/") ? path : `/${path}`}`

@@ -70,6 +70,8 @@ export interface ProductSchemaInput {
   price: string | number
   salePrice?: string | number | null
   inStock: boolean
+  /** Pre-order / booking enabled — out-of-stock pre-orders are PreOrder, not OutOfStock (LS-06). */
+  preOrder?: boolean
   categoryName?: string
   brand?: string | null
   gtin?: string | null
@@ -107,7 +109,9 @@ export function productSchema(p: ProductSchemaInput): Json {
       priceValidUntil,
       availability: p.inStock
         ? "https://schema.org/InStock"
-        : "https://schema.org/OutOfStock",
+        : p.preOrder
+          ? "https://schema.org/PreOrder"
+          : "https://schema.org/OutOfStock",
       itemCondition: conditionUrl(p.condition),
       seller: { "@id": ORG_ID },
     },
@@ -117,9 +121,10 @@ export function productSchema(p: ProductSchemaInput): Json {
   if (p.images?.length) schema.image = p.images
   if (p.categoryName) schema.category = p.categoryName
 
-  // Brand is a Merchant Center requirement and a rich-result differentiator.
-  // Falls back to the retailer only when the manufacturer is unknown.
-  schema.brand = { "@type": "Brand", name: p.brand?.trim() || BRAND }
+  // The real manufacturer only (audit LS-03). Never fall back to the store name:
+  // Little Stepz is the retailer, and naming it as the brand of third-party
+  // goods is a Merchant Center misrepresentation signal. No brand → no brand.
+  if (p.brand?.trim()) schema.brand = { "@type": "Brand", name: p.brand.trim() }
 
   if (p.gtin?.trim()) schema.gtin = p.gtin.trim()
   if (p.mpn?.trim()) schema.mpn = p.mpn.trim()

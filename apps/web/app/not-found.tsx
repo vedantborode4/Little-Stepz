@@ -45,7 +45,7 @@ export default function NotFound() {
             ["Licensed Cars", "licensed-cars"],
             ["Diecast Cars", "die-cast-cars"],
             ["Hot Wheels", "hot-wheels"],
-            ["Stanley Bottles", "stanley-bottles"],
+            ["Tumblers", "stanley-bottles"],
             ["Building Blocks", "blocks"],
             ["RC Crawlers", "rc-crawlers"],
           ].map(([label, slug]) => (

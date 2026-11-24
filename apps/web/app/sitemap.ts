@@ -31,9 +31,11 @@ const STATIC: { path: string; priority: number; freq: MetadataRoute.Sitemap[0]["
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date()
 
+  // No lastmod for static pages (audit LS-02): stamping all 13 with the build
+  // time told Google they all changed on every deploy, which teaches it to
+  // ignore our lastmod values — including the real ones on products.
   const entries: MetadataRoute.Sitemap = STATIC.map((s) => ({
     url: absolute(s.path),
-    lastModified: now,
     changeFrequency: s.freq,
     priority: s.priority,
   }))

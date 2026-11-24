@@ -1,4 +1,5 @@
 import "server-only"
+import { notFound } from "next/navigation"
 import type { Product } from "../../types/product"
 
 /**
@@ -39,6 +40,7 @@ export interface SeoProduct {
   metaDescription?: string | null
   ogImage?: string | null
   noindex?: boolean
+  preOrderEnabled?: boolean
   brand?: string | null
   gtin?: string | null
   mpn?: string | null
@@ -103,6 +105,26 @@ export async function getFullProductBySlug(slug: string): Promise<Product | null
     `product:${slug}`,
     PRODUCT_REVALIDATE,
   )
+}
+
+/**
+ * Called when a product lookup came back empty (audit LS-21).
+ *
+ * Unknown slugs used to render the not-found UI with HTTP 200 (a soft 404). Only
+ * a real "404 Not Found" from the API becomes notFound(); if the API could not
+ * be reached we throw instead, so a backend outage answers 500 — which Google
+ * treats as temporary — rather than turning every product URL into a 404.
+ */
+export async function missingProduct(slug: string): Promise<never> {
+  let status = 0
+  try {
+    const res = await fetch(`${BASE}/products/${encodeURIComponent(slug)}`, { cache: "no-store" })
+    status = res.status
+  } catch {
+    // network failure: fall through to the error below
+  }
+  if (status === 404) notFound()
+  throw new Error(`Product lookup failed for "${slug}" (API status ${status || "unreachable"})`)
 }
 
 export async function getCategoryBySlug(slug: string): Promise<SeoCategory | null> {

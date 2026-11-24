@@ -9,8 +9,17 @@ import { BRAND, SITE_URL, absolute } from "../../../lib/seo/site"
  *
  * Products flagged `noindex`, or with no image, are skipped. When a product has
  * no GTIN/MPN we emit `g:identifier_exists=no` so Merchant Center doesn't reject
- * it for missing identifiers. Brand falls back to the retailer, matching the
- * Product JSON-LD.
+ * it for missing identifiers.
+ *
+ * Brand is the real manufacturer only — never the store name (audit LS-03).
+ *
+ * Out-of-stock pre-orders are held back from the feed. Merchant Center only
+ * accepts `preorder` together with an `availability_date`, and the catalogue
+ * has no reliable arrival dates; sending them as `out_of_stock` contradicts the
+ * page's PreOrder structured data (LS-06) and earns a mismatch warning. They
+ * were never shown in Shopping as out_of_stock anyway. Add them back with
+ * `preorder` + `availability_date` once the admin records an expected date and
+ * a confirmed price (audit LS-08).
  */
 export const revalidate = 3600
 
@@ -27,9 +36,10 @@ const money = (v: string | number) => `${Number(v).toFixed(2)} INR`
 function itemXml(p: SeoProduct): string {
   const image = p.images?.[0]?.url
   if (!image) return "" // Merchant Center requires g:image_link
+  if (!p.inStock && p.preOrderEnabled) return "" // see the header comment
 
   const link = absolute(`/products/${p.slug}`)
-  const brand = (p.brand || BRAND).trim()
+  const brand = p.brand?.trim() || ""
   const desc = (p.description || p.name).replace(/\s+/g, " ").trim().slice(0, 5000)
   const onSale =
     p.salePrice != null && Number(p.salePrice) > 0 && Number(p.salePrice) < Number(p.price)
@@ -44,7 +54,7 @@ function itemXml(p: SeoProduct): string {
     `<g:availability>${p.inStock ? "in_stock" : "out_of_stock"}</g:availability>`,
     `<g:price>${money(p.price)}</g:price>`,
     onSale ? `<g:sale_price>${money(p.salePrice as string)}</g:sale_price>` : "",
-    `<g:brand>${xmlEscape(brand)}</g:brand>`,
+    brand ? `<g:brand>${xmlEscape(brand)}</g:brand>` : "",
     p.gtin?.trim() ? `<g:gtin>${xmlEscape(p.gtin.trim())}</g:gtin>` : "",
     p.mpn?.trim() ? `<g:mpn>${xmlEscape(p.mpn.trim())}</g:mpn>` : "",
     `<g:condition>${xmlEscape((p.condition || "new").toLowerCase())}</g:condition>`,
