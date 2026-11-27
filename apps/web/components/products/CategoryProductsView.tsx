@@ -6,12 +6,15 @@ import Link from "next/link"
 import { useCategoryStore } from "../../store/useCategoryStore"
 import { useProductFilterStore } from "../../store/useProductFilterStore"
 import { ProductService } from "../../lib/services/product.service"
+import { buildProductQuery } from "../../lib/utils/buildProductQuery"
+import { PRODUCTS_PER_LOAD } from "../../lib/utils/catalogue-paging"
+import { useInfiniteProducts } from "../../hooks/useInfiniteProducts"
 import type { Product } from "../../types/product"
 
 import Breadcrumbs from "../common/Breadcrumbs"
 import ProductCard from "./ProductCard"
 import ProductGridSkeleton from "./ProductGridSkeleton"
-import { Pagination } from "./Pagination"
+import InfiniteScrollSentinel from "./InfiniteScrollSentinel"
 import FilterSidebar from "./filters/FilterSidebar"
 import MobileFilterDrawer from "./filters/MobileFilterDrawer"
 import DynamicPromoBanner from "../home/DynamicPromoBanner"
@@ -19,9 +22,9 @@ import DynamicPromoBanner from "../home/DynamicPromoBanner"
 /**
  * Interactive category listing island (plan W1).
  *
- * Page 1 is fetched on the server and passed in via `initialProducts`, so the
- * H1, intro passage and the first grid of product links render into the initial
- * HTML. Filters, sorting and pagination re-fetch on the client after hydration.
+ * The first batch is fetched on the server and passed in via `initialProducts`, so
+ * the H1, intro passage and the first grid of product links render into the initial
+ * HTML. Filters and sorting re-fetch on the client; more products load on scroll.
  */
 export default function CategoryProductsView({
   slug,
@@ -29,12 +32,14 @@ export default function CategoryProductsView({
   intro,
   initialProducts,
   initialTotalPages,
+  initialTotal,
 }: {
   slug: string
   heading: string
   intro: string
   initialProducts: Product[]
   initialTotalPages: number
+  initialTotal: number
 }) {
   const { tree } = useCategoryStore()
 
@@ -42,16 +47,23 @@ export default function CategoryProductsView({
   const priceMin = useProductFilterStore((s) => s.priceMin)
   const priceMax = useProductFilterStore((s) => s.priceMax)
 
-  const [products, setProducts] = useState<Product[]>(initialProducts)
-  const [totalPages, setTotalPages] = useState(initialTotalPages)
-  const [page, setPage] = useState(1)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(false)
-
-  // Pagination scrolls back to here, so a page change lands on the new results
-  // instead of leaving the viewport parked at the old page's footer.
+  // The list waits until leftover filters from another page are cleared for this category.
+  const [readySlug, setReadySlug] = useState<string | null>(null)
   const resultsRef = useRef<HTMLDivElement>(null)
 
+  const list = useInfiniteProducts({
+    key: `category/${slug}?${buildProductQuery({ sort, priceMin, priceMax })}`,
+    enabled: readySlug === slug,
+    scrollTargetRef: resultsRef,
+    initial: {
+      key: `category/${slug}?`,
+      products: initialProducts,
+      totalPages: initialTotalPages,
+      total: initialTotal,
+    },
+    fetchPage: (page) =>
+      ProductService.getByCategorySlug(slug, page, PRODUCTS_PER_LOAD, sort, priceMin, priceMax),
+  })
 
   useEffect(() => {
     if (!useCategoryStore.getState().tree.length) {
@@ -71,51 +83,9 @@ export default function CategoryProductsView({
       sort: undefined,
       priceMin: undefined,
       priceMax: undefined,
-      page: 1,
     })
+    setReadySlug(slug)
   }, [slug])
-
-  useEffect(() => {
-    setPage(1)
-  }, [slug, sort, priceMin, priceMax])
-
-  // The server already delivered page 1 with no filters, so skip the first
-  // client fetch — only re-fetch once the user changes page/sort/price.
-  const first = useRef(true)
-  useEffect(() => {
-    if (first.current) {
-      first.current = false
-      return
-    }
-    if (!slug) return
-
-    let ignore = false
-    const run = async () => {
-      try {
-        setLoading(true)
-        setError(false)
-        const res = await ProductService.getByCategorySlug(
-          slug,
-          page,
-          12,
-          sort,
-          priceMin,
-          priceMax,
-        )
-        if (ignore) return
-        setProducts(res.data)
-        setTotalPages(res.meta.totalPages)
-      } catch {
-        if (!ignore) setError(true)
-      } finally {
-        if (!ignore) setLoading(false)
-      }
-    }
-    run()
-    return () => {
-      ignore = true
-    }
-  }, [slug, page, sort, priceMin, priceMax])
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8 space-y-6">
@@ -141,13 +111,16 @@ export default function CategoryProductsView({
             <MobileFilterDrawer />
           </div>
 
-          {loading ? (
+          {list.loading ? (
             <ProductGridSkeleton />
-          ) : error ? (
-            <p className="text-center text-red-500 dark:text-red-400 py-10">
-              Failed to load category products
-            </p>
-          ) : !products.length ? (
+          ) : list.error && !list.products.length ? (
+            <div className="text-center py-10 space-y-3">
+              <p className="text-red-500 dark:text-red-400">Failed to load category products</p>
+              <button onClick={list.retry} className="text-primary font-medium">
+                Try again
+              </button>
+            </div>
+          ) : !list.products.length ? (
             <div className="max-w-2xl mx-auto text-center py-16 space-y-6">
               <p className="text-lg font-medium">No products found in this category</p>
               <div className="flex flex-wrap justify-center gap-3">
@@ -168,16 +141,18 @@ export default function CategoryProductsView({
           ) : (
             <>
               <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-6">
-                {products.map((product) => (
+                {list.products.map((product) => (
                   <ProductCard key={product.id} product={product} />
                 ))}
               </div>
 
-              <Pagination
-                totalPages={totalPages}
-                currentPage={page}
-                onPageChange={setPage}
-                scrollTargetRef={resultsRef}
+              <InfiniteScrollSentinel
+                hasMore={list.hasMore}
+                loadingMore={list.loadingMore}
+                error={list.error}
+                onLoadMore={list.loadMore}
+                onRetry={list.retry}
+                shown={list.products.length}
               />
             </>
           )}

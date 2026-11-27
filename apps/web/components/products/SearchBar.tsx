@@ -55,7 +55,7 @@ export default function SearchBar() {
 
     if (!safe) return
 
-    setFilters({ search: safe, page: 1 })
+    setFilters({ search: safe })
 
     setInput(safe)
     setOpen(false)

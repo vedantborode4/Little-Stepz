@@ -1,7 +1,6 @@
 import { create } from "zustand"
 
 export interface ProductFilterValues {
-  page: number
   category?: string
   sort?: string
   priceMin?: number
@@ -11,7 +10,6 @@ export interface ProductFilterValues {
 
 export interface FilterState {
   // ── Applied values (drive the product fetch) ──
-  page: number
   category?: string
   sort?: string
   priceMin?: number
@@ -23,7 +21,7 @@ export interface FilterState {
   draftPriceMin?: number
   draftPriceMax?: number
 
-  /** Apply values immediately (search, pagination, category, URL hydration). */
+  /** Apply values immediately (search, category, URL hydration). */
   setFilters: (data: Partial<FilterState>) => void
   /** Update only the pending draft (Sort/Price controls) — does NOT refetch. */
   setDraft: (
@@ -35,7 +33,6 @@ export interface FilterState {
 }
 
 export const useProductFilterStore = create<FilterState>((set) => ({
-  page: 1,
   category: undefined,
   sort: undefined,
   priceMin: undefined,
@@ -50,7 +47,6 @@ export const useProductFilterStore = create<FilterState>((set) => ({
     set((state) => ({
       ...state,
       ...data,
-      page: data.page ?? 1,
       // Keep the draft mirrored to applied when sort/price are set directly
       // (URL hydration, Clear) so the controls reflect the current filters.
       ...("sort" in data ? { draftSort: data.sort } : {}),
@@ -66,12 +62,10 @@ export const useProductFilterStore = create<FilterState>((set) => ({
       sort: state.draftSort,
       priceMin: state.draftPriceMin,
       priceMax: state.draftPriceMax,
-      page: 1,
     })),
 
   resetFilters: () =>
     set({
-      page: 1,
       category: undefined,
       sort: undefined,
       priceMin: undefined,

@@ -126,28 +126,28 @@ export async function getProductsByCategory(slug: string): Promise<SeoProduct[]>
  */
 export async function getCategoryProductsPage(
   slug: string,
-  limit = 12,
-): Promise<{ products: Product[]; totalPages: number }> {
-  const data = await getJson<{ products: Product[]; pages?: number }>(
+  limit: number,
+): Promise<{ products: Product[]; totalPages: number; total: number }> {
+  const data = await getJson<{ products: Product[]; pages?: number; total?: number }>(
     `/products/category/${encodeURIComponent(slug)}?page=1&limit=${limit}`,
     `category:${slug}`,
   )
-  return { products: data?.products ?? [], totalPages: data?.pages ?? 1 }
+  return { products: data?.products ?? [], totalPages: data?.pages ?? 1, total: data?.total ?? 0 }
 }
 
 /**
  * Page 1 of the full catalogue, for the server-rendered /products listing (W1).
  * Renders the default (unfiltered) grid into HTML; the client island applies any
- * URL filters/search/pagination after hydration.
+ * URL filters and search after hydration, and loads further pages as the shopper scrolls.
  */
 export async function getProductsPage(
-  limit = 12,
-): Promise<{ products: Product[]; totalPages: number }> {
-  const data = await getJson<{ products: Product[]; pages?: number }>(
+  limit: number,
+): Promise<{ products: Product[]; totalPages: number; total: number }> {
+  const data = await getJson<{ products: Product[]; pages?: number; total?: number }>(
     `/products?page=1&limit=${limit}`,
     "products",
   )
-  return { products: data?.products ?? [], totalPages: data?.pages ?? 1 }
+  return { products: data?.products ?? [], totalPages: data?.pages ?? 1, total: data?.total ?? 0 }
 }
 
 /**

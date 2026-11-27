@@ -2,7 +2,7 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { ProductService, type GetProductsParams } from "../lib/services/product.service";
 import { qk } from "../lib/api/query-client";
 
-const LIMIT = 12;
+const LIMIT = 24;
 
 export function useProducts(params: Omit<GetProductsParams, "page" | "limit">) {
   return useInfiniteQuery({

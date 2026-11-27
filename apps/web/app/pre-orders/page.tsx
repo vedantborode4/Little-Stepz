@@ -1,12 +1,14 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useRef, useState } from "react"
 import Link from "next/link"
 import { Clock } from "lucide-react"
 import { ProductService } from "../../lib/services/product.service"
 import ProductCard from "../../components/products/ProductCard"
 import ProductGridSkeleton from "../../components/products/ProductGridSkeleton"
-import type { Product } from "../../types/product"
+import InfiniteScrollSentinel from "../../components/products/InfiniteScrollSentinel"
+import { useInfiniteProducts } from "../../hooks/useInfiniteProducts"
+import { PRODUCTS_PER_LOAD } from "../../lib/utils/catalogue-paging"
 
 const SORTS = [
   { value: "newest", label: "Newest" },
@@ -15,29 +17,13 @@ const SORTS = [
 ]
 
 export default function PreOrderProductsPage() {
-  const [products, setProducts] = useState<Product[]>([])
-  const [page, setPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
   const [sort, setSort] = useState("newest")
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(false)
-
-  useEffect(() => {
-    const load = async () => {
-      try {
-        setLoading(true)
-        setError(false)
-        const res = await ProductService.getProducts({ page, limit: 12, sort, preOrder: true })
-        setProducts(res.data)
-        setTotalPages(res.meta.totalPages)
-      } catch {
-        setError(true)
-      } finally {
-        setLoading(false)
-      }
-    }
-    load()
-  }, [page, sort])
+  const resultsRef = useRef<HTMLDivElement>(null)
+  const list = useInfiniteProducts({
+    key: `pre-orders?sort=${sort}`,
+    scrollTargetRef: resultsRef,
+    fetchPage: (page) => ProductService.getProducts({ page, limit: PRODUCTS_PER_LOAD, sort, preOrder: true }),
+  })
 
   return (
     <div className="max-w-7xl bg-surface mx-auto px-3 sm:px-4 py-5 sm:py-8">
@@ -57,21 +43,26 @@ export default function PreOrderProductsPage() {
       </div>
 
       {/* Sort */}
-      <div className="flex justify-end mb-4">
+      <div ref={resultsRef} className="flex justify-end mb-4 scroll-mt-20">
         <select
           value={sort}
-          onChange={(e) => { setSort(e.target.value); setPage(1) }}
+          onChange={(e) => setSort(e.target.value)}
           className="border border-border rounded-xl px-3 py-2 text-sm bg-surface"
         >
           {SORTS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
         </select>
       </div>
 
-      {loading ? (
+      {list.loading ? (
         <ProductGridSkeleton />
-      ) : error ? (
-        <p className="text-center text-red-500 dark:text-red-400 py-10">Failed to load pre-order products</p>
-      ) : !products.length ? (
+      ) : list.error && !list.products.length ? (
+        <div className="text-center py-10 space-y-3">
+          <p className="text-red-500 dark:text-red-400">Failed to load pre-order products</p>
+          <button onClick={list.retry} className="text-primary font-medium">
+            Try again
+          </button>
+        </div>
+      ) : !list.products.length ? (
         <div className="text-center py-16 space-y-2 px-4">
           <Clock size={32} className="text-faint mx-auto" />
           <p className="text-base sm:text-lg font-medium text-muted">No pre-order products right now</p>
@@ -80,20 +71,22 @@ export default function PreOrderProductsPage() {
       ) : (
         <>
           <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6">
-            {products.map((product) => (
+            {list.products.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}
           </div>
 
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 mt-8">
-              <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
-                className="w-9 h-9 flex items-center justify-center rounded-lg border border-border text-muted hover:bg-surface-2 disabled:opacity-40">‹</button>
-              <span className="text-sm text-muted px-2">Page {page} of {totalPages}</span>
-              <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                className="w-9 h-9 flex items-center justify-center rounded-lg border border-border text-muted hover:bg-surface-2 disabled:opacity-40">›</button>
-            </div>
-          )}
+          <InfiniteScrollSentinel
+            hasMore={list.hasMore}
+            loadingMore={list.loadingMore}
+            error={list.error}
+            onLoadMore={list.loadMore}
+            onRetry={list.retry}
+            shown={list.products.length}
+            noun="pre-order products"
+            gridClassName="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6"
+            placeholders={4}
+          />
         </>
       )}
     </div>

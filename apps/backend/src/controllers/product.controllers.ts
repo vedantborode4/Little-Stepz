@@ -10,6 +10,7 @@ import {
 
 import {
   searchQuerySchema,
+  searchProductsQuerySchema,
   slugSchema,
   paginationSchema,
 } from "@repo/zod-schema/index";
@@ -86,10 +87,9 @@ async function getProductBySlug(req: Request, res: Response) {
 
 // GET /products/search
 async function searchProducts(req: Request, res: Response) {
-  const { q } = searchQuerySchema.parse(req.query);
-  const limit = Number(req.query.limit) || 20;
+  const { q, page, limit } = searchProductsQuerySchema.parse(req.query);
 
-  const result = await searchProductsService(sanitizeString(q), limit);
+  const result = await searchProductsService(sanitizeString(q), limit, page);
   return new ApiResponse(200, result, "Search results").send(res);
 }
 

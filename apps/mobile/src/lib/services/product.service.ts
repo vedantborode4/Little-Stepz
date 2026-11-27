@@ -22,29 +22,21 @@ export interface GetProductsParams {
   preOrder?: boolean;
 }
 
-/**
- * `GET /products/search` ranks a candidate pool and slices the top `limit` — it
- * takes no page/offset, so it cannot be paged: asking for page 2 would return
- * the same rows again. Instead we ask for one large page of ranked results.
- * Previously this requested only 12, which silently capped every search at 12
- * hits with no way to load more.
- */
-const SEARCH_LIMIT = 48;
-
 export const ProductService = {
   getProducts: async (params?: GetProductsParams): Promise<PaginatedProducts> => {
     if (params?.search) {
-      // Only page 1 exists for search; later pages would duplicate it.
-      if ((params.page ?? 1) > 1) {
-        return { data: [], meta: { total: 0, page: params.page!, limit: 0, totalPages: 1 } };
-      }
+      // Passing `page` makes the API page its ranked results (without it, only the top `limit` come back).
       const res = await api.get("/products/search", {
-        params: { q: params.search, limit: SEARCH_LIMIT },
+        params: { q: params.search, page: params.page ?? 1, limit: params.limit },
       });
-      const products = res.data.data.products as Product[];
       return {
-        data: products,
-        meta: { total: products.length, page: 1, limit: products.length, totalPages: 1 },
+        data: res.data.data.products as Product[],
+        meta: {
+          total: res.data.data.total,
+          page: res.data.data.page,
+          limit: res.data.data.limit,
+          totalPages: res.data.data.pages,
+        },
       };
     }
 

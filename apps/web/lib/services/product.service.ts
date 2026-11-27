@@ -43,18 +43,16 @@ export const ProductService = {
   ): Promise<PaginatedProducts> => {
     if (params?.search) {
       const res = await api.get<BackendResponse>("/products/search", {
-        params: { q: params.search, limit: params.limit || 12 },
+        params: { q: params.search, page: params.page ?? 1, limit: params.limit ?? 24 },
       })
 
-      const products = res.data.data.products
-
       return {
-        data: products,
+        data: res.data.data.products,
         meta: {
-          total: products.length,
-          page: 1,
-          limit: products.length,
-          totalPages: 1,
+          total:      res.data.data.total,
+          page:       res.data.data.page,
+          limit:      res.data.data.limit,
+          totalPages: res.data.data.pages,
         },
       }
     }

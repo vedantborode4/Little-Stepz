@@ -11,7 +11,7 @@ export default function FilterSidebar() {
   const setFilters = useProductFilterStore((s) => s.setFilters)
 
   const clear = () =>
-    setFilters({ sort: undefined, priceMin: undefined, priceMax: undefined, page: 1 })
+    setFilters({ sort: undefined, priceMin: undefined, priceMax: undefined })
 
   return (
     <aside className="hidden lg:block bg-surface-2 rounded-xl p-5  h-fit">

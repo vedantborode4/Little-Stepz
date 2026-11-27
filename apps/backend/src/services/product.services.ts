@@ -287,18 +287,26 @@ const searchCandidateSelect = {
   category: { select: { name: true } },
 } as const;
 
-// Search products — multi-token matching + relevance ranking (two-phase: rank light, hydrate winners)
-export async function searchProductsService(q: string, limit = 20) {
+/** Candidates ranked per search. Paged search always ranks this same pool, so pages never overlap. */
+const SEARCH_POOL_SIZE = 100;
+// A stable candidate order; without it Postgres may hand back a different pool per request.
+const searchPoolOrder = [{ createdAt: "desc" as const }, { id: "asc" as const }];
+
+// Search products — multi-token matching + relevance ranking (two-phase: rank light, hydrate winners).
+// Without `page` it returns the top `limit` (the shape older app builds expect); with `page` it pages the ranked pool.
+export async function searchProductsService(q: string, limit = 20, page?: number) {
   const query = q.trim();
-  if (!query) return { products: [] };
+  const empty = page ? { products: [], total: 0, page, limit, pages: 0 } : { products: [] };
+  if (!query) return empty;
 
   const tokens = tokenize(query);
   const qLower = query.toLowerCase();
-  const poolSize = Math.min(Math.max(limit * 4, 40), 100);
+  const poolSize = page ? SEARCH_POOL_SIZE : Math.min(Math.max(limit * 4, 40), SEARCH_POOL_SIZE);
 
   // Strict: every token must appear somewhere.
   let candidates = await prisma.product.findMany({
     where: { deletedAt: null, category: { isActive: true }, AND: tokens.map(tokenFieldOr) },
+    orderBy: searchPoolOrder,
     take: poolSize,
     select: searchCandidateSelect,
   });
@@ -307,18 +315,20 @@ export async function searchProductsService(q: string, limit = 20) {
   if (candidates.length === 0 && tokens.length > 1) {
     candidates = await prisma.product.findMany({
       where: { deletedAt: null, category: { isActive: true }, OR: tokens.map(tokenFieldOr) },
+      orderBy: searchPoolOrder,
       take: poolSize,
       select: searchCandidateSelect,
     });
   }
 
-  const topIds = candidates
+  const ranked = candidates
     .map((p) => ({ id: p.id, score: relevanceScore(p, qLower, tokens), createdAt: p.createdAt }))
-    .sort((a, b) => b.score - a.score || b.createdAt.getTime() - a.createdAt.getTime())
-    .slice(0, limit)
-    .map((x) => x.id);
+    .sort((a, b) => b.score - a.score || b.createdAt.getTime() - a.createdAt.getTime() || a.id.localeCompare(b.id));
+  const start = page ? (page - 1) * limit : 0;
+  const topIds = ranked.slice(start, start + limit).map((x) => x.id);
+  const paging = page ? { total: ranked.length, page, limit, pages: Math.ceil(ranked.length / limit) } : {};
 
-  if (topIds.length === 0) return { products: [] };
+  if (topIds.length === 0) return { ...empty, ...paging };
 
   // Hydrate full product data only for the winners, then restore ranked order.
   const full = await prisma.product.findMany({
@@ -332,7 +342,7 @@ export async function searchProductsService(q: string, limit = 20) {
     .filter((p): p is NonNullable<typeof p> => Boolean(p))
     .map(withPublicSalePricing);
 
-  return { products };
+  return { products, ...paging };
 }
 
 // Search suggestions — same ranking, lightweight payload for the typeahead dropdown

@@ -6,12 +6,14 @@ import Link from "next/link"
 
 import { ProductService } from "../../lib/services/product.service"
 import { buildProductQuery } from "../../lib/utils/buildProductQuery"
+import { PRODUCTS_PER_LOAD } from "../../lib/utils/catalogue-paging"
+import { useInfiniteProducts } from "../../hooks/useInfiniteProducts"
 import { useProductFilterStore } from "../../store/useProductFilterStore"
 import { useCategoryStore } from "../../store/useCategoryStore"
 
 import ProductCard from "./ProductCard"
 import ProductGridSkeleton from "./ProductGridSkeleton"
-import { Pagination } from "./Pagination"
+import InfiniteScrollSentinel from "./InfiniteScrollSentinel"
 import FilterSidebar from "./filters/FilterSidebar"
 import MobileFilterDrawer from "./filters/MobileFilterDrawer"
 import DynamicPromoBanner from "../home/DynamicPromoBanner"
@@ -21,23 +23,25 @@ import type { Product } from "../../types/product"
 /**
  * Interactive catalogue listing island (plan W1).
  *
- * Page 1 of the unfiltered catalogue is fetched on the server and passed in via
- * `initialProducts`, so the H1 and the first grid render into the initial HTML.
- * The store starts at its defaults (no filters) — matching the server render, so
- * hydration is clean — then reads the URL and applies filters/search/pagination.
+ * The first batch of the unfiltered catalogue is fetched on the server and passed
+ * in via `initialProducts`, so the H1 and the first grid render into the initial
+ * HTML. The store starts at its defaults (no filters) — matching the server render,
+ * so hydration is clean — then reads the URL, applies filters/search, and loads
+ * further batches as the shopper scrolls.
  */
 export default function ProductsListingView({
   initialProducts,
   initialTotalPages,
+  initialTotal,
 }: {
   initialProducts: Product[]
   initialTotalPages: number
+  initialTotal: number
 }) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const hasHydrated = useRef(false)
+  const [hydrated, setHydrated] = useState(false)
 
-  const page     = useProductFilterStore((s) => s.page)
   const category = useProductFilterStore((s) => s.category)
   const sort     = useProductFilterStore((s) => s.sort)
   const priceMin = useProductFilterStore((s) => s.priceMin)
@@ -48,16 +52,17 @@ export default function ProductsListingView({
   const tree = useCategoryStore((s) => s.tree)
 
   const isSearchMode = !!search
-
-  const [products, setProducts] = useState<Product[]>(initialProducts)
-  const [totalPages, setTotalPages] = useState(initialTotalPages)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(false)
-
-  // Pagination scrolls back to here, so a page change lands on the new results
-  // instead of leaving the viewport parked at the old page's footer.
   const resultsRef = useRef<HTMLDivElement>(null)
+  const query = buildProductQuery({ category, sort, priceMin, priceMax, search })
 
+  const list = useInfiniteProducts({
+    key: `products?${query}`,
+    enabled: hydrated,
+    scrollTargetRef: resultsRef,
+    initial: { key: "products?", products: initialProducts, totalPages: initialTotalPages, total: initialTotal },
+    fetchPage: (page) =>
+      ProductService.getProducts({ page, limit: PRODUCTS_PER_LOAD, category, sort, priceMin, priceMax, search }),
+  })
 
   useEffect(() => {
     if (!useCategoryStore.getState().tree.length) {
@@ -81,72 +86,36 @@ export default function ProductsListingView({
   }
 
   useEffect(() => {
-    if (hasHydrated.current) return
+    if (hydrated) return
     useProductFilterStore.getState().setFilters({
-      page:     Number(searchParams.get("page") || 1),
       category: searchParams.get("category") || undefined,
       sort:     searchParams.get("sort") || undefined,
       search:   searchParams.get("search") || undefined,
       priceMin: searchParams.get("priceMin") ? Number(searchParams.get("priceMin")) : undefined,
       priceMax: searchParams.get("priceMax") ? Number(searchParams.get("priceMax")) : undefined,
     })
-    hasHydrated.current = true
-  }, [searchParams])
+    setHydrated(true)
+  }, [searchParams, hydrated])
 
   // Keep `search` in sync with the URL after hydration.
   useEffect(() => {
-    if (!hasHydrated.current) return
+    if (!hydrated) return
     const urlSearch = searchParams.get("search") || undefined
     const storeSearch = useProductFilterStore.getState().search || undefined
     if (urlSearch !== storeSearch) {
-      setFilters({ search: urlSearch, page: Number(searchParams.get("page") || 1) })
+      setFilters({ search: urlSearch })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams])
 
-  // First render already has server data for the default view — only fetch once
-  // the store has hydrated from the URL (and on every filter change thereafter).
-  const skipFirstFetch = useRef(true)
   useEffect(() => {
-    if (!hasHydrated.current) return
-    if (
-      skipFirstFetch.current &&
-      page === 1 && !category && !sort && priceMin === undefined && priceMax === undefined && !search
-    ) {
-      // Default view — server already delivered it; don't refetch.
-      skipFirstFetch.current = false
-      return
-    }
-    skipFirstFetch.current = false
-    const fetchProducts = async () => {
-      try {
-        setLoading(true)
-        setError(false)
-        const res = await ProductService.getProducts({ page, limit: 12, category, sort, priceMin, priceMax, search })
-        setProducts(res.data)
-        setTotalPages(res.meta.totalPages)
-      } catch {
-        setError(true)
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchProducts()
-  }, [page, category, sort, priceMin, priceMax, search])
-
-  useEffect(() => {
-    if (!hasHydrated.current) return
-    const query = buildProductQuery({ page, category, sort, priceMin, priceMax, search })
+    if (!hydrated) return
     if (query !== searchParams.toString()) {
-      router.replace(`/products?${query}`, { scroll: false })
+      router.replace(query ? `/products?${query}` : "/products", { scroll: false })
     }
-  }, [page, category, sort, priceMin, priceMax, search, router, searchParams])
-
-  if (loading) return <ProductGridSkeleton />
-  if (error) return <p className="text-center text-red-500 dark:text-red-400 py-10">Failed to load products</p>
+  }, [hydrated, query, router, searchParams])
 
   const categoryName = getCategoryName(category)
-  const hasNoResults = !products.length
 
   return (
     <div className="max-w-7xl bg-surface mx-auto px-3 sm:px-4 py-5 sm:py-8">
@@ -191,14 +160,23 @@ export default function ProductsListingView({
             </div>
           )}
 
-          {hasNoResults ? (
+          {list.loading ? (
+            <ProductGridSkeleton />
+          ) : list.error && !list.products.length ? (
+            <div className="text-center py-10 space-y-3">
+              <p className="text-red-500 dark:text-red-400">Failed to load products</p>
+              <button onClick={list.retry} className="text-primary font-medium">
+                Try again
+              </button>
+            </div>
+          ) : !list.products.length ? (
             <div className="text-center py-16 space-y-3 px-4">
               <p className="text-base sm:text-lg font-medium text-muted">
                 {isSearchMode ? `No results found for "${search}"` : "No products match these filters"}
               </p>
               <p className="text-sm text-faint">Try widening your price range or clearing the filters.</p>
               <button
-                onClick={() => setFilters({ search: "", priceMin: undefined, priceMax: undefined, page: 1 })}
+                onClick={() => setFilters({ search: "", priceMin: undefined, priceMax: undefined })}
                 className="text-primary font-medium"
               >
                 Clear filters
@@ -207,14 +185,19 @@ export default function ProductsListingView({
           ) : (
             <>
               <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-6">
-                {products.map((product) => (
+                {list.products.map((product) => (
                   <ProductCard key={product.id} product={product} />
                 ))}
               </div>
 
-              {!isSearchMode && (
-                <Pagination totalPages={totalPages} scrollTargetRef={resultsRef} />
-              )}
+              <InfiniteScrollSentinel
+                hasMore={list.hasMore}
+                loadingMore={list.loadingMore}
+                error={list.error}
+                onLoadMore={list.loadMore}
+                onRetry={list.retry}
+                shown={list.products.length}
+              />
             </>
           )}
         </div>
