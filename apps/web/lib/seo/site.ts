@@ -87,6 +87,7 @@ export const ROBOTS_BLOCKED = [
   "/api",
   "/order-payment",
   "/order-success",
+  "/orders/view",
   "/pre-orders/pay",
   "/profile",
   "/ref",

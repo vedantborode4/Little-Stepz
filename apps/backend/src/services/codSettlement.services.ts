@@ -426,13 +426,14 @@ export async function emailOrderDelivered(orderId: string): Promise<void> {
   try {
     const order = await prisma.order.findUnique({
       where: { id: orderId },
-      select: { id: true, total: true, user: { select: { email: true } } },
+      select: { id: true, total: true, accessToken: true, user: { select: { email: true, isGuest: true } } },
     });
     if (!order?.user?.email) return;
 
     void sendOrderDeliveredEmail(order.user.email, {
       orderId: order.id,
       total: Number(order.total),
+      guestAccessToken: order.user.isGuest ? order.accessToken : null,
     });
   } catch (err) {
     console.error(`[email] delivered notice failed for order ${orderId}:`, err);

@@ -13,10 +13,12 @@ async function sendPhoneOtp(req: Request, res: Response) {
 
   const { phone } = sendPhoneOtpSchema.parse(req.body);
 
-  const result = await requestPhoneOtpService(userId, phone, {
-    ipAddress: req.ip,
-    userAgent: req.get("user-agent") ?? undefined,
-  });
+  const result = await requestPhoneOtpService(
+    userId,
+    phone,
+    { ipAddress: req.ip, userAgent: req.get("user-agent") ?? undefined },
+    req.user?.guest?.since
+  );
 
   return new ApiResponse(
     200,
@@ -39,7 +41,7 @@ async function getVerifiedPhones(req: Request, res: Response) {
   const userId = req.user?.userId;
   if (!userId) throw new ApiError(401, "Unauthorized");
 
-  const phones = await listVerifiedPhones(userId);
+  const phones = await listVerifiedPhones(userId, req.user?.guest?.since);
   return new ApiResponse(200, { phones }, "Verified phone numbers").send(res);
 }
 

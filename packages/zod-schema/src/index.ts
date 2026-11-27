@@ -18,4 +18,5 @@ export * from "./types/affiliate.schema";
 export * from "./types/admin.schema";
 export * from "./types/notification.schema";
 export * from "./types/phone-verification.schema";
-export * from "./types/return.schema";
+export * from "./types/return.schema";
+export * from "./types/guest-checkout.schema";

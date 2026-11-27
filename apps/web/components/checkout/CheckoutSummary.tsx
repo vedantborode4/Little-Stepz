@@ -1,6 +1,7 @@
 "use client"
 
 import { useAuthStore } from "../../store/auth.store"
+import { useGuestSessionActive } from "../../store/useGuestSessionStore"
 import { useCartStore } from "../../store/useCartStore"
 import { useCheckoutStore } from "../../store/useCheckoutStore"
 import { useAddressStore } from "../../store/useAddressStore"
@@ -20,7 +21,9 @@ export default function CheckoutSummary({
   const router = useRouter()
 
   const user = useAuthStore((s) => s.user)
-  const isGuest = !user
+  const guestActive = useGuestSessionActive()
+  // Neither signed in nor in a guest checkout session yet.
+  const noSession = !user && !guestActive
 
   const { subtotal, total, discount, couponCode, items } = useCartStore()
   const { placeOrder, placingOrder, paymentPlan, paymentMethod, setQuote } = useCheckoutStore()
@@ -37,7 +40,7 @@ export default function CheckoutSummary({
   const quote = useCheckoutStore((s) => s.quote)
 
   useEffect(() => {
-    if (isGuest || !resolvedAddressId || !items.length) {
+    if (noSession || !resolvedAddressId || !items.length) {
       setQuote(null)
       return
     }
@@ -54,7 +57,7 @@ export default function CheckoutSummary({
       .then((res) => { if (!cancelled) setQuote(res) })
       .catch(() => { if (!cancelled) setQuote(null) })
     return () => { cancelled = true }
-  }, [isGuest, resolvedAddressId, items, couponCode, setQuote])
+  }, [noSession, resolvedAddressId, items, couponCode, setQuote])
 
   const shownSubtotal = quote?.subtotal ?? subtotal
   const shownDiscount = quote?.discount ?? discount
@@ -62,13 +65,7 @@ export default function CheckoutSummary({
   const shownTotal    = quote?.total ?? total
 
   const handleOrder = async () => {
-    // Guests browse checkout freely; we only require an account at the moment
-    // of placing the order, then send them straight back here.
-    if (isGuest) {
-      router.push(`/signin?redirect=${encodeURIComponent("/checkout")}`)
-      return
-    }
-    if (!isValid || !resolvedAddressId || placingOrder) return
+    if (noSession || !isValid || !resolvedAddressId || placingOrder) return
     const orderId = await placeOrder(resolvedAddressId)
     if (orderId) router.push(`/order-success/${orderId}`)
   }
@@ -81,8 +78,9 @@ export default function CheckoutSummary({
 
   // The acknowledgement gates the button rather than being validated on submit: a
   // customer should not be able to start a payment they have not agreed the terms of.
-  const canPlace =
-    isGuest || (isValid && !placingOrder && (!isPartial || forfeitureAck))
+  // Shoppers browse checkout freely; placing the order needs a sign-in or a guest checkout
+  // session, both offered beside this summary.
+  const canPlace = !noSession && isValid && !placingOrder && (!isPartial || forfeitureAck)
 
   return (
     <div className="bg-surface border border-border rounded-2xl shadow-card p-6 space-y-5 h-fit sticky top-6">
@@ -184,7 +182,7 @@ export default function CheckoutSummary({
             <Loader2 className="w-4 h-4 animate-spin" />
             {isCod ? "Placing order…" : "Preparing payment…"}
           </>
-        ) : isGuest || isCod ? (
+        ) : noSession || isCod ? (
           "Place Order"
         ) : isPartial && partial ? (
           `Pay ₹${partial.depositAmount.toLocaleString("en-IN")} & Place Order`
@@ -193,25 +191,25 @@ export default function CheckoutSummary({
         )}
       </button>
 
-      {isGuest && (
+      {noSession && (
         <p className="text-xs text-muted text-center">
-          You'll be asked to sign in before your order is placed.
+          Sign in or continue as a guest to place your order.
         </p>
       )}
 
-      {!isGuest && !resolvedAddressId && (
+      {!noSession && !resolvedAddressId && (
         <p className="text-xs text-amber-600 dark:text-amber-400 text-center bg-amber-50 dark:bg-amber-500/15 border border-amber-100 dark:border-amber-500/20 rounded-lg py-2 px-3">
           Please select a delivery address to continue.
         </p>
       )}
 
-      {!isGuest && isPartial && !forfeitureAck && (
+      {!noSession && isPartial && !forfeitureAck && (
         <p className="text-xs text-amber-600 dark:text-amber-400 text-center bg-amber-50 dark:bg-amber-500/15 border border-amber-100 dark:border-amber-500/20 rounded-lg py-2 px-3">
           Please confirm the deposit terms above to continue.
         </p>
       )}
 
-      {!isGuest && !isValid && (
+      {!noSession && !isValid && (
         <p className="text-xs text-red-500 dark:text-red-400 text-center bg-red-50 dark:bg-red-500/15 border border-red-100 dark:border-red-500/20 rounded-lg py-2 px-3">
           Cart updated. Please review before placing order.
         </p>

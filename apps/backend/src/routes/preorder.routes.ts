@@ -1,5 +1,6 @@
 import { Router } from "express";
-import { authMiddleware } from "../middlewares/auth.middleware";
+import { authOrGuestMiddleware, noGuestMiddleware } from "../middlewares/auth.middleware";
+import { guestPreOrderParam } from "../middlewares/guestScope.middleware";
 import { orderRateLimiter } from "../middlewares/orderRateLimiter.middleware";
 import { documentRateLimiter } from "../middlewares/documentRateLimiter.middleware";
 import {
@@ -21,9 +22,10 @@ preOrderRouter.post("/pay/:token/create-payment", orderRateLimiter, createBalanc
 preOrderRouter.post("/pay/:token/verify", orderRateLimiter, verifyBalancePaymentController);
 
 // Authenticated customer endpoints
-preOrderRouter.use(authMiddleware);
+preOrderRouter.use(authOrGuestMiddleware);
+preOrderRouter.param("id", guestPreOrderParam);
 preOrderRouter.post("/", orderRateLimiter, createPreOrderController);
-preOrderRouter.get("/", getMyPreOrdersController);
+preOrderRouter.get("/", noGuestMiddleware, getMyPreOrdersController);
 preOrderRouter.get("/:id", getPreOrderByIdController);
 preOrderRouter.post("/:id/booking/verify", orderRateLimiter, verifyBookingController);
 preOrderRouter.get("/:id/receipt", documentRateLimiter, getPreOrderReceiptController);

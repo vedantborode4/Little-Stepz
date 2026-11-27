@@ -63,7 +63,7 @@ async function createOrder(req: Request, res: Response) {
     }
   }
 
-  const order = await createOrderService(userId, validated, idempotencyKey, affiliateId);
+  const order = await createOrderService(userId, validated, idempotencyKey, affiliateId, req.user?.guest?.since);
 
   return new ApiResponse(201, order, 'Order created').send(res);
 }

@@ -5,6 +5,7 @@ import type { AuthResponse, AuthUser } from "../types/auth";
 import { useCartStore } from "./cart.store";
 import { useWishlistStore } from "./wishlist.store";
 import { useAddressStore } from "./address.store";
+import { useGuestSessionStore } from "./guestSession.store";
 
 interface AuthState {
   user: AuthUser | null;
@@ -24,8 +25,11 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       isHydrated: false,
 
-      setAuth: (data) =>
-        set({ user: data.user, isAuthenticated: true }),
+      setAuth: (data) => {
+        // A real sign-in replaces any guest checkout session.
+        useGuestSessionStore.getState().clear();
+        set({ user: data.user, isAuthenticated: true });
+      },
 
       setUserOnly: (user) => set({ user }),
 

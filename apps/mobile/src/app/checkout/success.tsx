@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { ScrollView, Text, View } from "react-native";
+import { Linking, ScrollView, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
@@ -9,6 +9,8 @@ import { ScreenContainer } from "../../components/layout/ScreenContainer";
 import { Button } from "../../components/ui/Button";
 import { useCartStore } from "../../store/cart.store";
 import { useCheckoutStore } from "../../store/checkout.store";
+import { useAuthStore } from "../../store/auth.store";
+import { useGuestSessionStore } from "../../store/guestSession.store";
 import { OrderService } from "../../lib/services/order.service";
 import { qk } from "../../lib/api/query-client";
 import { formatPrice } from "../../lib/utils/format";
@@ -19,6 +21,9 @@ export default function CheckoutSuccess() {
   const failed = state === "failed";
   const fetchCart = useCartStore((s) => s.fetchCart);
   const resetSession = useCheckoutStore((s) => s.resetSession);
+  // A guest has no in-app order history: their order lives at its private web link (also emailed).
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const guestEmail = useGuestSessionStore((s) => s.contact?.email);
 
   const { data: order, isLoading } = useQuery({
     queryKey: qk.order(orderId),
@@ -169,7 +174,19 @@ export default function CheckoutSuccess() {
 
         {/* CTAs */}
         <View className="gap-3">
-          <Button label="Track Order" onPress={() => router.replace(`/orders/${orderId}`)} />
+          {!isAuthenticated && guestEmail ? (
+            <Text className="text-center text-xs text-muted">
+              We&apos;ve emailed your order details to <Text className="font-jakarta-semibold text-text">{guestEmail}</Text>.
+            </Text>
+          ) : null}
+          {isAuthenticated ? (
+            <Button label="Track Order" onPress={() => router.replace(`/orders/${orderId}`)} />
+          ) : order?.accessToken ? (
+            <Button
+              label="Track Order"
+              onPress={() => Linking.openURL(`https://littlestepz.in/orders/view/${order.accessToken}`)}
+            />
+          ) : null}
           <Button label="Continue Shopping" variant="outline" onPress={() => router.replace("/(tabs)/home")} />
         </View>
       </ScrollView>

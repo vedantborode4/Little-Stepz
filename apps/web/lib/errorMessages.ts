@@ -137,6 +137,11 @@ const ERROR_COPY: Record<string, string> = {
 
   // ── Signup / email verification ──────────────────────────────────────────
   EMAIL_ALREADY_REGISTERED: "An account with this email already exists. Sign in instead.",
+  // Guest checkout
+  ACCOUNT_EXISTS: "You already have an account with this email. Sign in to continue.",
+  GUEST_ACCOUNT_EXISTS:
+    "You've ordered with us before as a guest. We've emailed you a link to set your password — your orders are already in your account.",
+  GUEST_SESSION_NOT_ALLOWED: "Please sign in to do that.",
   EMAIL_SEND_FAILED: "We couldn't send the verification email. Check the address and try again.",
   OTP_RESEND_TOO_SOON: "We just sent a code — check your inbox, or wait a moment to resend.",
   APP_UPDATE_REQUIRED: "Please update the app to create an account.",

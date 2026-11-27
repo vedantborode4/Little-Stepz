@@ -13,6 +13,8 @@ import { AddressFormSheet } from "../../components/address/AddressFormSheet";
 import { useCartStore } from "../../store/cart.store";
 import { useAddressStore } from "../../store/address.store";
 import { useAuthStore } from "../../store/auth.store";
+import { useGuestSessionActive, useGuestSessionStore } from "../../store/guestSession.store";
+import { GuestCheckoutCard } from "../../components/checkout/GuestCheckoutCard";
 import { useCheckoutStore } from "../../store/checkout.store";
 import type { Address } from "../../lib/services/address.service";
 import {
@@ -70,6 +72,11 @@ export default function Checkout() {
     paymentPlan, paymentMethod, setPaymentChoice, forfeitureAck, setForfeitureAck,
   } = useCheckoutStore();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const guestActive = useGuestSessionActive();
+  const guestContact = useGuestSessionStore((s) => s.contact);
+  const clearGuest = useGuestSessionStore((s) => s.clear);
+  // Signed in, or checking out as a guest (details + SMS code on this screen).
+  const hasSession = isAuthenticated || guestActive;
 
   const [serverTotals, setServerTotals] = useState<ServerTotals | null>(null);
   const [partialQuote, setPartialQuote] = useState<PartialPaymentQuote | null>(null);
@@ -102,9 +109,9 @@ export default function Checkout() {
 
   useFocusEffect(
     useCallback(() => {
-      // Addresses require auth — skip for guests (they sign in at Place Order).
-      if (isAuthenticated) fetchAddresses();
-    }, [fetchAddresses, isAuthenticated])
+      // Addresses need a session: a sign-in or a guest checkout (which sees only its own).
+      if (hasSession) fetchAddresses();
+    }, [fetchAddresses, hasSession])
   );
 
   useEffect(() => {
@@ -295,57 +302,58 @@ export default function Checkout() {
     );
   }
 
-  // Guest checkout: show the order summary but require sign-in to place the
-  // order (client 4.3). Returns to checkout after a successful sign-in.
-  if (!isAuthenticated) {
+  // Not signed in: show the order summary, then sign in or continue as a guest.
+  if (!hasSession) {
     return (
       <ScreenContainer edges={["top", "left", "right", "bottom"]}>
         <Header title="Checkout" />
-        <View className="flex-1 justify-between p-4">
-          <View className="gap-4">
+        <ScrollView
+          contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 24 + keyboardHeight }}
+          keyboardShouldPersistTaps="handled"
+        >
             <Card className="gap-3">
-              <Text className="text-base font-jakarta-bold text-text">Order Summary</Text>
-              <View className="flex-row items-center justify-between">
-                <Text className="text-sm text-muted">
-                  {items.length} {items.length === 1 ? "item" : "items"}
-                </Text>
-                <Text className="text-sm text-text">{formatPrice(view.subtotal)}</Text>
-              </View>
-              {view.discount > 0 ? (
+                <Text className="text-base font-jakarta-bold text-text">Order Summary</Text>
                 <View className="flex-row items-center justify-between">
-                  <Text className="text-sm text-muted">Discount</Text>
-                  <Text className="text-sm text-success">− {formatPrice(view.discount)}</Text>
+                  <Text className="text-sm text-muted">
+                    {items.length} {items.length === 1 ? "item" : "items"}
+                  </Text>
+                  <Text className="text-sm text-text">{formatPrice(view.subtotal)}</Text>
                 </View>
-              ) : null}
-              <View className="flex-row items-center justify-between">
-                <Text className="text-sm text-muted">Shipping</Text>
-                {view.shipping > 0 ? (
-                  <Text className="text-sm text-text">{formatPrice(view.shipping)}</Text>
-                ) : (
-                  <Text className="text-sm text-success">Free</Text>
-                )}
-              </View>
-              <View className="h-px bg-border" />
-              <View className="flex-row items-center justify-between">
-                <Text className="text-base font-jakarta-bold text-text">Total</Text>
-                <Text className="text-lg font-jakarta-bold text-primary">{formatPrice(view.total)}</Text>
-              </View>
-            </Card>
-            <View className="flex-row items-start gap-2 rounded-xl bg-primary/5 p-4">
+                {view.discount > 0 ? (
+                  <View className="flex-row items-center justify-between">
+                    <Text className="text-sm text-muted">Discount</Text>
+                    <Text className="text-sm text-success">− {formatPrice(view.discount)}</Text>
+                  </View>
+                ) : null}
+                <View className="flex-row items-center justify-between">
+                  <Text className="text-sm text-muted">Shipping</Text>
+                  {view.shipping > 0 ? (
+                    <Text className="text-sm text-text">{formatPrice(view.shipping)}</Text>
+                  ) : (
+                    <Text className="text-sm text-success">Free</Text>
+                  )}
+                </View>
+                <View className="h-px bg-border" />
+                <View className="flex-row items-center justify-between">
+                  <Text className="text-base font-jakarta-bold text-text">Total</Text>
+                  <Text className="text-lg font-jakarta-bold text-primary">{formatPrice(view.total)}</Text>
+                </View>
+              </Card>
+          <Card className="gap-3">
+            <View className="flex-row items-center gap-2">
               <Ionicons name="person-circle-outline" size={20} color={colors.primary} />
-              <Text className="flex-1 text-sm leading-relaxed text-muted">
-                Sign in to add your delivery address and complete payment. Your cart is saved.
-              </Text>
+              <Text className="text-base font-jakarta-bold text-text">Have an account?</Text>
             </View>
-          </View>
-          <View className="gap-3">
-            <PaymentBadges />
+            <Text className="text-sm text-muted">Sign in to use your saved addresses. Your cart is saved.</Text>
             <Button
-              label="Sign In to Place Order"
+              label="Sign In"
+              variant="outline"
               onPress={() => router.push({ pathname: "/(auth)/signin", params: { redirect: "/checkout" } })}
             />
-          </View>
-        </View>
+          </Card>
+          <GuestCheckoutCard />
+          <PaymentBadges />
+        </ScrollView>
       </ScreenContainer>
     );
   }
@@ -354,6 +362,17 @@ export default function Checkout() {
     <ScreenContainer edges={["top", "left", "right", "bottom"]}>
       <Header title="Checkout" />
       <Text className="px-4 pt-1 text-xs text-muted">Complete your purchase securely</Text>
+      {!isAuthenticated && guestContact ? (
+        <View className="mx-4 mt-2 flex-row items-center gap-2 rounded-xl bg-primary/5 px-3 py-2">
+          <Ionicons name="person-outline" size={16} color={colors.primary} />
+          <Text className="flex-1 text-xs text-muted" numberOfLines={1}>
+            Checking out as guest: <Text className="font-jakarta-semibold text-text">{guestContact.name}</Text> · {guestContact.email}
+          </Text>
+          <Text className="text-xs font-jakarta-semibold text-primary" onPress={clearGuest}>
+            Not you?
+          </Text>
+        </View>
+      ) : null}
 
       {/* Stepper */}
       <View className="flex-row items-center justify-between px-6 py-3">

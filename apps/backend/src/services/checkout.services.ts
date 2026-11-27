@@ -81,14 +81,19 @@ interface CheckoutResult {
   codPayment: CodPaymentQuote;
 }
 
-export async function calculateCheckoutService(userId: string, data: CheckoutCalculateBody): Promise<CheckoutResult> {
+export async function calculateCheckoutService(
+  userId: string,
+  data: CheckoutCalculateBody,
+  /** Guest-checkout session start: only addresses and phone checks from this session count. */
+  guestSince?: Date
+): Promise<CheckoutResult> {
   const { cartItems, addressId, couponCode } = data;
 
   if (cartItems.length === 0) throw new ApiError(400, OrderErrorCode.CART_EMPTY);
 
   // Validate address belongs to user
   const address = await prisma.address.findFirst({
-    where: { id: addressId, userId, deletedAt: null },
+    where: { id: addressId, userId, deletedAt: null, ...(guestSince ? { createdAt: { gte: guestSince } } : {}) },
   });
   if (!address) throw new ApiError(400, OrderErrorCode.INVALID_ADDRESS);
 
@@ -225,6 +230,7 @@ export async function calculateCheckoutService(userId: string, data: CheckoutCal
   const [partialPayment, codPayment] = await Promise.all([
     quotePartialPayment({
       userId,
+      guestSince,
       total: codTotal,
       pincode: address.pincode,
       phone: address.phone,
@@ -234,6 +240,7 @@ export async function calculateCheckoutService(userId: string, data: CheckoutCal
     }),
     quoteCodPayment({
       userId,
+      guestSince,
       total: codTotal,
       pincode: address.pincode,
       phone: address.phone,
@@ -261,6 +268,7 @@ export async function calculateCheckoutService(userId: string, data: CheckoutCal
  */
 async function quotePartialPayment(args: {
   userId: string;
+  guestSince?: Date;
   total: Decimal;
   pincode: string;
   phone: string;
@@ -268,7 +276,7 @@ async function quotePartialPayment(args: {
   ineligibleItemCount: number;
   codCollectable: () => Promise<boolean>;
 }): Promise<PartialPaymentQuote> {
-  const { userId, total, pincode, phone, terms, ineligibleItemCount, codCollectable } = args;
+  const { userId, guestSince, total, pincode, phone, terms, ineligibleItemCount, codCollectable } = args;
   const reasons: PartialIneligibilityReason[] = [];
 
   const split = splitDeposit(total, terms.depositPercent);
@@ -311,7 +319,7 @@ async function quotePartialPayment(args: {
         payment: { status: "PARTIALLY_PAID" },
       },
     }),
-    requirePhone ? isPhoneVerified(userId, phone) : Promise.resolve(true),
+    requirePhone ? isPhoneVerified(userId, phone, guestSince) : Promise.resolve(true),
   ]);
 
   if (openBalances >= limit) {
@@ -338,6 +346,7 @@ async function quotePartialPayment(args: {
  */
 async function quoteCodPayment(args: {
   userId: string;
+  guestSince?: Date;
   total: Decimal;
   pincode: string;
   phone: string;
@@ -345,7 +354,7 @@ async function quoteCodPayment(args: {
   ineligibleItemCount: number;
   codCollectable: () => Promise<boolean>;
 }): Promise<CodPaymentQuote> {
-  const { userId, total, pincode, phone, cartEnabled, ineligibleItemCount, codCollectable } = args;
+  const { userId, guestSince, total, pincode, phone, cartEnabled, ineligibleItemCount, codCollectable } = args;
   const amountDue = total.toNumber();
 
   if (!isCodEnabled()) {
@@ -365,9 +374,9 @@ async function quoteCodPayment(args: {
 
   const requirePhone = process.env.REQUIRE_VERIFIED_PHONE_AT_CHECKOUT === "true";
   const [open, refused, phoneVerified] = await Promise.all([
-    prisma.order.count({ where: openCodOrderWhere(userId) }),
-    prisma.order.count({ where: codRefusalWhere(userId) }),
-    requirePhone ? isPhoneVerified(userId, phone) : Promise.resolve(true),
+    prisma.order.count({ where: openCodOrderWhere(userId, phone) }),
+    prisma.order.count({ where: codRefusalWhere(userId, phone) }),
+    requirePhone ? isPhoneVerified(userId, phone, guestSince) : Promise.resolve(true),
   ]);
 
   if (refused >= codRefusalLimit()) {

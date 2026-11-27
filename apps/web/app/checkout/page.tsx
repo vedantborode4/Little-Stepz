@@ -6,14 +6,19 @@ import { useCartStore } from "../../store/useCartStore"
 import { useAddressStore } from "../../store/useAddressStore"
 import CheckoutStepper from "../../components/checkout/CheckoutStepper"
 import CheckoutSummary from "../../components/checkout/CheckoutSummary"
+import GuestCheckoutGate from "../../components/checkout/GuestCheckoutGate"
+import { useGuestSessionActive, useGuestSessionStore } from "../../store/useGuestSessionStore"
 import DynamicPromoBanner from "../../components/home/DynamicPromoBanner"
 import Link from "next/link"
 import { toast } from "sonner"
-import { ShoppingBag, LogIn, Loader2 } from "lucide-react"
+import { ShoppingBag, Loader2, UserRound } from "lucide-react"
 import { trackBeginCheckout } from "../../lib/analytics/ecommerce"
 
 export default function CheckoutPage() {
   const user = useAuthStore((s) => s.user)
+  const guestActive = useGuestSessionActive()
+  const guestContact = useGuestSessionStore((s) => s.contact)
+  const clearGuest = useGuestSessionStore((s) => s.clear)
   const items = useCartStore((s) => s.items)
   const storeAddressId = useAddressStore((s) => s.selectedAddressId)
 
@@ -92,34 +97,24 @@ export default function CheckoutPage() {
       {/* Mobile: stack vertically — summary below stepper */}
       <div className="grid lg:grid-cols-3 gap-5 sm:gap-8">
         <div className="lg:col-span-2">
-          {isGuest ? (
-            /* Guests can review their order here, but a delivery address belongs
-               to an account — so we ask them to sign in before that step. */
-            <div className="bg-surface border border-border rounded-2xl shadow-card p-6 sm:p-8 flex flex-col items-center text-center gap-4">
-              <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center">
-                <LogIn size={24} className="text-primary" />
-              </div>
-              <div>
-                <h2 className="text-base sm:text-lg font-bold text-text">Sign in to add a delivery address</h2>
-                <p className="text-sm text-muted mt-1.5 max-w-sm">
-                  Your cart is saved. Sign in to choose where we should ship your order and to complete payment.
-                </p>
-              </div>
-              <Link
-                href={`/signin?redirect=${encodeURIComponent("/checkout")}`}
-                className="bg-primary text-white px-6 py-3 rounded-xl font-semibold hover:opacity-90 transition shadow-sm"
-              >
-                Sign In to Continue
-              </Link>
-              <p className="text-xs text-faint">
-                New here?{" "}
-                <Link href={`/signup?redirect=${encodeURIComponent("/checkout")}`} className="text-primary font-semibold">
-                  Create an account
-                </Link>
-              </p>
-            </div>
+          {isGuest && !guestActive ? (
+            /* Not signed in: sign in, or continue as a guest (details + SMS code). */
+            <GuestCheckoutGate />
           ) : (
-            <CheckoutStepper onStepChange={setCheckoutStep} />
+            <div className="space-y-3 sm:space-y-4">
+              {isGuest && guestContact && (
+                <div className="bg-surface border border-border rounded-2xl px-4 py-3 shadow-card flex items-center gap-3">
+                  <UserRound size={18} className="text-primary shrink-0" />
+                  <p className="text-sm text-muted flex-1 min-w-0 truncate">
+                    Checking out as guest: <span className="text-text font-medium">{guestContact.name}</span> · {guestContact.email}
+                  </p>
+                  <button onClick={clearGuest} className="text-xs font-semibold text-primary shrink-0">
+                    Not you?
+                  </button>
+                </div>
+              )}
+              <CheckoutStepper onStepChange={setCheckoutStep} />
+            </div>
           )}
         </div>
         {/* Summary — shows below on mobile, sticky on desktop */}

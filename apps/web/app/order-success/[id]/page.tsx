@@ -7,6 +7,8 @@ import { useCartStore } from "../../../store/useCartStore"
 import { CheckCircle, Package, MapPin, ArrowRight, ShoppingBag } from "lucide-react"
 import Link from "next/link"
 import { trackPurchase } from "../../../lib/analytics/ecommerce"
+import { useAuthStore } from "../../../store/auth.store"
+import { useGuestSessionStore } from "../../../store/useGuestSessionStore"
 
 /* ── Lightweight confetti — no external dependency ─────────────────────── */
 const COLORS = ["#FF383C", "#4ECDC4", "#FFD700", "#A855F7", "#34D399"]
@@ -56,6 +58,9 @@ function launchConfetti(canvas: HTMLCanvasElement) {
 export default function OrderSuccessPage() {
   const { id } = useParams<{ id: string }>()
   const { currentOrder, fetchOrderById, loading } = useOrderStore()
+  // A guest has no account page: their order lives at its private link (also emailed).
+  const signedIn = useAuthStore((s) => !!s.user)
+  const guestEmail = useGuestSessionStore((s) => s.contact?.email)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const purchaseTracked = useRef(false)
 
@@ -221,8 +226,13 @@ export default function OrderSuccessPage() {
 
           {/* CTAs */}
           <div className="flex flex-col gap-3">
+            {!signedIn && guestEmail && (
+              <p className="text-xs text-muted text-center">
+                We&apos;ve emailed your order details to <span className="font-medium text-text">{guestEmail}</span>.
+              </p>
+            )}
             <Link
-              href={`/account/orders/${id}`}
+              href={!signedIn && o?.accessToken ? `/orders/view/${o.accessToken}` : `/account/orders/${id}`}
               className="w-full flex items-center justify-center gap-2 bg-primary text-white py-3.5 rounded-xl text-sm font-medium hover:opacity-90 transition"
             >
               Track Order <ArrowRight size={15} />

@@ -7,6 +7,7 @@ import { toast } from "sonner"
 import { X, Plus, Loader2 } from "lucide-react"
 import { friendlyError } from "../../lib/errorMessages"
 import PhoneVerifyField from "./PhoneVerifyField"
+import { useGuestSessionStore } from "../../store/useGuestSessionStore"
 
 const FIELDS: { key: string; label: string; placeholder: string }[] = [
   { key: "name", label: "Full Name", placeholder: "Recipient's full name" },
@@ -22,12 +23,16 @@ export default function AddressFormDialog({ onCreated }: any) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
 
+  // A guest checkout already confirmed a name and phone; start the address from them.
+  const guestContact = useGuestSessionStore((s) => s.contact)
   const [form, setForm] = useState({
-    name: "", phone: "", address: "", city: "", state: "", pincode: "", country: "India", isDefault: false,
+    name: guestContact?.name ?? "", phone: guestContact?.phone ?? "",
+    address: "", city: "", state: "", pincode: "", country: "India", isDefault: false,
   })
 
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const [phoneVerified, setPhoneVerified] = useState(false)
+  // The guest's own number was proven by the SMS code at the start of checkout.
+  const [phoneVerified, setPhoneVerified] = useState(!!guestContact)
 
   const handleChange = (key: keyof typeof form, value: any) => {
     setForm((p) => ({ ...p, [key]: value }))

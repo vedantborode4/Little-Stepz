@@ -119,7 +119,7 @@ export default function OrdersPage() {
                     <div>
                       <p className="text-xs text-faint font-medium mb-0.5">ORDER</p>
                       <p className="font-mono text-xs text-muted truncate max-w-[180px]">
-                        #{order.id.slice(0, 8).toUpperCase()}
+                        #{order.id.slice(-8).toUpperCase()}
                       </p>
                       <p className="text-xs text-faint mt-1">{date}</p>
                     </div>

@@ -7,9 +7,9 @@ export const OrderService = {
     return res.data.data
   },
 
-  /** Download the tax invoice PDF. */
-  downloadInvoice: async (orderId: string) => {
-    return downloadPdf(`/orders/${orderId}/invoice`, `invoice-${orderId.slice(0, 8)}.pdf`)
+  /** Download the tax invoice PDF. `orderKey`: the order id, or `view/<token>` for a private link. */
+  downloadInvoice: async (orderKey: string, reference: string) => {
+    return downloadPdf(`/orders/${orderKey}/invoice`, `invoice-${reference}.pdf`)
   },
 
   /**
@@ -17,8 +17,8 @@ export const OrderService = {
    * the invoice with different rules — available as soon as the deposit is captured,
    * while the tax invoice only exists once the order ships.
    */
-  downloadReceipt: async (orderId: string) => {
-    return downloadPdf(`/orders/${orderId}/receipt`, `receipt-${orderId.slice(0, 8)}.pdf`)
+  downloadReceipt: async (orderKey: string, reference: string) => {
+    return downloadPdf(`/orders/${orderKey}/receipt`, `receipt-${reference}.pdf`)
   },
 
 

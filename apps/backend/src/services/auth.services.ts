@@ -23,6 +23,7 @@ import { ApiError } from "../utils/api/ApiError";
 import {
   sendPasswordChangedEmail,
   sendPasswordResetEmail,
+  sendClaimGuestAccountEmail,
   sendSignupOtpEmail,
   sendWelcomeEmail,
 } from "../utils/email";
@@ -80,6 +81,23 @@ async function resolveReferrerUserId(
  * That ordering is the whole point: an address that can't receive mail never reaches
  * the User table, so mistyped and throwaway addresses can't accumulate there.
  */
+/**
+ * Sign-up with an email that already has an account. One-step sign-up never proves the
+ * address, so it must not take over a guest-checkout account (and its orders): the mailbox
+ * owner gets a "set your password" link instead, and the caller learns only that.
+ */
+async function refuseExistingEmail(
+  existing: { isGuest: boolean },
+  email: string,
+  meta?: { ipAddress?: string; userAgent?: string },
+): Promise<never> {
+  if (existing.isGuest) {
+    await requestPasswordResetService(email, meta, "claim");
+    throw new ApiError(409, "GUEST_ACCOUNT_EXISTS");
+  }
+  throw new ApiError(409, "EMAIL_ALREADY_REGISTERED");
+}
+
 export async function requestSignupOtpService(
   data: SignupData,
   meta?: { ipAddress?: string; userAgent?: string }
@@ -88,10 +106,10 @@ export async function requestSignupOtpService(
 
   const existingUser = await prisma.user.findUnique({
     where: { email },
-    select: { id: true },
+    select: { id: true, isGuest: true },
   });
   if (existingUser) {
-    throw new ApiError(409, "EMAIL_ALREADY_REGISTERED");
+    await refuseExistingEmail(existingUser, email, meta);
   }
 
   const existing = await prisma.pendingSignup.findUnique({ where: { email } });
@@ -278,15 +296,15 @@ export function isSignupEmailOtpEnabled(): boolean {
  * `/signup/request` + `/signup/verify` keep working either way, so installed app builds
  * that always ask for a code are unaffected.
  */
-export async function signupService(data: SignupData) {
+export async function signupService(data: SignupData, meta?: { ipAddress?: string; userAgent?: string }) {
   const { email, password, name, phone, referralCode } = data;
 
   const existingUser = await prisma.user.findUnique({
     where: { email },
-    select: { id: true },
+    select: { id: true, isGuest: true },
   });
   if (existingUser) {
-    throw new ApiError(409, "EMAIL_ALREADY_REGISTERED");
+    await refuseExistingEmail(existingUser, email, meta);
   }
 
   // Outside the transaction: bcrypt at cost 12 would blow an interactive-transaction
@@ -442,6 +460,7 @@ export async function googleAuthService(idToken: string, referralCode?: string) 
           googleId: existing.googleId ?? profile.sub,
           avatarUrl: existing.avatarUrl ?? profile.picture,
           emailVerified: true,
+          isGuest: false,
           // An unverified account was created without proving this address (one-step
           // signup, SIGNUP_EMAIL_OTP_ENABLED=false), possibly by someone who does not own
           // it. Google has now proved ownership, so the password and name set at that
@@ -541,6 +560,7 @@ export async function appleAuthService(
         data: {
           appleId: existing.appleId ?? profile.sub,
           emailVerified: true,
+          isGuest: false,
           // Same rule as the Google branch: a password set by an unverified signup must
           // not keep working once the address's real owner signs in. (Apple sends a name
           // only on first authorisation, so the name is left as is.)
@@ -757,6 +777,8 @@ export async function refreshService(oldRefreshToken: string) {
 export async function requestPasswordResetService(
   email: string,
   meta?: { ipAddress?: string; userAgent?: string },
+  /** "claim": a guest-checkout customer is setting a password for the first time. */
+  purpose: "reset" | "claim" = "reset",
 ) {
   const user = await prisma.user.findFirst({
     where: { email, deletedAt: null },
@@ -784,7 +806,8 @@ export async function requestPasswordResetService(
   });
 
   const base = publicSiteUrl();
-  void sendPasswordResetEmail(user.email, {
+  const send = purpose === "claim" ? sendClaimGuestAccountEmail : sendPasswordResetEmail;
+  void send(user.email, {
     code: reset.code,
     resetUrl: `${base}/reset-password?token=${reset.token}`,
     expiresInMinutes: PASSWORD_RESET_TTL_MINUTES,
@@ -866,7 +889,7 @@ export async function resetPasswordService(token: string, newPassword: string) {
       // Redeeming an emailed reset proves the address, which also settles an account made
       // by one-step signup (SIGNUP_EMAIL_OTP_ENABLED=false) — including one someone else
       // created for this email, whose password this replaces and whose sessions go below.
-      data: { password: hashed, emailVerified: true },
+      data: { password: hashed, emailVerified: true, isGuest: false },
     });
 
     // signing out every device kills any session an attacker may hold

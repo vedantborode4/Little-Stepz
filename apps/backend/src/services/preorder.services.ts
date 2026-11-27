@@ -86,7 +86,9 @@ const preOrderSelect = {
 export async function createPreOrderService(
   userId: string,
   data: CreatePreOrderData,
-  idempotencyKey: string
+  idempotencyKey: string,
+  /** Guest-checkout session start: the address must have been created in this session. */
+  guestSince?: Date
 ) {
   return withRetry(async () => {
     const result = await prisma.$transaction(async (tx) => {
@@ -97,14 +99,14 @@ export async function createPreOrderService(
       }
 
       const address = await tx.address.findFirst({
-        where: { id: data.addressId, userId, deletedAt: null },
+        where: { id: data.addressId, userId, deletedAt: null, ...(guestSince ? { createdAt: { gte: guestSince } } : {}) },
       });
       if (!address) throw new ApiError(400, PreOrderErrorCode.INVALID_ADDRESS);
 
       // Mirrors the gate in createOrderService — a pre-order ships to an Address and
       // becomes a real Order, so leaving it out would only half-enforce the flag.
       if (process.env.REQUIRE_VERIFIED_PHONE_AT_CHECKOUT === "true") {
-        await assertPhoneVerified(userId, address.phone);
+        await assertPhoneVerified(userId, address.phone, guestSince);
       }
 
       const product = await tx.product.findFirst({

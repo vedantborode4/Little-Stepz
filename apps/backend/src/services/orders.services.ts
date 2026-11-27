@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import { prisma, OrderStatus } from '@repo/db/client';
 import { ApiError } from '../utils/api';
 import { OrderErrorCode } from '../utils/orderErrors';
@@ -70,7 +71,14 @@ async function reclaimStalePendingOrders(tx: OrderTx, productIds: string[]) {
   }
 }
 
-export async function createOrderService(userId: string, data: CreateOrderBody, idempotencyKey: string, affiliateId?: string) {
+/** `guestSince`: a guest-checkout session may only ship to an address it created itself. */
+export async function createOrderService(
+  userId: string,
+  data: CreateOrderBody,
+  idempotencyKey: string,
+  affiliateId?: string,
+  guestSince?: Date
+) {
   // Idempotent replay — return the existing order without a serviceability/shipping lookup.
   const replay = await prisma.order.findUnique({ where: { idempotencyKey } });
   if (replay) {
@@ -90,7 +98,7 @@ export async function createOrderService(userId: string, data: CreateOrderBody, 
   // Serviceability check + live shipping rate run OUTSIDE the transaction (external HTTP must
   // not hold a DB transaction open). Hard-blocks non-serviceable pincodes.
   const shippingAddress = await prisma.address.findFirst({
-    where: { id: data.addressId, userId, deletedAt: null },
+    where: { id: data.addressId, userId, deletedAt: null, ...(guestSince ? { createdAt: { gte: guestSince } } : {}) },
   });
   if (!shippingAddress) throw new ApiError(400, OrderErrorCode.INVALID_ADDRESS);
 
@@ -130,7 +138,7 @@ export async function createOrderService(userId: string, data: CreateOrderBody, 
   // the entire customer base until they happened to edit an address, which reads as a
   // broken feature rather than a control. Turn this flag on to enforce it for both.
   if (process.env.REQUIRE_VERIFIED_PHONE_AT_CHECKOUT === "true") {
-    await assertPhoneVerified(userId, shippingAddress.phone);
+    await assertPhoneVerified(userId, shippingAddress.phone, guestSince);
   }
 
   // Quote the rate for how the parcel will actually travel: a COD manifest carries a
@@ -164,7 +172,7 @@ export async function createOrderService(userId: string, data: CreateOrderBody, 
       }
 
       const address = await tx.address.findFirst({
-        where: { id: data.addressId, userId, deletedAt: null },
+        where: { id: data.addressId, userId, deletedAt: null, ...(guestSince ? { createdAt: { gte: guestSince } } : {}) },
       });
       if (!address) throw new ApiError(400, OrderErrorCode.INVALID_ADDRESS);
 
@@ -359,7 +367,7 @@ export async function createOrderService(userId: string, data: CreateOrderBody, 
       // Order value, undelivered COD orders and past refusals — checked against the total
       // this transaction is about to persist, under a lock on the customer row.
       if (wantsCod) {
-        await assertCodAllowed(tx, userId, total);
+        await assertCodAllowed(tx, userId, total, address.phone);
       }
 
       try {
@@ -374,6 +382,8 @@ export async function createOrderService(userId: string, data: CreateOrderBody, 
             total,
             affiliateId,
             idempotencyKey,
+            // The private "View your order" link (guest checkout and every order email).
+            accessToken: randomBytes(32).toString('base64url'),
             paymentPlan: wantsPartial ? "PARTIAL" : "FULL",
             depositAmount,
             balanceAmount,

@@ -8,7 +8,7 @@ async function calculateCheckout(req: Request, res: Response) {
   if (!userId) throw new ApiError(401, "Unauthorized");
   const validated = checkoutCalculateBodySchema.parse(req.body);
 
-  const result = await calculateCheckoutService(userId, validated);
+  const result = await calculateCheckoutService(userId, validated, req.user?.guest?.since);
 
   return new ApiResponse(200, result, "Checkout calculated").send(res);
 }

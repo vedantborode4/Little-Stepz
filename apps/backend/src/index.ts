@@ -44,7 +44,9 @@ app.use(cors({
     // The mobile client identifies itself and carries its guest cart session in
     // headers; the cart session is echoed back so it can be persisted client-side.
     // (Native requests bypass CORS entirely — this is for the Expo web build.)
-    allowedHeaders: ["Content-Type", "Authorization", "X-Client-Platform", "X-Cart-Session"],
+    // Idempotency-Key: order and pre-order creation. Production serves the API same-origin,
+    // so only a cross-origin setup (local dev: web :3000 → API :8000) ever needed it listed.
+    allowedHeaders: ["Content-Type", "Authorization", "X-Client-Platform", "X-Cart-Session", "Idempotency-Key"],
     // Content-Disposition carries the invoice filename. Without exposing it the
     // browser hides the header, and every download falls back to a generic name.
     exposedHeaders: ["X-Cart-Session", "Content-Disposition"],

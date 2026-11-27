@@ -233,7 +233,7 @@ export const AdminOrderService = {
   },
   /** The tax invoice PDF, saved and shared. */
   downloadInvoice: async (id: string) => {
-    return savePdfAndShare(`/admin/orders/${id}/invoice`, `invoice-${id.slice(0, 8)}.pdf`);
+    return savePdfAndShare(`/admin/orders/${id}/invoice`, `invoice-${id.slice(-8).toUpperCase()}.pdf`);
   },
   /**
    * PUT /admin/returns/:id/resolve
@@ -897,7 +897,7 @@ export const AdminPreOrderService = {
 
   /** The customer's booking receipt PDF. Only exists once the booking was paid. */
   downloadReceipt: async (id: string) => {
-    return savePdfAndShare(`/admin/pre-orders/${id}/receipt`, `receipt-${id.slice(0, 8)}.pdf`);
+    return savePdfAndShare(`/admin/pre-orders/${id}/receipt`, `receipt-${id.slice(-8).toUpperCase()}.pdf`);
   },
 
   refundBooking: async (id: string) => {

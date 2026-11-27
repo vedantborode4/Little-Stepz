@@ -25,6 +25,10 @@ model User {
   appleId       String?  @unique
   avatarUrl     String?
   emailVerified Boolean  @default(false)
+  /// A password-less account created behind the scenes for guest checkout. It never gets a
+  /// normal session; it becomes a real account only once the email owner proves it (password
+  /// reset link or Google sign-in), which clears this flag.
+  isGuest       Boolean  @default(false)
 
   referralCode String?  @unique
   referredById String?
@@ -663,6 +667,10 @@ model Order {
 
   /// Addresses the public balance-payment link. Nulled at dispatch, which kills the link.
   balanceToken String? @unique
+
+  /// Addresses the private "View your order" link emailed to the customer (guest checkout):
+  /// view, track, cancel and request returns without signing in. Null on older orders.
+  accessToken String? @unique
 
   /// Set the instant the order is claimed for a waybill while the balance is still
   /// outstanding. Non-null means a COD parcel is committed for that amount: the link is

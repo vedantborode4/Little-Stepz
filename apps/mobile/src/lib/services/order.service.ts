@@ -53,7 +53,7 @@ export const OrderService = {
    * Downloads folder, so the share sheet is how the file leaves the app.
    */
   downloadInvoice: async (id: string) => {
-    return savePdfAndShare(`/orders/${id}/invoice`, `invoice-${id.slice(0, 8)}.pdf`);
+    return savePdfAndShare(`/orders/${id}/invoice`, `invoice-${id.slice(-8).toUpperCase()}.pdf`);
   },
 
   /**
@@ -61,7 +61,7 @@ export const OrderService = {
    * A different document from the invoice, available as soon as the deposit is captured.
    */
   downloadReceipt: async (id: string) => {
-    return savePdfAndShare(`/orders/${id}/receipt`, `receipt-${id.slice(0, 8)}.pdf`);
+    return savePdfAndShare(`/orders/${id}/receipt`, `receipt-${id.slice(-8).toUpperCase()}.pdf`);
   },
 
   /** GET /orders/:id/track — Shiprocket tracking */

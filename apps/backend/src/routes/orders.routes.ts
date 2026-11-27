@@ -1,5 +1,6 @@
 import { Router } from 'express';
-import { authMiddleware } from '../middlewares/auth.middleware';
+import { authOrGuestMiddleware, noGuestMiddleware } from '../middlewares/auth.middleware';
+import { guestOrderParam } from '../middlewares/guestScope.middleware';
 import {
   createOrderController,
   getOrdersController,
@@ -26,10 +27,13 @@ import { returnRateLimiter } from '../middlewares/returnRateLimiter.middleware';
 
 export const ordersRouter: Router = Router();
 
-ordersRouter.use(authMiddleware);
+// Guest-checkout sessions may place an order and work with the orders they placed in that
+// session (guestOrderParam), but never list the account's order history.
+ordersRouter.use(authOrGuestMiddleware);
+ordersRouter.param('id', guestOrderParam);
 
 ordersRouter.post('/', orderRateLimiter, createOrderController);
-ordersRouter.get('/', orderRateLimiter, getOrdersController);
+ordersRouter.get('/', noGuestMiddleware, orderRateLimiter, getOrdersController);
 ordersRouter.get('/:id', orderRateLimiter, getOrderByIdController);
 ordersRouter.get('/:id/invoice', documentRateLimiter, getOrderInvoiceController);
 // The deposit acknowledgement on a partial-payment order. Available from the moment the

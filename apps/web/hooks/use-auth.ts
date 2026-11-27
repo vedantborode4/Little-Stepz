@@ -1,6 +1,7 @@
 import { useAuthStore } from "../store/auth.store"
 import { useCartStore } from "../store/useCartStore"
 import { CartService } from "../lib/services/cart.service"
+import { useGuestSessionStore } from "../store/useGuestSessionStore"
 import {
   setAccessToken,
   removeAccessToken,
@@ -15,6 +16,8 @@ export const useAuth = () => {
   const login = async (data: any) => {
     setAccessToken(data.accessToken)
     setAuth(data)
+    // A real sign-in replaces any guest checkout session in this tab.
+    useGuestSessionStore.getState().clear()
 
     // Merge any guest cart items into the newly authenticated user's cart
     try {

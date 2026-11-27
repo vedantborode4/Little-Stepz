@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { AddressForm } from "./AddressForm";
 import { AddressService, type Address } from "../../lib/services/address.service";
 import { useAddressStore } from "../../store/address.store";
+import { useGuestSessionStore } from "../../store/guestSession.store";
 import { toast } from "../../store/toast.store";
 import { getErrorMessage } from "../../lib/utils/errors";
 import { colors } from "../../theme/tokens";
@@ -29,6 +30,9 @@ export function AddressFormSheet({
 }) {
   const insets = useSafeAreaInsets();
   const fetchAddresses = useAddressStore((s) => s.fetchAddresses);
+  // A guest checkout already confirmed a name and phone; start a new address from them.
+  const guestContact = useGuestSessionStore((s) => s.contact);
+  const newAddressDefaults = guestContact ? { name: guestContact.name, phone: guestContact.phone } : undefined;
   const [submitting, setSubmitting] = useState(false);
 
   const onSubmit = async (data: AddressData) => {
@@ -70,7 +74,7 @@ export function AddressFormSheet({
           behavior={Platform.OS === "ios" ? "padding" : undefined}
         >
           {/* key forces the form to re-init its defaults when switching add/edit target */}
-          <AddressForm key={editing?.id ?? "new"} initial={editing} submitting={submitting} onSubmit={onSubmit} />
+          <AddressForm key={editing?.id ?? "new"} initial={editing ?? newAddressDefaults} submitting={submitting} onSubmit={onSubmit} />
         </KeyboardAvoidingView>
       </View>
     </Modal>

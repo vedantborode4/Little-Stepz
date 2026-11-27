@@ -164,7 +164,7 @@ export default function AdminCustomerDetailPage() {
                   <tr key={o.id} className="border-b border-border last:border-0">
                     <td className="px-4 sm:px-5 py-2.5">
                       <Link href={`/admin/orders/${o.id}`} className="text-primary hover:underline font-medium">
-                        #{o.id.slice(0, 8)}
+                        #{o.id.slice(-8).toUpperCase()}
                       </Link>
                       <span className="text-faint text-xs ml-1.5">
                         {o._count.items} item{o._count.items === 1 ? "" : "s"}

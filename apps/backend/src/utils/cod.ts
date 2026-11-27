@@ -55,9 +55,18 @@ export function resolveCartCodEnabled(
 }
 
 /** COD orders confirmed but not yet delivered. PENDING is excluded — nothing is owed yet. */
-export function openCodOrderWhere(userId: string): Prisma.OrderWhereInput {
+/**
+ * The customer, and — when the delivery phone is known — every order shipped to that phone,
+ * whichever account placed it. Guest checkout makes a fresh account per email cheap, so the
+ * COD limits must follow the number the courier actually calls.
+ */
+function customerOrPhone(userId: string, phone?: string): Prisma.OrderWhereInput {
+  return phone ? { OR: [{ userId }, { address: { phone } }] } : { userId };
+}
+
+export function openCodOrderWhere(userId: string, phone?: string): Prisma.OrderWhereInput {
   return {
-    userId,
+    ...customerOrPhone(userId, phone),
     paymentMethod: "COD",
     deletedAt: null,
     status: { in: ["CONFIRMED", "PROCESSING", "SHIPPED", "OUT_FOR_DELIVERY"] },
@@ -72,9 +81,9 @@ export function openCodOrderWhere(userId: string): Prisma.OrderWhereInput {
  * undeliverable parcels without penalising someone who legitimately sent an item back —
  * and needs nothing written at RTO time.
  */
-export function codRefusalWhere(userId: string): Prisma.OrderWhereInput {
+export function codRefusalWhere(userId: string, phone?: string): Prisma.OrderWhereInput {
   return {
-    userId,
+    ...customerOrPhone(userId, phone),
     paymentMethod: "COD",
     deletedAt: null,
     status: "RETURNED",
@@ -91,7 +100,9 @@ export function codRefusalWhere(userId: string): Prisma.OrderWhereInput {
 export async function assertCodAllowed(
   tx: Prisma.TransactionClient,
   userId: string,
-  total: Decimal
+  total: Decimal,
+  /** The delivery phone: limits count across every account that shipped COD to it. */
+  phone?: string
 ): Promise<void> {
   if (total.gt(maxCodOrderValue())) {
     throw new ApiError(400, OrderErrorCode.COD_ORDER_VALUE_EXCEEDED);
@@ -99,12 +110,12 @@ export async function assertCodAllowed(
 
   await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${userId} FOR UPDATE`;
 
-  const refused = await tx.order.count({ where: codRefusalWhere(userId) });
+  const refused = await tx.order.count({ where: codRefusalWhere(userId, phone) });
   if (refused >= codRefusalLimit()) {
     throw new ApiError(400, OrderErrorCode.COD_BLOCKED);
   }
 
-  const open = await tx.order.count({ where: openCodOrderWhere(userId) });
+  const open = await tx.order.count({ where: openCodOrderWhere(userId, phone) });
   if (open >= maxOpenCodOrders()) {
     throw new ApiError(400, OrderErrorCode.COD_LIMIT_REACHED);
   }

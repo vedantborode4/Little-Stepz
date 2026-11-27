@@ -592,8 +592,8 @@ async function emitReturnRequested(
     body: `Order #${ref}: ${items.map((i) => `${i.name} × ${i.quantity}`).join(", ")} (est. ${money(estimate)}).`,
     data: { screen: "AdminOrder", orderId },
   });
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } }).catch(() => null);
-  if (user?.email) void sendReturnRequestedEmail(user.email, { orderId, items, estimatedRefund: estimate });
+  const contact = await guestAwareContact(userId, orderId);
+  if (contact) void sendReturnRequestedEmail(contact.email, { orderId, items, estimatedRefund: estimate, guestAccessToken: contact.guestAccessToken });
 }
 
 export async function cancelReturnService(userId: string, orderId: string, returnId: string, req?: Request) {
@@ -750,9 +750,19 @@ async function lockReturn(tx: Tx, returnId: string) {
   return r;
 }
 
+/** The customer's email, plus the order's private link when they checked out as a guest. */
+async function guestAwareContact(userId: string, orderId: string) {
+  const [user, order] = await Promise.all([
+    prisma.user.findUnique({ where: { id: userId }, select: { email: true, isGuest: true } }),
+    prisma.order.findUnique({ where: { id: orderId }, select: { accessToken: true } }),
+  ]).catch(() => [null, null] as const);
+  if (!user?.email) return null;
+  return { email: user.email, guestAccessToken: user.isGuest ? (order?.accessToken ?? null) : null };
+}
+
 async function emailCustomer(userId: string, p: Parameters<typeof sendReturnStatusEmail>[1]) {
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } }).catch(() => null);
-  if (user?.email) void sendReturnStatusEmail(user.email, p);
+  const contact = await guestAwareContact(userId, p.orderId);
+  if (contact) void sendReturnStatusEmail(contact.email, { ...p, guestAccessToken: contact.guestAccessToken });
 }
 
 /**

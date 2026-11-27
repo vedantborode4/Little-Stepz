@@ -25,7 +25,7 @@ export const createPreOrderController = asyncHandler(async (req: Request, res: R
   if (!idempotencyKey) throw new ApiError(400, "Idempotency-Key header is required");
 
   const data = createPreOrderSchema.parse(req.body);
-  const result = await createPreOrderService(userId, data, idempotencyKey);
+  const result = await createPreOrderService(userId, data, idempotencyKey, req.user?.guest?.since);
   return new ApiResponse(201, result, "Pre-order created").send(res);
 });
 

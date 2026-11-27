@@ -156,6 +156,32 @@ export function sendPasswordResetEmail(to: string, p: {
   });
 }
 
+/**
+ * A guest-checkout customer tried to sign up with their email: the account already exists
+ * (it holds their orders) and only needs a password. Same token and code as a reset.
+ */
+export function sendClaimGuestAccountEmail(to: string, p: {
+  code: string;
+  resetUrl: string;
+  expiresInMinutes: number;
+}) {
+  return sendEmail({
+    to,
+    subject: "Finish setting up your Little Stepz account",
+    html: shell("Your account is almost ready 🎉", `
+      <p>You've ordered from us before as a guest, so there's already an account for this email with your orders in it. Set a password to start using it.</p>
+      <p style="margin:20px 0 8px;font-size:13px;color:#666">Using the app? Enter this code:</p>
+      <p style="margin:0 0 24px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:32px;font-weight:700;letter-spacing:8px;color:#111">${p.code}</p>
+      <p style="margin:0 0 8px;font-size:13px;color:#666">On the web? Use this link instead:</p>
+      <p style="margin:0 0 24px">
+        <a href="${p.resetUrl}" style="background:#111;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600">Set your password</a>
+      </p>
+      <p style="font-size:13px;color:#666">This code and link expire in <strong>${p.expiresInMinutes} minutes</strong> and can only be used once.</p>
+      <p style="font-size:13px;color:#666">If you didn't try to create an account, you can safely ignore this email.</p>
+    `),
+  });
+}
+
 export function sendPasswordChangedEmail(to: string) {
   return sendEmail({
     to,
@@ -255,6 +281,8 @@ export function sendOrderConfirmationEmail(to: string, p: {
   items: OrderEmailItem[];
   /** Tax invoice, when one could be generated. Absent is not an error. */
   invoice?: { filename: string; pdf: Buffer; number: string };
+  /** Guest checkout: the order's private link stands in for the account page. */
+  guestAccessToken?: string | null;
 }) {
   const ref = p.orderId.slice(-8).toUpperCase();
   return sendEmail({
@@ -268,6 +296,7 @@ export function sendOrderConfirmationEmail(to: string, p: {
       ${p.invoice
         ? `<p style="font-size:13px;color:#666">Your tax invoice (<strong>${escapeHtml(p.invoice.number)}</strong>) is attached to this email.</p>`
         : ""}
+      ${orderLink(p.orderId, "View your order", p.guestAccessToken)}
       <p style="font-size:13px;color:#666">We'll email you again as soon as it ships.</p>
     `),
     ...(p.invoice
@@ -291,6 +320,7 @@ export function sendPartialOrderPlacedEmail(to: string, p: {
   balance: number | string;
   items: { name: string; quantity: number }[];
   receipt?: { filename: string; pdf: Buffer };
+  guestAccessToken?: string | null;
 }) {
   const ref = p.orderId.slice(-8).toUpperCase();
   return sendEmail({
@@ -306,6 +336,7 @@ export function sendPartialOrderPlacedEmail(to: string, p: {
         <tr><td style="padding:2px 12px 2px 0;color:#666">Balance at delivery</td><td><strong>${money(p.balance)}</strong></td></tr>
       </table>
       <p>Please keep <strong>${money(p.balance)}</strong> ready — our delivery agent will collect it when your order arrives.</p>
+      ${orderLink(p.orderId, "View your order", p.guestAccessToken)}
       <p style="font-size:13px;color:#666">Your payment receipt is attached. It is not a tax invoice — your GST invoice is issued when the order is dispatched.</p>
       <p style="font-size:13px;color:#666">The deposit is not refunded if the order is cancelled or delivery is refused, as set out in our cancellation policy.</p>
     `),
@@ -393,33 +424,33 @@ export function sendWelcomeEmail(to: string, p: { name: string }) {
 export function sendOrderDeliveredEmail(to: string, p: {
   orderId: string;
   total: number | string;
+  guestAccessToken?: string | null;
 }) {
   const ref = p.orderId.slice(-8).toUpperCase();
-  const base = publicSiteUrl();
   return sendEmail({
     to,
     subject: `Delivered — your Little Stepz order #${ref}`,
     html: shell("Your order has been delivered 🎉", `
       <p>Order <strong>#${ref}</strong> (${money(p.total)}) has been delivered. We hope you love it.</p>
-      ${base
-        ? `<p style="margin:24px 0"><a href="${base}/account/orders" style="background:#111;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600">View your order</a></p>`
-        : ""}
+      ${orderLink(p.orderId, "View your order", p.guestAccessToken)}
       <p style="font-size:13px;color:#666">Something wrong with it? Reply to this email within the returns window and keep your unboxing video handy — we need it to process a damage or missing-item claim.</p>
     `),
   });
 }
 
-function orderLink(orderId: string, label: string) {
+/** The order's page: its private link for a guest-checkout customer, the account page otherwise. */
+function orderLink(orderId: string, label: string, guestAccessToken?: string | null) {
   const base = publicSiteUrl();
-  return base
-    ? `<p style="margin:24px 0"><a href="${base}/account/orders/${orderId}" style="background:#111;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600">${label}</a></p>`
-    : "";
+  if (!base) return "";
+  const url = guestAccessToken ? `${base}/orders/view/${guestAccessToken}` : `${base}/account/orders/${orderId}`;
+  return `<p style="margin:24px 0"><a href="${url}" style="background:#111;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600">${label}</a></p>`;
 }
 
 export function sendReturnRequestedEmail(to: string, p: {
   orderId: string;
   items: Array<{ name: string; quantity: number }>;
   estimatedRefund: number;
+  guestAccessToken?: string | null;
 }) {
   const ref = p.orderId.slice(-8).toUpperCase();
   const list = p.items.map((i) => `<li>${escapeHtml(i.name)} × ${i.quantity}</li>`).join("");
@@ -431,7 +462,7 @@ export function sendReturnRequestedEmail(to: string, p: {
       <ul>${list}</ul>
       <p>Estimated refund: <strong>${money(p.estimatedRefund)}</strong>. The final amount is confirmed once the items reach us and pass inspection.</p>
       <p style="font-size:13px;color:#666">Our team reviews requests within 2–3 business days. Please keep the items in their original packaging until they are collected.</p>
-      ${orderLink(p.orderId, "Track your return")}
+      ${orderLink(p.orderId, "Track your return", p.guestAccessToken)}
     `),
   });
 }
@@ -466,6 +497,7 @@ const RETURN_STATUS_COPY: Record<string, { subject: string; title: string; body:
 
 export function sendReturnStatusEmail(to: string, p: {
   orderId: string;
+  guestAccessToken?: string | null;
   status: keyof typeof RETURN_STATUS_COPY;
   note?: string | null;
   refundAmount?: number | null;
@@ -480,7 +512,7 @@ export function sendReturnStatusEmail(to: string, p: {
       <p>Order <strong>#${ref}</strong>: ${copy.body}</p>
       ${p.refundAmount ? `<p>Refund amount: <strong>${money(p.refundAmount)}</strong></p>` : ""}
       ${p.note ? `<p style="font-size:13px;color:#444"><strong>Note from our team:</strong> ${escapeHtml(p.note)}</p>` : ""}
-      ${orderLink(p.orderId, "View your order")}
+      ${orderLink(p.orderId, "View your order", p.guestAccessToken)}
     `),
   });
 }

@@ -1,5 +1,6 @@
 import axios, { type AxiosRequestHeaders } from "axios";
 import { API_URL } from "../env";
+import { getGuestTokenSync, useGuestSessionStore } from "../../store/guestSession.store";
 import {
   getTokenSync,
   getRefreshTokenSync,
@@ -40,6 +41,13 @@ api.interceptors.request.use((config) => {
   const token = getTokenSync();
   if (token) {
     headers.Authorization = `Bearer ${token}`;
+  } else {
+    // Guest checkout: no sign-in, but a short-lived guest session for the checkout calls.
+    const guestToken = getGuestTokenSync();
+    if (guestToken) {
+      headers.Authorization = `Bearer ${guestToken}`;
+      (config as typeof config & { _guest?: boolean })._guest = true;
+    }
   }
   // Guest cart identity. Ignored by the API once the request is authenticated.
   const cartSession = getCartSessionSync();
@@ -91,6 +99,12 @@ api.interceptors.response.use(
       url.includes("/auth/forgot-password") ||
       url.includes("/auth/verify-reset-code") ||
       url.includes("/auth/reset-password");
+
+    // A guest session can't be refreshed: drop it so checkout asks for details again.
+    if (error.response?.status === 401 && originalRequest?._guest) {
+      useGuestSessionStore.getState().clear();
+      return Promise.reject(error);
+    }
 
     if (error.response?.status !== 401 || originalRequest?._retry || isAuthEndpoint) {
       return Promise.reject(error);

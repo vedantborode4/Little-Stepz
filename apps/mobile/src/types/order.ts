@@ -47,6 +47,8 @@ export interface OrderPartial {
 export interface Order {
   id: string;
   status: string;
+  /** The private "View your order" link token (orders placed since guest checkout). */
+  accessToken?: string | null;
   /** Stays ONLINE on a partial order — the deposit is a real online capture. */
   paymentMethod?: "ONLINE" | "COD";
   paymentPlan?: "FULL" | "PARTIAL";

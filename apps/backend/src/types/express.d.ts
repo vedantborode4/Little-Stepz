@@ -6,6 +6,11 @@ declare global {
       user?: {
         userId: string;
         role: Role;
+        /**
+         * Set for a guest-checkout session (see AccessTokenPayload.guest). Only routes that
+         * opt in with `authOrGuestMiddleware` ever see it; everything else refuses guests.
+         */
+        guest?: { since: Date; orderId?: string };
       };
     }
   }

@@ -126,7 +126,8 @@ async function emitOrderEmails(orderId: string): Promise<void> {
         paymentPlan: true,
         depositAmount: true,
         balanceAmount: true,
-        user: { select: { name: true, email: true } },
+        accessToken: true,
+        user: { select: { name: true, email: true, isGuest: true } },
         items: { select: { productName: true, variantName: true, quantity: true } },
       },
     });
@@ -144,6 +145,8 @@ async function emitOrderEmails(orderId: string): Promise<void> {
     });
 
     const isPartial = order.paymentPlan === "PARTIAL";
+    // A guest has no account page to visit; their emails link to the order's private page.
+    const guestAccessToken = order.user?.isGuest ? order.accessToken : null;
 
     const payload = {
       orderId: order.id,
@@ -173,6 +176,7 @@ async function emitOrderEmails(orderId: string): Promise<void> {
       }
 
       void sendPartialOrderPlacedEmail(order.user.email, {
+        guestAccessToken,
         orderId: order.id,
         total: Number(order.total),
         deposit: Number(order.depositAmount ?? 0),
@@ -196,7 +200,7 @@ async function emitOrderEmails(orderId: string): Promise<void> {
         console.error(`[invoice] generation failed for order ${orderId}:`, err);
       }
 
-      void sendOrderConfirmationEmail(order.user.email, { ...payload, ...(invoice ? { invoice } : {}) });
+      void sendOrderConfirmationEmail(order.user.email, { ...payload, guestAccessToken, ...(invoice ? { invoice } : {}) });
     }
 
     const recipients = await resolveAdminOrderEmails();
@@ -849,9 +853,9 @@ export async function createCodPaymentService(
     return prisma.$transaction(async (tx) => {
       const orders = await tx.$queryRaw<Array<{
         id: string; userId: string; total: unknown; status: string;
-        paymentMethod: string; paymentPlan: string;
+        paymentMethod: string; paymentPlan: string; addressId: string;
       }>>`
-        SELECT id, "userId", total, status, "paymentMethod", "paymentPlan"
+        SELECT id, "userId", total, status, "paymentMethod", "paymentPlan", "addressId"
         FROM "Order"
         WHERE id = ${data.orderId}
         FOR UPDATE
@@ -878,7 +882,8 @@ export async function createCodPaymentService(
       }
 
       const total = new Decimal(String(order.total));
-      await assertCodAllowed(tx, userId, total);
+      const shipTo = await tx.address.findUnique({ where: { id: order.addressId }, select: { phone: true } });
+      await assertCodAllowed(tx, userId, total, shipTo?.phone);
 
       if (existingPayment) {
         await tx.payment.update({

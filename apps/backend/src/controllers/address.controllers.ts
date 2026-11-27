@@ -14,7 +14,7 @@ async function getAddresses(req: Request, res: Response) {
     throw new ApiError(401, "Unauthorized");
   }
 
-  const addresses = await getAddressesService(req.user.userId);
+  const addresses = await getAddressesService(req.user.userId, req.user.guest?.since);
 
   return new ApiResponse(
     200,
@@ -39,7 +39,8 @@ async function createAddress(req: Request, res: Response) {
 
   const address = await createAddressService(
     req.user.userId,
-    parsed.data
+    parsed.data,
+    req.user.guest?.since
   );
 
   return new ApiResponse(
@@ -71,7 +72,8 @@ async function updateAddress(req: Request, res: Response) {
   const address = await updateAddressService(
     req.user.userId,
     id,
-    parsed.data
+    parsed.data,
+    req.user.guest?.since
   );
 
   return new ApiResponse(

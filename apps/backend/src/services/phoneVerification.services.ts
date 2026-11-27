@@ -36,14 +36,15 @@ export interface RequestPhoneOtpResult {
 export async function requestPhoneOtpService(
   userId: string,
   phone: string,
-  meta?: { ipAddress?: string; userAgent?: string }
+  meta?: { ipAddress?: string; userAgent?: string },
+  /**
+   * Guest sessions: only a verification made in this session counts, so a number some
+   * earlier guest proved on the same password-less account still needs a fresh code.
+   */
+  verifiedSince?: Date
 ): Promise<RequestPhoneOtpResult> {
   // Already proved — send nothing. A double-submitting client must not cost money.
-  const existingVerified = await prisma.verifiedPhone.findUnique({
-    where: { userId_phone: { userId, phone } },
-    select: { id: true },
-  });
-  if (existingVerified) return { alreadyVerified: true };
+  if (await isPhoneVerified(userId, phone, verifiedSince)) return { alreadyVerified: true };
 
   const now = new Date();
   const dayAgo = new Date(now.getTime() - DAY_MS);
@@ -213,23 +214,24 @@ export async function verifyPhoneOtpService(
   return { phone: verified.phone, verifiedAt: verified.verifiedAt };
 }
 
-export async function isPhoneVerified(userId: string, phone: string): Promise<boolean> {
-  const row = await prisma.verifiedPhone.findUnique({
-    where: { userId_phone: { userId, phone } },
+/** `verifiedSince` (guest sessions) ignores verifications made before the session began. */
+export async function isPhoneVerified(userId: string, phone: string, verifiedSince?: Date): Promise<boolean> {
+  const row = await prisma.verifiedPhone.findFirst({
+    where: { userId, phone, ...(verifiedSince ? { verifiedAt: { gte: verifiedSince } } : {}) },
     select: { id: true },
   });
   return row !== null;
 }
 
-export async function assertPhoneVerified(userId: string, phone: string): Promise<void> {
-  if (!(await isPhoneVerified(userId, phone))) {
+export async function assertPhoneVerified(userId: string, phone: string, verifiedSince?: Date): Promise<void> {
+  if (!(await isPhoneVerified(userId, phone, verifiedSince))) {
     throw new ApiError(400, PhoneErrorCode.PHONE_NOT_VERIFIED);
   }
 }
 
-export async function listVerifiedPhones(userId: string): Promise<string[]> {
+export async function listVerifiedPhones(userId: string, verifiedSince?: Date): Promise<string[]> {
   const rows = await prisma.verifiedPhone.findMany({
-    where: { userId },
+    where: { userId, ...(verifiedSince ? { verifiedAt: { gte: verifiedSince } } : {}) },
     select: { phone: true },
   });
   return rows.map((r) => r.phone);

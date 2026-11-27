@@ -22,6 +22,16 @@ export const generateAccessToken = (
   });
 };
 
+/** Long enough to finish a checkout (including a slow payment), short enough not to be a login. */
+const GUEST_ACCESS_TOKEN_EXPIRES = "2h";
+
+export const generateGuestAccessToken = (userId: string, since: Date): string => {
+  const payload: AccessTokenPayload = { userId, role: "USER", guest: { since: since.getTime() } };
+  return jwt.sign(payload as JwtJwtPayload, ACCESS_TOKEN_SECRET, {
+    expiresIn: GUEST_ACCESS_TOKEN_EXPIRES,
+  });
+};
+
 export const verifyAccessToken = (
   token: string
 ): AccessTokenPayload => {

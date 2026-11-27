@@ -6,6 +6,9 @@ import { toast } from "sonner"
 import { Clock, Loader2, MapPin, Info } from "lucide-react"
 import { PreOrderService } from "../../lib/services/preorder.service"
 import CheckoutAddressSection from "../address/CheckoutAddressSection"
+import GuestCheckoutGate from "../checkout/GuestCheckoutGate"
+import { useAuthStore } from "../../store/auth.store"
+import { useGuestSessionActive } from "../../store/useGuestSessionStore"
 import { useAddressStore } from "../../store/useAddressStore"
 import { getChargedPrice, getPreOrderTerms } from "../../lib/pricing"
 import OptionSelector from "../products/details/OptionSelector"
@@ -117,6 +120,9 @@ export default function PreOrderCheckoutView({ product }: { product: Product }) 
   const total = unit * quantity + SHIPPING
   const balance = Math.max(0, total - booking)
 
+  const signedIn = useAuthStore((s) => !!s.user)
+  const guestActive = useGuestSessionActive()
+
   const confirm = async () => {
     if (!addressId) { toast.error("Select a delivery address"); return }
     if (!canBook) {
@@ -144,8 +150,14 @@ export default function PreOrderCheckoutView({ product }: { product: Product }) 
       })
       if (!result) { setPlacing(false); return }
       await PreOrderService.verifyBooking(init.preOrderId, result)
-      toast.success("Pre-order confirmed 🎉")
-      router.push("/account/pre-orders")
+      if (signedIn) {
+        toast.success("Pre-order confirmed 🎉")
+        router.push("/account/pre-orders")
+      } else {
+        // A guest has no account page; the booking email and the balance link carry it from here.
+        toast.success("Pre-order confirmed 🎉 We've emailed your booking details.")
+        router.push("/pre-orders")
+      }
     } catch (e: any) {
       toast.error(friendlyError(e, "Pre-order failed"))
       setPlacing(false)
@@ -301,7 +313,7 @@ export default function PreOrderCheckoutView({ product }: { product: Product }) 
         <div className="flex items-center gap-2 text-text font-semibold text-sm">
           <MapPin size={16} /> Delivery address
         </div>
-        <CheckoutAddressSection />
+        {signedIn || guestActive ? <CheckoutAddressSection /> : <GuestCheckoutGate />}
       </div>
 
       {/* Summary */}

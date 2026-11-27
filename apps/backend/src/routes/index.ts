@@ -19,6 +19,8 @@ import { referralClickRateLimiter } from "../middlewares/affiliateRateLimiter.mi
 import { bannerRouter }  from "./banner.routes";
 import { notificationRouter } from "./notification.routes";
 import { phoneVerificationRouter } from "./phoneVerification.routes";
+import { guestCheckoutRouter } from "./guestCheckout.routes";
+import { orderAccessRouter, publicOrdersRouter } from "./orderAccess.routes";
 
 
 export const appRouter:Router = Router()
@@ -45,6 +47,12 @@ appRouter.use("/coupons", couponsRouter)
 
 appRouter.use("/checkout", checkoutRouter)
 
+appRouter.use("/guest-checkout", guestCheckoutRouter)
+
+// Public order routes mount ahead of the signed-in orders router: the emailed "View your
+// order" link and tracking by order number + email/phone need no session.
+appRouter.use("/orders/view/:token", orderAccessRouter)
+appRouter.use("/orders", publicOrdersRouter)
 appRouter.use("/orders", ordersRouter)
 
 appRouter.use("/pre-orders", preOrderRouter)

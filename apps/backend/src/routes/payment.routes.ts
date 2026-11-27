@@ -1,5 +1,6 @@
 import { Router } from "express";
-import { authMiddleware } from "../middlewares/auth.middleware";
+import { authOrGuestMiddleware } from "../middlewares/auth.middleware";
+import { guestOrderBodyScope } from "../middlewares/guestScope.middleware";
 import {
   createPaymentController,
   verifyPaymentController,
@@ -12,7 +13,8 @@ import {
 
 export const paymentRouter: Router = Router();
 
-paymentRouter.use(authMiddleware);
+// Guests pay for orders placed in their own session only (the order id is in the body).
+paymentRouter.use(authOrGuestMiddleware, guestOrderBodyScope);
 
 
 paymentRouter.post(

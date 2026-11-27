@@ -5,6 +5,7 @@ import {
   removeAccessToken,
 } from "./utils/token"
 import { signInUrl } from "./utils/redirect"
+import { getGuestToken, useGuestSessionStore } from "../store/useGuestSessionStore"
 
 export const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL,
@@ -16,6 +17,13 @@ api.interceptors.request.use((config) => {
 
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
+  } else {
+    // Guest checkout: no sign-in, but a short-lived guest session for the checkout calls.
+    const guestToken = getGuestToken()
+    if (guestToken) {
+      config.headers.Authorization = `Bearer ${guestToken}`
+      ;(config as typeof config & { _guest?: boolean })._guest = true
+    }
   }
 
   return config
@@ -39,6 +47,13 @@ api.interceptors.response.use(
   (res) => res,
   async (error) => {
     const originalRequest = error.config
+
+    // A guest session can't be refreshed: drop it and let the checkout ask for details again.
+    // Never fall through to the sign-in redirect — the shopper chose not to sign in.
+    if (error.response?.status === 401 && originalRequest?._guest) {
+      useGuestSessionStore.getState().clear()
+      return Promise.reject(error)
+    }
 
     if (error.response?.status !== 401 || originalRequest._retry) {
       return Promise.reject(error)

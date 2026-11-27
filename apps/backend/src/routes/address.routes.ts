@@ -1,5 +1,6 @@
 import { Router } from "express";
-import { authMiddleware } from "../middlewares/auth.middleware";
+import { authOrGuestMiddleware } from "../middlewares/auth.middleware";
+import { guestAddressParam } from "../middlewares/guestScope.middleware";
 import {
   getAddressesController,
   createAddressController,
@@ -10,7 +11,9 @@ import {
 
 export const addressRouter:Router = Router();
 
-addressRouter.use(authMiddleware);
+// Guests see and edit only addresses created in their own session (the list is filtered in the service).
+addressRouter.use(authOrGuestMiddleware);
+addressRouter.param("id", guestAddressParam);
 
 addressRouter.get("/", getAddressesController);
 addressRouter.post("/", createAddressController);

@@ -152,7 +152,7 @@ export const AdminOrderService = {
 
   /** Download the tax invoice PDF. */
   downloadInvoice: async (orderId: string) => {
-    return downloadPdf(`/admin/orders/${orderId}/invoice`, `invoice-${orderId.slice(0, 8)}.pdf`)
+    return downloadPdf(`/admin/orders/${orderId}/invoice`, `invoice-${orderId.slice(-8).toUpperCase()}.pdf`)
   },
 
   getById: async (id: string): Promise<AdminOrderDetail> => {

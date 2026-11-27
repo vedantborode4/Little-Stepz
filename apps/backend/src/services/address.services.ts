@@ -17,9 +17,10 @@ const addressSelect = {
   createdAt: true,
 };
 
-export async function getAddressesService(userId: string) {
+/** `guestSince` (guest-checkout sessions) lists only addresses and verifications made in that session. */
+export async function getAddressesService(userId: string, guestSince?: Date) {
   const addresses = await prisma.address.findMany({
-    where: { userId, deletedAt: null },
+    where: { userId, deletedAt: null, ...(guestSince ? { createdAt: { gte: guestSince } } : {}) },
     orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
     select: addressSelect,
   });
@@ -30,7 +31,11 @@ export async function getAddressesService(userId: string) {
   // than an N+1. Surfaced so the UI can nudge without blocking: addresses that
   // predate phone verification stay usable.
   const verified = await prisma.verifiedPhone.findMany({
-    where: { userId, phone: { in: addresses.map((a) => a.phone) } },
+    where: {
+      userId,
+      phone: { in: addresses.map((a) => a.phone) },
+      ...(guestSince ? { verifiedAt: { gte: guestSince } } : {}),
+    },
     select: { phone: true },
   });
   const verifiedSet = new Set(verified.map((v) => v.phone));
@@ -53,11 +58,13 @@ async function assertDeliverablePincode(pincode: string): Promise<void> {
 
 export async function createAddressService(
   userId: string,
-  data: AddressData
+  data: AddressData,
+  /** Guest-checkout session start: the phone must have been verified in this session. */
+  guestSince?: Date
 ) {
   await assertDeliverablePincode(data.pincode);
   // Same "validate before write, outside the transaction" shape as the pincode check.
-  await assertPhoneVerified(userId, data.phone);
+  await assertPhoneVerified(userId, data.phone, guestSince);
 
   return prisma.$transaction(async (tx) => {
     if (data.isDefault) {
@@ -93,7 +100,8 @@ export async function createAddressService(
 export async function updateAddressService(
   userId: string,
   addressId: string,
-  data: UpdateAddressData
+  data: UpdateAddressData,
+  guestSince?: Date
 ) {
   // Outside the transaction: this is an external HTTP call and must not hold a
   // row-locked transaction open across Delhivery.
@@ -110,7 +118,7 @@ export async function updateAddressService(
       select: { phone: true },
     });
     if (current && data.phone !== current.phone) {
-      await assertPhoneVerified(userId, data.phone);
+      await assertPhoneVerified(userId, data.phone, guestSince);
     }
   }
 
