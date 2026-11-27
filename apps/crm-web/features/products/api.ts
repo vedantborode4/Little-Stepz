@@ -1,5 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type {
+  AddOptionInput,
   BulkPriceApplyInput,
   BulkPricePreviewInput,
   BulkPricePreviewRowDto,
@@ -15,6 +16,8 @@ import type {
   ProductImageDto,
   ProductImageLinkInput,
   ProductListItemDto,
+  RenameOptionInput,
+  RenameOptionValueInput,
   SetMappingInput,
   SupplierDto,
   UpdateCategoryInput,
@@ -88,6 +91,30 @@ export const useUpdateProduct = (id: string) =>
 
 export const useAddVariant = (productId: string) =>
   useCatalogMutation((input: VariantInput) => sendData<ProductDetailDto>("post", `/products/${productId}/variants`, input))
+
+export const useAddOption = (productId: string) =>
+  useCatalogMutation((input: AddOptionInput) => sendData<ProductDetailDto>("post", `/products/${productId}/options`, input))
+
+export const useRenameOption = (productId: string) =>
+  useCatalogMutation(({ optionId, input }: { optionId: string; input: RenameOptionInput }) =>
+    sendData<ProductDetailDto>("patch", `/products/${productId}/options/${optionId}`, input),
+  )
+
+export const useReorderOptions = (productId: string) =>
+  useCatalogMutation((optionIds: string[]) => sendData<ProductDetailDto>("put", `/products/${productId}/options/order`, { optionIds }))
+
+export const useRemoveOption = (productId: string) =>
+  useCatalogMutation((optionId: string) => sendData<ProductDetailDto>("delete", `/products/${productId}/options/${optionId}`))
+
+export const useRenameOptionValue = (productId: string) =>
+  useCatalogMutation(({ optionId, valueId, input }: { optionId: string; valueId: string; input: RenameOptionValueInput }) =>
+    sendData<ProductDetailDto>("patch", `/products/${productId}/options/${optionId}/values/${valueId}`, input),
+  )
+
+export const useRemoveOptionValue = (productId: string) =>
+  useCatalogMutation(({ optionId, valueId }: { optionId: string; valueId: string }) =>
+    sendData<ProductDetailDto>("delete", `/products/${productId}/options/${optionId}/values/${valueId}`),
+  )
 
 export const useUpdateVariant = () =>
   useCatalogMutation(({ id, input }: { id: string; input: UpdateVariantInput }) =>

@@ -34,6 +34,10 @@ export function PriceRange({ min, max }: { min: string | null; max: string | nul
 }
 
 /** Same rule as the API: every id present → mapped, none → unmapped, otherwise partial. Archived variants don't count. */
+/** A value is offered while an active variant uses it; values whose variants are all archived are hidden. */
+export const isValueInUse = (product: ProductDetailDto, valueId: string) =>
+  product.variants.some((v) => v.status === "ACTIVE" && v.optionValueIds.includes(valueId))
+
 export function productMappingState(p: ProductDetailDto): MappingState {
   const flags = [!!p.websiteProductId, ...p.variants.filter((v) => v.status === "ACTIVE").map((v) => !!v.websiteVariantId)]
   if (flags.every(Boolean)) return "MAPPED"

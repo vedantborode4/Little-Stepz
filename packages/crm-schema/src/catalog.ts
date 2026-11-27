@@ -231,6 +231,24 @@ export type UpdateProductInput = z.infer<typeof updateProductSchema>;
 
 export const addVariantSchema = variantInputSchema;
 
+// ─── Options on a saved product ──────────────────────────────────────────────
+
+export const productOptionParams = z.object({ id: z.string().uuid(), optionId: z.string().uuid() });
+export const productOptionValueParams = productOptionParams.extend({ valueId: z.string().uuid() });
+
+/** `existingValue` is what every variant the product already has gets for the new option. */
+export const addOptionSchema = z.object({ name: requiredText(30), existingValue: requiredText(40) });
+export type AddOptionInput = z.infer<typeof addOptionSchema>;
+
+export const renameOptionSchema = z.object({ name: requiredText(30) });
+export type RenameOptionInput = z.infer<typeof renameOptionSchema>;
+
+export const renameOptionValueSchema = z.object({ value: requiredText(40) });
+export type RenameOptionValueInput = z.infer<typeof renameOptionValueSchema>;
+
+export const reorderOptionsSchema = z.object({ optionIds: z.array(z.string().uuid()).min(1).max(MAX_OPTIONS) });
+export type ReorderOptionsInput = z.infer<typeof reorderOptionsSchema>;
+
 export const updateVariantSchema = z
   .object({
     sku: skuSchema,

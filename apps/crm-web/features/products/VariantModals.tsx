@@ -18,6 +18,7 @@ import Modal from "@/components/ui/Modal"
 import { formatDateTime, formatMoney } from "@/lib/format"
 import { useApiForm } from "@/lib/use-api-form"
 import { useAddVariant, usePriceHistory, useSetPriceTiers, useUpdateVariant } from "./api"
+import { isValueInUse } from "./shared"
 
 /** Price fields shared by the add and edit variant forms. */
 interface PriceValues {
@@ -147,9 +148,11 @@ export function AddVariantModal({ product, onClose }: { product: ProductDetailDt
           <Field key={option.id} label={option.name} htmlFor={`opt-${i}`} required hint="Pick an existing value or type a new one.">
             <Input id={`opt-${i}`} list={`opt-values-${i}`} {...register(`optionValues.${i}`)} />
             <datalist id={`opt-values-${i}`}>
-              {option.values.map((v) => (
-                <option key={v.id} value={v.value} />
-              ))}
+              {option.values
+                .filter((v) => isValueInUse(product, v.id))
+                .map((v) => (
+                  <option key={v.id} value={v.value} />
+                ))}
             </datalist>
           </Field>
         ))}

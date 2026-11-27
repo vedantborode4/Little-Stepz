@@ -218,7 +218,7 @@ export function ProductCreateForm({ source }: { source?: ProductDetailDto }) {
           <Checkbox
             id="hasVariants"
             label="This product comes in several colours, models or styles"
-            description="Each combination gets its own SKU, price and stock. Options can't be added after the product is saved, but new values can."
+            description="Each combination gets its own SKU, price and stock. Options and values can also be added or changed after saving."
             checked={hasVariants}
             onChange={(e) => toggleVariants(e.target.checked)}
           />

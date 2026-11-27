@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
 import {
+  addOptionSchema,
   addVariantSchema,
   bulkPriceApplySchema,
   bulkPricePreviewSchema,
@@ -16,6 +17,11 @@ import {
   productImageUploadQuery,
   PRODUCT_STATUS_LABELS,
   productListQuery,
+  productOptionParams,
+  productOptionValueParams,
+  renameOptionSchema,
+  renameOptionValueSchema,
+  reorderOptionsSchema,
   setMappingSchema,
   updateProductSchema,
   updateVariantSchema,
@@ -24,6 +30,7 @@ import { sendExport } from "../../core/export";
 import { ApiError, requestContext, sendData } from "../../core/http";
 import * as images from "./images.service";
 import * as mapping from "./mapping.service";
+import * as options from "./options.service";
 import * as pricing from "./pricing.service";
 import * as products from "./products.service";
 import * as variants from "./variants.service";
@@ -102,6 +109,36 @@ export async function addVariant(req: Request, res: Response) {
   const { id } = idParam.parse(req.params);
   const input = addVariantSchema.parse(req.body);
   sendData(res, await variants.addVariant(id, input, requestContext(req)), 201);
+}
+
+export async function addOption(req: Request, res: Response) {
+  const { id } = idParam.parse(req.params);
+  sendData(res, await options.addOption(id, addOptionSchema.parse(req.body), requestContext(req)), 201);
+}
+
+export async function reorderOptions(req: Request, res: Response) {
+  const { id } = idParam.parse(req.params);
+  sendData(res, await options.reorderOptions(id, reorderOptionsSchema.parse(req.body), requestContext(req)));
+}
+
+export async function renameOption(req: Request, res: Response) {
+  const { id, optionId } = productOptionParams.parse(req.params);
+  sendData(res, await options.renameOption(id, optionId, renameOptionSchema.parse(req.body), requestContext(req)));
+}
+
+export async function removeOption(req: Request, res: Response) {
+  const { id, optionId } = productOptionParams.parse(req.params);
+  sendData(res, await options.removeOption(id, optionId, requestContext(req)));
+}
+
+export async function renameOptionValue(req: Request, res: Response) {
+  const { id, optionId, valueId } = productOptionValueParams.parse(req.params);
+  sendData(res, await options.renameOptionValue(id, optionId, valueId, renameOptionValueSchema.parse(req.body), requestContext(req)));
+}
+
+export async function removeOptionValue(req: Request, res: Response) {
+  const { id, optionId, valueId } = productOptionValueParams.parse(req.params);
+  sendData(res, await options.removeOptionValue(id, optionId, valueId, requestContext(req)));
 }
 
 export async function updateVariant(req: Request, res: Response) {

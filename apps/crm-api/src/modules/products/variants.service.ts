@@ -11,11 +11,11 @@ import { assertSkusFree, assertWebsiteVariantIdFree, loadProductDetail, optionKe
 
 /**
  * Adds a variant for a new option combination. Values that don't exist yet on an
- * option (a new colour) are created. Option dimensions themselves are fixed after
- * creation: adding "Size" later would leave existing variants without a size.
+ * option (a new colour) are created. Options themselves are managed in options.service.
  */
 export async function addVariant(productId: string, input: VariantInput, ctx: RequestContext) {
   return withTransaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "Product" WHERE id = ${productId} FOR UPDATE`;
     const product = await tx.product.findUnique({
       where: { id: productId },
       include: { options: { orderBy: { position: "asc" }, include: { values: true } }, _count: { select: { variants: true } } },
@@ -43,7 +43,15 @@ export async function addVariant(productId: string, input: VariantInput, ctx: Re
 
     const optionKey = optionKeyOf(resolved.map((r) => r.id));
     const duplicate = await tx.variant.findUnique({ where: { productId_optionKey: { productId, optionKey } } });
-    if (duplicate) throw new ApiError(409, "COMBINATION_EXISTS", `This combination already exists as ${duplicate.sku}`);
+    if (duplicate) {
+      throw new ApiError(
+        409,
+        "COMBINATION_EXISTS",
+        duplicate.status === "ARCHIVED"
+          ? `This combination already exists as ${duplicate.sku}, which is archived. Restore it instead.`
+          : `This combination already exists as ${duplicate.sku}`,
+      );
+    }
 
     const variant = await tx.variant.create({
       data: {

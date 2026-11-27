@@ -12,6 +12,12 @@ productsRoutes.post("/", manage, controller.create);
 productsRoutes.get("/:id", view, controller.get);
 productsRoutes.patch("/:id", manage, controller.update);
 productsRoutes.post("/:id/variants", manage, controller.addVariant);
+productsRoutes.post("/:id/options", manage, controller.addOption);
+productsRoutes.put("/:id/options/order", manage, controller.reorderOptions);
+productsRoutes.patch("/:id/options/:optionId", manage, controller.renameOption);
+productsRoutes.delete("/:id/options/:optionId", manage, controller.removeOption);
+productsRoutes.patch("/:id/options/:optionId/values/:valueId", manage, controller.renameOptionValue);
+productsRoutes.delete("/:id/options/:optionId/values/:valueId", manage, controller.removeOptionValue);
 // The photo is the request body itself (no multipart), capped before it is read.
 productsRoutes.post("/:id/images", manage, express.raw({ type: () => true, limit: IMAGE_MAX_BYTES }), controller.uploadImage);
 productsRoutes.post("/:id/images/link", manage, controller.linkImage);

@@ -14,6 +14,7 @@ import { errorMessage } from "@/lib/api-error"
 import { formatDateTime, formatMoney } from "@/lib/format"
 import { useCan } from "@/store/auth.store"
 import { useProduct, useUpdateProduct, useUpdateVariant } from "./api"
+import OptionsCard, { AddOptionModal } from "./OptionsCard"
 import ProductGallery from "./ProductGallery"
 import { MappingBadge, productMappingState, ProductStatusBadge, ProductThumb } from "./shared"
 import { StockCardModal, StockDocumentModal } from "../inventory/StockModals"
@@ -21,7 +22,8 @@ import { AddVariantModal, EditVariantModal, PriceHistoryModal, PriceTiersModal }
 
 type VariantModal =
   | { kind: "edit" | "tiers" | "history" | "archive" | "stock"; variant: VariantDto }
-  | { kind: "add" }
+  | { kind: "add"; product?: ProductDetailDto }
+  | { kind: "add-variants" }
   | { kind: "archive-product" }
   | { kind: "document"; documentId: string }
 
@@ -232,9 +234,13 @@ function ProductView({ product }: { product: ProductDetailDto }) {
                   {product.variants.reduce((n, v) => n + v.physicalQty, 0)} physical in total
                 </span>
               </h2>
-              {manage && !archived && product.options.length > 0 && (
-                <Button size="sm" icon={<Plus size={14} />} onClick={() => setModal({ kind: "add" })}>
-                  Add variant
+              {manage && !archived && (
+                <Button
+                  size="sm"
+                  icon={<Plus size={14} />}
+                  onClick={() => setModal({ kind: product.options.length > 0 ? "add" : "add-variants" })}
+                >
+                  {product.options.length > 0 ? "Add variant" : "Add variants"}
                 </Button>
               )}
             </div>
@@ -263,20 +269,7 @@ function ProductView({ product }: { product: ProductDetailDto }) {
               )}
             />
           </section>
-          {product.options.length > 0 && (
-            <Card title="Options">
-              <dl className="space-y-2">
-                {product.options.map((o) => (
-                  <div key={o.id} className="flex flex-wrap items-center gap-2">
-                    <dt className="text-sm text-muted w-24">{o.name}</dt>
-                    {o.values.map((v) => (
-                      <Badge key={v.id}>{v.value}</Badge>
-                    ))}
-                  </div>
-                ))}
-              </dl>
-            </Card>
-          )}
+          {product.options.length > 0 && <OptionsCard product={product} manage={manage && !archived} />}
         </div>
 
         <div className="space-y-4 sm:space-y-5">
@@ -308,11 +301,6 @@ function ProductView({ product }: { product: ProductDetailDto }) {
               )}
             </Card>
           )}
-          {product.options.length === 0 && (
-            <p className="text-xs text-faint px-1">
-              Simple product — it has one variant. Create a new product to sell it in several colours or styles.
-            </p>
-          )}
         </div>
       </div>
 
@@ -333,7 +321,10 @@ function ProductView({ product }: { product: ProductDetailDto }) {
           onOpenDocument={(documentId) => setModal({ kind: "document", documentId })}
         />
       )}
-      {modal?.kind === "add" && <AddVariantModal product={product} onClose={close} />}
+      {modal?.kind === "add" && <AddVariantModal product={modal.product ?? product} onClose={close} />}
+      {modal?.kind === "add-variants" && (
+        <AddOptionModal product={product} onClose={close} onAdded={(updated) => setModal({ kind: "add", product: updated })} />
+      )}
       {modal?.kind === "archive" && (
         <ConfirmDialog
           title={modal.variant.status === "ACTIVE" ? `Archive ${modal.variant.sku}?` : `Restore ${modal.variant.sku}?`}
