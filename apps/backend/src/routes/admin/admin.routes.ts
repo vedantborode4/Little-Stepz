@@ -17,6 +17,7 @@ import { adminNotificationRouter } from "./admin.notification.routes";
 import { adminShippingRouter } from "./admin.shipping.routes";
 import { adminCustomersRouter } from "./admin.customers.routes";
 import { adminReturnsRouter } from "./admin.returns.routes";
+import { adminViralReelRouter } from "./admin.viralReel.routes";
 
 export const adminRouter: Router = Router();
 
@@ -43,6 +44,8 @@ adminRouter.use("/affiliates", adminAffiliateRouter);
 adminRouter.use("/", adminDashboardRouter);
 
 adminRouter.use("/banners", adminBannerRouter);
+
+adminRouter.use("/viral-reels", adminViralReelRouter);
 
 adminRouter.use("/notifications", adminNotificationRouter);
 

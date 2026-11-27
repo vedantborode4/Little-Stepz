@@ -34,7 +34,7 @@ function parseSort(sort: string): { field: ProductSortField; order: SortOrder } 
   return { field, order };
 }
 
-const baseProductSelect = {
+export const baseProductSelect = {
   id: true,
   name: true,
   slug: true,

@@ -20,3 +20,4 @@ export * from "./types/notification.schema";
 export * from "./types/phone-verification.schema";
 export * from "./types/return.schema";
 export * from "./types/guest-checkout.schema";
+export * from "./types/viral-reel.schema";

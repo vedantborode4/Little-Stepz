@@ -10,6 +10,7 @@ import { SectionHeader } from "../../components/home/SectionHeader";
 import { PromoBannerRow } from "../../components/home/PromoBannerRow";
 import { MidPromoBanner } from "../../components/home/MidPromoBanner";
 import { BestSellers } from "../../components/home/BestSellers";
+import { ViralProducts } from "../../components/home/ViralProducts";
 import { CategorySection } from "../../components/home/CategorySection";
 import { PreOrderHome } from "../../components/home/PreOrderHome";
 import { WhyChooseUs } from "../../components/home/WhyChooseUs";
@@ -28,6 +29,7 @@ export default function Home() {
     // refetch every page it had loaded the next time the user opened it.
     await Promise.all([
       qc.invalidateQueries({ queryKey: qk.banners, refetchType: "active" }),
+      qc.invalidateQueries({ queryKey: qk.viralReels, refetchType: "active" }),
       qc.invalidateQueries({ queryKey: qk.categories, refetchType: "active" }),
       qc.invalidateQueries({ queryKey: qk.productsAll, refetchType: "active" }),
     ]);
@@ -67,6 +69,9 @@ export default function Home() {
             <SectionHeader title="Best Sellers" subtitle="Our most-loved products" />
             <BestSellers sort="bestselling" />
           </View>
+
+          {/* Viral Products — Instagram reels (self-hides when empty) */}
+          <ViralProducts />
 
           {/* 5. Banner */}
           <MidPromoBanner />

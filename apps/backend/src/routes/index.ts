@@ -17,6 +17,7 @@ import { affiliateRouter }  from "./affiliate.routes";
 import { handleReferralClickController } from "../controllers/affiliate.controllers";
 import { referralClickRateLimiter } from "../middlewares/affiliateRateLimiter.middleware";
 import { bannerRouter }  from "./banner.routes";
+import { viralReelRouter } from "./viralReel.routes";
 import { notificationRouter } from "./notification.routes";
 import { phoneVerificationRouter } from "./phoneVerification.routes";
 import { guestCheckoutRouter } from "./guestCheckout.routes";
@@ -67,6 +68,8 @@ appRouter.use("/payments",   paymentRouter);
 appRouter.use("/affiliate",  affiliateRouter);
 
 appRouter.use("/banners",    bannerRouter);
+
+appRouter.use("/viral-reels", viralReelRouter);
 
 appRouter.use("/notifications", notificationRouter);
 

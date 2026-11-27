@@ -4,13 +4,14 @@ import DynamicPromoBanner from "../components/home/DynamicPromoBanner"
 import PromoBannerRow from "../components/home/PromoBannerRow"
 import WhyChooseUs from "../components/home/WhyChooseUs"
 import BestSellers from "../components/home/BestSellers"
+import ViralProducts from "../components/home/ViralProducts"
 import PreOrderHome from "../components/home/PreOrderHome"
 import CategorySection from "../components/home/CategorySection"
 import SectionHeader from "../components/home/SectionHeader"
 import AboutUs from "../components/home/AboutUs"
 import WhyChooseLittleStepz from "../components/home/WhyChooseLittleStepz"
 
-import { getFeaturedProducts } from "../lib/seo/catalogue"
+import { getFeaturedProducts, getViralReels } from "../lib/seo/catalogue"
 
 /**
  * Homepage — now a server component (plan W1).
@@ -22,9 +23,10 @@ import { getFeaturedProducts } from "../lib/seo/catalogue"
  * category sliders stay client-side (banner-driven) as progressive enhancement.
  */
 export default async function Home() {
-  const [bestSellers, newArrivals] = await Promise.all([
+  const [bestSellers, newArrivals, viralReels] = await Promise.all([
     getFeaturedProducts("bestselling", 8),
     getFeaturedProducts("newest", 8),
+    getViralReels(),
   ])
 
   return (
@@ -58,12 +60,14 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* 4. Best Sellers — 4-column grid · 5. Banner */}
+      {/* 4. Best Sellers — 4-column grid · Viral Products — reel slider (self-hides when empty) · 5. Banner */}
       <div className="max-w-7xl mx-auto px-4 py-8 sm:py-12 space-y-10 sm:space-y-14">
         <section>
           <SectionHeader title="Best Sellers" subtitle="Our most-loved products" />
           <BestSellers sort="bestselling" layout="grid" limit={8} initialProducts={bestSellers} />
         </section>
+
+        <ViralProducts reels={viralReels} />
 
         <DynamicPromoBanner position="HOME_MID" />
       </div>

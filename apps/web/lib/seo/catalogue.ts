@@ -1,5 +1,6 @@
 import "server-only"
 import type { Product } from "../../types/product"
+import type { ViralReel } from "../../types/viral-reel"
 
 /**
  * Server-side catalogue reads for sitemap, llms.txt and server-rendered
@@ -174,6 +175,15 @@ export async function getFeaturedProducts(
     `products:${sortKey}`,
   )
   return (data?.products ?? []).slice(0, limit)
+}
+
+/**
+ * Home page "Viral Products" reels. Short TTL so an admin's new or hidden reel
+ * shows up within a minute rather than an hour.
+ */
+export async function getViralReels(): Promise<ViralReel[]> {
+  const data = await getJson<{ reels: ViralReel[] }>("/viral-reels", "viral-reels", PRODUCT_REVALIDATE)
+  return data?.reels ?? []
 }
 
 /** The products API's largest page; it clamps anything bigger to this. */

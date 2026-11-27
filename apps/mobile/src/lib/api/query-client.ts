@@ -62,7 +62,7 @@ export const queryClient = new QueryClient({
  * profile) is deliberately NOT persisted — AsyncStorage is unencrypted, and it
  * would also survive a sign-out into the next user's session.
  */
-const PERSISTED_ROOTS = new Set(["banners", "categories", "products", "product"]);
+const PERSISTED_ROOTS = new Set(["banners", "categories", "products", "product", "viralReels"]);
 
 export const queryPersister = createAsyncStoragePersister({
   storage: AsyncStorage,
@@ -115,6 +115,7 @@ export function productListKey(params: ProductListParams = {}) {
 
 export const qk = {
   banners: ["banners"] as const,
+  viralReels: ["viralReels"] as const,
   categories: ["categories"] as const,
   products: (params?: ProductListParams) => productListKey(params),
   /** Every product list, for coarse invalidation. */
@@ -153,6 +154,7 @@ export const qk = {
   adminCategories: ["admin", "categories"] as const,
   adminCoupons: ["admin", "coupons"] as const,
   adminBanners: ["admin", "banners"] as const,
+  adminViralReels: ["admin", "viral-reels"] as const,
   adminAffiliates: (params?: unknown) => ["admin", "affiliates", params] as const,
   adminAffiliate: (id: string) => ["admin", "affiliate", id] as const,
   adminWithdrawals: ["admin", "withdrawals"] as const,

@@ -17,6 +17,7 @@ const SECTIONS: { title: string; items: NavItem[] }[] = [
       { key: "products", label: "Products", icon: "cube-outline", route: "/admin/products" },
       { key: "categories", label: "Categories", icon: "pricetags-outline", route: "/admin/categories" },
       { key: "banners", label: "Banners", icon: "image-outline", route: "/admin/banners" },
+      { key: "viral-reels", label: "Viral Reels", icon: "film-outline", route: "/admin/viral-reels" },
     ],
   },
   {

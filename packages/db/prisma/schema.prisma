@@ -317,6 +317,7 @@ model Product {
   orderItems   OrderItem[]
   reviews      Review[]
   preOrders    PreOrder[]
+  viralReels   ViralReelProduct[]
 
   deletedAt DateTime?
 
@@ -1301,6 +1302,43 @@ model Banner {
   @@index([position, isActive])
   @@index([isActive, startsAt, endsAt])
   @@index([deletedAt])
+}
+
+/// An Instagram reel shown in the home page "Viral Products" section, linked to the
+/// products it features. Curated by admins; the reel itself stays on Instagram.
+model ViralReel {
+  id            String  @id @default(uuid())
+
+  reelUrl       String
+  coverImageUrl String
+  caption       String?
+
+  sortOrder     Int     @default(0)
+  isActive      Boolean @default(true)
+
+  products      ViralReelProduct[]
+
+  createdBy     String
+  updatedBy     String?
+
+  deletedAt     DateTime?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([isActive, deletedAt, sortOrder])
+}
+
+model ViralReelProduct {
+  reelId    String
+  productId String
+  sortOrder Int    @default(0)
+
+  reel    ViralReel @relation(fields: [reelId], references: [id], onDelete: Cascade)
+  product Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([reelId, productId])
+  @@index([productId])
 }
 
 enum DevicePlatform {

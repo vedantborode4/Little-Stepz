@@ -1,5 +1,6 @@
 import { api } from "../../../lib/api/client";
 import { savePdfAndShare } from "../../../lib/pdf";
+import type { ViralReelInput } from "@repo/zod-schema/index";
 
 // ───────────────────────── Stats ─────────────────────────
 export interface AdminStats {
@@ -582,6 +583,47 @@ export const AdminBannerService = {
   toggle: async (id: string) => {
     const res = await api.patch(`/admin/banners/${id}/toggle`);
     return res.data.data;
+  },
+};
+
+// ───────────────────────── Viral Reels ─────────────────────────
+export interface AdminReelProduct {
+  id: string;
+  name: string;
+  slug: string;
+  imageUrl: string | null;
+  /** False when the product's category is switched off — the store skips it. */
+  visible?: boolean;
+}
+export interface AdminViralReel {
+  id: string;
+  reelUrl: string;
+  coverImageUrl: string;
+  caption: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  products: AdminReelProduct[];
+}
+
+export const AdminViralReelService = {
+  getAll: async () => {
+    const res = await api.get("/admin/viral-reels");
+    return res.data.data.reels as AdminViralReel[];
+  },
+  create: async (body: ViralReelInput) => {
+    const res = await api.post("/admin/viral-reels", body);
+    return res.data.data as AdminViralReel;
+  },
+  update: async (id: string, body: ViralReelInput) => {
+    const res = await api.put(`/admin/viral-reels/${id}`, body);
+    return res.data.data as AdminViralReel;
+  },
+  toggle: async (id: string) => {
+    const res = await api.patch(`/admin/viral-reels/${id}/toggle`);
+    return res.data.data as { id: string; isActive: boolean };
+  },
+  delete: async (id: string) => {
+    await api.delete(`/admin/viral-reels/${id}`);
   },
 };
 

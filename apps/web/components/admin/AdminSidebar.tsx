@@ -9,7 +9,7 @@ import ThemeToggle from "../common/ThemeToggle"
 import {
   LayoutDashboard, ShoppingCart, Package, Users, Ticket,
   Star, Image, FolderTree, DollarSign, Wallet, Home, X, CalendarClock, TrendingUp, Bell,
-  Truck, UserRound, Activity, RotateCcw,
+  Truck, UserRound, Activity, RotateCcw, Clapperboard,
 } from "lucide-react"
 
 // Standalone item shown above the grouped sections.
@@ -23,6 +23,7 @@ const sections = [
       { label: "Products",   href: "/admin/products",   icon: Package },
       { label: "Categories", href: "/admin/categories", icon: FolderTree },
       { label: "Banners",    href: "/admin/banners",    icon: Image },
+      { label: "Viral Reels", href: "/admin/viral-reels", icon: Clapperboard },
     ],
   },
   {
