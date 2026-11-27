@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { Keyboard, Pressable, ScrollView, Switch, Text, TextInput, View } from "react-native";
-import { useFocusEffect } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
+import { SEARCH_QUERY_MAX_LENGTH } from "@repo/zod-schema/index";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 
@@ -209,6 +210,7 @@ export function ProductListing({ filter, basePreOrder, autoFocusFromHome, defaul
             ref={inputRef}
             value={filter.search}
             onChangeText={filter.setSearch}
+            maxLength={SEARCH_QUERY_MAX_LENGTH}
             onFocus={() => setFocused(true)}
             onBlur={() => setTimeout(() => setFocused(false), 150)}
             onSubmitEditing={() => {
@@ -236,9 +238,10 @@ export function ProductListing({ filter, basePreOrder, autoFocusFromHome, defaul
               <Pressable
                 key={`${s.slug}-${i}`}
                 onPress={() => {
-                  filter.setSearch(s.name);
+                  // A suggestion is one specific product: open it rather than searching its name.
                   setFocused(false);
                   Keyboard.dismiss();
+                  router.push(`/product/${s.slug}`);
                 }}
                 className={`flex-row items-center gap-2 px-3 py-2.5 ${i > 0 ? "border-t border-border" : ""}`}
               >

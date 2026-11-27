@@ -6,6 +6,7 @@ import { useDebounce } from "../../hooks/useDebounce"
 import { useProductFilterStore } from "../../store/useProductFilterStore"
 import { useRouter } from "next/navigation"
 import { SearchService } from "../../lib/services/search.service"
+import { SEARCH_QUERY_MAX_LENGTH } from "@repo/zod-schema/index"
 
 export default function SearchBar() {
   const router = useRouter()
@@ -63,17 +64,22 @@ export default function SearchBar() {
     router.push(`/products?search=${encodeURIComponent(safe)}`)
   }
 
+  // A suggestion is one specific product, so it opens that product rather than searching its name.
+  const openSuggestion = (item: { slug: string }) => {
+    setOpen(false)
+    setInput("")
+    setActiveIndex(-1)
+    router.push(`/products/${item.slug}`)
+  }
+
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       e.preventDefault()
 
-    const value =
-      activeIndex >= 0
-        ? suggestions[activeIndex]?.name || input
-        : input
-
-      goToSearch(value)
+      const picked = activeIndex >= 0 ? suggestions[activeIndex] : undefined
+      if (picked?.slug) openSuggestion(picked)
+      else goToSearch(input)
     }
 
     if (!suggestions.length) return
@@ -108,6 +114,7 @@ export default function SearchBar() {
         }}
         onFocus={() => input && setOpen(true)}
         onKeyDown={handleKeyDown}
+        maxLength={SEARCH_QUERY_MAX_LENGTH}
         placeholder="Search toys..."
         className="w-full pl-4 pr-10 py-2 rounded-lg bg-surface-2 text-sm outline-none focus:outline-none focus:ring-0"
       />
@@ -124,7 +131,7 @@ export default function SearchBar() {
           {suggestions.map((item, index) => (
             <div
               key={item.slug}
-              onClick={() => goToSearch(item.name)}
+              onClick={() => openSuggestion(item)}
               className={`flex items-baseline justify-between gap-2 px-4 py-2 cursor-pointer text-sm ${
                 index === activeIndex
                   ? "bg-primary/10"
