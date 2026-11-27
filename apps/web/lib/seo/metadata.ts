@@ -37,7 +37,7 @@ export function pageMetadata(opts: {
   const sized = opts.imageSized ?? !opts.image
 
   // Declaring dimensions we haven't verified makes scrapers render a broken
-  // card, so only the generated OG image (known 1200x630) gets width/height.
+  // card, so only the default OG image (public/og-image.jpg, 1200x630) gets width/height.
   const ogImage = sized
     ? { url: image, width: 1200, height: 630, alt: title }
     : { url: image, alt: title }

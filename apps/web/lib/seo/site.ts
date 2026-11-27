@@ -56,7 +56,7 @@ export const SOCIALS = [
 ]
 
 export const LOGO = `${SITE_URL}/logo.webp`
-export const OG_IMAGE = `${SITE_URL}/opengraph-image`
+export const OG_IMAGE = `${SITE_URL}/og-image.jpg`
 
 /**
  * GA4 measurement ID. Overridable per-environment so preview and local builds
